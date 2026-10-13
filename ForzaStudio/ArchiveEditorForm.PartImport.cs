@@ -17,6 +17,9 @@ namespace ForzaStudio
             side.Controls.Add(PartButton("Import Part From Car...", delegate { this.ImportPartFromCar(); }));
             side.Controls.Add(PartButton("Export Part to OBJ...", delegate { this.ExportPartObj(); }));
             side.Controls.Add(PartButton("Import OBJ Into Part...", delegate { this.ImportObjIntoPart(); }));
+            side.Controls.Add(SideLabel("Whole model (OBJ work folder)"));
+            side.Controls.Add(PartButton("Export Model To Folder...", delegate { this.ExportModelFolder(); }));
+            side.Controls.Add(PartButton("Import Model From Folder...", delegate { this.ImportModelFolder(); }));
         }
 
         // The part OBJ export/import works on: the one in edit, else the part selected in the tree (OBJ

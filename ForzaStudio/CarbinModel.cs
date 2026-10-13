@@ -1170,57 +1170,102 @@ namespace ForzaStudio
             {
                 return null;
             }
-            int sectionIndex = this.Sections.IndexOf(section);
-            List<uint> lods = new List<uint>();
+            Dictionary<uint, ObjMesh> meshes = new Dictionary<uint, ObjMesh>();
             foreach (SubSection sub in section.SubSections)
             {
-                if (!lods.Contains(sub.Lod))
-                {
-                    lods.Add(sub.Lod);
-                }
+                meshes[sub.Lod] = mesh;
             }
+            return this.RebuildLods(sectionName, meshes, materialMap, fitUv);
+        }
+
+        // Working state of a part rebuild: the part's original vertices (reference for tangent frames,
+        // trailing bytes, UV2 and damage words) and the new vertex buffer being filled.
+        private class Rebuild
+        {
+            public double[] Reference;
+            public byte[] ReferenceData;
+            public byte[] ReferenceDamage;
+            public int ReferenceCount;
+            public float[] ReferenceUv;
+            public PointTree Tree;
+            public VertexBuffer Target;
+            public bool Deformable;
+            public bool Lod0;
+            public SubSection Template;
+            public int Restart;
+            public List<byte[]> Vertices = new List<byte[]>();
+            public List<double> Positions = new List<double>();
+            public List<byte[]> Words = new List<byte[]>();
+            public StringBuilder Report = new StringBuilder();
+        }
+
+        // Rebuilds a part LOD by LOD. meshes[lod] is the new geometry of that LOD (the same ObjMesh
+        // object for several LODs shares its vertices between them), null keeps that LOD as it is, and
+        // LODs of the part missing from the dictionary are dropped. A LOD the part did not have is added
+        // to the draw list that draws its materials at that LOD. OBJ material names are car materials
+        // unless 'materialMap' (OBJ -> car, null = same name) says otherwise. Returns a report.
+        public string RebuildLods(string sectionName, Dictionary<uint, ObjMesh> meshes, Dictionary<string, string> materialMap, bool fitUv)
+        {
+            Section section = this.Find(sectionName);
+            if (section == null)
+            {
+                throw new ArgumentException("No part " + sectionName + ".");
+            }
+            if (meshes.Count == 0)
+            {
+                throw new ArgumentException(sectionName + ": no LOD to build.");
+            }
+            int sectionIndex = this.Sections.IndexOf(section);
+            List<uint> lods = new List<uint>(meshes.Keys);
             lods.Sort();
             bool useLod0 = lods.Contains(0);
-            VertexBuffer target = useLod0 ? section.Lod0 : section.Lod;
-            Table damage = useLod0 ? section.DamageLod0 : section.DamageLod;
-            bool deformable = section.IsDeformable && damage.Count == target.Count && damage.Stride == 4;
             if (useLod0 && lods.Count > 1)
             {
-                throw new NotSupportedException(sectionName + " mixes lod0 and LOD subsections in one file.");
-            }
-
-            // Reference: the part's original vertices (for trailing bytes, UV2 and damage words).
-            double[] reference = Positions(section, target);
-            byte[] referenceData = target.Data;
-            byte[] referenceDamage = damage.Data;
-            int referenceCount = target.Count;
-            // Their absolute UVs (each subsection has its own UV range), NaN when unused.
-            float[] referenceUv = new float[referenceCount * 2];
-            for (int i = 0; i < referenceUv.Length; i++)
-            {
-                referenceUv[i] = float.NaN;
+                throw new NotSupportedException(sectionName + ": LOD 0 and LODs 1+ live in different files.");
             }
             foreach (SubSection sub in section.SubSections)
             {
                 if ((sub.Lod == 0) != useLod0)
                 {
-                    continue;
+                    throw new NotSupportedException(sectionName + " mixes lod0 and LOD subsections in one file.");
                 }
+            }
+
+            Rebuild work = new Rebuild();
+            work.Lod0 = useLod0;
+            work.Target = useLod0 ? section.Lod0 : section.Lod;
+            Table damage = useLod0 ? section.DamageLod0 : section.DamageLod;
+            work.Deformable = section.IsDeformable && damage.Count == work.Target.Count && damage.Stride == 4;
+            work.Reference = Positions(section, work.Target);
+            work.ReferenceData = work.Target.Data;
+            work.ReferenceDamage = damage.Data;
+            work.ReferenceCount = work.Target.Count;
+            work.Tree = new PointTree(work.Reference, work.ReferenceCount);
+            // Absolute UVs of the original vertices (each subsection has its own UV range), NaN when unused.
+            work.ReferenceUv = new float[work.ReferenceCount * 2];
+            for (int i = 0; i < work.ReferenceUv.Length; i++)
+            {
+                work.ReferenceUv[i] = float.NaN;
+            }
+            foreach (SubSection sub in section.SubSections)
+            {
                 foreach (int index in sub.Indices)
                 {
-                    if (!IsRestart(sub, index) && index < referenceCount)
+                    if (!IsRestart(sub, index) && index < work.ReferenceCount)
                     {
-                        Microsoft.Xna.Framework.Vector2 uv = VertexUv(target, index, sub, 0);
-                        referenceUv[index * 2] = uv.X;
-                        referenceUv[(index * 2) + 1] = uv.Y;
+                        Microsoft.Xna.Framework.Vector2 uv = VertexUv(work.Target, index, sub, 0);
+                        work.ReferenceUv[index * 2] = uv.X;
+                        work.ReferenceUv[(index * 2) + 1] = uv.Y;
                     }
                 }
             }
 
             // Which draw list each (material, LOD) goes to: where the part had it, else where the model
-            // draws that material at that LOD, else the busiest list of the LOD.
+            // draws that material at that LOD, else the busiest list of the LOD. Kept subsections stay
+            // in their own list.
             Dictionary<string, int> listOf = new Dictionary<string, int>();
             Dictionary<int, uint> lodOfList = new Dictionary<int, uint>();
+            Dictionary<SubSection, int> ownList = new Dictionary<SubSection, int>();
             for (int l = 0; l < this.DrawLists.Count; l++)
             {
                 foreach (uint entry in this.DrawLists[l])
@@ -1229,6 +1274,10 @@ namespace ForzaStudio
                     lodOfList[l] = sub.Lod;
                     string key = sub.Name + "@" + sub.Lod;
                     bool own = (int) (entry >> 16) == sectionIndex;
+                    if (own)
+                    {
+                        ownList[sub] = l;
+                    }
                     if (own || !listOf.ContainsKey(key))
                     {
                         listOf[key] = l;
@@ -1236,29 +1285,204 @@ namespace ForzaStudio
                 }
             }
 
-            SubSection template = section.SubSections[0].Copy();
-            int indexSize = template.IndexSize;
-            int restart = (indexSize == 2) ? 0xFFFF : 0x00FFFFFF;
-
-            // Vertices: one per distinct (material, position, uv, normal).
-            List<byte[]> vertices = new List<byte[]>();
-            List<double> positions = new List<double>();
-            List<byte[]> words = new List<byte[]>();
-            List<SubSection> newSubs = new List<SubSection>();
-            StringBuilder report = new StringBuilder();
-            foreach (ObjMesh.Material material in mesh.Materials)
+            work.Template = (section.SubSections.Count > 0) ? section.SubSections[0].Copy() : this.AnySubSection(useLod0);
+            if (work.Template == null)
             {
-                string carMaterial;
-                if (!materialMap.TryGetValue(material.Name, out carMaterial) || string.IsNullOrEmpty(carMaterial))
+                throw new InvalidDataException("No subsection to use as a template in this file.");
+            }
+            int indexSize = IndexSizeOfFile(this, useLod0);
+            if (indexSize != 0 && indexSize != work.Template.IndexSize)
+            {
+                ConvertIndices(work.Template, indexSize);
+            }
+            work.Restart = (work.Template.IndexSize == 2) ? 0xFFFF : 0x00FFFFFF;
+
+            List<SubSection> newSubs = new List<SubSection>();
+            List<KeyValuePair<int, SubSection>> placed = new List<KeyValuePair<int, SubSection>>();
+            Dictionary<ObjMesh, List<SubSection>> built = new Dictionary<ObjMesh, List<SubSection>>();
+            Dictionary<int, int> keptVertex = new Dictionary<int, int>();
+            bool rebuilt = false;
+            foreach (uint lod in lods)
+            {
+                ObjMesh mesh = meshes[lod];
+                if (mesh == null)
                 {
-                    report.AppendFormat("OBJ material {0} skipped (no car material chosen)\r\n", material.Name);
+                    // LOD kept: its subsections as they are, over copies of the vertices they use.
+                    foreach (SubSection sub in section.SubSections)
+                    {
+                        if (sub.Lod != lod)
+                        {
+                            continue;
+                        }
+                        SubSection copy = sub.Copy();
+                        for (int i = 0; i < copy.Indices.Count; i++)
+                        {
+                            int index = copy.Indices[i];
+                            if (IsRestart(copy, index))
+                            {
+                                continue;
+                            }
+                            int mapped;
+                            if (!keptVertex.TryGetValue(index, out mapped))
+                            {
+                                mapped = work.Vertices.Count;
+                                keptVertex[index] = mapped;
+                                byte[] vertex = new byte[32];
+                                Buffer.BlockCopy(work.ReferenceData, index * work.Target.Stride, vertex, 0, 32);
+                                work.Vertices.Add(vertex);
+                                work.Positions.Add(work.Reference[index * 3]);
+                                work.Positions.Add(work.Reference[(index * 3) + 1]);
+                                work.Positions.Add(work.Reference[(index * 3) + 2]);
+                                byte[] word = new byte[4];
+                                if (work.Deformable)
+                                {
+                                    Buffer.BlockCopy(work.ReferenceDamage, index * 4, word, 0, 4);
+                                }
+                                work.Words.Add(word);
+                            }
+                            copy.Indices[i] = mapped;
+                        }
+                        newSubs.Add(copy);
+                        placed.Add(new KeyValuePair<int, SubSection>(ownList[sub], copy));
+                    }
                     continue;
                 }
-                SubSection sub = template.Copy();
+                rebuilt = true;
+                List<SubSection> subs;
+                if (!built.TryGetValue(mesh, out subs))
+                {
+                    subs = this.AppendMesh(work, mesh, materialMap, fitUv);
+                    built[mesh] = subs;
+                }
+                foreach (SubSection sub in subs)
+                {
+                    SubSection copy = sub.Copy();
+                    copy.Lod = lod;
+                    int list;
+                    if (!listOf.TryGetValue(copy.Name + "@" + lod, out list))
+                    {
+                        list = -1;
+                        foreach (KeyValuePair<int, uint> pair in lodOfList)
+                        {
+                            if (pair.Value == lod && (list < 0 || this.DrawLists[pair.Key].Length > this.DrawLists[list].Length))
+                            {
+                                list = pair.Key;
+                            }
+                        }
+                    }
+                    if (list < 0)
+                    {
+                        throw new InvalidDataException("No draw list for LOD " + lod + ".");
+                    }
+                    newSubs.Add(copy);
+                    placed.Add(new KeyValuePair<int, SubSection>(list, copy));
+                }
+            }
+            if (newSubs.Count == 0)
+            {
+                throw new InvalidDataException(sectionName + ": the OBJs have no usable triangles.");
+            }
+            if (work.Template.IndexSize == 2 && work.Vertices.Count >= 0xFFFF)
+            {
+                throw new InvalidDataException(string.Format("{0}: {1:N0} vertices do not fit the 16-bit indices of this file (max 65,534).", sectionName, work.Vertices.Count));
+            }
+            section.SubSections.Clear();
+            section.SubSections.AddRange(newSubs);
+
+            // Vertex buffer and damage words.
+            byte[] data = new byte[work.Vertices.Count * 32];
+            byte[] damageData = new byte[work.Vertices.Count * 4];
+            for (int i = 0; i < work.Vertices.Count; i++)
+            {
+                Buffer.BlockCopy(work.Vertices[i], 0, data, i * 32, 32);
+                Buffer.BlockCopy(work.Words[i], 0, damageData, i * 4, 4);
+            }
+            work.Target.Data = data;
+            work.Target.Count = work.Vertices.Count;
+            work.Target.Stride = 32;
+            if (work.Deformable)
+            {
+                damage.Count = work.Vertices.Count;
+                damage.Stride = 4;
+                damage.Data = damageData;
+            }
+            // Arrays A/B (only on the LOD glass of main files; per-triangle data whose meaning is not
+            // known) describe the old triangles: dropped with them, as on every other part.
+            if (rebuilt && (section.ACount > 0 || section.BCount > 0))
+            {
+                section.ACount = 0;
+                section.A = new byte[0];
+                section.BCount = 0;
+                section.B = new byte[0];
+                work.Report.AppendFormat("{0}: glass sorting arrays (A/B) cleared\r\n", sectionName);
+            }
+
+            // Draw lists: old entries of the part out, new ones in.
+            for (int l = 0; l < this.DrawLists.Count; l++)
+            {
+                List<uint> list = new List<uint>();
+                foreach (uint entry in this.DrawLists[l])
+                {
+                    if ((int) (entry >> 16) != sectionIndex)
+                    {
+                        list.Add(entry);
+                    }
+                }
+                for (int k = 0; k < section.SubSections.Count; k++)
+                {
+                    foreach (KeyValuePair<int, SubSection> pair in placed)
+                    {
+                        if (pair.Key == l && pair.Value == section.SubSections[k])
+                        {
+                            list.Add((uint) ((sectionIndex << 16) | k));
+                        }
+                    }
+                }
+                this.DrawLists[l] = list.ToArray();
+            }
+
+            double[] all = work.Positions.ToArray();
+            Reencode(section, useLod0 ? new double[0] : all, useLod0 ? all : new double[0]);
+            CheckIndexRange(section);
+            this.CheckDrawLists();
+            work.Report.AppendFormat("{0}: {1} vertices, LODs {2}", sectionName, work.Vertices.Count, string.Join(",", lods.ConvertAll<string>(delegate(uint x) { return x.ToString(); }).ToArray()));
+            return work.Report.ToString();
+        }
+
+        // A subsection of any part drawn from the given buffer kind (template for a part with none).
+        private SubSection AnySubSection(bool lod0)
+        {
+            foreach (Section section in this.Sections)
+            {
+                foreach (SubSection sub in section.SubSections)
+                {
+                    if ((sub.Lod == 0) == lod0)
+                    {
+                        return sub.Copy();
+                    }
+                }
+            }
+            return null;
+        }
+
+        // Appends an OBJ mesh's vertices to the rebuild and returns one subsection per material (LOD
+        // still unset). Vertices: one per distinct (material, position, uv, normal).
+        private List<SubSection> AppendMesh(Rebuild work, ObjMesh mesh, Dictionary<string, string> materialMap, bool fitUv)
+        {
+            List<SubSection> result = new List<SubSection>();
+            foreach (ObjMesh.Material material in mesh.Materials)
+            {
+                string carMaterial = material.Name;
+                if (materialMap != null && (!materialMap.TryGetValue(material.Name, out carMaterial) || string.IsNullOrEmpty(carMaterial)))
+                {
+                    work.Report.AppendFormat("OBJ material {0} skipped (no car material chosen)\r\n", material.Name);
+                    continue;
+                }
+                SubSection sub = work.Template.Copy();
                 sub.Name = carMaterial;
                 sub.Indices = new List<int>();
-                SubSection own = this.FindMaterial(carMaterial, useLod0);
-                float[] uvParams = (own != null) ? (float[]) own.Uv.Clone() : (float[]) template.Uv.Clone();
+                SubSection own = this.FindMaterial(carMaterial, work.Lod0);
+                float[] uvParams = (own != null) ? (float[]) own.Uv.Clone() : (float[]) work.Template.Uv.Clone();
 
                 // UV range of this material in the OBJ (Forza convention: v = 1 - OBJ v).
                 float[] lo = { float.MaxValue, float.MaxValue };
@@ -1290,7 +1514,6 @@ namespace ForzaStudio
                 List<Microsoft.Xna.Framework.Vector3> normalSum = new List<Microsoft.Xna.Framework.Vector3>();
                 List<Microsoft.Xna.Framework.Vector3> tangentSum = new List<Microsoft.Xna.Framework.Vector3>();
                 List<Microsoft.Xna.Framework.Vector3> bitangentSum = new List<Microsoft.Xna.Framework.Vector3>();
-                List<int> first = new List<int>();
                 List<int[]> faces = new List<int[]>();
                 List<ObjMesh.Corner> cornersOf = new List<ObjMesh.Corner>();
                 int flipped = 0;
@@ -1355,16 +1578,16 @@ namespace ForzaStudio
                 {
                     continue;
                 }
-                int baseIndex = vertices.Count;
+                int baseIndex = work.Vertices.Count;
                 for (int id = 0; id < cornersOf.Count; id++)
                 {
                     ObjMesh.Corner corner = cornersOf[id];
                     Microsoft.Xna.Framework.Vector3 n = corner.HasNormal ? corner.Normal : Microsoft.Xna.Framework.Vector3.Normalize(normalSum[id]);
-                    int nearest = Nearest(reference, referenceCount, corner.Position);
+                    int nearest = work.Tree.Nearest(corner.Position.X, corner.Position.Y, corner.Position.Z);
                     byte[] vertex = new byte[32];
                     if (nearest >= 0)
                     {
-                        Buffer.BlockCopy(referenceData, nearest * 32, vertex, 0, 32);
+                        Buffer.BlockCopy(work.ReferenceData, nearest * 32, vertex, 0, 32);
                     }
                     // UV1 in the chosen region.
                     float u = corner.Uv.X;
@@ -1380,11 +1603,11 @@ namespace ForzaStudio
                     }
                     // A vertex the part already had (same place, normal and UV: the untouched areas of
                     // an edited part) keeps the game's own tangent frame, copied above.
-                    int same = SameVertex(reference, referenceCount, referenceUv, target, corner.Position, n, u, w);
+                    int same = SameVertex(work.Tree, work.ReferenceUv, work.Target, corner.Position, n, u, w);
                     if (same >= 0)
                     {
                         // Frame and the 8 trailing bytes as they were.
-                        Buffer.BlockCopy(referenceData, (same * 32) + 16, vertex, 16, 16);
+                        Buffer.BlockCopy(work.ReferenceData, (same * 32) + 16, vertex, 16, 16);
                         kept++;
                     }
                     else
@@ -1392,118 +1615,32 @@ namespace ForzaStudio
                         WriteFrame(vertex, n, tangentSum[id], bitangentSum[id]);
                         WriteTail(vertex, n);
                     }
-                    vertices.Add(vertex);
-                    positions.Add(corner.Position.X);
-                    positions.Add(corner.Position.Y);
-                    positions.Add(corner.Position.Z);
+                    work.Vertices.Add(vertex);
+                    work.Positions.Add(corner.Position.X);
+                    work.Positions.Add(corner.Position.Y);
+                    work.Positions.Add(corner.Position.Z);
                     byte[] word = new byte[4];
-                    if (deformable && nearest >= 0)
+                    if (work.Deformable && nearest >= 0)
                     {
-                        Buffer.BlockCopy(referenceDamage, nearest * 4, word, 0, 4);
+                        Buffer.BlockCopy(work.ReferenceDamage, nearest * 4, word, 0, 4);
                     }
-                    words.Add(word);
+                    work.Words.Add(word);
                 }
                 foreach (int[] face in faces)
                 {
                     if (sub.Indices.Count > 0)
                     {
-                        sub.Indices.Add(restart);
+                        sub.Indices.Add(work.Restart);
                     }
                     sub.Indices.Add(face[0] + baseIndex);
                     sub.Indices.Add(face[1] + baseIndex);
                     sub.Indices.Add(face[2] + baseIndex);
                 }
                 sub.Uv = uvParams;
-                newSubs.Add(sub);
-                report.AppendFormat("{0} -> {1}: {2} triangles, {3} vertices ({4} unchanged, game tangent frame kept){5}\r\n", material.Name, carMaterial, faces.Count, cornersOf.Count, kept, (flipped > 0) ? string.Format(" ({0} triangles turned to match the normals)", flipped) : "");
+                result.Add(sub);
+                work.Report.AppendFormat("{0} -> {1}: {2} triangles, {3} vertices ({4} unchanged, game tangent frame kept){5}\r\n", material.Name, carMaterial, faces.Count, cornersOf.Count, kept, (flipped > 0) ? string.Format(" ({0} triangles turned to match the normals)", flipped) : "");
             }
-            if (newSubs.Count == 0)
-            {
-                throw new InvalidDataException("The OBJ has no usable triangles for this part.");
-            }
-            if (indexSize == 2 && vertices.Count >= 0xFFFF)
-            {
-                throw new InvalidDataException(string.Format("{0} vertices do not fit the 16-bit indices of this file.", vertices.Count));
-            }
-
-            // New subsections: every material at every LOD the part had in this file.
-            section.SubSections.Clear();
-            List<KeyValuePair<int, SubSection>> placed = new List<KeyValuePair<int, SubSection>>();
-            foreach (uint lod in lods)
-            {
-                foreach (SubSection sub in newSubs)
-                {
-                    SubSection copy = sub.Copy();
-                    copy.Lod = lod;
-                    section.SubSections.Add(copy);
-                    int list;
-                    if (!listOf.TryGetValue(copy.Name + "@" + lod, out list))
-                    {
-                        list = -1;
-                        foreach (KeyValuePair<int, uint> pair in lodOfList)
-                        {
-                            if (pair.Value == lod && (list < 0 || this.DrawLists[pair.Key].Length > this.DrawLists[list].Length))
-                            {
-                                list = pair.Key;
-                            }
-                        }
-                    }
-                    if (list < 0)
-                    {
-                        throw new InvalidDataException("No draw list for LOD " + lod + ".");
-                    }
-                    placed.Add(new KeyValuePair<int, SubSection>(list, copy));
-                }
-            }
-
-            // Vertex buffer and damage words.
-            byte[] data = new byte[vertices.Count * 32];
-            byte[] damageData = new byte[vertices.Count * 4];
-            for (int i = 0; i < vertices.Count; i++)
-            {
-                Buffer.BlockCopy(vertices[i], 0, data, i * 32, 32);
-                Buffer.BlockCopy(words[i], 0, damageData, i * 4, 4);
-            }
-            target.Data = data;
-            target.Count = vertices.Count;
-            target.Stride = 32;
-            if (deformable)
-            {
-                damage.Count = vertices.Count;
-                damage.Stride = 4;
-                damage.Data = damageData;
-            }
-
-            // Draw lists: old entries of the part out, new ones in.
-            for (int l = 0; l < this.DrawLists.Count; l++)
-            {
-                List<uint> list = new List<uint>();
-                foreach (uint entry in this.DrawLists[l])
-                {
-                    if ((int) (entry >> 16) != sectionIndex)
-                    {
-                        list.Add(entry);
-                    }
-                }
-                for (int k = 0; k < section.SubSections.Count; k++)
-                {
-                    foreach (KeyValuePair<int, SubSection> pair in placed)
-                    {
-                        if (pair.Key == l && pair.Value == section.SubSections[k])
-                        {
-                            list.Add((uint) ((sectionIndex << 16) | k));
-                        }
-                    }
-                }
-                this.DrawLists[l] = list.ToArray();
-            }
-
-            double[] all = positions.ToArray();
-            Reencode(section, useLod0 ? new double[0] : all, useLod0 ? all : new double[0]);
-            CheckIndexRange(section);
-            this.CheckDrawLists();
-            report.AppendFormat("{0}: {1} vertices, LODs {2}", sectionName, vertices.Count, string.Join(",", lods.ConvertAll<string>(delegate(uint x) { return x.ToString(); }).ToArray()));
-            return report.ToString();
+            return result;
         }
 
         // The 8 trailing vertex bytes: four SNORM16, t0 a level (high on open surfaces, low in
@@ -1525,19 +1662,15 @@ namespace ForzaStudio
         }
 
         // The original vertex within 0.1 mm, 1 degree and 1e-4 in UV of the new one, or -1. Several
-        // originals share a place on hard edges and UV seams, so all of them are tried.
-        private static int SameVertex(double[] reference, int count, float[] referenceUv, VertexBuffer buffer, Microsoft.Xna.Framework.Vector3 p, Microsoft.Xna.Framework.Vector3 n, float u, float v)
+        // originals share a place on hard edges and UV seams, so all of them are tried (lowest index
+        // first).
+        private static int SameVertex(PointTree tree, float[] referenceUv, VertexBuffer buffer, Microsoft.Xna.Framework.Vector3 p, Microsoft.Xna.Framework.Vector3 n, float u, float v)
         {
             Microsoft.Xna.Framework.Vector3 wanted = Microsoft.Xna.Framework.Vector3.Normalize(n);
-            for (int index = 0; index < count; index++)
+            List<int> near = tree.Within(p.X, p.Y, p.Z, 1e-8);
+            near.Sort();
+            foreach (int index in near)
             {
-                double dx = reference[index * 3] - p.X;
-                double dy = reference[(index * 3) + 1] - p.Y;
-                double dz = reference[(index * 3) + 2] - p.Z;
-                if ((dx * dx) + (dy * dy) + (dz * dz) > 1e-8)
-                {
-                    continue;
-                }
                 bool uv = Math.Abs(referenceUv[index * 2] - u) < 1e-4f && Math.Abs(referenceUv[(index * 2) + 1] - v) < 1e-4f;
                 if (uv && Microsoft.Xna.Framework.Vector3.Dot(VertexNormal(buffer, index), wanted) > 0.99985f)
                 {
@@ -1547,23 +1680,152 @@ namespace ForzaStudio
             return -1;
         }
 
-        private static int Nearest(double[] reference, int count, Microsoft.Xna.Framework.Vector3 p)
+        // Static k-d tree over a vertex list (3 doubles per point): nearest point and points within a
+        // radius, so rebuilding a 50,000-vertex part does not compare every pair.
+        private sealed class PointTree
         {
-            int best = -1;
-            double bestDistance = double.MaxValue;
-            for (int i = 0; i < count; i++)
+            private readonly double[] points;
+            private readonly int[] order;
+            private readonly byte[] axis;
+
+            public PointTree(double[] points, int count)
             {
-                double dx = reference[i * 3] - p.X;
-                double dy = reference[(i * 3) + 1] - p.Y;
-                double dz = reference[(i * 3) + 2] - p.Z;
-                double distance = (dx * dx) + (dy * dy) + (dz * dz);
-                if (distance < bestDistance)
+                this.points = points;
+                this.order = new int[count];
+                this.axis = new byte[count];
+                for (int i = 0; i < count; i++)
+                {
+                    this.order[i] = i;
+                }
+                this.Build(0, count, new double[count]);
+            }
+
+            private void Build(int lo, int hi, double[] keys)
+            {
+                if (hi - lo <= 1)
+                {
+                    return;
+                }
+                // Split on the widest axis of the segment, at the median.
+                int split = 0;
+                double widest = -1;
+                for (int c = 0; c < 3; c++)
+                {
+                    double min = double.MaxValue;
+                    double max = double.MinValue;
+                    for (int i = lo; i < hi; i++)
+                    {
+                        double value = this.points[(this.order[i] * 3) + c];
+                        min = Math.Min(min, value);
+                        max = Math.Max(max, value);
+                    }
+                    if (max - min > widest)
+                    {
+                        widest = max - min;
+                        split = c;
+                    }
+                }
+                for (int i = lo; i < hi; i++)
+                {
+                    keys[i] = this.points[(this.order[i] * 3) + split];
+                }
+                Array.Sort(keys, this.order, lo, hi - lo);
+                int mid = (lo + hi) / 2;
+                this.axis[mid] = (byte) split;
+                this.Build(lo, mid, keys);
+                this.Build(mid + 1, hi, keys);
+            }
+
+            private double Distance(int point, double x, double y, double z)
+            {
+                double dx = this.points[point * 3] - x;
+                double dy = this.points[(point * 3) + 1] - y;
+                double dz = this.points[(point * 3) + 2] - z;
+                return (dx * dx) + (dy * dy) + (dz * dz);
+            }
+
+            // Nearest point (lowest index on ties), -1 when empty.
+            public int Nearest(double x, double y, double z)
+            {
+                int best = -1;
+                double bestDistance = double.MaxValue;
+                this.Nearest(0, this.order.Length, x, y, z, ref best, ref bestDistance);
+                return best;
+            }
+
+            private void Nearest(int lo, int hi, double x, double y, double z, ref int best, ref double bestDistance)
+            {
+                if (lo >= hi)
+                {
+                    return;
+                }
+                int mid = (lo + hi) / 2;
+                int point = this.order[mid];
+                double distance = this.Distance(point, x, y, z);
+                if (distance < bestDistance || (distance == bestDistance && point < best))
                 {
                     bestDistance = distance;
-                    best = i;
+                    best = point;
+                }
+                if (hi - lo == 1)
+                {
+                    return;
+                }
+                int c = this.axis[mid];
+                double diff = ((c == 0) ? x : ((c == 1) ? y : z)) - this.points[(point * 3) + c];
+                if (diff < 0)
+                {
+                    this.Nearest(lo, mid, x, y, z, ref best, ref bestDistance);
+                    if (diff * diff <= bestDistance)
+                    {
+                        this.Nearest(mid + 1, hi, x, y, z, ref best, ref bestDistance);
+                    }
+                }
+                else
+                {
+                    this.Nearest(mid + 1, hi, x, y, z, ref best, ref bestDistance);
+                    if (diff * diff <= bestDistance)
+                    {
+                        this.Nearest(lo, mid, x, y, z, ref best, ref bestDistance);
+                    }
                 }
             }
-            return best;
+
+            // Points within sqrt(radiusSquared).
+            public List<int> Within(double x, double y, double z, double radiusSquared)
+            {
+                List<int> found = new List<int>();
+                this.Within(0, this.order.Length, x, y, z, radiusSquared, found);
+                return found;
+            }
+
+            private void Within(int lo, int hi, double x, double y, double z, double radiusSquared, List<int> found)
+            {
+                if (lo >= hi)
+                {
+                    return;
+                }
+                int mid = (lo + hi) / 2;
+                int point = this.order[mid];
+                if (this.Distance(point, x, y, z) <= radiusSquared)
+                {
+                    found.Add(point);
+                }
+                if (hi - lo == 1)
+                {
+                    return;
+                }
+                int c = this.axis[mid];
+                double diff = ((c == 0) ? x : ((c == 1) ? y : z)) - this.points[(point * 3) + c];
+                if (diff <= 0 || diff * diff <= radiusSquared)
+                {
+                    this.Within(lo, mid, x, y, z, radiusSquared, found);
+                }
+                if (diff >= 0 || diff * diff <= radiusSquared)
+                {
+                    this.Within(mid + 1, hi, x, y, z, radiusSquared, found);
+                }
+            }
         }
 
         // Tangent frame quaternion as in the game's models (measured on 221742 vertices of two cars):

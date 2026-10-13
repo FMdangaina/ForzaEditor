@@ -171,7 +171,6 @@ namespace ForzaStudio
             }
             CarbinModel.VertexBuffer buffer = lod0 ? section.Lod0 : section.Lod;
             double[] positions = CarbinModel.Positions(section, buffer);
-            CultureInfo inv = CultureInfo.InvariantCulture;
             int triangles = 0;
             using (StreamWriter obj = new StreamWriter(path, false, new UTF8Encoding(false)))
             {
@@ -186,62 +185,92 @@ namespace ForzaStudio
                     {
                         continue;
                     }
-                    // Own vertex list per material, so materials stay separable in the editor.
-                    Dictionary<int, int> local = new Dictionary<int, int>();
-                    List<int> order = new List<int>();
-                    List<int[]> faces = CarbinModel.StripTriangles(sub);
-                    foreach (int[] face in faces)
-                    {
-                        foreach (int v in face)
-                        {
-                            if (!local.ContainsKey(v))
-                            {
-                                local[v] = order.Count;
-                                order.Add(v);
-                            }
-                        }
-                    }
-                    obj.WriteLine("g " + sectionName + "_" + sub.Name);
-                    obj.WriteLine("usemtl " + sub.Name);
                     if (!materials.Contains(sub.Name))
                     {
                         materials.Add(sub.Name);
                     }
-                    foreach (int v in order)
-                    {
-                        obj.WriteLine(string.Format(inv, "v {0:R} {1:R} {2:R}", (float) positions[v * 3], (float) positions[(v * 3) + 1], (float) positions[(v * 3) + 2]));
-                    }
-                    foreach (int v in order)
-                    {
-                        Vector2 uv = CarbinModel.VertexUv(buffer, v, sub, 0);
-                        obj.WriteLine(string.Format(inv, "vt {0:R} {1:R}", uv.X, 1f - uv.Y));
-                    }
-                    foreach (int v in order)
-                    {
-                        Vector3 n = CarbinModel.VertexNormal(buffer, v);
-                        obj.WriteLine(string.Format(inv, "vn {0:R} {1:R} {2:R}", n.X, n.Y, n.Z));
-                    }
-                    foreach (int[] face in faces)
-                    {
-                        int a = local[face[0]] + baseIndex;
-                        int b = local[face[1]] + baseIndex;
-                        int c = local[face[2]] + baseIndex;
-                        obj.WriteLine("f {0}/{0}/{0} {1}/{1}/{1} {2}/{2}/{2}", a, b, c);
-                    }
-                    baseIndex += order.Count;
-                    triangles += faces.Count;
+                    triangles += WriteGroup(obj, sectionName, sub, buffer, positions, ref baseIndex);
                 }
-                using (StreamWriter mtl = new StreamWriter(Path.Combine(Path.GetDirectoryName(path), Path.GetFileNameWithoutExtension(path) + ".mtl")))
+                WriteMtl(Path.Combine(Path.GetDirectoryName(path), Path.GetFileNameWithoutExtension(path) + ".mtl"), materials);
+            }
+            return triangles;
+        }
+
+        // Writes one subsection (one material of a part at one LOD) as its own OBJ, for the model
+        // folder export. 'mtllib' is the shared material file of the folder.
+        public static int ExportSubSection(CarbinModel.Section section, CarbinModel.SubSection sub, string path, string comment, string mtllib)
+        {
+            CarbinModel.VertexBuffer buffer = (sub.Lod == 0) ? section.Lod0 : section.Lod;
+            double[] positions = CarbinModel.Positions(section, buffer);
+            using (StreamWriter obj = new StreamWriter(path, false, new UTF8Encoding(false)))
+            {
+                obj.WriteLine("# " + comment);
+                obj.WriteLine("# part " + section.Name + ", material " + sub.Name + ", LOD " + sub.Lod + "; units: meters, model space");
+                obj.WriteLine("mtllib " + mtllib);
+                int baseIndex = 1;
+                return WriteGroup(obj, section.Name, sub, buffer, positions, ref baseIndex);
+            }
+        }
+
+        // One material group: its own vertex list (materials stay separable in the editor), UVs in
+        // the OBJ convention and the stored normals.
+        private static int WriteGroup(StreamWriter obj, string sectionName, CarbinModel.SubSection sub, CarbinModel.VertexBuffer buffer, double[] positions, ref int baseIndex)
+        {
+            CultureInfo inv = CultureInfo.InvariantCulture;
+            Dictionary<int, int> local = new Dictionary<int, int>();
+            List<int> order = new List<int>();
+            List<int[]> faces = CarbinModel.StripTriangles(sub);
+            foreach (int[] face in faces)
+            {
+                foreach (int v in face)
                 {
-                    foreach (string material in materials)
+                    if (!local.ContainsKey(v))
                     {
-                        Vector3 color = Utilities.GetRandomColor(material.GetHashCode()).ToVector3();
-                        mtl.WriteLine("newmtl " + material);
-                        mtl.WriteLine(string.Format(inv, "Kd {0} {1} {2}", color.X, color.Y, color.Z));
+                        local[v] = order.Count;
+                        order.Add(v);
                     }
                 }
             }
-            return triangles;
+            obj.WriteLine("g " + sectionName + "_" + sub.Name);
+            obj.WriteLine("usemtl " + sub.Name);
+            foreach (int v in order)
+            {
+                obj.WriteLine(string.Format(inv, "v {0:R} {1:R} {2:R}", (float) positions[v * 3], (float) positions[(v * 3) + 1], (float) positions[(v * 3) + 2]));
+            }
+            foreach (int v in order)
+            {
+                Vector2 uv = CarbinModel.VertexUv(buffer, v, sub, 0);
+                obj.WriteLine(string.Format(inv, "vt {0:R} {1:R}", uv.X, 1f - uv.Y));
+            }
+            foreach (int v in order)
+            {
+                Vector3 n = CarbinModel.VertexNormal(buffer, v);
+                obj.WriteLine(string.Format(inv, "vn {0:R} {1:R} {2:R}", n.X, n.Y, n.Z));
+            }
+            foreach (int[] face in faces)
+            {
+                int a = local[face[0]] + baseIndex;
+                int b = local[face[1]] + baseIndex;
+                int c = local[face[2]] + baseIndex;
+                obj.WriteLine("f {0}/{0}/{0} {1}/{1}/{1} {2}/{2}/{2}", a, b, c);
+            }
+            baseIndex += order.Count;
+            return faces.Count;
+        }
+
+        // Materials with a stable random color each, so parts read apart in the editor.
+        public static void WriteMtl(string path, IEnumerable<string> materials)
+        {
+            CultureInfo inv = CultureInfo.InvariantCulture;
+            using (StreamWriter mtl = new StreamWriter(path))
+            {
+                foreach (string material in materials)
+                {
+                    Vector3 color = Utilities.GetRandomColor(material.GetHashCode()).ToVector3();
+                    mtl.WriteLine("newmtl " + material);
+                    mtl.WriteLine(string.Format(inv, "Kd {0} {1} {2}", color.X, color.Y, color.Z));
+                }
+            }
         }
 
         #endregion

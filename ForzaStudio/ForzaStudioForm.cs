@@ -1097,7 +1097,7 @@ namespace ForzaStudio
             this.MainMenuStrip = this.mnuMain;
             this.MinimumSize = new System.Drawing.Size(640, 480);
             this.Name = "ForzaStudioForm";
-            this.Text = "ForzaEditor";
+            this.Text = "Forza Studio 4.6 - Pay Respects";
             this.Load += new System.EventHandler(this.ForzaStudioForm_Load);
             this.Shown += new System.EventHandler(this.ForzaStudioForm_Shown);
             this.MouseWheel += new System.Windows.Forms.MouseEventHandler(this.Form1_MouseWheel);

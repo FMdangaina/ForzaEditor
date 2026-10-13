@@ -191,6 +191,9 @@ namespace ForzaStudio
             tools.DropDownItems.Add(new ToolStripMenuItem("&Hex View...", null, delegate { new HexView().Show(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("&Save Modding...", null, delegate { new SaveModding().Show(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("C&onsole Modding...", null, delegate { new ConsoleModding().Show(); }));
+            tools.DropDownItems.Add(new ToolStripSeparator());
+            // The original Forza Studio 4.6 window, kept as a tribute: Alt+T, F.
+            tools.DropDownItems.Add(new ToolStripMenuItem("Pay Respects (&F)", null, delegate { new ForzaStudioForm().Show(); }));
 
             ToolStripMenuItem help = new ToolStripMenuItem("&Help");
             help.DropDownItems.Add(new ToolStripMenuItem("&About...", null, delegate { new AboutForm().ShowDialog(this); }));

@@ -162,10 +162,12 @@
     <Compile Include="ForzaStudio\TgaImage.cs" />
     <Compile Include="ForzaStudio\CarbinFile.cs" />
     <Compile Include="ForzaStudio\CarbinModel.cs" />
+    <Compile Include="ForzaStudio\CarModelFolder.cs" />
     <Compile Include="ForzaStudio\ObjMesh.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartEdit.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartImport.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.AddFile.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.ModelFolder.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.cs">
       <SubType>Form</SubType>
     </Compile>
