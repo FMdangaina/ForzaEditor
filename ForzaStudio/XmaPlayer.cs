@@ -10,7 +10,7 @@ namespace ForzaStudio
     using System.Threading;
     using System.Windows.Forms;
 
-    // The game's music (GAME:\Media\audio\Music\*.xma, Xbox XMA2). vgmstream-cli (in the
+    // The game's music (FM2/FM4 GAME:\Media\audio\Music\*.xma, FH2 radio .fsb banks). vgmstream-cli (in the
     // vgmstream folder next to the exe) decodes a track to PCM on its standard output and the audio is
     // streamed to the sound card through waveOut: no temporary files, a second of buffering.
     internal sealed class XmaPlayer : IDisposable
@@ -121,8 +121,16 @@ namespace ForzaStudio
 
         public void Play(string file)
         {
+            this.Play(file, 0);
+        }
+
+        // 'subsong' picks a stream of a multi-track bank (FH2's radio .fsb, 1-based; 0 = the file's
+        // only stream). Bank streams are flagged as loops: played once (-i), like the radio does.
+        public void Play(string file, int subsong)
+        {
             this.Stop();
-            ProcessStartInfo start = new ProcessStartInfo(this.decoder, "-p \"" + file + "\"");
+            string arguments = (subsong > 0) ? string.Format("-p -i -s {0} \"{1}\"", subsong, file) : "-p \"" + file + "\"";
+            ProcessStartInfo start = new ProcessStartInfo(this.decoder, arguments);
             start.UseShellExecute = false;
             start.CreateNoWindow = true;
             start.RedirectStandardOutput = true;

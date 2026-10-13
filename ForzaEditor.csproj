@@ -163,6 +163,8 @@
     <Compile Include="ForzaStudio\CarbinFile.cs" />
     <Compile Include="ForzaStudio\CarbinModel.cs" />
     <Compile Include="ForzaStudio\CarModelFolder.cs" />
+    <Compile Include="ForzaStudio\GameInfo.cs" />
+    <Compile Include="ForzaStudio\GameMusic.cs" />
     <Compile Include="ForzaStudio\ObjMesh.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartEdit.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartImport.cs" />
