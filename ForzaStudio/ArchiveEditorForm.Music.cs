@@ -65,6 +65,16 @@ namespace ForzaStudio
                 }
                 AppSettings.Set("MusicVolume", volume.Value.ToString());
             };
+            // The bar keeps the focus after a click, and the wheel meant for the 3D view (zoom) would
+            // then turn the music down to silence: volume changes by dragging or clicking only.
+            volume.MouseWheel += delegate(object sender, MouseEventArgs e)
+            {
+                HandledMouseEventArgs handled = e as HandledMouseEventArgs;
+                if (handled != null)
+                {
+                    handled.Handled = true;
+                }
+            };
             this.hostMusicVolume = new ToolStripControlHost(volume);
             this.hostMusicVolume.ToolTipText = "Volume";
 
