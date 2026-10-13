@@ -12,7 +12,7 @@
     //   model     the FH2 .carbin files converted to FM4 (CarbinModel.ConvertHorizonToMotorsport4),
     //             FH2-only materials renamed to FM4 ones; brakes (type 1) taken from a donor FM4 car;
     //   files     textures, livery masks, MAX data, animations and gauges as they are (the digital
-    //             dash .fbf gets FM4's version number); CarAttribs.xml rebuilt in the FM4 version-17
+    //             dash .fbf converted to the FM4 Anark layout, ConvertAnarkLayout); CarAttribs.xml rebuilt in the FM4 version-17
     //             form from the donor's; ShaderSettings.xml cut to the materials and parameters FM4 has;
     //   wheel     the stock wheel's zip converted the same way;
     //   database  every row of the car (FM4 and FH2 share almost all table layouts) plus its engine,
@@ -578,11 +578,11 @@
                     continue;
                 }
                 byte[] data = from.Read(entry);
-                if (name.EndsWith(".fbf") && data.Length > 4 && data[0] == 0 && data[1] == 0 && data[2] == 3 && data[3] == 0xF0)
+                if (name.EndsWith(".fbf"))
                 {
-                    // Anark dash layout: FH2 writes version 0x3F0 (text layers keep a default string
-                    // where FM4's 0x3EF files have an empty one, same length field); .bgf/.bsg are identical.
-                    data[3] = 0xEF;
+                    int layers;
+                    data = ConvertAnarkLayout(data, out layers);
+                    this.Line("  dash {0}: {1} text layers to the FM4 layout", Path.GetFileName(name), layers);
                 }
                 if (name.EndsWith(".carbin"))
                 {
@@ -625,6 +625,82 @@
             string path = Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "cars"), this.MediaName + ".zip");
             this.SaveNew(car, path);
             this.Line("car zip: {0} entries, {1} models converted -> {2}", car.Entries.Count, models, this.Relative(path));
+        }
+
+        // Anark digital dash layout (.fbf), FH2 version 0x3F0 -> FM4 0x3EF. A text layer is
+        //   u32 length + name, 6 bytes, u16 length + default text, 14 bytes, u16 length + font, 33 bytes,
+        //   [FH2 only: a float], ...
+        // FM4 keeps the default text empty and has no float. The FM4 game reads an FH2 file wrongly past the
+        // first text layer (the P1 crashed while loading the race: a 5014-byte copy over its stack).
+        // On the 38 dashes both games have, 29 come out byte for byte as FM4's. The others differ in content FH2
+        // changed (fonts horizon_dg*, a few values). .bgf/.bsg are the same in both games.
+        public static byte[] ConvertAnarkLayout(byte[] fh2, out int layers)
+        {
+            layers = 0;
+            if (fh2.Length < 4 || ReadU32(fh2, 0) != 0x3F0)
+            {
+                return fh2;
+            }
+            MemoryStream output = new MemoryStream();
+            output.Write(new byte[] { 0, 0, 3, 0xEF }, 0, 4);
+            int i = 4;
+            while (i < fh2.Length)
+            {
+                int nameLength = (i + 4 <= fh2.Length) ? (int) ReadU32(fh2, i) : -1;
+                if (nameLength > 0 && nameLength < 64 && Printable(fh2, i + 4, nameLength))
+                {
+                    int afterName = i + 4 + nameLength;
+                    if (afterName + 8 <= fh2.Length && ReadU32(fh2, afterName) == 0)
+                    {
+                        int textLength = ReadU16(fh2, afterName + 6);
+                        int font = afterName + 8 + textLength + 14;
+                        if (textLength < 64 && Printable(fh2, afterName + 8, textLength) && font + 2 <= fh2.Length)
+                        {
+                            int fontLength = ReadU16(fh2, font);
+                            int fontEnd = font + 2 + fontLength;
+                            if (fontLength > 0 && fontLength < 64 && Printable(fh2, font + 2, fontLength) && fontEnd + 33 + 4 <= fh2.Length)
+                            {
+                                output.Write(fh2, i, afterName + 6 - i);
+                                output.WriteByte(0);
+                                output.WriteByte(0);
+                                output.Write(fh2, afterName + 8 + textLength, fontEnd + 33 - (afterName + 8 + textLength));
+                                i = fontEnd + 33 + 4;
+                                layers++;
+                                continue;
+                            }
+                        }
+                    }
+                }
+                output.WriteByte(fh2[i]);
+                i++;
+            }
+            return output.ToArray();
+        }
+
+        private static uint ReadU32(byte[] data, int offset)
+        {
+            return (uint) ((data[offset] << 24) | (data[offset + 1] << 16) | (data[offset + 2] << 8) | data[offset + 3]);
+        }
+
+        private static int ReadU16(byte[] data, int offset)
+        {
+            return (data[offset] << 8) | data[offset + 1];
+        }
+
+        private static bool Printable(byte[] data, int offset, int length)
+        {
+            if (offset + length > data.Length)
+            {
+                return false;
+            }
+            for (int k = 0; k < length; k++)
+            {
+                if (data[offset + k] < 32 || data[offset + k] > 126)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         // One FH2 model file in FM4 form: converted, FH2-only materials renamed (lod0 lights to the
