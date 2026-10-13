@@ -1,0 +1,34 @@
+# Build output
+bin/
+obj/
+*.pdb
+*.vshost.*
+
+# Visual Studio / editor state
+.vs/
+*.suo
+*.user
+*.userprefs
+*~
+
+# Local working copies (not part of the source)
+_backup_originali/
+bak/
+
+# Game assets: never commit copyrighted Forza data
+*.zip
+*.carbin
+*.xds
+*.bix
+*.xpr
+*.gr2
+*.tga
+*.slt
+*.str
+\!FH demo car*/
+\!FM4 demo car*/
+\!ForzaStudio release/
+
+# Runtime files written next to the exe
+settings.txt
+materials.txt

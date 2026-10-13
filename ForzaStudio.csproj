@@ -1,0 +1,300 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <PropertyGroup>
+    <ProjectType>local</ProjectType>
+    <ProjectVersion>7.10.377</ProjectVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{C2E72113-B299-4B3C-B970-01048D01CC32}</ProjectGuid>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <AssemblyName>Forza Studio</AssemblyName>
+    <OutputType>WinExe</OutputType>
+    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>logo2.ico</ApplicationIcon>
+  </PropertyGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Compile Include="ForzaStudio\ConsoleMethod.cs" />
+    <Compile Include="ForzaStudio\ConsoleModding.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\ConsoleModding.Designer.cs">
+      <DependentUpon>ConsoleModding.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\CustomColor.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\CustomColor.Designer.cs">
+      <DependentUpon>CustomColor.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\CustomKeyboard.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\CustomKeyboard.Designer.cs">
+      <DependentUpon>CustomKeyboard.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\HexView.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\HexView.Designer.cs">
+      <DependentUpon>HexView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\SaveModding.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\SaveModding.Designer.cs">
+      <DependentUpon>SaveModding.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\XboxTool.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\XboxTool.Designer.cs">
+      <DependentUpon>XboxTool.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\XPRDecoder.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\XPRDecoder.Designer.cs">
+      <DependentUpon>XPRDecoder.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <EmbeddedResource Include="ForzaStudio\AboutForm.resx">
+      <DependentUpon>AboutForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ForzaStudio\ConsoleModding.resx">
+      <DependentUpon>ConsoleModding.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ForzaStudio\ForzaStudioForm.resx">
+      <DependentUpon>ForzaStudioForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ForzaStudio\HexView.resx">
+      <DependentUpon>HexView.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ForzaStudio\SaveModding.resx">
+      <DependentUpon>SaveModding.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ForzaStudio\XboxTool.resx">
+      <DependentUpon>XboxTool.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ForzaStudio\XPRDecoder.resx">
+      <DependentUpon>XPRDecoder.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ForzaStudio\XPREncoder.resx">
+      <DependentUpon>XPREncoder.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <Reference Include="Be.Windows.Forms.HexBox">
+      <HintPath>!ForzaStudio release\Be.Windows.Forms.HexBox.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Data" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System" />
+    <Reference Include="Microsoft.Xna.Framework" />
+    <Reference Include="System.Drawing" />
+    <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="ForzaStudio\AboutForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\AboutForm.Designer.cs">
+      <DependentUpon>AboutForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ConsoleFunctions.cs" />
+    <Compile Include="ForzaStudio\XPREncoder.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\XPREncoder.Designer.cs">
+      <DependentUpon>XPREncoder.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\Types.cs" />
+    <Compile Include="Global.cs" />
+    <Compile Include="ForzaStudio\Properties\Resources.cs" />
+    <Compile Include="ForzaStudio\ForzaTrackSection.cs" />
+    <Compile Include="ForzaStudio\ForzaResource.cs" />
+    <Compile Include="ForzaStudio\ForzaTexture.cs" />
+    <Compile Include="ForzaStudio\ForzaCarSubSection.cs" />
+    <Compile Include="ForzaStudio\ForzaTrackSubSection.cs" />
+    <Compile Include="ForzaStudio\ForzaCarSection.cs" />
+    <Compile Include="ForzaStudio\ForzaVersion.cs" />
+    <Compile Include="ForzaStudio\ForzaStudioForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\ForzaMesh.cs" />
+    <Compile Include="ForzaStudio\EndianType.cs" />
+    <Compile Include="ForzaStudio\EndianStream.cs" />
+    <Compile Include="ForzaStudio\ForzaVertexType.cs" />
+    <Compile Include="ForzaStudio\IndexType.cs" />
+    <Compile Include="ForzaStudio\ForzaVertex.cs" />
+    <Compile Include="ForzaStudio\Camera.cs" />
+    <Compile Include="ForzaStudio\Properties\Settings.cs" />
+    <Compile Include="ForzaStudio\Utilities.cs" />
+    <Compile Include="ForzaStudio\BoundingBox.cs" />
+    <Compile Include="ForzaStudio\ComboBoxItem!1.cs" />
+    <Compile Include="ForzaStudio\RenderScene.cs" />
+    <Compile Include="ForzaStudio\Program.cs" />
+    <Compile Include="ForzaStudio\ForzaTrackBin.cs" />
+    <Compile Include="ForzaStudio\CompressionType.cs" />
+    <Compile Include="ForzaStudio\XMemCodecType.cs" />
+    <Compile Include="ForzaStudio\XMemCodecParametersLZX.cs" />
+    <Compile Include="ForzaStudio\ForzaArchive.cs" />
+    <Compile Include="ForzaStudio\ZipFile.cs" />
+    <Compile Include="ForzaStudio\ForzaCarBin.cs" />
+    <Compile Include="ForzaStudio\Dxt.cs" />
+    <Compile Include="ForzaStudio\XenosTiling.cs" />
+    <Compile Include="ForzaStudio\XdsTexture.cs" />
+    <Compile Include="ForzaStudio\XdsTexture.Layout.cs" />
+    <Compile Include="ForzaStudio\XdsTexture.Encode.cs" />
+    <Compile Include="ForzaStudio\XMemLzx.cs" />
+    <Compile Include="ForzaStudio\ForzaZip.cs" />
+    <Compile Include="ForzaStudio\TgaImage.cs" />
+    <Compile Include="ForzaStudio\CarbinFile.cs" />
+    <Compile Include="ForzaStudio\CarbinModel.cs" />
+    <Compile Include="ForzaStudio\ObjMesh.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.PartEdit.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.PartImport.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.AddFile.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Model.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Texture.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Materials.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Xml.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.GameDb.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Navigation.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\SqliteDatabase.cs" />
+    <Compile Include="ForzaStudio\GameDatabase.cs" />
+    <Compile Include="ForzaStudio\GamePaths.cs" />
+    <Compile Include="ForzaStudio\XdcFile.cs" />
+    <Compile Include="ForzaStudio\ZipManifest.cs" />
+    <Compile Include="ForzaStudio\StringTable.cs" />
+    <Compile Include="ForzaStudio\XmaPlayer.cs" />
+    <Compile Include="ForzaStudio\ColorPicker.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\ForzaTheme.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Music.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Wheels.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Creators.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Power.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\PickDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\EnginePower.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\GameDbControls.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <EmbeddedResource Include="ForzaStudio.Properties.Resources.resources" />
+    <Reference Include="System.Xml" />
+    <Reference Include="xdevkit, Version=2.0.21076.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+      <HintPath>!ForzaStudio release\xdevkit.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+    <None Include="Resources\IconAbout.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\IconConsole1.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\IconExit.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\IconFile1.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\IconFile2.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\IconPack.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\IconSave.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\IconUnpack.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\IconUtil1.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\IconXpr.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\load.gif" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\mainfont.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\mainmenu.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\nodesfont.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="logo2.ico" />
+    <None Include="Resources\About.png" />
+    <None Include="Resources\IconDecom2.png" />
+    <None Include="Resources\IconDecom1.png" />
+    <None Include="Resources\IconHex1.png" />
+  </ItemGroup>
+</Project>
