@@ -11,8 +11,9 @@ namespace ForzaStudio
     // both games have; see the notes on each step):
     //   model     the FH2 .carbin files converted to FM4 (CarbinModel.ConvertHorizonToMotorsport4),
     //             FH2-only materials renamed to FM4 ones; brakes (type 1) taken from a donor FM4 car;
-    //   files     textures, livery masks, MAX data, shader settings, animations and gauges as they
-    //             are (the digital dash .fbf gets FM4's version number); CarAttribs.xml rebuilt in the FM4 version-17 form from the donor's;
+    //   files     textures, livery masks, MAX data, animations and gauges as they are (the digital
+    //             dash .fbf gets FM4's version number); CarAttribs.xml rebuilt in the FM4 version-17
+    //             form from the donor's; ShaderSettings.xml cut to the materials and parameters FM4 has;
     //   wheel     the stock wheel's zip converted the same way;
     //   database  every row of the car (FM4 and FH2 share almost all table layouts) plus its engine,
     //             drivetrain, torque curve and wheel rows; PI mapped to the FM4 scale, class from it;
@@ -60,6 +61,31 @@ namespace ForzaStudio
             map["deprecated"] = null;
             return map;
         }
+
+        // Every parameter name the FM4 cars' ShaderSettings.xml use (all 315 cars read). FH2 adds
+        // ones FM4 has no constant for (TailLightColor, XenonHeadlightColor, DRLWhiteColor, ...).
+        private static readonly string[] ShaderParameters = new string[]
+        {
+            "AmbientColor", "BrakeColor", "CarbonFiberDiffuseColor", "CarbonFiberDiffuseColor2", "CarbonFiberMipBias",
+            "CarbonFiberScale", "CarbonFiberSpecularColor2", "CarbonFiberSpecularPower2", "ChromeAmbientScale",
+            "ChromeDiffuseScale", "ChromeMaxDiffuseShadowAmt", "ChromeMaxReflectionShadowAmt", "ChromeUseSHLerp",
+            "CockpitBumpBias", "CockpitBumpScale", "CockpitHeadlinerColor", "CockpitMetalPaintScale", "CockpitNormalScale",
+            "CockpitPaintScale", "CockpitPlasticPaintScale", "CockpitSpecularAmount", "CockpitSpecularAmount2",
+            "CockpitSpecularPower", "CockpitSpecularPower2", "CubeMultiplier", "CubeScale", "D3DRS_DepthBias",
+            "D3DRS_SlopeScaleDepthBias", "DamageLightsSampler", "DarkValues", "DiffuseColorMultiply", "Direct",
+            "DirtCylinderHeight", "DirtOffsetU", "DirtOffsetV", "DirtSpecularKillAmount", "DynamicEnvLightmapDampner",
+            "FresnelBiasA", "FresnelIndex", "FresnelMax", "FresnelMin", "FresnelPower", "FresnelScalar", "FresnelScale",
+            "GaugeAmbientAmt", "GaugeEmissiveScale", "Glancing", "GlassColor", "GlassMaxOpacity", "GrilleColor",
+            "GrilleScale", "LightsSampler", "LightValues", "MinCockpitShadow", "MinCockpitSpecular", "MinDiffuse",
+            "MinShadowValue", "MottleDark", "MottleLight", "MottleTile", "PaintColor", "PaintScale", "PristinePaintScale",
+            "ReverseLightColor", "ShadowScale", "SHLowerScale", "SHTransition", "SHTransitionWidth", "SHUpperScale",
+            "SpecularAmount", "SpecularAmount2", "SpecularAmount3", "SpecularColor", "SpecularCubeScalar", "SpecularPower",
+            "StaticEnvLightmapDampner", "StitchColor", "UseDiffuseInsteadOfSH", "UV1Tile1",
+        };
+
+        // The most tick marks an FM4 gauge has (Firebird Trans Am Speed: 19). The FH2 P1 repeats its
+        // 4 speed and 3 tach marks 12 times (48 and 36), past what FM4 reads into its fixed table.
+        private const int MaxTicks = 19;
 
         public void Run()
         {
@@ -499,6 +525,8 @@ namespace ForzaStudio
             string prefix = this.MediaName.ToLowerInvariant();
             string donorPrefix = this.DonorMediaName.ToLowerInvariant();
             int models = 0;
+            List<string> materials = new List<string>();
+            byte[] shaderSettings = null;
             // Granny animations: FM4 reads little-endian .gr2 files, FH2 writes big-endian ones (file
             // version 7 at 0x20 as 00000007, measured on the MP4-12C both games have). Without a
             // converter the car goes without them, as FM4 cars without moving parts do.
@@ -547,15 +575,24 @@ namespace ForzaStudio
                     }
                     else
                     {
-                        data = ConvertModel(data, name.EndsWith("_lod0.carbin"), this.Report);
+                        data = ConvertModel(data, name.EndsWith("_lod0.carbin"), this.Report, materials);
                         models++;
                     }
                 }
                 else if (name == "carattribs.xml")
                 {
-                    data = ConvertCarAttributes(Encoding.UTF8.GetString(data), Encoding.UTF8.GetString(donor.Read(donor.Find("carattribs.xml"))), animations);
+                    data = ConvertCarAttributes(Encoding.UTF8.GetString(data), Encoding.UTF8.GetString(donor.Read(donor.Find("carattribs.xml"))), animations, this.Report);
+                }
+                else if (name == "shadersettings.xml")
+                {
+                    shaderSettings = data;   // needs the materials of every model
+                    continue;
                 }
                 car.Add(name, data);
+            }
+            if (shaderSettings != null)
+            {
+                car.Add("shadersettings.xml", ConvertShaderSettings(Encoding.UTF8.GetString(shaderSettings), materials, this.Report));
             }
             ForzaZip.Entry version = donor.Find("versiondata.xml");
             if (version != null && car.Find("versiondata.xml") == null)
@@ -570,6 +607,12 @@ namespace ForzaStudio
         // One FH2 model file in FM4 form: converted, FH2-only materials renamed (lod0 lights to the
         // _lod0 variants FM4 uses there), the 'deprecated' material removed.
         public static byte[] ConvertModel(byte[] data, bool lod0, StringBuilder report)
+        {
+            return ConvertModel(data, lod0, report, null);
+        }
+
+        // 'materials' (when given) collects the material names the converted model uses.
+        public static byte[] ConvertModel(byte[] data, bool lod0, StringBuilder report, List<string> materials)
         {
             CarbinModel model = new CarbinModel(data);
             model.ConvertHorizonToMotorsport4();
@@ -611,6 +654,19 @@ namespace ForzaStudio
                     owner.SubSections[0].Name = "black";
                 }
             }
+            if (materials != null)
+            {
+                foreach (CarbinModel.Section section in model.Sections)
+                {
+                    foreach (CarbinModel.SubSection sub in section.SubSections)
+                    {
+                        if (!materials.Contains(sub.Name))
+                        {
+                            materials.Add(sub.Name);
+                        }
+                    }
+                }
+            }
             if (report != null && renamed.Count > 0)
             {
                 List<string> text = new List<string>();
@@ -626,8 +682,33 @@ namespace ForzaStudio
         // FM4 CarAttribs version 17: the donor's file with the car's own gauges, driver placement,
         // part drops and animations (FH2 version 21 writes <animation Version="2" ... inrace="1"/>,
         // FM4 <Animation ... inrace="true" />; FH2 repeats each one per LOD).
-        public static byte[] ConvertCarAttributes(string fh2, string fm4Donor, bool animations)
+        public static byte[] ConvertCarAttributes(string fh2, string fm4Donor, bool animations, StringBuilder report)
         {
+            fh2 = Regex.Replace(fh2, "<(\\w+) NumTicks=\"\\d+\">(.*?)</\\1>", delegate(Match gauge)
+            {
+                // Repeated marks kept once (in order), at most MaxTicks.
+                List<string> ticks = new List<string>();
+                MatchCollection marks = Regex.Matches(gauge.Groups[2].Value, "<TickMark\\b[^>]*/>");
+                foreach (Match mark in marks)
+                {
+                    if (!ticks.Contains(mark.Value) && ticks.Count < MaxTicks)
+                    {
+                        ticks.Add(mark.Value);
+                    }
+                }
+                if (ticks.Count == marks.Count)
+                {
+                    return gauge.Value;
+                }
+                if (report != null)
+                {
+                    report.AppendLine(string.Format("  carattribs: {0} gauge {1} -> {2} tick marks", gauge.Groups[1].Value, marks.Count, ticks.Count));
+                }
+                Match indent = Regex.Match(gauge.Groups[2].Value, "\\r?\\n([ \\t]*)<TickMark");
+                string line = indent.Success ? indent.Value.Substring(0, indent.Value.Length - "<TickMark".Length) : "\r\n      ";
+                Match close = Regex.Match(gauge.Groups[2].Value, "\\r?\\n[ \\t]*$");
+                return "<" + gauge.Groups[1].Value + " NumTicks=\"" + ticks.Count + "\">" + line + string.Join(line, ticks.ToArray()) + (close.Success ? close.Value : "") + "</" + gauge.Groups[1].Value + ">";
+            }, RegexOptions.Singleline);
             string result = fm4Donor;
             foreach (string element in new string[] { "DriverHandsSteeringWheelOverride", "DriverHandsOffset", "SteeringWheelAngleOverride", "Driver" })
             {
@@ -675,6 +756,94 @@ namespace ForzaStudio
                 result = result.Substring(0, target.Index) + list.ToString() + result.Substring(target.Index + target.Length);
             }
             return Encoding.UTF8.GetBytes(result);
+        }
+
+        // FM4 ShaderSettings.xml: only the materials the converted models use (FH2-only ones under
+        // their FM4 names, tail lights also for the _lod0 variant) and only the parameters FM4 has.
+        // FM4 cars list at most 24 materials; the FH2 P1 lists 33, most for materials it renamed.
+        public static byte[] ConvertShaderSettings(string fh2, List<string> materials, StringBuilder report)
+        {
+            List<string> order = new List<string>();
+            Dictionary<string, List<string[]>> settings = new Dictionary<string, List<string[]>>(StringComparer.Ordinal);
+            List<string> dropped = new List<string>();
+            List<string> parameters = new List<string>(ShaderParameters);
+            int read = 0;
+            Match root = Regex.Match(fh2, "<ShaderSettings>(.*)</ShaderSettings>", RegexOptions.Singleline);
+            foreach (Match section in Regex.Matches(root.Success ? root.Groups[1].Value : fh2, "<(\\w+)>(.*?)</\\1>", RegexOptions.Singleline))
+            {
+                read++;
+                // "cockpit_<material>" sets <material> of the cockpit model (FM4 MP4-12C: cockpit_bump_leather2).
+                string prefix = section.Groups[1].Value.StartsWith("cockpit_") ? "cockpit_" : "";
+                string name = section.Groups[1].Value.Substring(prefix.Length);
+                string to;
+                List<string> targets = new List<string>();
+                if (!MaterialMap.TryGetValue(name, out to))
+                {
+                    targets.Add(name);
+                }
+                else if (to != null)
+                {
+                    targets.Add(to);
+                    if (to == "tail_light" && prefix.Length == 0)
+                    {
+                        targets.Add("tail_light_lod0");
+                    }
+                }
+                foreach (string material in targets)
+                {
+                    if (materials != null && !materials.Contains(material))
+                    {
+                        continue;
+                    }
+                    string target = prefix + material;
+                    List<string[]> values;
+                    if (!settings.TryGetValue(target, out values))
+                    {
+                        values = new List<string[]>();
+                        settings[target] = values;
+                        order.Add(target);
+                    }
+                    foreach (Match value in Regex.Matches(section.Groups[2].Value, "<(\\w+)\\b[^>]*/>"))
+                    {
+                        string parameter = value.Groups[1].Value;
+                        bool known = parameters.Exists(delegate(string p) { return string.Equals(p, parameter, StringComparison.OrdinalIgnoreCase); });
+                        if (!known)
+                        {
+                            if (!dropped.Contains(parameter))
+                            {
+                                dropped.Add(parameter);
+                            }
+                            continue;
+                        }
+                        if (!values.Exists(delegate(string[] v) { return v[0] == parameter; }))
+                        {
+                            values.Add(new string[] { parameter, value.Value });
+                        }
+                    }
+                }
+            }
+            StringBuilder xml = new StringBuilder("<ShaderSettings>\r\n");
+            int written = 0;
+            foreach (string name in order)
+            {
+                if (settings[name].Count == 0)
+                {
+                    continue;
+                }
+                written++;
+                xml.Append("  <" + name + ">\r\n");
+                foreach (string[] value in settings[name])
+                {
+                    xml.Append("    " + value[1] + "\r\n");
+                }
+                xml.Append("  </" + name + ">\r\n");
+            }
+            xml.Append("</ShaderSettings>\r\n");
+            if (report != null)
+            {
+                report.AppendLine(string.Format("  shadersettings: {0} -> {1} materials{2}", read, written, (dropped.Count > 0) ? "; parameters FM4 lacks left out: " + string.Join(", ", dropped.ToArray()) : ""));
+            }
+            return Encoding.UTF8.GetBytes(xml.ToString());
         }
 
         private void BuildWheelZips()
