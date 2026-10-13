@@ -269,7 +269,7 @@ namespace ForzaStudio
                     {
                         using (StreamWriter writer2 = new StreamWriter(stream2))
                         {
-                            writer2.WriteLine("# Extracted by Forza Studio 4.6 - http://codeescape.com/" + Environment.NewLine);
+                            writer2.WriteLine("# Extracted by ForzaEditor" + Environment.NewLine);
                             if (hashtable.Count > 0)
                             {
                                 writer2.WriteLine("mtllib " + Path.GetFileName(dialog.FileName).Replace(".obj", "") + ".mtl");
@@ -385,7 +385,7 @@ namespace ForzaStudio
                             using (StreamWriter writer3 = new StreamWriter(stream3))
                             {
                                 writer3.WriteLine("{0} export log", dialog.FileName);
-                                writer3.WriteLine("Created with Forza Studio 4.6" + Environment.NewLine);
+                                writer3.WriteLine("Created with ForzaEditor" + Environment.NewLine);
                                 writer3.WriteLine("mesh name\tvertex count\tface count\tmaterial name" + Environment.NewLine);
                                 foreach (ForzaMesh mesh3 in modelMeshes)
                                 {
@@ -499,7 +499,7 @@ namespace ForzaStudio
                             }
                             catch (Exception exception)
                             {
-                                MessageBox.Show(string.Format("Failed to import {0}\n\n{1}", fileName, exception.ToString()), "Forza Studio Error", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                                MessageBox.Show(string.Format("Failed to import {0}\n\n{1}", fileName, exception.ToString()), "ForzaEditor Error", MessageBoxButtons.OK, MessageBoxIcon.Hand);
                             }
                             Application.DoEvents();
                         }
@@ -521,7 +521,7 @@ namespace ForzaStudio
             }
             catch (Exception exception2)
             {
-                MessageBox.Show(string.Format("Failed to import {0}\n\n{1}", fileName, exception2.ToString()), "Forza Studio Error", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                MessageBox.Show(string.Format("Failed to import {0}\n\n{1}", fileName, exception2.ToString()), "ForzaEditor Error", MessageBoxButtons.OK, MessageBoxIcon.Hand);
             }
         Label_019C:
             Application.DoEvents();
@@ -1097,7 +1097,7 @@ namespace ForzaStudio
             this.MainMenuStrip = this.mnuMain;
             this.MinimumSize = new System.Drawing.Size(640, 480);
             this.Name = "ForzaStudioForm";
-            this.Text = "Forza Studio 4.6 | Edited By JYSB59";
+            this.Text = "ForzaEditor";
             this.Load += new System.EventHandler(this.ForzaStudioForm_Load);
             this.Shown += new System.EventHandler(this.ForzaStudioForm_Shown);
             this.MouseWheel += new System.Windows.Forms.MouseEventHandler(this.Form1_MouseWheel);
@@ -1224,7 +1224,7 @@ namespace ForzaStudio
                                         }
                                         catch (Exception)
                                         {
-                                            MessageBox.Show(string.Format("Failed to extract {0} from {1}.", file.FileName, Path.GetFileName(dialog.FileName)), "Forza Studio Error", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                                            MessageBox.Show(string.Format("Failed to extract {0} from {1}.", file.FileName, Path.GetFileName(dialog.FileName)), "ForzaEditor Error", MessageBoxButtons.OK, MessageBoxIcon.Hand);
                                         }
                                     }
                                 }
@@ -1236,7 +1236,7 @@ namespace ForzaStudio
             }
             catch (Exception exception)
             {
-                MessageBox.Show(exception.ToString(), "Forza Studio Error", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                MessageBox.Show(exception.ToString(), "ForzaEditor Error", MessageBoxButtons.OK, MessageBoxIcon.Hand);
             }
             this.UpdateStatus(null);
         }

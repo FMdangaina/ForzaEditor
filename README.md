@@ -6,13 +6,16 @@ Edits the game's zip archives directly: `.carbin` car models (OBJ export/import,
 part transplant and duplication), `.xds` textures (import, export, creation from
 images), livery masks and the gamedb.
 
+Derived from Forza Studio 4.6 by Mike Davis (MIT License), with an earlier edit
+by JYSB59. Maintained by FMdangaina. See [LICENSE](LICENSE).
+
 ## Build
 
 - Visual Studio 2022 (MSBuild), .NET Framework 2.0 target, **x86 only**
 - XNA Game Studio 3.1 (Microsoft.Xna.Framework in the GAC)
 
 ```
-MSBuild ForzaStudio.csproj -p:Configuration=Debug -p:Platform=x86
+MSBuild ForzaEditor.csproj -p:Configuration=Debug -p:Platform=x86
 ```
 
 `!ForzaStudio release/` must also contain the non-redistributable files listed in

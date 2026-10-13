@@ -120,7 +120,7 @@ namespace ForzaStudio
                 }
                 try
                 {
-                    int triangles = ObjMesh.Export(model, part, dialog.FileName, "Forza Studio: " + part + " from " + source.Name);
+                    int triangles = ObjMesh.Export(model, part, dialog.FileName, "ForzaEditor: " + part + " from " + source.Name);
                     this.SetStatus(string.Format("{0}: {1:N0} triangles exported from {2} to {3}", part, triangles, source.Name, dialog.FileName));
                 }
                 catch (Exception exception)

@@ -6,7 +6,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{C2E72113-B299-4B3C-B970-01048D01CC32}</ProjectGuid>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <AssemblyName>Forza Studio</AssemblyName>
+    <AssemblyName>ForzaEditor</AssemblyName>
     <OutputType>WinExe</OutputType>
     <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
     <TargetFrameworkProfile />

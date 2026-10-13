@@ -25,8 +25,50 @@ bak/
 *.tga
 *.slt
 *.str
+*.rdf
+*.org
+*.bin
+*.xml
+*.xma
+*.xwb
+*.xsb
+*.wav
 \!FH demo car*/
 \!FM4 demo car*/
+
+# Test material: textures, models and exports used for trials
+*.bmp
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.tif
+*.tiff
+*.dds
+*.psd
+*.obj
+*.mtl
+*.fbx
+*.dae
+*.3ds
+*.z3d
+*.blend
+*.blend1
+*.csv
+*.txt
+*.log
+*.bak
+*.orig
+test/
+tests/
+prove/
+scratch/
+temp/
+tmp/
+
+# App images and icons are part of the source
+!/Resources/*.png
+!/Resources/*.gif
 
 # Third-party tools: only MIT-licensed ones are committed (see THIRD-PARTY-NOTICES.md).
 # Xbox 360 SDK files (xdevkit, xcompress) and xds.dll stay local.

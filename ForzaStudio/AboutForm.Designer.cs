@@ -1,4 +1,4 @@
-﻿namespace ForzaStudio
+namespace ForzaStudio
 {
     partial class AboutForm
     {
@@ -61,60 +61,60 @@
             // 
             // label1
             // 
-            this.label1.AutoSize = true;
             this.label1.BackColor = System.Drawing.Color.Transparent;
-            this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F);
-            this.label1.Location = new System.Drawing.Point(58, 214);
+            this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Bold);
+            this.label1.Location = new System.Drawing.Point(0, 204);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(185, 24);
+            this.label1.Size = new System.Drawing.Size(294, 28);
             this.label1.TabIndex = 2;
-            this.label1.Text = "Made By Make Davis";
+            this.label1.Text = "ForzaEditor";
+            this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // label3
             // 
-            this.label3.AutoSize = true;
             this.label3.BackColor = System.Drawing.Color.Transparent;
-            this.label3.Cursor = System.Windows.Forms.Cursors.Hand;
             this.label3.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
-            this.label3.Location = new System.Drawing.Point(67, 250);
+            this.label3.Location = new System.Drawing.Point(0, 236);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(168, 17);
+            this.label3.Size = new System.Drawing.Size(294, 40);
             this.label3.TabIndex = 4;
-            this.label3.Text = "At http://codeescape.com";
+            this.label3.Text = "Derived from Forza Studio 4.6\nby Mike Davis (codeescape.com)";
+            this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.label3.Cursor = System.Windows.Forms.Cursors.Hand;
             this.label3.Click += new System.EventHandler(this.label3_Click);
             // 
             // label4
             // 
-            this.label4.AutoSize = true;
             this.label4.BackColor = System.Drawing.Color.Transparent;
-            this.label4.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F);
-            this.label4.Location = new System.Drawing.Point(69, 284);
+            this.label4.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
+            this.label4.Location = new System.Drawing.Point(0, 282);
             this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(160, 24);
+            this.label4.Size = new System.Drawing.Size(294, 22);
             this.label4.TabIndex = 5;
-            this.label4.Text = "Edited By JYSB59";
+            this.label4.Text = "Edited by FMdangaina";
+            this.label4.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // label2
             // 
-            this.label2.AutoSize = true;
             this.label2.BackColor = System.Drawing.Color.Transparent;
-            this.label2.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
-            this.label2.Location = new System.Drawing.Point(34, 322);
+            this.label2.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Italic);
+            this.label2.Location = new System.Drawing.Point(0, 310);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(231, 17);
+            this.label2.Size = new System.Drawing.Size(294, 40);
             this.label2.TabIndex = 6;
-            this.label2.Text = "At jysb59 on Skype if you want help";
+            this.label2.Text = "Grazie amo, ti voglio bene,\npioniere dei modelli 3D";
+            this.label2.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // label5
             // 
-            this.label5.AutoSize = true;
             this.label5.BackColor = System.Drawing.Color.Transparent;
-            this.label5.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
-            this.label5.Location = new System.Drawing.Point(76, 356);
+            this.label5.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F);
+            this.label5.Location = new System.Drawing.Point(0, 360);
             this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(145, 17);
+            this.label5.Size = new System.Drawing.Size(294, 30);
             this.label5.TabIndex = 7;
-            this.label5.Text = "Copyright Make Davis";
+            this.label5.Text = "Earlier edit by JYSB59\nForza Studio (C) 2012 Mike Davis, MIT License";
+            this.label5.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // AboutForm
             // 

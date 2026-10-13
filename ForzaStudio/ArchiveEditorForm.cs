@@ -40,7 +40,7 @@ namespace ForzaStudio
 
         public ArchiveEditorForm()
         {
-            this.Text = "Forza Studio";
+            this.Text = "ForzaEditor";
             this.Size = new Size(1280, 800);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.WindowState = FormWindowState.Maximized;
@@ -560,7 +560,7 @@ namespace ForzaStudio
             {
                 return true;
             }
-            DialogResult result = MessageBox.Show(this, "Save changes to " + this.SourceName + "?","Forza Studio", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+            DialogResult result = MessageBox.Show(this, "Save changes to " + this.SourceName + "?","ForzaEditor", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
             if (result == DialogResult.Cancel)
             {
                 return false;
@@ -1010,7 +1010,7 @@ namespace ForzaStudio
             this.mnuSaveAs.Enabled = open && !this.zip.IsFolder;
             this.mnuClose.Enabled = open;
             this.UpdateBackMenu();
-            this.Text = open ? string.Format("{0}{1}{2} - Forza Studio", this.zip.IsFolder ? this.zip.FilePath.TrimEnd('\\') : Path.GetFileName(this.zip.FilePath), this.zip.IsFolder ? "\\" : "", this.zip.IsModified ? " *" : "") : "Forza Studio";
+            this.Text = open ? string.Format("{0}{1}{2} - ForzaEditor", this.zip.IsFolder ? this.zip.FilePath.TrimEnd('\\') : Path.GetFileName(this.zip.FilePath), this.zip.IsFolder ? "\\" : "", this.zip.IsModified ? " *" : "") : "ForzaEditor";
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
@@ -1032,7 +1032,7 @@ namespace ForzaStudio
             this.split.SplitterDistance = 280;
         }
 
-        // Command line: "Forza Studio.exe" archive.zip|folder [entry to select]
+        // Command line: ForzaEditor.exe archive.zip|folder [entry to select]
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
