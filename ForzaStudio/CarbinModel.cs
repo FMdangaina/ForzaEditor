@@ -6,28 +6,37 @@ namespace ForzaStudio
     using System.IO;
     using System.Text;
 
-    // Structural model of an FM4 .carbin (type 2: main, lod0 and cockpit files) for edits that change
-    // sizes: moving or merging subsections between sections and removing sections. Every block the
-    // tool does not understand is kept as raw bytes, so an untouched model writes back byte for byte.
+    // Structural model of a car .carbin (main, lod0 and cockpit files) for edits that change sizes:
+    // moving or merging subsections between sections and removing sections. Every block the tool
+    // does not understand is kept as raw bytes, so an untouched model writes back byte for byte.
+    //   type 2  FM4: 32-byte vertices (8 trailing bytes).
+    //   type 5  FH2 (and FH1): the same layout with 28-byte vertices (4 trailing bytes), a flag word
+    //           (and an ID) after each buffer's count and stride, a longer header (extra 0x20-byte
+    //           records) and one more word before each index list.
     //
     // Header draw lists: after the fixed header come 2 x N lists (N = LOD count of the file, two
     // render passes). Each entry is (section index << 16) | subsection index, so every structural
     // change must renumber them.
     public class CarbinModel
     {
+        // FH buffers and tables carry a word after count and stride: 0 when empty, else 1 followed by a
+        // 32-bit ID that is unique in the car and is no checksum of the data (see BufferId).
         public class VertexBuffer
         {
             public int Count;
             public int Stride;
-            public byte[] Extra = new byte[0];   // 8 bytes when the stride is 0x1c (not used by FM4 cars)
+            public byte[] Extra = new byte[0];   // FH: 00000000, or 00000001 + ID
             public byte[] Data = new byte[0];
+            internal byte[] ExtraFor;            // the Data the read ID belongs to
         }
 
         public class Table
         {
             public int Count;
             public int Stride;
+            public byte[] Extra = new byte[0];   // FH: as for vertex buffers
             public byte[] Data = new byte[0];
+            internal byte[] ExtraFor;
         }
 
         public class SubSection
@@ -39,7 +48,9 @@ namespace ForzaStudio
             public uint Lod;
             public uint IndexType;
             public byte[] Fixed56;
-            public uint Three;
+            public uint Three;                           // 3 (FM4), 4 (FH)
+            public uint IndexWord;                       // FH only: the word before the index list
+            public byte[] Stripped;                      // FH only, IndexWord 2: 8 bytes and no indices (stripped_*.carbin)
             public int IndexSize;
             public List<int> Indices = new List<int>();  // raw values, restart markers included
             public byte[] Tail;
@@ -52,6 +63,7 @@ namespace ForzaStudio
                 copy.Fixed36 = (byte[]) this.Fixed36.Clone();
                 copy.Fixed56 = (byte[]) this.Fixed56.Clone();
                 copy.Tail = (byte[]) this.Tail.Clone();
+                copy.Stripped = (this.Stripped != null) ? (byte[]) this.Stripped.Clone() : null;
                 copy.Indices = new List<int>(this.Indices);
                 return copy;
             }
@@ -89,6 +101,18 @@ namespace ForzaStudio
         }
 
         public uint Type;
+
+        // FH files (type 5): 28-byte vertices and the FH block sizes.
+        public bool IsHorizon
+        {
+            get { return this.Type == 5; }
+        }
+
+        // Bytes per vertex of the file: 32 (FM4) or 28 (FH).
+        public int VertexStride
+        {
+            get { return this.IsHorizon ? 0x1c : 0x20; }
+        }
         public byte[] Head;                         // everything before the draw lists
         public List<uint[]> DrawLists = new List<uint[]>();
         public byte[] BeforeSections;
@@ -146,11 +170,9 @@ namespace ForzaStudio
             VertexBuffer buffer = new VertexBuffer();
             buffer.Count = (int) this.U32();
             buffer.Stride = (int) this.U32();
-            if (buffer.Stride == 0x1c)
-            {
-                buffer.Extra = this.Bytes(8);
-            }
+            buffer.Extra = this.ReadExtra();
             buffer.Data = this.Bytes(buffer.Count * buffer.Stride);
+            buffer.ExtraFor = buffer.Data;
             return buffer;
         }
 
@@ -159,19 +181,44 @@ namespace ForzaStudio
             Table table = new Table();
             table.Count = (int) this.U32();
             table.Stride = (int) this.U32();
+            table.Extra = this.ReadExtra();
             table.Data = this.Bytes(table.Count * table.Stride);
+            table.ExtraFor = table.Data;
             return table;
+        }
+
+        // FH: the flag word, and the ID when the flag is set.
+        private byte[] ReadExtra()
+        {
+            if (!this.IsHorizon)
+            {
+                return new byte[0];
+            }
+            int start = this.position;
+            uint flag = this.U32();
+            this.position = start;
+            return this.Bytes((flag != 0) ? 8 : 4);
         }
 
         private void Parse()
         {
             this.position = 0;
             this.Type = this.U32();
-            if (this.Type != 2)
+            if (this.Type != 2 && this.Type != 5)
             {
-                throw new NotSupportedException(string.Format("Structural editing of .carbin type {0} is not supported (only FM4 type 2).", this.Type));
+                throw new NotSupportedException(string.Format("Structural editing of .carbin type {0} is not supported (only car models: FM4 type 2, FH type 5).", this.Type));
             }
-            this.position += 0x15c;
+            if (this.IsHorizon)
+            {
+                // FH: N records of 0x20 bytes and 12 more bytes before the FM4-style record table.
+                this.position += 0x150;
+                uint extra = this.U32();
+                this.position += ((int) extra * 0x20) + 12;
+            }
+            else
+            {
+                this.position += 0x15c;
+            }
             uint records = this.U32();
             this.position += 4 + ((int) records * 140) + 0x340;
             int headLength = this.position;
@@ -246,8 +293,20 @@ namespace ForzaStudio
                 sub.IndexType = this.U32();
                 sub.Fixed56 = this.Bytes(56);
                 sub.Three = this.U32();
-                int indexCount = (int) this.U32();
-                sub.IndexSize = (int) this.U32();
+                int indexCount = 0;
+                if (this.IsHorizon)
+                {
+                    sub.IndexWord = this.U32();
+                    if (sub.IndexWord == 2)
+                    {
+                        sub.Stripped = this.Bytes(8);
+                    }
+                }
+                if (sub.Stripped == null)
+                {
+                    indexCount = (int) this.U32();
+                    sub.IndexSize = (int) this.U32();
+                }
                 for (int i = 0; i < indexCount; i++)
                 {
                     if (sub.IndexSize == 2)
@@ -294,14 +353,14 @@ namespace ForzaStudio
                 WriteU32(output, (uint) this.Sections.Count);
                 foreach (Section section in this.Sections)
                 {
-                    WriteSection(output, section);
+                    WriteSection(this, output, section);
                 }
                 Write(output, this.Trailer);
                 return output.ToArray();
             }
         }
 
-        private static void WriteSection(Stream output, Section section)
+        private static void WriteSection(CarbinModel model, Stream output, Section section)
         {
             Write(output, section.Marker);
             foreach (float value in section.Bounds)
@@ -321,7 +380,7 @@ namespace ForzaStudio
             output.WriteByte((byte) name.Length);
             Write(output, name);
             Write(output, section.PostName);
-            WriteBuffer(output, section.Lod);
+            WriteBuffer(model, output, section.Lod, section.Name + "/lod");
             Write(output, section.AfterLod);
             WriteU32(output, (uint) section.SubSections.Count);
             foreach (SubSection sub in section.SubSections)
@@ -339,8 +398,19 @@ namespace ForzaStudio
                 WriteU32(output, sub.IndexType);
                 Write(output, sub.Fixed56);
                 WriteU32(output, sub.Three);
-                WriteU32(output, (uint) sub.Indices.Count);
-                WriteU32(output, (uint) sub.IndexSize);
+                if (model.IsHorizon)
+                {
+                    WriteU32(output, sub.IndexWord);
+                }
+                if (sub.Stripped != null)
+                {
+                    Write(output, sub.Stripped);
+                }
+                else
+                {
+                    WriteU32(output, (uint) sub.Indices.Count);
+                    WriteU32(output, (uint) sub.IndexSize);
+                }
                 foreach (int index in sub.Indices)
                 {
                     if (sub.IndexSize == 2)
@@ -356,26 +426,63 @@ namespace ForzaStudio
                 Write(output, sub.Tail);
             }
             Write(output, section.AfterSubs);
-            WriteBuffer(output, section.Lod0);
+            WriteBuffer(model, output, section.Lod0, section.Name + "/lod0");
             Write(output, section.Post9);
-            WriteTable(output, section.DamageLod);
+            WriteTable(model, output, section.DamageLod, section.Name + "/damage");
             Write(output, section.Mid);
-            WriteTable(output, section.DamageLod0);
+            WriteTable(model, output, section.DamageLod0, section.Name + "/damage0");
         }
 
-        private static void WriteBuffer(Stream output, VertexBuffer buffer)
+        private static void WriteBuffer(CarbinModel model, Stream output, VertexBuffer buffer, string owner)
         {
             WriteU32(output, (uint) buffer.Count);
             WriteU32(output, (uint) buffer.Stride);
+            if (model.IsHorizon)
+            {
+                buffer.Extra = BufferExtra(buffer.Extra, buffer.ExtraFor, buffer.Data, buffer.Count, owner);
+                buffer.ExtraFor = buffer.Data;
+            }
             Write(output, buffer.Extra);
             Write(output, buffer.Data);
         }
 
-        private static void WriteTable(Stream output, Table table)
+        private static void WriteTable(CarbinModel model, Stream output, Table table, string owner)
         {
             WriteU32(output, (uint) table.Count);
             WriteU32(output, (uint) table.Stride);
+            if (model.IsHorizon)
+            {
+                table.Extra = BufferExtra(table.Extra, table.ExtraFor, table.Data, table.Count, owner);
+                table.ExtraFor = table.Data;
+            }
+            Write(output, table.Extra);
             Write(output, table.Data);
+        }
+
+        // FH: flag 0 for an empty buffer; else flag 1 and the ID, kept while the buffer holds the data
+        // it was read with (edits in place keep it too), a new one for a rebuilt or copied buffer: no
+        // two buffers of a car share an ID in the game's files. The new ID is a hash of the owner's
+        // name and the data, so the same edit writes the same bytes.
+        private static byte[] BufferExtra(byte[] extra, byte[] extraFor, byte[] data, int count, string owner)
+        {
+            if (count == 0)
+            {
+                return new byte[4];
+            }
+            if (extra.Length == 8 && extra[3] == 1 && object.ReferenceEquals(extraFor, data))
+            {
+                return extra;
+            }
+            uint hash = 2166136261;
+            foreach (byte b in Encoding.ASCII.GetBytes(owner))
+            {
+                hash = (hash ^ b) * 16777619;
+            }
+            foreach (byte b in data)
+            {
+                hash = (hash ^ b) * 16777619;
+            }
+            return new byte[] { 0, 0, 0, 1, (byte) (hash >> 24), (byte) (hash >> 16), (byte) (hash >> 8), (byte) hash };
         }
 
         private static void Write(Stream output, byte[] bytes)
@@ -1187,6 +1294,7 @@ namespace ForzaStudio
             public byte[] ReferenceDamage;
             public int ReferenceCount;
             public float[] ReferenceUv;
+            public int Stride;                  // 32 (FM4) or 28 (FH)
             public PointTree Tree;
             public VertexBuffer Target;
             public bool Deformable;
@@ -1234,6 +1342,11 @@ namespace ForzaStudio
             Rebuild work = new Rebuild();
             work.Lod0 = useLod0;
             work.Target = useLod0 ? section.Lod0 : section.Lod;
+            work.Stride = this.VertexStride;
+            if (work.Target.Count > 0 && work.Target.Stride != work.Stride)
+            {
+                throw new NotSupportedException(string.Format("{0}: {1}-byte vertices, expected {2}.", sectionName, work.Target.Stride, work.Stride));
+            }
             Table damage = useLod0 ? section.DamageLod0 : section.DamageLod;
             work.Deformable = section.IsDeformable && damage.Count == work.Target.Count && damage.Stride == 4;
             work.Reference = Positions(section, work.Target);
@@ -1327,8 +1440,8 @@ namespace ForzaStudio
                             {
                                 mapped = work.Vertices.Count;
                                 keptVertex[index] = mapped;
-                                byte[] vertex = new byte[32];
-                                Buffer.BlockCopy(work.ReferenceData, index * work.Target.Stride, vertex, 0, 32);
+                                byte[] vertex = new byte[work.Stride];
+                                Buffer.BlockCopy(work.ReferenceData, index * work.Stride, vertex, 0, work.Stride);
                                 work.Vertices.Add(vertex);
                                 work.Positions.Add(work.Reference[index * 3]);
                                 work.Positions.Add(work.Reference[(index * 3) + 1]);
@@ -1390,16 +1503,16 @@ namespace ForzaStudio
             section.SubSections.AddRange(newSubs);
 
             // Vertex buffer and damage words.
-            byte[] data = new byte[work.Vertices.Count * 32];
+            byte[] data = new byte[work.Vertices.Count * work.Stride];
             byte[] damageData = new byte[work.Vertices.Count * 4];
             for (int i = 0; i < work.Vertices.Count; i++)
             {
-                Buffer.BlockCopy(work.Vertices[i], 0, data, i * 32, 32);
+                Buffer.BlockCopy(work.Vertices[i], 0, data, i * work.Stride, work.Stride);
                 Buffer.BlockCopy(work.Words[i], 0, damageData, i * 4, 4);
             }
             work.Target.Data = data;
             work.Target.Count = work.Vertices.Count;
-            work.Target.Stride = 32;
+            work.Target.Stride = work.Stride;
             if (work.Deformable)
             {
                 damage.Count = work.Vertices.Count;
@@ -1584,10 +1697,10 @@ namespace ForzaStudio
                     ObjMesh.Corner corner = cornersOf[id];
                     Microsoft.Xna.Framework.Vector3 n = corner.HasNormal ? corner.Normal : Microsoft.Xna.Framework.Vector3.Normalize(normalSum[id]);
                     int nearest = work.Tree.Nearest(corner.Position.X, corner.Position.Y, corner.Position.Z);
-                    byte[] vertex = new byte[32];
+                    byte[] vertex = new byte[work.Stride];
                     if (nearest >= 0)
                     {
-                        Buffer.BlockCopy(work.ReferenceData, nearest * 32, vertex, 0, 32);
+                        Buffer.BlockCopy(work.ReferenceData, nearest * work.Stride, vertex, 0, work.Stride);
                     }
                     // UV1 in the chosen region.
                     float u = corner.Uv.X;
@@ -1607,13 +1720,13 @@ namespace ForzaStudio
                     if (same >= 0)
                     {
                         // Frame and the 8 trailing bytes as they were.
-                        Buffer.BlockCopy(work.ReferenceData, (same * 32) + 16, vertex, 16, 16);
+                        Buffer.BlockCopy(work.ReferenceData, (same * work.Stride) + 16, vertex, 16, work.Stride - 16);
                         kept++;
                     }
                     else
                     {
                         WriteFrame(vertex, n, tangentSum[id], bitangentSum[id]);
-                        WriteTail(vertex, n);
+                        WriteTail(vertex, n, work.Stride);
                     }
                     work.Vertices.Add(vertex);
                     work.Positions.Add(corner.Position.X);
@@ -1650,10 +1763,23 @@ namespace ForzaStudio
         // a new vertex gets the level of an open panel facing its way (0.83 facing up or sideways,
         // down to 0.50 facing the ground: 75th percentile of the two cars' exterior panels by normal)
         // and its own normal, which shades smoothly and as bright as the bodywork around it.
-        private static void WriteTail(byte[] vertex, Microsoft.Xna.Framework.Vector3 n)
+        // FH (28-byte vertices) stores the same four values as SNORM8: on an FH2 car |v| ~ 1.19 t0 -
+        // 0.02 and open panels reach 0.83 facing up, ~0.60 facing down (120884 vertices).
+        private static void WriteTail(byte[] vertex, Microsoft.Xna.Framework.Vector3 n, int stride)
         {
             Microsoft.Xna.Framework.Vector3 d = Microsoft.Xna.Framework.Vector3.Normalize(n);
-            float level = 0.50f + (0.33f * Math.Max(0f, Math.Min(1f, (d.Y + 1f) / 1.25f)));
+            float facing = Math.Max(0f, Math.Min(1f, (d.Y + 1f) / 1.25f));
+            if (stride == 0x1c)
+            {
+                float fhLevel = 0.60f + (0.23f * facing);
+                float fhLength = Math.Max(0f, Math.Min(1f, (1.19f * fhLevel) - 0.02f));
+                vertex[24] = (byte) (sbyte) Math.Max(-127, Math.Min(127, (int) Math.Round(fhLevel * 127)));
+                vertex[25] = (byte) (sbyte) Math.Max(-127, Math.Min(127, (int) Math.Round(-d.Y * fhLength * 127)));
+                vertex[26] = (byte) (sbyte) Math.Max(-127, Math.Min(127, (int) Math.Round(d.Z * fhLength * 127)));
+                vertex[27] = (byte) (sbyte) Math.Max(-127, Math.Min(127, (int) Math.Round(-d.X * fhLength * 127)));
+                return;
+            }
+            float level = 0.50f + (0.33f * facing);
             float length = Math.Max(0f, Math.Min(1f, (1.24f * level) - 0.07f));
             WriteS16(vertex, 24, Clamp((int) Math.Round(level * 32767)));
             WriteS16(vertex, 26, Clamp((int) Math.Round(-d.Y * length * 32767)));

@@ -5,10 +5,11 @@ namespace ForzaStudio
     using System.IO;
     using System.Text;
 
-    // Editable view of an FM4 .carbin (type 2: main, lod0 and cockpit files). The original bytes are
-    // kept and edits are written in place, so everything not touched stays byte for byte identical.
+    // Editable view of a car .carbin (main, lod0 and cockpit files: FM4 type 2, FH type 5; layouts in
+    // CarbinModel). The original bytes are kept and edits are written in place, so everything not
+    // touched stays byte for byte identical.
     //
-    // Vertex (32 bytes, big endian): 4 x SNORM16 position, 2 x UNORM16 UV1, 2 x UNORM16 UV2,
+    // Vertex (32 bytes, big endian; FH 28 bytes, 4 trailing): 4 x SNORM16 position, 2 x UNORM16 UV1, 2 x UNORM16 UV2,
     // 4 x SNORM16 tangent-frame quaternion, 8 unknown bytes. The position shorts are a unit direction
     // plus a length: pos = origin + bboxCenter + dir * w * |bboxHalfExtent| (origin and bbox per section).
     public class CarbinFile
@@ -104,11 +105,20 @@ namespace ForzaStudio
         {
             this.position = 0;
             this.Type = (int) this.U32();
-            if (this.Type != 2)
+            if (this.Type != 2 && this.Type != 5)
             {
-                throw new NotSupportedException(string.Format("Editing .carbin type {0} is not supported yet (only FM4 type 2: main, lod0 and cockpit models).", this.Type));
+                throw new NotSupportedException(string.Format("Editing .carbin type {0} is not supported yet (only car models: FM4 type 2, FH type 5).", this.Type));
             }
-            this.position += 0x15c;
+            if (this.Type == 5)
+            {
+                this.position += 0x150;
+                uint extra = this.U32();
+                this.position += ((int) extra * 0x20) + 12;
+            }
+            else
+            {
+                this.position += 0x15c;
+            }
             uint records = this.U32();
             this.position += 4 + ((int) records * 140) + 0x340;
             uint tables = this.U32() * 2;
@@ -160,6 +170,12 @@ namespace ForzaStudio
                     sub.Lod = (int) this.U32();
                     sub.IndexType = (int) this.U32();
                     this.position += 56 + 4;
+                    if (this.Type == 5 && this.U32() == 2)
+                    {
+                        this.position += 8;     // stripped: no index list
+                        section.SubSections.Add(sub);
+                        continue;
+                    }
                     sub.IndexCount = (int) this.U32();
                     sub.IndexSize = (int) this.U32();
                     sub.IndexOffset = this.position;
@@ -172,9 +188,11 @@ namespace ForzaStudio
                 this.position += 9;
                 uint c1 = this.U32();
                 uint c2 = this.U32();
+                this.SkipFlag();
                 this.position += (int) (c1 * c2) + 4;
                 uint d1 = this.U32();
                 uint d2 = this.U32();
+                this.SkipFlag();
                 this.position += (int) (d1 * d2);
                 if (lod.Count > 0)
                 {
@@ -198,17 +216,27 @@ namespace ForzaStudio
             buffer.IsLod0 = isLod0;
             buffer.Count = (int) this.U32();
             buffer.Stride = (int) this.U32();
-            if (buffer.Stride == 0x1c)
-            {
-                this.position += 8;
-            }
-            if (buffer.Count > 0 && buffer.Stride != 32)
+            this.SkipFlag();
+            if (buffer.Count > 0 && buffer.Stride != ((this.Type == 5) ? 0x1c : 32))
             {
                 throw new NotSupportedException(string.Format("Unsupported vertex size {0}.", buffer.Stride));
             }
             buffer.Offset = this.position;
             this.position += buffer.Count * buffer.Stride;
             return buffer;
+        }
+
+        // FH buffers and tables: a flag word after count and stride, then a 32-bit ID when set.
+        private void SkipFlag()
+        {
+            if (this.Type == 5)
+            {
+                uint flag = this.U32();
+                if (flag != 0)
+                {
+                    this.position += 4;
+                }
+            }
         }
 
         public Section FindSection(string name)
