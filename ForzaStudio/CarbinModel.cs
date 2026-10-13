@@ -160,6 +160,12 @@ namespace ForzaStudio
         {
             foreach (Section section in this.Sections)
             {
+                // Unk1c starts with a float that is 1.0 in every FM4 section (and in FH2 cars but late
+                // ones: the P1 has 0.1 on its lod0 and cockpit parts, which FM4 did not draw).
+                section.Unk1c[0] = 0x3F;
+                section.Unk1c[1] = 0x80;
+                section.Unk1c[2] = 0;
+                section.Unk1c[3] = 0;
                 foreach (byte[] word in new byte[][] { section.PostName, section.AfterSubs, section.Mid })
                 {
                     if (ReadU32(word, 0) == 3)

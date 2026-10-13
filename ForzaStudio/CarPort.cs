@@ -12,7 +12,7 @@ namespace ForzaStudio
     //   model     the FH2 .carbin files converted to FM4 (CarbinModel.ConvertHorizonToMotorsport4),
     //             FH2-only materials renamed to FM4 ones; brakes (type 1) taken from a donor FM4 car;
     //   files     textures, livery masks, MAX data, shader settings, animations and gauges as they
-    //             are; CarAttribs.xml rebuilt in the FM4 version-17 form from the donor's;
+    //             are (the digital dash .fbf gets FM4's version number); CarAttribs.xml rebuilt in the FM4 version-17 form from the donor's;
     //   wheel     the stock wheel's zip converted the same way;
     //   database  every row of the car (FM4 and FH2 share almost all table layouts) plus its engine,
     //             drivetrain, torque curve and wheel rows; PI mapped to the FM4 scale, class from it;
@@ -39,6 +39,7 @@ namespace ForzaStudio
         private long donorId;
         private readonly List<string> engineMedia = new List<string>();
         private readonly List<long> wheelIds = new List<long>();
+        private readonly List<long> originalWheels = new List<long>();   // wheels FM4 already had before the port
         private readonly Dictionary<string, ForzaZip> changedZips = new Dictionary<string, ForzaZip>(StringComparer.OrdinalIgnoreCase);
         private readonly List<string> newZips = new List<string>();
 
@@ -189,9 +190,100 @@ namespace ForzaStudio
             if (wheel != null)
             {
                 this.wheelIds.Add(Convert.ToInt64(wheel));
+                // A wheel FM4 lists for a car other than this one is FM4's own (a port before this one
+                // added the car's wheel together with the car).
+                if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM Data_Car WHERE StockWheelID = ? AND Id <> ?", Convert.ToInt64(wheel), this.carId)) > 0)
+                {
+                    this.originalWheels.Add(Convert.ToInt64(wheel));
+                }
                 this.CopyById(from, to, "ID", this.wheelIds, null, "List_Wheels");
                 this.CopyById(from, to, "WheelID", this.wheelIds, null, "WheelExceptions");
             }
+            this.CopyReferences(from, to);
+        }
+
+        // Every "...ID" value in the rows of the car (and of its engine and drivetrain) that names
+        // the key of a List_/Data_ table (first column of that name) must exist in FM4: the missing
+        // rows come from FH2, and their own references after them (the P1's bumpers and wing point
+        // at List_AeroPhysics rows FM4 does not have).
+        private void CopyReferences(Dictionary<string, List<string>> from, Dictionary<string, List<string>> to)
+        {
+            Dictionary<string, string> keyed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, List<string>> table in to)
+            {
+                List<string> sourceColumns;
+                if (table.Value.Count > 0 && table.Value[0].Length > 2 && table.Value[0].EndsWith("ID", StringComparison.OrdinalIgnoreCase)
+                    && (table.Key.StartsWith("List_") || table.Key.StartsWith("Data_")) && from.TryGetValue(table.Key, out sourceColumns)
+                    && sourceColumns.Count > 0 && sourceColumns[0] == table.Value[0] && !keyed.ContainsKey(table.Value[0]))
+                {
+                    keyed[table.Value[0]] = table.Key;
+                }
+            }
+            // Rows to scan: the car's, then whatever gets copied.
+            List<string[]> pending = new List<string[]>();
+            foreach (KeyValuePair<string, List<string>> table in to)
+            {
+                foreach (string column in new string[] { "Ordinal", "CarId", "CarID" })
+                {
+                    if (table.Value.Contains(column))
+                    {
+                        pending.Add(new string[] { table.Key, SqliteDatabase.Quote(column) + " = " + this.carId });
+                        break;
+                    }
+                }
+                if (table.Key.StartsWith("List_UpgradeCarBody", StringComparison.Ordinal) && table.Value.Count > 0 && table.Value[0] == "Id")
+                {
+                    pending.Add(new string[] { table.Key, "Id / 1000 = " + this.carId });
+                }
+                if (table.Key == "Data_Car")
+                {
+                    pending.Add(new string[] { table.Key, "Id = " + this.carId });
+                }
+            }
+            foreach (string column in new string[] { "EngineID", "DrivetrainID" })
+            {
+                foreach (KeyValuePair<string, List<string>> table in to)
+                {
+                    if (table.Value.Contains(column))
+                    {
+                        pending.Add(new string[] { table.Key, SqliteDatabase.Quote(column) + " IN (SELECT " + column + " FROM " + ((column == "EngineID") ? "List_UpgradeEngine" : "List_UpgradeDrivetrain") + " WHERE Ordinal = " + this.carId + ")" });
+                    }
+                }
+            }
+            int copied = 0;
+            for (int i = 0; i < pending.Count && i < 5000; i++)
+            {
+                SqliteDatabase.Result rows = this.target.Query("SELECT * FROM " + SqliteDatabase.Quote(pending[i][0]) + " WHERE " + pending[i][1]);
+                for (int c = 0; c < rows.Columns.Length; c++)
+                {
+                    string column = rows.Columns[c];
+                    string table;
+                    if (!keyed.TryGetValue(column, out table) || table == pending[i][0])
+                    {
+                        continue;
+                    }
+                    foreach (object[] row in rows.Rows)
+                    {
+                        if (row[c] == null || !(row[c] is long) || (long) row[c] < 0)
+                        {
+                            continue;
+                        }
+                        string where = SqliteDatabase.Quote(column) + " = " + (long) row[c];
+                        if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM " + SqliteDatabase.Quote(table) + " WHERE " + where)) > 0)
+                        {
+                            continue;
+                        }
+                        int added = this.CopyRows(table, from[table], to[table], where);
+                        if (added > 0)
+                        {
+                            copied += added;
+                            this.Line("  {0}: {1} rows ({2}, referenced by {3})", table, added, where.Replace("[", "").Replace("]", ""), pending[i][0]);
+                            pending.Add(new string[] { table, where });
+                        }
+                    }
+                }
+            }
+            this.Line("references: {0} more rows copied", copied);
         }
 
         private List<long> Ids(string sql)
@@ -407,6 +499,22 @@ namespace ForzaStudio
             string prefix = this.MediaName.ToLowerInvariant();
             string donorPrefix = this.DonorMediaName.ToLowerInvariant();
             int models = 0;
+            // Granny animations: FM4 reads little-endian .gr2 files, FH2 writes big-endian ones (file
+            // version 7 at 0x20 as 00000007, measured on the MP4-12C both games have). Without a
+            // converter the car goes without them, as FM4 cars without moving parts do.
+            bool animations = true;
+            foreach (ForzaZip.Entry entry in from.Entries)
+            {
+                if (entry.Name.EndsWith(".gr2", StringComparison.OrdinalIgnoreCase))
+                {
+                    byte[] granny = from.Read(entry);
+                    animations &= granny.Length > 0x24 && granny[0x20] == 7 && granny[0x23] == 0;
+                }
+            }
+            if (!animations)
+            {
+                this.Line("  animations: FH2 .gr2 files are big-endian, left out (no moving parts)");
+            }
             foreach (ForzaZip.Entry entry in from.Entries)
             {
                 string name = entry.Name.ToLowerInvariant();
@@ -414,7 +522,17 @@ namespace ForzaStudio
                 {
                     continue;   // FH2 only
                 }
+                if (!animations && (name.EndsWith(".gr2") || name == "caranimationevents.xml"))
+                {
+                    continue;
+                }
                 byte[] data = from.Read(entry);
+                if (name.EndsWith(".fbf") && data.Length > 4 && data[0] == 0 && data[1] == 0 && data[2] == 3 && data[3] == 0xF0)
+                {
+                    // Anark dash layout: FH2 writes version 0x3F0 (text layers keep a default string
+                    // where FM4's 0x3EF files have an empty one, same length field); .bgf/.bsg are identical.
+                    data[3] = 0xEF;
+                }
                 if (name.EndsWith(".carbin"))
                 {
                     if (name.Contains("_caliper") || name.Contains("_rotor"))
@@ -435,7 +553,7 @@ namespace ForzaStudio
                 }
                 else if (name == "carattribs.xml")
                 {
-                    data = ConvertCarAttributes(Encoding.UTF8.GetString(data), Encoding.UTF8.GetString(donor.Read(donor.Find("carattribs.xml"))));
+                    data = ConvertCarAttributes(Encoding.UTF8.GetString(data), Encoding.UTF8.GetString(donor.Read(donor.Find("carattribs.xml"))), animations);
                 }
                 car.Add(name, data);
             }
@@ -508,7 +626,7 @@ namespace ForzaStudio
         // FM4 CarAttribs version 17: the donor's file with the car's own gauges, driver placement,
         // part drops and animations (FH2 version 21 writes <animation Version="2" ... inrace="1"/>,
         // FM4 <Animation ... inrace="true" />; FH2 repeats each one per LOD).
-        public static byte[] ConvertCarAttributes(string fh2, string fm4Donor)
+        public static byte[] ConvertCarAttributes(string fh2, string fm4Donor, bool animations)
         {
             string result = fm4Donor;
             foreach (string element in new string[] { "DriverHandsSteeringWheelOverride", "DriverHandsOffset", "SteeringWheelAngleOverride", "Driver" })
@@ -529,13 +647,19 @@ namespace ForzaStudio
                     result = result.Substring(0, to.Index) + from.Value + result.Substring(to.Index + to.Length);
                 }
             }
-            Match animations = Regex.Match(fh2, "<Animations>.*?</Animations>", RegexOptions.Singleline);
-            Match target = Regex.Match(result, "<Animations>.*?</Animations>", RegexOptions.Singleline);
-            if (animations.Success && target.Success)
+            Match target = Regex.Match(result, "[ \t]*<Animations>.*?</Animations>\r?\n?", RegexOptions.Singleline);
+            if (!animations)
+            {
+                // No animation files: no <Animations> element (as on FM4 cars without moving parts).
+                return Encoding.UTF8.GetBytes(target.Success ? result.Remove(target.Index, target.Length) : result);
+            }
+            Match source = Regex.Match(fh2, "<Animations>.*?</Animations>", RegexOptions.Singleline);
+            target = Regex.Match(result, "<Animations>.*?</Animations>", RegexOptions.Singleline);
+            if (source.Success && target.Success)
             {
                 StringBuilder list = new StringBuilder("<Animations>\r\n");
                 List<string> seen = new List<string>();
-                foreach (Match animation in Regex.Matches(animations.Value, "<animation\\b([^>]*)/>", RegexOptions.IgnoreCase))
+                foreach (Match animation in Regex.Matches(source.Value, "<animation\\b([^>]*)/>", RegexOptions.IgnoreCase))
                 {
                     string attributes = Regex.Replace(animation.Groups[1].Value, "\\s*Version=\"[^\"]*\"", "");
                     attributes = Regex.Replace(attributes, "inrace=\"1\"", "inrace=\"true\"");
@@ -567,9 +691,10 @@ namespace ForzaStudio
                     continue;
                 }
                 string path = Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "wheels"), media + ".zip");
-                if (File.Exists(path))
+                object original = this.originalWheels.Contains(id) ? (object) true : null;
+                if (File.Exists(path) && original != null)
                 {
-                    this.Line("wheel {0}: already in FM4", media);
+                    this.Line("wheel {0}: an FM4 wheel, kept", media);
                     continue;
                 }
                 ForzaZip from = new ForzaZip(sourcePath);
