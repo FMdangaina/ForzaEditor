@@ -141,6 +141,136 @@ namespace ForzaStudio
             return count;
         }
 
+        // FM2 .carbin: type 2 with the FM2 marker 0x2CA (at 4, or at 0x104 after the type-2 prefix).
+        // Its parts share two vertex buffers, so the structural model does not read it; the export
+        // goes through the viewer's reader (ForzaCarBin), the import is not available yet.
+        public static bool IsMotorsport2(byte[] carbin)
+        {
+            if (carbin.Length < 0x108)
+            {
+                return false;
+            }
+            uint type = U32(carbin, 0);
+            return (type == 1 && U32(carbin, 4) == 0x2ca) || (type == 2 && U32(carbin, 0x104) == 0x2ca);
+        }
+
+        private static uint U32(byte[] data, int offset)
+        {
+            return (uint) ((data[offset] << 24) | (data[offset + 1] << 16) | (data[offset + 2] << 8) | data[offset + 3]);
+        }
+
+        // The same folder layout from the viewer's reader (FM2: LODs 1 to 5 in the one .carbin).
+        // Positions, UVs (OBJ convention) and normals as the viewer shows them.
+        public static int ExportLegacy(byte[] carbin, string carbinName, string folder, string source)
+        {
+            Directory.CreateDirectory(folder);
+            foreach (string directory in Directory.GetDirectories(folder))
+            {
+                if (LodFolder.IsMatch(Path.GetFileName(directory)))
+                {
+                    foreach (string old in Directory.GetFiles(directory, "*.obj"))
+                    {
+                        File.Delete(old);
+                    }
+                }
+            }
+            CultureInfo inv = CultureInfo.InvariantCulture;
+            StringBuilder manifest = new StringBuilder();
+            manifest.AppendLine("# ForzaEditor model folder of " + carbinName + " (Forza Motorsport 2), exported from " + source);
+            manifest.AppendLine("# lodN\\<part>.obj = the part at that LOD, one group per material (usemtl = car material).");
+            manifest.AppendLine("# FM2 models can be exported; importing them back is not available yet.");
+            manifest.AppendLine("file " + carbinName);
+            Dictionary<int, List<string>> materials = new Dictionary<int, List<string>>();
+            int count = 0;
+            using (ForzaCarBin model = new ForzaCarBin(carbinName, carbin))
+            {
+                foreach (ForzaCarSection section in model.Sections)
+                {
+                    SortedDictionary<int, List<ForzaCarSubSection>> lods = new SortedDictionary<int, List<ForzaCarSubSection>>();
+                    foreach (ForzaCarSubSection sub in section.SubSections)
+                    {
+                        if (sub.Vertices == null || sub.Indices == null || sub.FaceCount == 0)
+                        {
+                            continue;
+                        }
+                        if (!lods.ContainsKey(sub.Lod))
+                        {
+                            lods[sub.Lod] = new List<ForzaCarSubSection>();
+                        }
+                        lods[sub.Lod].Add(sub);
+                        if (!materials.ContainsKey(sub.Lod))
+                        {
+                            materials[sub.Lod] = new List<string>();
+                        }
+                        if (!materials[sub.Lod].Contains(sub.Name))
+                        {
+                            materials[sub.Lod].Add(sub.Name);
+                        }
+                    }
+                    foreach (KeyValuePair<int, List<ForzaCarSubSection>> lod in lods)
+                    {
+                        string directory = Path.Combine(folder, "lod" + lod.Key.ToString(inv));
+                        Directory.CreateDirectory(directory);
+                        string path = Path.Combine(directory, section.Name + ".obj");
+                        using (StreamWriter obj = new StreamWriter(path, false, new UTF8Encoding(false)))
+                        {
+                            obj.WriteLine("# ForzaEditor: " + section.Name + " from " + carbinName);
+                            obj.WriteLine("# part " + section.Name + ", LOD " + lod.Key + "; units: meters, model space; one group per material (usemtl = car material)");
+                            obj.WriteLine("mtllib " + MaterialsName);
+                            int baseIndex = 1;
+                            foreach (ForzaCarSubSection sub in lod.Value)
+                            {
+                                obj.WriteLine("g " + section.Name + "_" + sub.Name);
+                                obj.WriteLine("usemtl " + sub.Name);
+                                foreach (ForzaVertex v in sub.Vertices)
+                                {
+                                    obj.WriteLine(string.Format(inv, "v {0:R} {1:R} {2:R}", v.position.X, v.position.Y, v.position.Z));
+                                }
+                                foreach (ForzaVertex v in sub.Vertices)
+                                {
+                                    obj.WriteLine(string.Format(inv, "vt {0:R} {1:R}", v.texture0.X, v.texture0.Y));
+                                }
+                                foreach (ForzaVertex v in sub.Vertices)
+                                {
+                                    Vector3 n = (v.normal.LengthSquared() > 1e-12f) ? Vector3.Normalize(v.normal) : Vector3.UnitY;
+                                    obj.WriteLine(string.Format(inv, "vn {0:R} {1:R} {2:R}", n.X, n.Y, n.Z));
+                                }
+                                for (int i = 0; i + 2 < sub.Indices.Length; i += 3)
+                                {
+                                    int a = sub.Indices[i];
+                                    int b = sub.Indices[i + 1];
+                                    int c = sub.Indices[i + 2];
+                                    if (a == b || b == c || a == c)
+                                    {
+                                        continue;
+                                    }
+                                    // Front face as the stored normals say (the strip winding alternates).
+                                    Vector3 face = Vector3.Cross(sub.Vertices[b].position - sub.Vertices[a].position, sub.Vertices[c].position - sub.Vertices[a].position);
+                                    if (Vector3.Dot(face, sub.Vertices[a].normal + sub.Vertices[b].normal + sub.Vertices[c].normal) < 0)
+                                    {
+                                        int swap = a;
+                                        a = b;
+                                        b = swap;
+                                    }
+                                    obj.WriteLine("f {0}/{0}/{0} {1}/{1}/{1} {2}/{2}/{2}", a + baseIndex, b + baseIndex, c + baseIndex);
+                                }
+                                baseIndex += sub.Vertices.Length;
+                            }
+                        }
+                        manifest.AppendLine("obj " + Hash(path) + " " + Relative((uint) lod.Key, section.Name));
+                        count++;
+                    }
+                }
+            }
+            foreach (KeyValuePair<int, List<string>> pair in materials)
+            {
+                pair.Value.Sort(StringComparer.OrdinalIgnoreCase);
+                ObjMesh.WriteMtl(Path.Combine(Path.Combine(folder, "lod" + pair.Key.ToString(inv)), MaterialsName), pair.Value);
+            }
+            File.WriteAllText(Path.Combine(folder, ManifestName), manifest.ToString(), new UTF8Encoding(false));
+            return count;
+        }
+
         #endregion
 
         #region Import plan

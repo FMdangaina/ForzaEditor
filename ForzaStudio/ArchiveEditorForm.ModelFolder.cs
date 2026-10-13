@@ -23,7 +23,13 @@ namespace ForzaStudio
             Dictionary<string, CarbinModel> models = new Dictionary<string, CarbinModel>();
             foreach (KeyValuePair<string, ForzaZip.Entry> pair in files)
             {
-                models[pair.Key] = new CarbinModel(this.zip.Read(pair.Value));
+                byte[] data = this.zip.Read(pair.Value);
+                if (CarModelFolder.IsMotorsport2(data))
+                {
+                    MessageBox.Show(this, "Forza Motorsport 2 models can be exported to a folder, but importing them back is not available yet.", action, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return null;
+                }
+                models[pair.Key] = new CarbinModel(data);
             }
             return models;
         }
@@ -35,19 +41,11 @@ namespace ForzaStudio
 
         private void ExportModelFolder()
         {
-            Dictionary<string, ForzaZip.Entry> files;
-            Dictionary<string, CarbinModel> models;
-            try
+            // Every model file of the car; FM2 ones go through the viewer's reader.
+            Dictionary<string, ForzaZip.Entry> files = (this.zip == null) ? new Dictionary<string, ForzaZip.Entry>() : this.CarModelFiles(this.zip, this.ModelFolder);
+            if (files.Count == 0)
             {
-                models = this.LoadCarModels("Export Model", out files);
-            }
-            catch (Exception exception)
-            {
-                MessageBox.Show(this, exception.Message, "Export Model", MessageBoxButtons.OK, MessageBoxIcon.Hand);
-                return;
-            }
-            if (models == null)
-            {
+                MessageBox.Show(this, "Open a car's model (its .carbin) first.", "Export Model", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             string parent;
@@ -93,7 +91,10 @@ namespace ForzaStudio
                         continue;
                     }
                     string folder = Path.Combine(parent, CarModelFolder.FolderName(CarbinName(entry)));
-                    count += CarModelFolder.Export(models[kind], CarbinName(entry), folder, this.SourceName);
+                    byte[] data = this.zip.Read(entry);
+                    count += CarModelFolder.IsMotorsport2(data)
+                        ? CarModelFolder.ExportLegacy(data, CarbinName(entry), folder, this.SourceName)
+                        : CarModelFolder.Export(new CarbinModel(data), CarbinName(entry), folder, this.SourceName);
                     made.Add(Path.GetFileName(folder));
                 }
                 this.SetStatus(string.Format("{0:N0} OBJs exported to {1}: {2} (edit them, then Import Model From Folder)", count, parent, string.Join(", ", made.ToArray())));

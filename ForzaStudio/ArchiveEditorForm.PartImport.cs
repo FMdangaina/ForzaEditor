@@ -67,6 +67,25 @@ namespace ForzaStudio
             }
             if (mainBase == null)
             {
+                // FM2: one .carbin per car, no _lod0 / _cockpit files.
+                ForzaZip.Entry single = null;
+                foreach (ForzaZip.Entry entry in archive.Entries)
+                {
+                    string name = entry.Name.ToLowerInvariant();
+                    if (name.StartsWith(folder.ToLowerInvariant()) && name.EndsWith(".carbin") && name.IndexOf('/', folder.Length) < 0
+                        && !name.Substring(folder.Length).StartsWith("stripped_") && name.IndexOf("_caliper") < 0 && name.IndexOf("_rotor") < 0)
+                    {
+                        if (single != null)
+                        {
+                            return files;
+                        }
+                        single = entry;
+                    }
+                }
+                if (single != null)
+                {
+                    files[""] = single;
+                }
                 return files;
             }
             foreach (string suffix in new string[] { "", "_lod0", "_cockpit" })
