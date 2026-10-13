@@ -108,6 +108,10 @@
                     throw new InvalidOperationException(string.Format("Car id {0} is {1} in the target database.", this.carId, existing));
                 }
                 this.Line("car {0}: id {1}, donor {2} (id {3})", this.MediaName, this.carId, this.DonorMediaName, this.donorId);
+                if (this.OutputRoot == null)
+                {
+                    this.CheckWritable(targetDbPath);
+                }
 
                 this.PortDatabase();
                 this.PortStrings();
@@ -1113,6 +1117,53 @@
             string output = Path.Combine(this.OutputRoot, this.Relative(path));
             Directory.CreateDirectory(Path.GetDirectoryName(output));
             return output;
+        }
+
+        // Before anything is written: every game file the port may replace must be free (the game
+        // running in Xenia keeps UI\Textures.zip open; failing halfway would leave rewritten zips
+        // without their manifest lines).
+        private void CheckWritable(string databasePath)
+        {
+            string media = Path.Combine(this.TargetRoot, "Media");
+            List<string> files = new List<string>();
+            files.Add(databasePath);
+            files.Add(ZipManifest.PathFor(this.TargetRoot));
+            files.Add(Path.Combine(Path.Combine(media, "UI"), "Textures.zip"));
+            files.Add(Path.Combine(Path.Combine(Path.Combine(media, "audio"), "Cars"), "CarModelTuning.zip"));
+            files.Add(Path.Combine(Path.Combine(Path.Combine(Path.Combine(media, "audio"), "Cars"), "Engines"), "enginetuning.zip"));
+            files.Add(Path.Combine(Path.Combine(media, "cars"), this.MediaName + ".zip"));
+            files.Add(Path.Combine(Path.Combine(media, "wheels"), this.MediaName + ".zip"));
+            string strings = Path.Combine(media, "StringTables");
+            if (Directory.Exists(strings))
+            {
+                files.AddRange(Directory.GetFiles(strings, "*.zip"));
+            }
+            List<string> busy = new List<string>();
+            foreach (string file in files)
+            {
+                if (!File.Exists(file))
+                {
+                    continue;
+                }
+                try
+                {
+                    using (new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                    {
+                    }
+                }
+                catch (IOException)
+                {
+                    busy.Add(this.Relative(file));
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    busy.Add(this.Relative(file));
+                }
+            }
+            if (busy.Count > 0)
+            {
+                throw new IOException("Files in use (close the game or the emulator first): " + string.Join(", ", busy.ToArray()));
+            }
         }
 
         private void Write(string path, byte[] data)
