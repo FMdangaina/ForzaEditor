@@ -258,6 +258,23 @@ namespace ForzaStudio
             entry.Replacement = data;
         }
 
+        // An empty archive whose new entries copy the headers (versions, 0x1123 extra field,
+        // compression per extension) of a game archive; Save writes it anywhere.
+        public static ForzaZip CreateLike(ForzaZip model)
+        {
+            ForzaZip archive = new ForzaZip();
+            archive.FilePath = model.FilePath;
+            archive.templates = new List<Entry>(model.Entries);
+            return archive;
+        }
+
+        private List<Entry> templates;
+
+        public void Remove(Entry entry)
+        {
+            this.Entries.Remove(entry);
+        }
+
         public void Revert(Entry entry)
         {
             entry.Replacement = null;
@@ -323,7 +340,12 @@ namespace ForzaStudio
         {
             string extension = Path.GetExtension(name);
             Dictionary<int, int> methods = new Dictionary<int, int>();
-            foreach (Entry entry in this.Entries)
+            List<Entry> candidates = new List<Entry>(this.Entries);
+            if (this.templates != null)
+            {
+                candidates.AddRange(this.templates);
+            }
+            foreach (Entry entry in candidates)
             {
                 if (entry.CentralRecord == null)
                 {
@@ -339,7 +361,7 @@ namespace ForzaStudio
             }
             Entry best = null;
             int bestCount = 0;
-            foreach (Entry entry in this.Entries)
+            foreach (Entry entry in candidates)
             {
                 if (entry.CentralRecord != null && methods[entry.Method] > bestCount)
                 {

@@ -102,10 +102,123 @@ namespace ForzaStudio
 
         public uint Type;
 
-        // FH files (type 5): 28-byte vertices and the FH block sizes.
+        // FH files (car models type 5, and FH wheels): 28-byte vertices and the FH block sizes.
         public bool IsHorizon
         {
-            get { return this.Type == 5; }
+            get { return this.horizon; }
+        }
+
+        private bool horizon;
+
+        // FH (type 5) -> FM4 (type 2), measured on the Supra, which both games have:
+        //  - header: FH has N 0x20-byte records after 0x154 (no FM4 counterpart, dropped) and format
+        //    word 0x11 where FM4 has 0x10; the rest is the same layout (FM4 files also hold leftover
+        //    memory in their first bytes, which the game ignores);
+        //  - per section the version words PostName, AfterSubs, Post9[5..8] and Mid are 3 in FH, 2 in
+        //    FM4; per subsection Three is 4 in FH, 3 in FM4, and FH's extra index word goes;
+        //  - buffers lose the FH flag/ID; 28-byte vertices grow to 32: the 4 trailing SNORM8 values
+        //    become the FM4 SNORM16 ones (same meaning, see WriteTail).
+        public void ConvertHorizonToMotorsport4()
+        {
+            if (!this.IsHorizon)
+            {
+                return;
+            }
+            if (this.Type == 3)
+            {
+                // Wheels: the same header but for the format word at 0x48 (FH 0x11, FM4 0x10; the
+                // only difference on a wheel both games have).
+                if (ReadU32(this.Head, 0x48) == 0x11)
+                {
+                    this.Head[0x4B] = 0x10;
+                }
+                this.ConvertSectionsToMotorsport4();
+                return;
+            }
+            int extra = (int) ReadU32(this.Head, 0x154);
+            int fmStart = 0x158 + (extra * 0x20);
+            using (MemoryStream head = new MemoryStream())
+            {
+                head.Write(this.Head, 0, 0x154);
+                head.Write(this.Head, fmStart, this.Head.Length - fmStart);
+                byte[] converted = head.ToArray();
+                converted[0] = 0;
+                converted[1] = 0;
+                converted[2] = 0;
+                converted[3] = 2;
+                if (ReadU32(converted, 0x154) == 0x11)
+                {
+                    converted[0x157] = 0x10;
+                }
+                this.Head = converted;
+            }
+            this.ConvertSectionsToMotorsport4();
+            this.Type = 2;
+        }
+
+        private void ConvertSectionsToMotorsport4()
+        {
+            foreach (Section section in this.Sections)
+            {
+                foreach (byte[] word in new byte[][] { section.PostName, section.AfterSubs, section.Mid })
+                {
+                    if (ReadU32(word, 0) == 3)
+                    {
+                        word[3] = 2;
+                    }
+                }
+                if (section.Post9.Length == 9 && section.Post9[8] == 3)
+                {
+                    section.Post9[8] = 2;
+                }
+                foreach (SubSection sub in section.SubSections)
+                {
+                    if (sub.Stripped != null)
+                    {
+                        throw new NotSupportedException(section.Name + ": stripped FH subsections (no index list) have no FM4 form.");
+                    }
+                    if (sub.Three == 4)
+                    {
+                        sub.Three = 3;
+                    }
+                    sub.IndexWord = 0;
+                }
+                section.Lod = WidenVertices(section.Lod);
+                section.Lod0 = WidenVertices(section.Lod0);
+                section.DamageLod.Extra = new byte[0];
+                section.DamageLod0.Extra = new byte[0];
+            }
+            this.horizon = false;
+        }
+
+        // 28-byte FH vertices -> 32-byte FM4 vertices.
+        private static VertexBuffer WidenVertices(VertexBuffer buffer)
+        {
+            VertexBuffer wide = new VertexBuffer();
+            wide.Count = buffer.Count;
+            wide.Stride = (buffer.Count > 0) ? 0x20 : buffer.Stride;
+            if (buffer.Count == 0 || buffer.Stride != 0x1c)
+            {
+                wide.Stride = (buffer.Count > 0) ? buffer.Stride : 0;
+                wide.Data = buffer.Data;
+                return wide;
+            }
+            wide.Data = new byte[buffer.Count * 0x20];
+            for (int i = 0; i < buffer.Count; i++)
+            {
+                Buffer.BlockCopy(buffer.Data, i * 0x1c, wide.Data, i * 0x20, 24);
+                for (int k = 0; k < 4; k++)
+                {
+                    sbyte value = (sbyte) buffer.Data[(i * 0x1c) + 24 + k];
+                    WriteS16(wide.Data, (i * 0x20) + 24 + (k * 2), Clamp((int) Math.Round(Math.Max(-1.0, value / 127.0) * 32767)));
+                }
+            }
+            return wide;
+        }
+
+        private static uint ReadU32(byte[] data, int offset)
+        {
+            return (uint) ((data[offset] << 24) | (data[offset + 1] << 16) | (data[offset + 2] << 8) | data[offset + 3]);
         }
 
         // Bytes per vertex of the file: 32 (FM4) or 28 (FH).
@@ -204,10 +317,31 @@ namespace ForzaStudio
         {
             this.position = 0;
             this.Type = this.U32();
+            if (this.Type == 3)
+            {
+                // Wheels: a fixed 920-byte header in both games; FM4 and FH differ only in the section
+                // layout, so the FM4 reading is tried first and FH when it does not end on the trailer.
+                try
+                {
+                    this.horizon = false;
+                    this.ParseFrom(4 + 920);
+                    if (this.Trailer.Length == 24)
+                    {
+                        return;
+                    }
+                }
+                catch (Exception)
+                {
+                }
+                this.horizon = true;
+                this.ParseFrom(4 + 920);
+                return;
+            }
             if (this.Type != 2 && this.Type != 5)
             {
-                throw new NotSupportedException(string.Format("Structural editing of .carbin type {0} is not supported (only car models: FM4 type 2, FH type 5).", this.Type));
+                throw new NotSupportedException(string.Format("Structural editing of .carbin type {0} is not supported (car models: FM4 type 2, FH type 5; wheels: type 3).", this.Type));
             }
+            this.horizon = this.Type == 5;
             if (this.IsHorizon)
             {
                 // FH: N records of 0x20 bytes and 12 more bytes before the FM4-style record table.
@@ -221,7 +355,14 @@ namespace ForzaStudio
             }
             uint records = this.U32();
             this.position += 4 + ((int) records * 140) + 0x340;
-            int headLength = this.position;
+            this.ParseFrom(this.position);
+        }
+
+        // Everything after the header (draw lists, sections, trailer).
+        private void ParseFrom(int headLength)
+        {
+            this.DrawLists.Clear();
+            this.Sections.Clear();
             this.position = 0;
             this.Head = this.Bytes(headLength);
             uint lists = this.U32() * 2;

@@ -165,6 +165,8 @@
     <Compile Include="ForzaStudio\CarModelFolder.cs" />
     <Compile Include="ForzaStudio\GameInfo.cs" />
     <Compile Include="ForzaStudio\GameMusic.cs" />
+    <Compile Include="ForzaStudio\StrFile.cs" />
+    <Compile Include="ForzaStudio\CarPort.cs" />
     <Compile Include="ForzaStudio\ObjMesh.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartEdit.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartImport.cs" />

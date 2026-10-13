@@ -99,6 +99,52 @@ namespace ForzaStudio
             return true;
         }
 
+        // Lists a new zip: a copy of the line of 'likeGamePath' (same version and priority) with the
+        // new path and numbers, placed after it. Updates the line instead when the zip is listed.
+        public static bool Add(string manifestPath, string gamePath, string zipPath, string likeGamePath)
+        {
+            if (Lists(manifestPath, gamePath))
+            {
+                return Update(manifestPath, gamePath, zipPath);
+            }
+            long start;
+            long size;
+            int entries;
+            ReadDirectory(zipPath, out start, out size, out entries);
+            byte[] original = File.ReadAllBytes(manifestPath);
+            bool bom = original.Length >= 3 && original[0] == 0xEF && original[1] == 0xBB && original[2] == 0xBF;
+            string text = Encoding.UTF8.GetString(original, bom ? 3 : 0, original.Length - (bom ? 3 : 0));
+            Match like = FindLine(text, likeGamePath);
+            if (like == null)
+            {
+                return false;
+            }
+            string line = Regex.Replace(like.Value, "\\bpath=\"[^\"]*\"", "path=\"" + gamePath.Replace("$", "$$") + "\"", RegexOptions.IgnoreCase);
+            line = SetAttribute(line, "dirstart", start.ToString());
+            line = SetAttribute(line, "dirsize", size.ToString());
+            line = SetAttribute(line, "direntries", entries.ToString());
+            // Same line break and indentation as the line copied.
+            int lineStart = text.LastIndexOf('\n', like.Index) + 1;
+            string indent = text.Substring(lineStart, like.Index - lineStart);
+            string newline = (like.Index + like.Length < text.Length && text[like.Index + like.Length] == '\r') ? "\r\n" : "\n";
+            int insert = like.Index + like.Length;
+            text = text.Substring(0, insert) + newline + indent + line + text.Substring(insert);
+            byte[] body = new UTF8Encoding(false).GetBytes(text);
+            byte[] data = new byte[(bom ? 3 : 0) + body.Length];
+            if (bom)
+            {
+                data[0] = 0xEF;
+                data[1] = 0xBB;
+                data[2] = 0xBF;
+            }
+            Buffer.BlockCopy(body, 0, data, bom ? 3 : 0, body.Length);
+            string temp = manifestPath + ".tmp";
+            File.WriteAllBytes(temp, data);
+            File.Delete(manifestPath);
+            File.Move(temp, manifestPath);
+            return true;
+        }
+
         private static Match FindLine(string text, string gamePath)
         {
             foreach (Match match in Regex.Matches(text, "<Zip\\b[^>]*>", RegexOptions.IgnoreCase))
