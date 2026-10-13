@@ -27,7 +27,12 @@ bak/
 *.str
 \!FH demo car*/
 \!FM4 demo car*/
-\!ForzaStudio release/
+
+# Third-party tools: only MIT-licensed ones are committed (see THIRD-PARTY-NOTICES.md).
+# Xbox 360 SDK files (xdevkit, xcompress, bundler, unbundler), xds.dll and quickbms stay local.
+/\!ForzaStudio release/*
+!/\!ForzaStudio release/Be.Windows.Forms.HexBox.dll
+!/\!ForzaStudio release/texconv.exe
 
 # Runtime files written next to the exe
 settings.txt
