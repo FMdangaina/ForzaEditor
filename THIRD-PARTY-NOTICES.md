@@ -1,5 +1,20 @@
 # Third-party notices
 
+ForzaEditor is licensed under the GNU General Public License v3.0 (see [LICENSE](LICENSE)).
+It includes MIT-licensed work, whose notices are kept here as that license requires.
+
+## Forza Studio 4.6
+
+ForzaEditor is derived from the source code of Forza Studio 4.6:
+
+    Forza Studio: Forza Motorsport resource extraction tool.
+    Copyright (C) 2012 Mike Davis (http://codeescape.com/)
+
+That code is distributed under the MIT License reproduced below; the original notice is also kept
+at the top of each of its source files.
+
+## Binaries
+
 This repository includes the following third-party binaries in `!ForzaStudio release/`.
 Both are distributed under the MIT License, reproduced below.
 

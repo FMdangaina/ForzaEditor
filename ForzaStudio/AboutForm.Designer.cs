@@ -113,7 +113,7 @@ namespace ForzaStudio
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(294, 30);
             this.label5.TabIndex = 7;
-            this.label5.Text = "Earlier edit by JYSB59\nForza Studio (C) 2012 Mike Davis, MIT License";
+            this.label5.Text = "Earlier edit by JYSB59 - GPL-3.0\nForza Studio (C) 2012 Mike Davis (MIT)";
             this.label5.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // AboutForm

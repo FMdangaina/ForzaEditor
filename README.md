@@ -1,13 +1,20 @@
 # ForzaEditor
 
-Complete utility for Xbox 360 era Forza games modding (Forza Motorsport 4, Forza Horizon).
+Complete utility for Xbox 360 era Forza games modding: Forza Motorsport 4 and Forza Horizon 2
+(Forza Motorsport 2: archives, textures, model viewing and music; model editing to come).
 
 Edits the game's zip archives directly: `.carbin` car models (OBJ export/import,
 part transplant and duplication), `.xds` textures (import, export, creation from
-images), livery masks and the gamedb.
+images), livery masks and the gamedb, with the game's music and FH2 radio in the status bar.
 
-Derived from Forza Studio 4.6 by Mike Davis (MIT License), with an earlier edit
-by JYSB59. Maintained by FMdangaina. See [LICENSE](LICENSE).
+Derived from Forza Studio 4.6 by Mike Davis, with an earlier edit by JYSB59.
+Maintained by FMdangaina.
+
+## License
+
+GNU General Public License v3.0, see [LICENSE](LICENSE). The Forza Studio 4.6 code it is
+based on is MIT-licensed (Copyright (C) 2012 Mike Davis); its notice is kept in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## Build
 
