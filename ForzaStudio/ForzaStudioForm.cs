@@ -154,9 +154,6 @@ namespace ForzaStudio
         public int UVset;
         public uint clicked = 0;
         public bool customkeyboard = false;
-        private ToolStripMenuItem packArchiveToolStripMenuItem;
-        private ToolStripMenuItem xPREncoderToolStripMenuItem;
-        private ToolStripMenuItem xPRDecoderToolStripMenuItem;
         private ToolStripMenuItem hexViewToolStripMenuItem;
         private ToolStripMenuItem saveModdingToolStripMenuItem;
         private ToolStripMenuItem consoleModdingToolStripMenuItem;
@@ -635,10 +632,7 @@ namespace ForzaStudio
             this.mnuImport = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuExit = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuUtilities = new System.Windows.Forms.ToolStripMenuItem();
-            this.packArchiveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuUnpackArchive = new System.Windows.Forms.ToolStripMenuItem();
-            this.xPREncoderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.xPRDecoderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.hexViewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveModdingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.consoleModdingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -994,10 +988,7 @@ namespace ForzaStudio
             // mnuUtilities
             // 
             this.mnuUtilities.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.packArchiveToolStripMenuItem,
             this.mnuUnpackArchive,
-            this.xPREncoderToolStripMenuItem,
-            this.xPRDecoderToolStripMenuItem,
             this.hexViewToolStripMenuItem,
             this.saveModdingToolStripMenuItem,
             this.consoleModdingToolStripMenuItem});
@@ -1006,17 +997,6 @@ namespace ForzaStudio
             this.mnuUtilities.Name = "mnuUtilities";
             this.mnuUtilities.Size = new System.Drawing.Size(74, 20);
             this.mnuUtilities.Text = "Utilities";
-            // 
-            // packArchiveToolStripMenuItem
-            // 
-            this.packArchiveToolStripMenuItem.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(17)))), ((int)(((byte)(17)))), ((int)(((byte)(17)))));
-            this.packArchiveToolStripMenuItem.ForeColor = System.Drawing.Color.White;
-            this.packArchiveToolStripMenuItem.Image = global::Properties.Resources.IconPack;
-            this.packArchiveToolStripMenuItem.Name = "packArchiveToolStripMenuItem";
-            this.packArchiveToolStripMenuItem.Size = new System.Drawing.Size(169, 22);
-            this.packArchiveToolStripMenuItem.Text = "Pack Archive";
-            this.packArchiveToolStripMenuItem.Visible = false;
-            this.packArchiveToolStripMenuItem.Click += new System.EventHandler(this.packarchiveStripMenuItem_Click);
             // 
             // mnuUnpackArchive
             // 
@@ -1027,26 +1007,6 @@ namespace ForzaStudio
             this.mnuUnpackArchive.Size = new System.Drawing.Size(169, 22);
             this.mnuUnpackArchive.Text = "Unpack Archive";
             this.mnuUnpackArchive.Click += new System.EventHandler(this.mnuExtractZip_Click);
-            // 
-            // xPREncoderToolStripMenuItem
-            // 
-            this.xPREncoderToolStripMenuItem.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(17)))), ((int)(((byte)(17)))), ((int)(((byte)(17)))));
-            this.xPREncoderToolStripMenuItem.ForeColor = System.Drawing.Color.White;
-            this.xPREncoderToolStripMenuItem.Image = global::Properties.Resources.IconXpr;
-            this.xPREncoderToolStripMenuItem.Name = "xPREncoderToolStripMenuItem";
-            this.xPREncoderToolStripMenuItem.Size = new System.Drawing.Size(169, 22);
-            this.xPREncoderToolStripMenuItem.Text = "XPR Encoder";
-            this.xPREncoderToolStripMenuItem.Click += new System.EventHandler(this.xPREncoderToolStripMenuItem_Click);
-            // 
-            // xPRDecoderToolStripMenuItem
-            // 
-            this.xPRDecoderToolStripMenuItem.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(17)))), ((int)(((byte)(17)))), ((int)(((byte)(17)))));
-            this.xPRDecoderToolStripMenuItem.ForeColor = System.Drawing.Color.White;
-            this.xPRDecoderToolStripMenuItem.Image = global::Properties.Resources.IconDecom1;
-            this.xPRDecoderToolStripMenuItem.Name = "xPRDecoderToolStripMenuItem";
-            this.xPRDecoderToolStripMenuItem.Size = new System.Drawing.Size(169, 22);
-            this.xPRDecoderToolStripMenuItem.Text = "XPR Decoder";
-            this.xPRDecoderToolStripMenuItem.Click += new System.EventHandler(this.xPRDecoderToolStripMenuItem_Click);
             // 
             // hexViewToolStripMenuItem
             // 
@@ -1639,35 +1599,6 @@ namespace ForzaStudio
         {
         }
 
-        private void xPREncoderToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (ex(apfp + @"\bundler.exe"))
-            {
-                if (ex(apfp + @"\scr.rdf"))
-                {
-                    var OpenTGA = new OpenFileDialog { Filter = "TGA File|*.tga" };
-
-                    if (OpenTGA.ShowDialog() == DialogResult.OK)
-                    {
-                        FileInfo info = new FileInfo(OpenTGA.FileName);
-                        Types.Name = info.Name;
-                        Types.Location = OpenTGA.FileName;
-                        Form TGA = new XPREncoder();
-                        TGA.Show();
-                    }
-                }
-                else
-                {
-                    MessageBox.Show("Please make sure if the scr.rdf if in the folder Script of ForzaStudio location","Error");
-                }
-            }
-            else
-            {
-                MessageBox.Show("Please place the Bundler.exe in ForzaStudio location", "Error");
-            }
-
-        }
-
         private void showGreenScreenToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (clicked == 0)
@@ -1687,29 +1618,6 @@ namespace ForzaStudio
         {
             ConsoleModding Form = new ConsoleModding();
             Form.Show();
-        }
-
-        private void packarchiveStripMenuItem_Click(object sender, EventArgs e)
-        {
-            // ....................................................... bull shit 
-
-            if (ex(apfp + @"\quickbms.exe"))
-            {
-                var OpenZIP = new OpenFileDialog { Filter = "ZIP File|*.zip" };
-
-                if (OpenZIP.ShowDialog() == DialogResult.OK)
-                {
-                    ProcessStartInfo processInfo = new ProcessStartInfo();
-                    processInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                    processInfo.FileName = "cmd.exe";
-                    processInfo.WorkingDirectory = Application.StartupPath;
-                    processInfo.Arguments = "/c \"quickbms.exe -w -r script.bms " + OpenZIP.FileName + "\"\0";
-                }
-            }
-            else
-            {
-                MessageBox.Show("Please place the quickbms.exe in ForzaStudio location", "Error");
-            }
         }
 
         private void saveModToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1759,343 +1667,6 @@ namespace ForzaStudio
         {
             CustomKeyboard key = new CustomKeyboard();
             key.Show();
-        }
-
-        private bool ex(string g)
-        {
-            return File.Exists(g);
-        }
-
-        private void del(string h)
-        {
-            File.Delete(h);
-        }
-
-        private void mov(string f, string g)
-        {
-            File.Move(f, g);
-        }
-
-        static string afdpp()
-        {
-            return AppDomain.CurrentDomain.BaseDirectory;
-        }
-
-        string apfp = afdpp();
-
-        private void xPRDecoderToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (ex(apfp + @"\unbundler.exe"))
-            {
-                var OpenXPR = new OpenFileDialog { Filter = "XPR File|*.xpr" };
-
-                if (OpenXPR.ShowDialog() == DialogResult.OK)
-                {
-                    FileInfo info = new FileInfo(OpenXPR.FileName);
-
-                    XPRDecoder load = new XPRDecoder();
-
-                    if (ex(apfp + @"\cup.xpr"))
-                    {
-                        del(apfp + @"\cup.xpr");
-                    }
-
-                    if (ex(apfp + @"\cup.xpr.rdf"))
-                    {
-                        string Name = getbtw(File.ReadAllText(apfp + @"\cup.xpr.rdf"), "Name   = \"", "\"");
-
-                        if (ex(apfp + Name + ".tga"))
-                        {
-                            del(apfp + Name + ".tga");
-                        }
-                        if (ex(apfp + Name + "_1" + ".tga"))
-                        {
-                            del(apfp + Name + "_1" + ".tga");
-                        }
-                        if (ex(apfp + Name + "_2" + ".tga"))
-                        {
-                            del(apfp + Name + "_2" + ".tga");
-                        }
-                        if (ex(apfp + Name + "_3" + ".tga"))
-                        {
-                            del(apfp + Name + "_3" + ".tga");
-                        }
-                        if (ex(apfp + Name + "_4" + ".tga"))
-                        {
-                            del(apfp + Name + "_4" + ".tga");
-                        }
-                        if (ex(apfp + Name + "_5" + ".tga"))
-                        {
-                            del(apfp + Name + "_5" + ".tga");
-                        }
-                        if (ex(apfp + Name + "_6" + ".tga"))
-                        {
-                            del(apfp + Name + "_6" + ".tga");
-                        }
-                        if (ex(apfp + Name + "_miptail" + ".tga"))
-                        {
-                            del(apfp + Name + "_miptail" + ".tga");
-                        }
-
-                        del(apfp + @"\cup.xpr.rdf");
-                    }
-
-                    File.Copy(OpenXPR.FileName, apfp + @"\cup.xpr");
-
-                    if (File.ReadAllText(apfp + @"\cup.xpr").Contains("The XPR have protected entrypoint"))
-                    {
-                        // A simple method for detect my shit security
-                        // If you delete this string from xpr file the flow is always here ;)
-                        // u should make a unicode char like '\xBE\xEF\x69\x69' for detect it for hide this
-
-                        del(apfp + @"\cup.xpr");
-                        MessageBox.Show("The XPR have protected entrypoint", "Error");
-                    }
-                    else
-                    {
-                        ProcessStartInfo processInfo = new ProcessStartInfo();
-                        processInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                        processInfo.FileName = "cmd.exe";
-                        processInfo.WorkingDirectory = Application.StartupPath;
-                        processInfo.Arguments = "/cunbundler cup.xpr";
-
-                        Process.Start(processInfo);
-
-                        var Save = new FolderBrowserDialog { Description = "Select output folder" };
-
-                        //load.Show();
-
-                        Thread.Sleep(10000);
-
-                        try
-                        {
-                            string Name = getbtw(File.ReadAllText(apfp + @"\cup.xpr.rdf"), "Name   = \"", "\"");
-
-                            if (Save.ShowDialog() == DialogResult.OK)
-                            {
-                                if (ex(apfp + "cup.xpr.rdf"))
-                                {
-                                    if (!ex(Save.SelectedPath + @"\FILEXPR.rdf"))
-                                    {
-                                        mov(apfp + "cup.xpr.rdf", Save.SelectedPath + @"\" + "FILEXPR.rdf");
-                                    }
-                                    else
-                                    {
-                                        MessageBox.Show("Error : The File " + Save.SelectedPath + @"\FILEXPR.rdf" + " Already exist", "Error");
-                                    }
-                                }
-                                if (ex(apfp + Name + ".tga"))
-                                {
-                                    if (!ex(Save.SelectedPath + @"\" + Name))
-                                    {
-                                        mov(apfp + Name + ".tga", Save.SelectedPath + @"\" + Name);
-                                    }
-                                    else
-                                    {
-                                        MessageBox.Show("Error : The File " + Save.SelectedPath + @"\" + Name + " Already exist", "Error");
-                                    }
-                                }
-                                if (ex(apfp + Name + "_1" + ".tga"))
-                                {
-                                    if (!ex(Save.SelectedPath + @"\" + Name + "_1" + ".tga"))
-                                    {
-                                        mov(apfp + Name + "_1" + ".tga", Save.SelectedPath + @"\" + Name + "_1" + ".tga");
-                                    }
-                                    else
-                                    {
-                                        MessageBox.Show("Error : The File " + Save.SelectedPath + @"\" + Name + "_1" + ".tga" + " Already exist", "Error");
-                                    }
-                                }
-                                if (ex(apfp + Name + "_2" + ".tga"))
-                                {
-                                    if (!ex(Save.SelectedPath + @"\" + Name + "_2" + ".tga"))
-                                    {
-                                        mov(apfp + Name + "_2" + ".tga", Save.SelectedPath + @"\" + Name + "_2" + ".tga");
-                                    }
-                                    else
-                                    {
-                                        MessageBox.Show("Error : The File " + Save.SelectedPath + @"\" + Name + "_2" + ".tga" + " Already exist", "Error");
-                                    }
-                                }
-                                if (ex(apfp + Name + "_3" + ".tga"))
-                                {
-                                    if (!ex(Save.SelectedPath + @"\" + Name + "_3" + ".tga"))
-                                    {
-                                        mov(apfp + Name + "_3" + ".tga", Save.SelectedPath + @"\" + Name + "_3" + ".tga");
-                                    }
-                                    else
-                                    {
-                                        MessageBox.Show("Error : The File " + Save.SelectedPath + @"\" + Name + "_3" + ".tga" + " Already exist", "Error");
-                                    }
-                                }
-                                if (ex(apfp + Name + "_4" + ".tga"))
-                                {
-                                    if (!ex(Save.SelectedPath + @"\" + Name + "_4" + ".tga"))
-                                    {
-                                        mov(apfp + Name + "_4" + ".tga", Save.SelectedPath + @"\" + Name + "_4" + ".tga");
-                                    }
-                                    else
-                                    {
-                                        MessageBox.Show("Error : The File " + Save.SelectedPath + @"\" + Name + "_4" + ".tga" + " Already exist", "Error");
-                                    }
-                                }
-                                if (ex(apfp + Name + "_5" + ".tga"))
-                                {
-                                    if (!ex(Save.SelectedPath + @"\" + Name + "_5" + ".tga"))
-                                    {
-                                        mov(apfp + Name + "_5" + ".tga", Save.SelectedPath + @"\" + Name + "_5" + ".tga");
-                                    }
-                                    else
-                                    {
-                                        MessageBox.Show("Error : The File " + Save.SelectedPath + @"\" + Name + "_5" + ".tga" + " Already exist", "Error");
-                                    }
-                                }
-                                if (ex(apfp + Name + "_6" + ".tga"))
-                                {
-                                    if (!ex(Save.SelectedPath + @"\" + Name + "_6" + ".tga"))
-                                    {
-                                        mov(apfp + Name + "_6" + ".tga", Save.SelectedPath + @"\" + Name + "_6" + ".tga");
-                                    }
-                                    else
-                                    {
-                                        MessageBox.Show("Error : The File " + Save.SelectedPath + @"\" + Name + "_6" + ".tga" + " Already exist", "Error");
-                                    }
-                                }
-                                if (ex(apfp + Name + "_miptail" + ".tga"))
-                                {
-                                    if (!ex(Save.SelectedPath + @"\" + Name + "_miptail" + ".tga"))
-                                    {
-                                        mov(apfp + Name + "_miptail" + ".tga", Save.SelectedPath + @"\" + Name + "_miptail" + ".tga");
-                                    }
-                                    else
-                                    {
-                                        MessageBox.Show("Error : The File " + Save.SelectedPath + @"\" + Name + "_miptail" + ".tga" + " Already exist", "Error");
-                                    }
-                                }
-
-                                del(apfp + @"\cup.xpr");
-
-                                MessageBox.Show("Done", "Done");
-                            }
-
-                            else
-                            {
-                                if (ex(apfp + "cup.xpr"))
-                                {
-                                    del(apfp + "cup.xpr");
-                                }
-                                if (ex(apfp + "cup.xpr.rdf"))
-                                {
-                                    del(apfp + "cup.xpr.rdf");
-                                }
-                                if (ex(apfp + Name + ".tga"))
-                                {
-                                    del(apfp + Name + ".tga");
-                                }
-                                if (ex(apfp + Name + "_1" + ".tga"))
-                                {
-                                    del(apfp + Name + "_1" + ".tga");
-                                }
-                                if (ex(apfp + Name + "_2" + ".tga"))
-                                {
-                                    del(apfp + Name + "_2" + ".tga");
-                                }
-                                if (ex(apfp + Name + "_3" + ".tga"))
-                                {
-                                    del(apfp + Name + "_3" + ".tga");
-                                }
-                                if (ex(apfp + Name + "_4" + ".tga"))
-                                {
-                                    del(apfp + Name + "_4" + ".tga");
-                                }
-                                if (ex(apfp + Name + "_5" + ".tga"))
-                                {
-                                    del(apfp + Name + "_5" + ".tga");
-                                }
-                                if (ex(apfp + Name + "_6" + ".tga"))
-                                {
-                                    del(apfp + Name + "_6" + ".tga");
-                                }
-                                if (ex(apfp + Name + "_miptail" + ".tga"))
-                                {
-                                    del(apfp + Name + "_miptail" + ".tga");
-                                }
-                                MessageBox.Show("Error", "Error");
-                            }
-                        }
-
-                        catch (FileLoadException r)
-                        {
-                            if (ex(apfp + "cup.xpr"))
-                            {
-                                del(apfp + "cup.xpr");
-                            }
-                            if (ex(apfp + "cup.xpr.rdf"))
-                            {
-                                string Name2 = getbtw(File.ReadAllText(apfp + @"\cup.xpr.rdf"), "Name   = \"", "\"");
-
-                                if (ex(apfp + Name2 + ".tga"))
-                                {
-                                    del(apfp + Name2 + ".tga");
-                                }
-                                if (ex(apfp + Name2 + "_1" + ".tga"))
-                                {
-                                    del(apfp + Name2 + "_1" + ".tga");
-                                }
-                                if (ex(apfp + Name2 + "_2" + ".tga"))
-                                {
-                                    del(apfp + Name2 + "_2" + ".tga");
-                                }
-                                if (ex(apfp + Name2 + "_3" + ".tga"))
-                                {
-                                    del(apfp + Name2 + "_3" + ".tga");
-                                }
-                                if (ex(apfp + Name2 + "_4" + ".tga"))
-                                {
-                                    del(apfp + Name2 + "_4" + ".tga");
-                                }
-                                if (ex(apfp + Name2 + "_5" + ".tga"))
-                                {
-                                    del(apfp + Name2 + "_5" + ".tga");
-                                }
-                                if (ex(apfp + Name2 + "_6" + ".tga"))
-                                {
-                                    del(apfp + Name2 + "_6" + ".tga");
-                                }
-                                if (ex(apfp + Name2 + "_miptail" + ".tga"))
-                                {
-                                    del(apfp + Name2 + "_miptail" + ".tga");
-                                }
-
-                                del(apfp + "cup.xpr.rdf");
-                            }
-                            
-                            MessageBox.Show("Error", "Error " + r);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                MessageBox.Show("Please place the unbundler.exe in ForzaStudio location", "Error");
-            }
-        }
-
-        public string getbtw(string source, string start, string end)
-        {
-            int Start;
-            int End;
-
-            if (source.Contains(start) && source.Contains(end))
-            {
-                Start = source.IndexOf(start, 0) + start.Length;
-                End = source.IndexOf(end, Start);
-                return source.Substring(Start, End - Start);
-            }
-            else
-            {
-                return "";
-            }
         }
 
         #endregion

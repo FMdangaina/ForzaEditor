@@ -36,10 +36,8 @@ These files are needed at build time or runtime but are not redistributable
 
 | File | Why it is excluded |
 |------|--------------------|
-| `xdevkit.dll`, `xcompress.dll`, `bundler.exe`, `unbundler.exe` | Microsoft Xbox 360 SDK, proprietary |
+| `xdevkit.dll`, `xcompress.dll` | Microsoft Xbox 360 SDK, proprietary |
 | `xds.dll` | Unknown license |
-| `quickbms.exe` | GPLv2, kept out to keep the repository permissive-only |
-| `script.bms`, `scr.org`, `scr.rdf` | Unknown origin |
 
 Game data (Forza `.zip`, `.carbin`, `.xds`, `.xpr`, gamedb, etc.) is copyrighted
 and is never committed either.
