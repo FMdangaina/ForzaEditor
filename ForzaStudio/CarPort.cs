@@ -1,4 +1,4 @@
-namespace ForzaStudio
+﻿namespace ForzaStudio
 {
     using System;
     using System.Collections.Generic;
@@ -169,7 +169,7 @@ namespace ForzaStudio
                 string where = null;
                 foreach (string column in carColumns)
                 {
-                    if (table.Value.Contains(column) && sourceColumns.Contains(column))
+                    if (Has(table.Value, column) && Has(sourceColumns, column))
                     {
                         where = SqliteDatabase.Quote(column) + " = " + this.carId;
                         break;
@@ -234,15 +234,32 @@ namespace ForzaStudio
         // at List_AeroPhysics rows FM4 does not have).
         private void CopyReferences(Dictionary<string, List<string>> from, Dictionary<string, List<string>> to)
         {
+            // Reference column -> table: the key column's own name (AeroPhysicsID -> List_AeroPhysics),
+            // or for a key named just Id, the table's name + ID (CarBodyID -> Data_CarBody: wheelbase,
+            // tracks, bounding box; without it the physics runs on zeros and goes NaN).
             Dictionary<string, string> keyed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, string> keyColumn = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (KeyValuePair<string, List<string>> table in to)
             {
                 List<string> sourceColumns;
-                if (table.Value.Count > 0 && table.Value[0].Length > 2 && table.Value[0].EndsWith("ID", StringComparison.OrdinalIgnoreCase)
-                    && (table.Key.StartsWith("List_") || table.Key.StartsWith("Data_")) && from.TryGetValue(table.Key, out sourceColumns)
-                    && sourceColumns.Count > 0 && sourceColumns[0] == table.Value[0] && !keyed.ContainsKey(table.Value[0]))
+                if (table.Value.Count == 0 || !(table.Key.StartsWith("List_") || table.Key.StartsWith("Data_")) || !from.TryGetValue(table.Key, out sourceColumns)
+                    || sourceColumns.Count == 0 || !string.Equals(sourceColumns[0], table.Value[0], StringComparison.OrdinalIgnoreCase))
                 {
-                    keyed[table.Value[0]] = table.Key;
+                    continue;
+                }
+                string reference = null;
+                if (string.Equals(table.Value[0], "Id", StringComparison.OrdinalIgnoreCase))
+                {
+                    reference = table.Key.Substring(5) + "ID";
+                }
+                else if (table.Value[0].Length > 2 && table.Value[0].EndsWith("ID", StringComparison.OrdinalIgnoreCase))
+                {
+                    reference = table.Value[0];
+                }
+                if (reference != null && !keyed.ContainsKey(reference))
+                {
+                    keyed[reference] = table.Key;
+                    keyColumn[reference] = table.Value[0];
                 }
             }
             // Rows to scan: the car's, then whatever gets copied.
@@ -251,7 +268,7 @@ namespace ForzaStudio
             {
                 foreach (string column in new string[] { "Ordinal", "CarId", "CarID" })
                 {
-                    if (table.Value.Contains(column))
+                    if (Has(table.Value, column))
                     {
                         pending.Add(new string[] { table.Key, SqliteDatabase.Quote(column) + " = " + this.carId });
                         break;
@@ -270,7 +287,7 @@ namespace ForzaStudio
             {
                 foreach (KeyValuePair<string, List<string>> table in to)
                 {
-                    if (table.Value.Contains(column))
+                    if (Has(table.Value, column))
                     {
                         pending.Add(new string[] { table.Key, SqliteDatabase.Quote(column) + " IN (SELECT " + column + " FROM " + ((column == "EngineID") ? "List_UpgradeEngine" : "List_UpgradeDrivetrain") + " WHERE Ordinal = " + this.carId + ")" });
                     }
@@ -294,7 +311,7 @@ namespace ForzaStudio
                         {
                             continue;
                         }
-                        string where = SqliteDatabase.Quote(column) + " = " + (long) row[c];
+                        string where = SqliteDatabase.Quote(keyColumn[column]) + " = " + (long) row[c];
                         if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM " + SqliteDatabase.Quote(table) + " WHERE " + where)) > 0)
                         {
                             continue;
@@ -310,6 +327,12 @@ namespace ForzaStudio
                 }
             }
             this.Line("references: {0} more rows copied", copied);
+        }
+
+        // Column names are compared as SQLite does, ignoring case (List_UpgradeDrivetrainDriveline has DrivetrainId).
+        private static bool Has(List<string> columns, string name)
+        {
+            return columns.Exists(delegate(string c) { return string.Equals(c, name, StringComparison.OrdinalIgnoreCase); });
         }
 
         private List<long> Ids(string sql)
@@ -342,7 +365,7 @@ namespace ForzaStudio
             foreach (KeyValuePair<string, List<string>> table in to)
             {
                 List<string> sourceColumns;
-                if (table.Key == skipTable || !from.TryGetValue(table.Key, out sourceColumns) || !table.Value.Contains(column) || !sourceColumns.Contains(column))
+                if (table.Key == skipTable || !from.TryGetValue(table.Key, out sourceColumns) || !Has(table.Value, column) || !Has(sourceColumns, column))
                 {
                     continue;
                 }
@@ -394,7 +417,7 @@ namespace ForzaStudio
             List<string> columns = new List<string>();
             foreach (string column in targetColumns)
             {
-                if (sourceColumns.Contains(column))
+                if (Has(sourceColumns, column))
                 {
                     columns.Add(column);
                 }
