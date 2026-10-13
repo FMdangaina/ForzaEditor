@@ -28,12 +28,9 @@ namespace ForzaStudio
             return models;
         }
 
-        private static string CarBaseName(Dictionary<string, ForzaZip.Entry> files)
+        private static string CarbinName(ForzaZip.Entry entry)
         {
-            string name = files[files.ContainsKey(CarModelFolder.Main) ? CarModelFolder.Main : CarModelFolder.Lod0].Name;
-            name = name.Substring(name.LastIndexOf('/') + 1);
-            name = name.Substring(0, name.Length - ".carbin".Length);
-            return name.EndsWith("_lod0", StringComparison.OrdinalIgnoreCase) ? name.Substring(0, name.Length - 5) : name;
+            return entry.Name.Substring(entry.Name.LastIndexOf('/') + 1);
         }
 
         private void ExportModelFolder()
@@ -56,7 +53,7 @@ namespace ForzaStudio
             string parent;
             using (FolderBrowserDialog dialog = new FolderBrowserDialog())
             {
-                dialog.Description = "Folder to create the model's work folder in (a subfolder named after the car is made):";
+                dialog.Description = "Where to export: one folder per .carbin is made here (e.g. toy_supra_98\\lod1\\part.obj, toy_supra_98_lod0\\lod0\\part.obj):";
                 string start = AppSettings.Get("Dir.ModelFolder", null);
                 if (start != null && Directory.Exists(start))
                 {
@@ -69,23 +66,37 @@ namespace ForzaStudio
                 parent = dialog.SelectedPath;
                 AppSettings.Set("Dir.ModelFolder", parent);
             }
-            string folder = Path.Combine(parent, CarBaseName(files));
-            if (Directory.Exists(folder) && Directory.GetFiles(folder, "*.obj").Length > 0
-                && MessageBox.Show(this, folder + " already holds OBJs.\n\nOverwrite it? Its model OBJs are replaced by a fresh export (other files are left alone).",
-                    "Export Model", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            List<string> existing = new List<string>();
+            foreach (ForzaZip.Entry entry in files.Values)
+            {
+                string folder = Path.Combine(parent, CarModelFolder.FolderName(CarbinName(entry)));
+                if (Directory.Exists(folder))
+                {
+                    existing.Add(Path.GetFileName(folder));
+                }
+            }
+            if (existing.Count > 0 && MessageBox.Show(this, string.Join(", ", existing.ToArray()) + " already exist in " + parent + ".\n\nOverwrite them? The OBJs in their lodN folders are replaced by a fresh export (other files are left alone).",
+                "Export Model", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
             {
                 return;
-            }
-            Dictionary<string, string> names = new Dictionary<string, string>();
-            foreach (KeyValuePair<string, ForzaZip.Entry> pair in files)
-            {
-                names[pair.Key] = pair.Value.Name.Substring(pair.Value.Name.LastIndexOf('/') + 1);
             }
             try
             {
                 Cursor.Current = Cursors.WaitCursor;
-                int count = CarModelFolder.Export(models, names, folder, this.SourceName);
-                this.SetStatus(string.Format("{0:N0} OBJs exported to {1} (main, lod0 and cockpit; edit them and use Import Model From Folder)", count, folder));
+                int count = 0;
+                List<string> made = new List<string>();
+                foreach (string kind in new string[] { CarModelFolder.Main, CarModelFolder.Lod0, CarModelFolder.Cockpit })
+                {
+                    ForzaZip.Entry entry;
+                    if (!files.TryGetValue(kind, out entry))
+                    {
+                        continue;
+                    }
+                    string folder = Path.Combine(parent, CarModelFolder.FolderName(CarbinName(entry)));
+                    count += CarModelFolder.Export(models[kind], CarbinName(entry), folder, this.SourceName);
+                    made.Add(Path.GetFileName(folder));
+                }
+                this.SetStatus(string.Format("{0:N0} OBJs exported to {1}: {2} (edit them, then Import Model From Folder)", count, parent, string.Join(", ", made.ToArray())));
             }
             catch (Exception exception)
             {
@@ -95,6 +106,29 @@ namespace ForzaStudio
             {
                 Cursor.Current = Cursors.Default;
             }
+        }
+
+        // The .carbin folders to import from the folder picked: that folder itself when it is one
+        // (e.g. toy_supra_98_lod0), else the car's .carbin folders inside it.
+        private static Dictionary<string, string> ModelFoldersIn(string picked, Dictionary<string, ForzaZip.Entry> files)
+        {
+            Dictionary<string, string> folders = new Dictionary<string, string>();
+            foreach (KeyValuePair<string, ForzaZip.Entry> pair in files)
+            {
+                string name = CarModelFolder.FolderName(CarbinName(pair.Value));
+                if (string.Equals(Path.GetFileName(picked.TrimEnd('\\')), name, StringComparison.OrdinalIgnoreCase))
+                {
+                    folders.Clear();
+                    folders[pair.Key] = picked;
+                    return folders;
+                }
+                string inside = Path.Combine(picked, name);
+                if (Directory.Exists(inside))
+                {
+                    folders[pair.Key] = inside;
+                }
+            }
+            return folders;
         }
 
         private void ImportModelFolder()
@@ -114,18 +148,18 @@ namespace ForzaStudio
             {
                 return;
             }
-            string folder;
+            List<string> expected = new List<string>();
+            foreach (ForzaZip.Entry entry in files.Values)
+            {
+                expected.Add(CarModelFolder.FolderName(CarbinName(entry)));
+            }
+            Dictionary<string, string> folders;
             using (FolderBrowserDialog dialog = new FolderBrowserDialog())
             {
-                dialog.Description = "The car's model work folder (the one with " + CarModelFolder.ManifestName + " and the OBJs):";
+                dialog.Description = "The folder you exported to (with " + string.Join(", ", expected.ToArray()) + "), or one of those folders to import only that .carbin:";
                 dialog.ShowNewFolderButton = false;
                 string start = AppSettings.Get("Dir.ModelFolder", null);
-                string own = (start != null) ? Path.Combine(start, CarBaseName(files)) : null;
-                if (own != null && Directory.Exists(own))
-                {
-                    dialog.SelectedPath = own;
-                }
-                else if (start != null && Directory.Exists(start))
+                if (start != null && Directory.Exists(start))
                 {
                     dialog.SelectedPath = start;
                 }
@@ -133,14 +167,27 @@ namespace ForzaStudio
                 {
                     return;
                 }
-                folder = dialog.SelectedPath;
+                folders = ModelFoldersIn(dialog.SelectedPath, files);
+                if (folders.Count == 0)
+                {
+                    MessageBox.Show(this, "No model folder of this car in " + dialog.SelectedPath + ".\n\nExpected: " + string.Join(", ", expected.ToArray()) + " (made by Export Model To Folder).",
+                        "Import Model", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                // Remembered: the folder that holds the .carbin folders.
+                bool single = false;
+                foreach (string folder in folders.Values)
+                {
+                    single |= string.Equals(folder, dialog.SelectedPath, StringComparison.OrdinalIgnoreCase);
+                }
+                AppSettings.Set("Dir.ModelFolder", single ? Path.GetDirectoryName(dialog.SelectedPath) : dialog.SelectedPath);
             }
 
             CarModelFolder.Plan plan;
             try
             {
                 Cursor.Current = Cursors.WaitCursor;
-                plan = CarModelFolder.Prepare(folder, models);
+                plan = CarModelFolder.Prepare(folders, models);
             }
             catch (Exception exception)
             {
@@ -159,7 +206,7 @@ namespace ForzaStudio
             }
             if (plan.IsEmpty)
             {
-                MessageBox.Show(this, "Every OBJ in the folder matches the model: nothing to import." + ((plan.Ignored.Count > 0) ? "\n\nIgnored (name not <lod>-<part>-<material>.obj): " + string.Join(", ", plan.Ignored.ToArray()) : ""),
+                MessageBox.Show(this, "Every OBJ matches the model: nothing to import." + ((plan.Ignored.Count > 0) ? "\n\nIgnored: " + string.Join(", ", plan.Ignored.ToArray()) : ""),
                     "Import Model", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
@@ -191,7 +238,7 @@ namespace ForzaStudio
             }
             this.editSection = null;
             this.ReloadModelKeepingView();
-            this.SetStatus(string.Format("Model imported from {0}: {1} part changes (pending: Save to write the archive)", folder, plan.Parts.Count));
+            this.SetStatus(string.Format("Model imported: {0} part changes (pending: Save to write the archive)", plan.Parts.Count));
             this.ShowReport("Import Model", report.ToString());
         }
 
@@ -216,7 +263,7 @@ namespace ForzaStudio
             if (plan.Ignored.Count > 0)
             {
                 text.AppendLine();
-                text.AppendLine("Ignored (name not <lod>-<part>-<material>.obj): " + string.Join(", ", plan.Ignored.ToArray()));
+                text.AppendLine("Ignored: " + string.Join(", ", plan.Ignored.ToArray()));
             }
 
             Panel panel = new Panel();
@@ -265,7 +312,7 @@ namespace ForzaStudio
                 }
                 panel.Controls.Add(list);
             }
-            if (!this.ShowOptions(string.Format("Import Model From {0} ({1} changes)", Path.GetFileName(plan.Folder), plan.Parts.Count), panel))
+            if (!this.ShowOptions(string.Format("Import Model ({0} changes)", plan.Parts.Count), panel))
             {
                 return false;
             }

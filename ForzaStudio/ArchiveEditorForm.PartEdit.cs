@@ -150,21 +150,29 @@ namespace ForzaStudio
             ToolStripMenuItem delete = new ToolStripMenuItem("Delete...", null, delegate { this.DeleteSelectedNode(); });
             ToolStripMenuItem focus = new ToolStripMenuItem("Focus", null, delegate { this.FocusPart(); });
             ToolStripMenuItem duplicate = new ToolStripMenuItem("Duplicate Part...", null, delegate { this.DuplicateSelectedPart(); });
+            ToolStripSeparator partSeparator = new ToolStripSeparator();
+            ToolStripSeparator modelSeparator = new ToolStripSeparator();
             menu.Items.Add(focus);
             menu.Items.Add(duplicate);
-            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(partSeparator);
             menu.Items.Add(delete);
+            menu.Items.Add(modelSeparator);
+            menu.Items.Add(new ToolStripMenuItem("Export Model To Folder...", null, delegate { this.ExportModelFolder(); }));
+            menu.Items.Add(new ToolStripMenuItem("Import Model From Folder...", null, delegate { this.ImportModelFolder(); }));
             menu.Opening += delegate(object sender, System.ComponentModel.CancelEventArgs e)
             {
                 string section;
                 string material;
-                if (!this.DeletableNode(out section, out material))
+                bool part = this.DeletableNode(out section, out material);
+                foreach (ToolStripItem item in new ToolStripItem[] { focus, duplicate, partSeparator, delete, modelSeparator })
                 {
-                    e.Cancel = true;
-                    return;
+                    item.Visible = part;
                 }
-                delete.Text = (material != null) ? string.Format("Delete material \"{0}\" from {1}...", material, section) : string.Format("Delete part \"{0}\"...", section);
-                duplicate.Text = string.Format("Duplicate part \"{0}\"...", section);
+                if (part)
+                {
+                    delete.Text = (material != null) ? string.Format("Delete material \"{0}\" from {1}...", material, section) : string.Format("Delete part \"{0}\"...", section);
+                    duplicate.Text = string.Format("Duplicate part \"{0}\"...", section);
+                }
             };
             this.tvModel.ContextMenuStrip = menu;
             this.tvModel.NodeMouseClick += delegate(object sender, TreeNodeMouseClickEventArgs e)

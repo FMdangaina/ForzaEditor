@@ -196,20 +196,28 @@ namespace ForzaStudio
             return triangles;
         }
 
-        // Writes one subsection (one material of a part at one LOD) as its own OBJ, for the model
-        // folder export. 'mtllib' is the shared material file of the folder.
-        public static int ExportSubSection(CarbinModel.Section section, CarbinModel.SubSection sub, string path, string comment, string mtllib)
+        // Writes one part at one LOD (one group per material) for the model folder export. 'mtllib'
+        // is the material file next to it. Returns the triangle count.
+        public static int ExportLod(CarbinModel.Section section, uint lod, string path, string comment, string mtllib)
         {
-            CarbinModel.VertexBuffer buffer = (sub.Lod == 0) ? section.Lod0 : section.Lod;
+            CarbinModel.VertexBuffer buffer = (lod == 0) ? section.Lod0 : section.Lod;
             double[] positions = CarbinModel.Positions(section, buffer);
+            int triangles = 0;
             using (StreamWriter obj = new StreamWriter(path, false, new UTF8Encoding(false)))
             {
                 obj.WriteLine("# " + comment);
-                obj.WriteLine("# part " + section.Name + ", material " + sub.Name + ", LOD " + sub.Lod + "; units: meters, model space");
+                obj.WriteLine("# part " + section.Name + ", LOD " + lod + "; units: meters, model space; one group per material (usemtl = car material)");
                 obj.WriteLine("mtllib " + mtllib);
                 int baseIndex = 1;
-                return WriteGroup(obj, section.Name, sub, buffer, positions, ref baseIndex);
+                foreach (CarbinModel.SubSection sub in section.SubSections)
+                {
+                    if (sub.Lod == lod)
+                    {
+                        triangles += WriteGroup(obj, section.Name, sub, buffer, positions, ref baseIndex);
+                    }
+                }
             }
+            return triangles;
         }
 
         // One material group: its own vertex list (materials stay separable in the editor), UVs in

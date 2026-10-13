@@ -9,14 +9,15 @@ namespace ForzaStudio
     using System.Text;
     using System.Text.RegularExpressions;
 
-    // A car's whole model as a work folder of OBJs, one per material of each part at each LOD:
-    //   lod0-bumperFa-body.obj      _lod0.carbin, LOD 0
-    //   lod3-bumperFa-body.obj      main .carbin, LOD 3
-    //   cockpit-seatL-cloth.obj     _cockpit.carbin
-    // plus materials.mtl and model.txt (what was exported, with a hash per OBJ). Importing the folder
-    // back rebuilds only what changed: edited, added or deleted OBJs. An OBJ with a new part name adds
-    // that part (template: the nearest part of the same file), and a part whose OBJs were all deleted
-    // is removed.
+    // A car's model as work folders laid out like the model tree: one folder per .carbin, one
+    // subfolder per LOD, one OBJ per part (a group per material, usemtl = car material):
+    //   toy_supraveilside03_98\lod1\glassRTL.obj        main .carbin, LOD 1..5
+    //   toy_supraveilside03_98_lod0\lod0\glassRTL.obj   _lod0.carbin
+    //   toy_supraveilside03_98_cockpit\lod0\seatL.obj   _cockpit.carbin
+    // Each .carbin folder also holds model.txt (what was exported, a hash per OBJ). Importing rebuilds
+    // only what changed: an edited OBJ rebuilds that part at that LOD, a new OBJ name adds a part
+    // (template: the nearest part of the same file) and a deleted OBJ drops that LOD of the part
+    // (the part goes when none is left).
     public static class CarModelFolder
     {
         public const string ManifestName = "model.txt";
@@ -27,38 +28,17 @@ namespace ForzaStudio
         public const string Lod0 = "_lod0";
         public const string Cockpit = "_cockpit";
 
-        private static readonly Regex NamePattern = new Regex(@"^(lod\d+|cockpit)-(.+)-([^-]+)\.obj$", RegexOptions.IgnoreCase);
+        private static readonly Regex LodFolder = new Regex(@"^lod(\d+)$", RegexOptions.IgnoreCase);
 
-        public static string FileName(string kind, uint lod, string part, string material)
+        public static string KindName(string kind)
         {
-            return ((kind == Cockpit) ? "cockpit" : ("lod" + lod)) + "-" + part + "-" + material + ".obj";
+            return (kind == Main) ? "main" : kind.Substring(1);
         }
 
-        // Splits "lod0-bumperFa-body.obj" into model file kind, LOD, part and material.
-        public static bool ParseName(string fileName, out string kind, out uint lod, out string part, out string material)
+        // "toy_supra_98_lod0.carbin" -> "toy_supra_98_lod0": the folder of that model file.
+        public static string FolderName(string carbinName)
         {
-            kind = null;
-            lod = 0;
-            part = null;
-            material = null;
-            Match match = NamePattern.Match(fileName);
-            if (!match.Success)
-            {
-                return false;
-            }
-            string prefix = match.Groups[1].Value.ToLowerInvariant();
-            if (prefix == "cockpit")
-            {
-                kind = Cockpit;
-            }
-            else
-            {
-                lod = uint.Parse(prefix.Substring(3), CultureInfo.InvariantCulture);
-                kind = (lod == 0) ? Lod0 : Main;
-            }
-            part = match.Groups[2].Value;
-            material = match.Groups[3].Value;
-            return true;
+            return Path.GetFileNameWithoutExtension(carbinName);
         }
 
         private static string Hash(string path)
@@ -69,63 +49,94 @@ namespace ForzaStudio
             }
         }
 
-        #region Export
-
-        // Writes every part of every model file. Returns the number of OBJs written. OBJs of an earlier
-        // export in the folder are deleted first, so the folder always matches the manifest.
-        public static int Export(Dictionary<string, CarbinModel> models, Dictionary<string, string> fileNames, string folder, string source)
+        // OBJs of a .carbin folder: lodN\part.obj -> (LOD, part, path). Other OBJs go to 'ignored'.
+        private static List<string[]> Scan(string folder, List<string> ignored)
         {
-            Directory.CreateDirectory(folder);
-            foreach (string old in Directory.GetFiles(folder, "*.obj"))
+            List<string[]> found = new List<string[]>();
+            foreach (string directory in Directory.GetDirectories(folder))
             {
-                string kind;
-                uint lod;
-                string part;
-                string material;
-                if (ParseName(Path.GetFileName(old), out kind, out lod, out part, out material))
-                {
-                    File.Delete(old);
-                }
-            }
-            List<string> materials = new List<string>();
-            StringBuilder manifest = new StringBuilder();
-            manifest.AppendLine("# ForzaEditor model folder, exported from " + source);
-            manifest.AppendLine("# One OBJ per material of each part at each LOD: <lod0|lod1..|cockpit>-<part>-<material>.obj");
-            manifest.AppendLine("# Edit, add or delete OBJs, then Import Model From Folder: only changed OBJs are rebuilt.");
-            manifest.AppendLine("# A new part name adds a part; deleting all OBJs of a part removes it. Do not edit the lines below.");
-            foreach (string kind in new string[] { Main, Lod0, Cockpit })
-            {
-                if (models.ContainsKey(kind))
-                {
-                    manifest.AppendLine("file " + ((kind.Length == 0) ? "main" : kind.Substring(1)) + " " + fileNames[kind]);
-                }
-            }
-            int count = 0;
-            foreach (string kind in new string[] { Main, Lod0, Cockpit })
-            {
-                CarbinModel model;
-                if (!models.TryGetValue(kind, out model))
+                Match match = LodFolder.Match(Path.GetFileName(directory));
+                if (!match.Success)
                 {
                     continue;
                 }
-                foreach (CarbinModel.Section section in model.Sections)
+                foreach (string path in Directory.GetFiles(directory, "*.obj"))
                 {
-                    foreach (CarbinModel.SubSection sub in section.SubSections)
+                    found.Add(new string[] { match.Groups[1].Value, Path.GetFileNameWithoutExtension(path), path });
+                }
+            }
+            foreach (string path in Directory.GetFiles(folder, "*.obj"))
+            {
+                ignored.Add(Path.GetFileName(path) + " (outside the lodN folders)");
+            }
+            return found;
+        }
+
+        private static string Relative(uint lod, string part)
+        {
+            return "lod" + lod.ToString(CultureInfo.InvariantCulture) + "/" + part + ".obj";
+        }
+
+        #region Export
+
+        // Writes one model file into its folder (created if needed). OBJs of an earlier export in the
+        // lodN folders are deleted first, so the folder always matches its manifest. Returns the
+        // number of OBJs written.
+        public static int Export(CarbinModel model, string carbinName, string folder, string source)
+        {
+            Directory.CreateDirectory(folder);
+            foreach (string directory in Directory.GetDirectories(folder))
+            {
+                if (LodFolder.IsMatch(Path.GetFileName(directory)))
+                {
+                    foreach (string old in Directory.GetFiles(directory, "*.obj"))
                     {
-                        string name = FileName(kind, sub.Lod, section.Name, sub.Name);
-                        string path = Path.Combine(folder, name);
-                        ObjMesh.ExportSubSection(section, sub, path, "ForzaEditor: " + section.Name + " / " + sub.Name + " from " + fileNames[kind], MaterialsName);
-                        manifest.AppendLine("obj " + Hash(path) + " " + name);
-                        if (!materials.Contains(sub.Name))
-                        {
-                            materials.Add(sub.Name);
-                        }
-                        count++;
+                        File.Delete(old);
                     }
                 }
             }
-            materials.Sort(StringComparer.OrdinalIgnoreCase);
-            ObjMesh.WriteMtl(Path.Combine(folder, MaterialsName), materials);
+            StringBuilder manifest = new StringBuilder();
+            manifest.AppendLine("# ForzaEditor model folder of " + carbinName + ", exported from " + source);
+            manifest.AppendLine("# lodN\\<part>.obj = the part at that LOD, one group per material (usemtl = car material).");
+            manifest.AppendLine("# Edit, add or delete OBJs, then Import Model From Folder: only changed OBJs are rebuilt.");
+            manifest.AppendLine("# A new OBJ name adds a part; deleting a part's OBJ drops it at that LOD. Do not edit the lines below.");
+            manifest.AppendLine("file " + carbinName);
+            Dictionary<uint, List<string>> materials = new Dictionary<uint, List<string>>();
+            int count = 0;
+            foreach (CarbinModel.Section section in model.Sections)
+            {
+                List<uint> lods = new List<uint>();
+                foreach (CarbinModel.SubSection sub in section.SubSections)
+                {
+                    if (!lods.Contains(sub.Lod))
+                    {
+                        lods.Add(sub.Lod);
+                    }
+                    if (!materials.ContainsKey(sub.Lod))
+                    {
+                        materials[sub.Lod] = new List<string>();
+                    }
+                    if (!materials[sub.Lod].Contains(sub.Name))
+                    {
+                        materials[sub.Lod].Add(sub.Name);
+                    }
+                }
+                lods.Sort();
+                foreach (uint lod in lods)
+                {
+                    string directory = Path.Combine(folder, "lod" + lod.ToString(CultureInfo.InvariantCulture));
+                    Directory.CreateDirectory(directory);
+                    string path = Path.Combine(directory, section.Name + ".obj");
+                    ObjMesh.ExportLod(section, lod, path, "ForzaEditor: " + section.Name + " from " + carbinName, MaterialsName);
+                    manifest.AppendLine("obj " + Hash(path) + " " + Relative(lod, section.Name));
+                    count++;
+                }
+            }
+            foreach (KeyValuePair<uint, List<string>> pair in materials)
+            {
+                pair.Value.Sort(StringComparer.OrdinalIgnoreCase);
+                ObjMesh.WriteMtl(Path.Combine(Path.Combine(folder, "lod" + pair.Key.ToString(CultureInfo.InvariantCulture)), MaterialsName), pair.Value);
+            }
             File.WriteAllText(Path.Combine(folder, ManifestName), manifest.ToString(), new UTF8Encoding(false));
             return count;
         }
@@ -143,17 +154,17 @@ namespace ForzaStudio
             public bool Remove;
             public string Template;                     // new parts: the part copied for materials, damage data and draw lists
             public List<string> Templates = new List<string>();   // the choices (parts of the same file)
-            public string BorrowedFrom;                 // new part with no OBJ in this file: geometry of the other file
-            public SortedDictionary<uint, List<string>> Rebuild = new SortedDictionary<uint, List<string>>();   // LOD -> OBJ paths
+            public string BorrowedFrom;                 // new part with no OBJ in this file: geometry of the other file, at every LOD of the template
+            public SortedDictionary<uint, string> Rebuild = new SortedDictionary<uint, string>();   // LOD -> OBJ
             public List<uint> Keep = new List<uint>();
             public List<uint> Drop = new List<uint>();
 
             public string Describe()
             {
-                string file = (this.Kind == Main) ? "main" : this.Kind.Substring(1);
+                string file = KindName(this.Kind);
                 if (this.Remove)
                 {
-                    return string.Format("{0} {1}: remove (all its OBJs deleted)", file, this.Part);
+                    return string.Format("{0} {1}: remove (its OBJs were deleted)", file, this.Part);
                 }
                 List<string> parts = new List<string>();
                 if (this.BorrowedFrom != null)
@@ -175,7 +186,7 @@ namespace ForzaStudio
                 string what = string.Join(", ", parts.ToArray());
                 if (this.IsNew)
                 {
-                    return string.Format("{0} {1}: NEW part, {2}{3}", file, this.Part, what, (this.BorrowedFrom != null) ? " (geometry from the " + this.BorrowedFrom + " OBJs)" : "");
+                    return string.Format("{0} {1}: NEW part, {2}{3}", file, this.Part, what, (this.BorrowedFrom != null) ? " (geometry from " + this.BorrowedFrom + ")" : "");
                 }
                 return string.Format("{0} {1}: {2}", file, this.Part, what);
             }
@@ -183,27 +194,18 @@ namespace ForzaStudio
 
         public class Plan
         {
-            public string Folder;
-            public bool HasManifest;
+            public Dictionary<string, string> Folders;          // kind -> .carbin folder imported
+            public List<string> WithoutManifest = new List<string>();
             public List<PartPlan> Parts = new List<PartPlan>();
-            public List<string> Ignored = new List<string>();     // OBJs whose name does not follow the scheme
+            public List<string> Ignored = new List<string>();     // OBJs outside the lodN folders
             public List<string> Errors = new List<string>();      // problems that block the import
             public List<string> Warnings = new List<string>();
+            public Dictionary<string, ObjMesh> Meshes = new Dictionary<string, ObjMesh>(StringComparer.OrdinalIgnoreCase);   // changed OBJs, read and checked
 
             public bool IsEmpty
             {
                 get { return this.Parts.Count == 0; }
             }
-        }
-
-        private class Found
-        {
-            public string Kind;
-            public uint Lod;
-            public string Part;
-            public string Material;
-            public string Path;
-            public string Name;
         }
 
         private static string Join(IEnumerable<uint> values)
@@ -216,31 +218,14 @@ namespace ForzaStudio
             return string.Join(",", text.ToArray());
         }
 
-        // Compares the folder with the models (and the manifest of the export, when there is one).
-        // Without a manifest every OBJ counts as changed and nothing is removed.
-        public static Plan Prepare(string folder, Dictionary<string, CarbinModel> models)
+        // Compares each .carbin folder with its model (and the manifest of its export, when there is
+        // one). Without a manifest every OBJ counts as changed and nothing is dropped.
+        public static Plan Prepare(Dictionary<string, string> folders, Dictionary<string, CarbinModel> models)
         {
             Plan plan = new Plan();
-            plan.Folder = folder;
+            plan.Folders = folders;
 
-            // Exported OBJs and their hashes.
-            Dictionary<string, string> exported = null;
-            string manifestPath = Path.Combine(folder, ManifestName);
-            if (File.Exists(manifestPath))
-            {
-                exported = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                foreach (string line in File.ReadAllLines(manifestPath))
-                {
-                    string[] fields = line.Split(new char[] { ' ' }, 3);
-                    if (fields.Length == 3 && fields[0] == "obj")
-                    {
-                        exported[fields[2].Trim()] = fields[1];
-                    }
-                }
-                plan.HasManifest = true;
-            }
-
-            // Car materials (any model file): an OBJ must use one of them.
+            // Car materials (any model file): an OBJ group must use one of them.
             Dictionary<string, bool> carMaterials = new Dictionary<string, bool>(StringComparer.Ordinal);
             foreach (CarbinModel model in models.Values)
             {
@@ -253,75 +238,61 @@ namespace ForzaStudio
                 }
             }
 
-            // OBJs in the folder, by kind|part (part spelled as the model spells it when it has it).
-            Dictionary<string, List<Found>> byPart = new Dictionary<string, List<Found>>(StringComparer.OrdinalIgnoreCase);
-            foreach (string path in Directory.GetFiles(folder, "*.obj"))
-            {
-                Found found = new Found();
-                found.Path = path;
-                found.Name = Path.GetFileName(path);
-                if (!ParseName(found.Name, out found.Kind, out found.Lod, out found.Part, out found.Material))
-                {
-                    plan.Ignored.Add(found.Name);
-                    continue;
-                }
-                if (!models.ContainsKey(found.Kind))
-                {
-                    plan.Errors.Add(found.Name + ": the car has no " + ((found.Kind == Main) ? "main" : found.Kind.Substring(1)) + " model file");
-                    continue;
-                }
-                if (!carMaterials.ContainsKey(found.Material))
-                {
-                    plan.Errors.Add(found.Name + ": the car has no material \"" + found.Material + "\" (names are case-sensitive)");
-                    continue;
-                }
-                CarbinModel.Section existing = FindIgnoreCase(models[found.Kind], found.Part);
-                if (existing != null)
-                {
-                    found.Part = existing.Name;
-                }
-                string key = found.Kind + "|" + found.Part;
-                if (!byPart.ContainsKey(key))
-                {
-                    byPart[key] = new List<Found>();
-                }
-                byPart[key].Add(found);
-            }
-
-            // Exported names by kind|part|lod.
-            Dictionary<string, List<string>> exportedByLod = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-            if (exported != null)
-            {
-                foreach (string name in exported.Keys)
-                {
-                    string kind;
-                    uint lod;
-                    string part;
-                    string material;
-                    if (ParseName(name, out kind, out lod, out part, out material))
-                    {
-                        string key = kind + "|" + part + "|" + lod;
-                        if (!exportedByLod.ContainsKey(key))
-                        {
-                            exportedByLod[key] = new List<string>();
-                        }
-                        exportedByLod[key].Add(name);
-                    }
-                }
-            }
-
-            // Parts the model has.
+            Dictionary<string, PartPlan> added = new Dictionary<string, PartPlan>(StringComparer.OrdinalIgnoreCase);
             foreach (string kind in new string[] { Main, Lod0, Cockpit })
             {
+                string folder;
                 CarbinModel model;
-                if (!models.TryGetValue(kind, out model))
+                if (!folders.TryGetValue(kind, out folder) || !models.TryGetValue(kind, out model))
                 {
                     continue;
                 }
+                string file = KindName(kind);
+
+                // Exported OBJs and their hashes.
+                Dictionary<string, string> exported = null;
+                string manifestPath = Path.Combine(folder, ManifestName);
+                if (File.Exists(manifestPath))
+                {
+                    exported = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (string line in File.ReadAllLines(manifestPath))
+                    {
+                        string[] fields = line.Split(new char[] { ' ' }, 3);
+                        if (fields.Length == 3 && fields[0] == "obj")
+                        {
+                            exported[fields[2].Trim()] = fields[1];
+                        }
+                    }
+                }
+                else
+                {
+                    plan.WithoutManifest.Add(Path.GetFileName(folder));
+                }
+
+                // OBJs present, by part (spelled as the model spells it when it has it) and LOD.
+                Dictionary<string, SortedDictionary<uint, string>> present = new Dictionary<string, SortedDictionary<uint, string>>(StringComparer.OrdinalIgnoreCase);
+                foreach (string[] found in Scan(folder, plan.Ignored))
+                {
+                    uint lod = uint.Parse(found[0], CultureInfo.InvariantCulture);
+                    if ((lod == 0) != (kind != Main))
+                    {
+                        plan.Errors.Add(string.Format("{0}\\lod{1}\\{2}.obj: the {0} file has {3}", Path.GetFileName(folder), lod, found[1], (kind == Main) ? "LODs 1 and up (LOD 0 is the _lod0 file)" : "only LOD 0"));
+                        continue;
+                    }
+                    CarbinModel.Section existing = FindIgnoreCase(model, found[1]);
+                    string part = (existing != null) ? existing.Name : found[1];
+                    if (!present.ContainsKey(part))
+                    {
+                        present[part] = new SortedDictionary<uint, string>();
+                    }
+                    present[part][lod] = found[2];
+                }
+
+                // Parts the model has.
                 foreach (CarbinModel.Section section in model.Sections)
                 {
-                    List<Found> present;
-                    byPart.TryGetValue(kind + "|" + section.Name, out present);
+                    SortedDictionary<uint, string> mine;
+                    present.TryGetValue(section.Name, out mine);
                     PartPlan part = new PartPlan();
                     part.Kind = kind;
                     part.Part = section.Name;
@@ -333,48 +304,29 @@ namespace ForzaStudio
                             lods.Add(sub.Lod);
                         }
                     }
-                    if (present != null)
+                    if (mine != null)
                     {
-                        foreach (Found found in present)
+                        foreach (uint lod in mine.Keys)
                         {
-                            if (!lods.Contains(found.Lod))
+                            if (!lods.Contains(lod))
                             {
-                                lods.Add(found.Lod);
+                                lods.Add(lod);
                             }
                         }
                     }
                     lods.Sort();
                     foreach (uint lod in lods)
                     {
-                        List<string> paths = new List<string>();
-                        List<string> names = new List<string>();
-                        if (present != null)
+                        string path = null;
+                        if (mine != null)
                         {
-                            foreach (Found found in present)
-                            {
-                                if (found.Lod == lod)
-                                {
-                                    paths.Add(found.Path);
-                                    names.Add(found.Name);
-                                }
-                            }
+                            mine.TryGetValue(lod, out path);
                         }
-                        List<string> was;
-                        exportedByLod.TryGetValue(kind + "|" + section.Name + "|" + lod, out was);
-                        if (exported == null)
+                        string hash = null;
+                        bool wasExported = exported != null && exported.TryGetValue(Relative(lod, section.Name), out hash);
+                        if (path == null)
                         {
-                            if (paths.Count > 0)
-                            {
-                                part.Rebuild[lod] = paths;
-                            }
-                            else
-                            {
-                                part.Keep.Add(lod);
-                            }
-                        }
-                        else if (paths.Count == 0)
-                        {
-                            if (was != null)
+                            if (wasExported)
                             {
                                 part.Drop.Add(lod);
                             }
@@ -383,13 +335,13 @@ namespace ForzaStudio
                                 part.Keep.Add(lod);
                             }
                         }
-                        else if (Unchanged(names, paths, was, exported))
+                        else if (wasExported && hash == Hash(path))
                         {
                             part.Keep.Add(lod);
                         }
                         else
                         {
-                            part.Rebuild[lod] = paths;
+                            part.Rebuild[lod] = path;
                         }
                     }
                     if (part.Rebuild.Count == 0 && part.Drop.Count == 0)
@@ -399,31 +351,25 @@ namespace ForzaStudio
                     part.Remove = part.Rebuild.Count == 0 && part.Keep.Count == 0;
                     plan.Parts.Add(part);
                 }
-            }
 
-            // New parts.
-            Dictionary<string, PartPlan> added = new Dictionary<string, PartPlan>(StringComparer.OrdinalIgnoreCase);
-            foreach (KeyValuePair<string, List<Found>> pair in byPart)
-            {
-                Found first = pair.Value[0];
-                if (models[first.Kind].Find(first.Part) != null)
+                // New parts.
+                foreach (KeyValuePair<string, SortedDictionary<uint, string>> pair in present)
                 {
-                    continue;
-                }
-                PartPlan part = new PartPlan();
-                part.Kind = first.Kind;
-                part.Part = first.Part;
-                part.IsNew = true;
-                foreach (Found found in pair.Value)
-                {
-                    if (!part.Rebuild.ContainsKey(found.Lod))
+                    if (model.Find(pair.Key) != null)
                     {
-                        part.Rebuild[found.Lod] = new List<string>();
+                        continue;
                     }
-                    part.Rebuild[found.Lod].Add(found.Path);
+                    PartPlan part = new PartPlan();
+                    part.Kind = kind;
+                    part.Part = pair.Key;
+                    part.IsNew = true;
+                    foreach (KeyValuePair<uint, string> lod in pair.Value)
+                    {
+                        part.Rebuild[lod.Key] = lod.Value;
+                    }
+                    plan.Parts.Add(part);
+                    added[kind + "|" + pair.Key] = part;
                 }
-                plan.Parts.Add(part);
-                added[pair.Key] = part;
             }
 
             // A new part must be in the main file (far LODs) and in the lod0 file (up close): when the
@@ -436,7 +382,7 @@ namespace ForzaStudio
                     continue;
                 }
                 string other = (part.Kind == Main) ? Lod0 : Main;
-                if (!models.ContainsKey(other) || models[other].Find(part.Part) != null || added.ContainsKey(other + "|" + part.Part))
+                if (!models.ContainsKey(other) || FindIgnoreCase(models[other], part.Part) != null || added.ContainsKey(other + "|" + part.Part))
                 {
                     continue;
                 }
@@ -444,11 +390,48 @@ namespace ForzaStudio
                 copy.Kind = other;
                 copy.Part = part.Part;
                 copy.IsNew = true;
-                copy.BorrowedFrom = (part.Kind == Main) ? "lod" + FirstKey(part.Rebuild) : "lod0";
-                copy.Rebuild[uint.MaxValue] = part.Rebuild[FirstKey(part.Rebuild)];   // LODs set from the template on import
+                uint lod = FirstKey(part.Rebuild);
+                copy.BorrowedFrom = (part.Kind == Main) ? "main\\lod" + lod : "lod0\\lod0";
+                copy.Rebuild[uint.MaxValue] = part.Rebuild[lod];   // LODs set from the template on import
                 borrowed.Add(copy);
             }
             plan.Parts.AddRange(borrowed);
+
+            // Read and check every OBJ to rebuild: faces, and car materials for every group.
+            foreach (PartPlan part in plan.Parts)
+            {
+                foreach (string path in part.Rebuild.Values)
+                {
+                    if (plan.Meshes.ContainsKey(path))
+                    {
+                        continue;
+                    }
+                    string shown = Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(path))) + "\\" + Path.GetFileName(Path.GetDirectoryName(path)) + "\\" + Path.GetFileName(path);
+                    ObjMesh mesh;
+                    try
+                    {
+                        mesh = ObjMesh.Load(path);
+                    }
+                    catch (Exception exception)
+                    {
+                        plan.Errors.Add(shown + ": " + exception.Message);
+                        continue;
+                    }
+                    if (mesh.TriangleCount == 0)
+                    {
+                        plan.Errors.Add(shown + ": no faces (delete the OBJ to remove the part at this LOD)");
+                        continue;
+                    }
+                    foreach (ObjMesh.Material material in mesh.Materials)
+                    {
+                        if (!carMaterials.ContainsKey(material.Name))
+                        {
+                            plan.Errors.Add(string.Format("{0}: material \"{1}\" is not one of the car's (usemtl names are case-sensitive)", shown, material.Name));
+                        }
+                    }
+                    plan.Meshes[path] = mesh;
+                }
+            }
 
             // Templates: the existing part of the same file nearest to the new geometry.
             foreach (PartPlan part in plan.Parts)
@@ -457,10 +440,11 @@ namespace ForzaStudio
                 {
                     continue;
                 }
-                CarbinModel model = models[part.Kind];
-                Vector3 center = Center(part.Rebuild[FirstKey(part.Rebuild)]);
+                ObjMesh mesh;
+                plan.Meshes.TryGetValue(part.Rebuild[FirstKey(part.Rebuild)], out mesh);
+                Vector3 center = (mesh != null) ? Center(mesh) : Vector3.Zero;
                 double best = double.MaxValue;
-                foreach (CarbinModel.Section section in model.Sections)
+                foreach (CarbinModel.Section section in models[part.Kind].Sections)
                 {
                     if (section.SubSections.Count == 0)
                     {
@@ -480,41 +464,24 @@ namespace ForzaStudio
                 part.Templates.Sort(StringComparer.OrdinalIgnoreCase);
                 if (part.Template == null)
                 {
-                    plan.Errors.Add(part.Part + ": no part in the file to use as a template");
+                    plan.Errors.Add(part.Part + ": no part in the " + KindName(part.Kind) + " file to use as a template");
                 }
             }
 
-            if (!plan.HasManifest)
+            if (plan.WithoutManifest.Count > 0)
             {
-                plan.Warnings.Add("No " + ManifestName + " in the folder: every OBJ is rebuilt and no part is removed.");
+                plan.Warnings.Add("No " + ManifestName + " in " + string.Join(", ", plan.WithoutManifest.ToArray()) + ": every OBJ there is rebuilt and nothing is dropped.");
             }
             return plan;
         }
 
-        private static uint FirstKey(SortedDictionary<uint, List<string>> map)
+        private static uint FirstKey(SortedDictionary<uint, string> map)
         {
             foreach (uint key in map.Keys)
             {
                 return key;
             }
             return 0;
-        }
-
-        private static bool Unchanged(List<string> names, List<string> paths, List<string> was, Dictionary<string, string> exported)
-        {
-            if (was == null || was.Count != names.Count)
-            {
-                return false;
-            }
-            for (int i = 0; i < names.Count; i++)
-            {
-                string hash;
-                if (!exported.TryGetValue(names[i], out hash) || hash != Hash(paths[i]))
-                {
-                    return false;
-                }
-            }
-            return true;
         }
 
         private static CarbinModel.Section FindIgnoreCase(CarbinModel model, string name)
@@ -529,23 +496,19 @@ namespace ForzaStudio
             return null;
         }
 
-        // Center of the bounding box of some OBJs (vertex lines only).
-        private static Vector3 Center(List<string> paths)
+        private static Vector3 Center(ObjMesh mesh)
         {
             Vector3 min = new Vector3(float.MaxValue);
             Vector3 max = new Vector3(float.MinValue);
-            foreach (string path in paths)
+            foreach (ObjMesh.Material material in mesh.Materials)
             {
-                foreach (string line in File.ReadAllLines(path))
+                foreach (ObjMesh.Corner[] triangle in material.Triangles)
                 {
-                    if (!line.StartsWith("v "))
+                    foreach (ObjMesh.Corner corner in triangle)
                     {
-                        continue;
+                        min = Vector3.Min(min, corner.Position);
+                        max = Vector3.Max(max, corner.Position);
                     }
-                    string[] parts = line.Split(new char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                    Vector3 p = new Vector3(float.Parse(parts[1], CultureInfo.InvariantCulture), float.Parse(parts[2], CultureInfo.InvariantCulture), float.Parse(parts[3], CultureInfo.InvariantCulture));
-                    min = Vector3.Min(min, p);
-                    max = Vector3.Max(max, p);
                 }
             }
             return (min.X > max.X) ? Vector3.Zero : (min + max) / 2;
@@ -559,7 +522,6 @@ namespace ForzaStudio
         public static List<string> Apply(Plan plan, Dictionary<string, CarbinModel> models, StringBuilder report)
         {
             List<string> changed = new List<string>();
-            Dictionary<string, ObjMesh> loaded = new Dictionary<string, ObjMesh>();
             // New parts first: their templates are copied before any part is rebuilt or removed.
             List<PartPlan> order = new List<PartPlan>();
             foreach (PartPlan part in plan.Parts)
@@ -579,7 +541,7 @@ namespace ForzaStudio
             foreach (PartPlan part in order)
             {
                 CarbinModel model = models[part.Kind];
-                string file = (part.Kind == Main) ? "main" : part.Kind.Substring(1);
+                string file = KindName(part.Kind);
                 if (part.Remove)
                 {
                     model.RemoveSection(part.Part);
@@ -595,7 +557,7 @@ namespace ForzaStudio
                     if (part.Rebuild.ContainsKey(uint.MaxValue))
                     {
                         // Borrowed geometry: one mesh at every LOD of the template.
-                        ObjMesh mesh = LoadAs(part.Rebuild[uint.MaxValue], loaded);
+                        ObjMesh mesh = plan.Meshes[part.Rebuild[uint.MaxValue]];
                         foreach (CarbinModel.SubSection sub in model.Find(part.Part).SubSections)
                         {
                             meshes[sub.Lod] = mesh;
@@ -603,9 +565,9 @@ namespace ForzaStudio
                     }
                     else
                     {
-                        foreach (KeyValuePair<uint, List<string>> pair in part.Rebuild)
+                        foreach (KeyValuePair<uint, string> pair in part.Rebuild)
                         {
-                            meshes[pair.Key] = LoadAs(pair.Value, loaded);
+                            meshes[pair.Key] = plan.Meshes[pair.Value];
                         }
                         foreach (uint lod in part.Keep)
                         {
@@ -629,56 +591,6 @@ namespace ForzaStudio
                 }
             }
             return changed;
-        }
-
-        // The OBJs of one part LOD as one mesh, each file's triangles under the material its name says
-        // (whatever usemtl the editor wrote).
-        private static ObjMesh LoadAs(List<string> paths, Dictionary<string, ObjMesh> loaded)
-        {
-            string key = string.Join("|", paths.ToArray());
-            ObjMesh mesh;
-            if (loaded.TryGetValue(key, out mesh))
-            {
-                return mesh;
-            }
-            mesh = new ObjMesh();
-            foreach (string path in paths)
-            {
-                string kind;
-                uint lod;
-                string part;
-                string material;
-                ParseName(Path.GetFileName(path), out kind, out lod, out part, out material);
-                ObjMesh one;
-                try
-                {
-                    one = ObjMesh.Load(path);
-                }
-                catch (Exception exception)
-                {
-                    throw new InvalidDataException(Path.GetFileName(path) + ": " + exception.Message);
-                }
-                ObjMesh.Material target = null;
-                foreach (ObjMesh.Material existing in mesh.Materials)
-                {
-                    if (existing.Name == material)
-                    {
-                        target = existing;
-                    }
-                }
-                if (target == null)
-                {
-                    target = new ObjMesh.Material();
-                    target.Name = material;
-                    mesh.Materials.Add(target);
-                }
-                foreach (ObjMesh.Material group in one.Materials)
-                {
-                    target.Triangles.AddRange(group.Triangles);
-                }
-            }
-            loaded[key] = mesh;
-            return mesh;
         }
 
         #endregion

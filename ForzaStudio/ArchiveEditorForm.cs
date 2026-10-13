@@ -1,4 +1,4 @@
-namespace ForzaStudio
+﻿namespace ForzaStudio
 {
     using System;
     using System.Collections.Generic;
@@ -182,6 +182,8 @@ namespace ForzaStudio
             file.DropDownItems.Add(new ToolStripSeparator());
             file.DropDownItems.Add(new ToolStripMenuItem("A&dd File...", null, delegate { this.AddFileToArchive(); }, Keys.Control | Keys.Shift | Keys.A));
             file.DropDownItems.Add(new ToolStripMenuItem("Extract &All...", null, delegate { this.ExtractAll(); }));
+            file.DropDownItems.Add(new ToolStripMenuItem("Export &Model To Folder...", null, delegate { this.ExportModelFolder(); }));
+            file.DropDownItems.Add(new ToolStripMenuItem("Import Model From Fo&lder...", null, delegate { this.ImportModelFolder(); }));
             file.DropDownItems.Add(new ToolStripSeparator());
             file.DropDownItems.Add(new ToolStripMenuItem("&New XDS From Image...", null, delegate { this.NewXdsFromImage(); }));
             file.DropDownItems.Add(new ToolStripSeparator());
