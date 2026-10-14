@@ -13,6 +13,8 @@ namespace ForzaStudio
     //   type 5  FH2 (and FH1): the same layout with 28-byte vertices (4 trailing bytes), a flag word
     //           (and an ID) after each buffer's count and stride, a longer header (extra 0x20-byte
     //           records) and one more word before each index list.
+    //   FM3     cars and brakes type 1, wheels type 2 (see IsMotorsport3): read for study only, through
+    //           CarbinModel(data, true); the editing code assumes the FM4/FH vertex encoding.
     //
     // Header draw lists: after the fixed header come 2 x N lists (N = LOD count of the file, two
     // render passes). Each entry is (section index << 16) | subsection index, so every structural
@@ -41,7 +43,7 @@ namespace ForzaStudio
 
         public class SubSection
         {
-            public byte[] Pre5;
+            public byte[] Pre5;                  // FM3: 9 bytes, and no Uv or Fixed36
             public float[] Uv = new float[8];    // offset/scale for U, V, U2, V2
             public byte[] Fixed36;
             public string Name;
@@ -79,7 +81,7 @@ namespace ForzaStudio
             public byte[] AfterA;
             public uint BCount;
             public byte[] B;
-            public byte[] Pre;
+            public byte[] Pre;                           // FM3: none
             public uint VbTest1;
             public uint VbTest2;
             public string Name;
@@ -89,6 +91,7 @@ namespace ForzaStudio
             public List<SubSection> SubSections = new List<SubSection>();
             public byte[] AfterSubs;
             public VertexBuffer Lod0 = new VertexBuffer();
+            // FM3 sections end with Lod0: Post9 and Mid are empty and the damage tables are not written.
             public byte[] Post9;
             public Table DamageLod = new Table();   // 4 bytes per Lod vertex, only on deformable sections
             public byte[] Mid;
@@ -96,7 +99,7 @@ namespace ForzaStudio
 
             public bool IsDeformable
             {
-                get { return this.Post9[4] != 0; }
+                get { return this.Post9.Length > 4 && this.Post9[4] != 0; }
             }
         }
 
@@ -110,6 +113,23 @@ namespace ForzaStudio
 
         private bool horizon;
 
+        // FM3 files (verified on all 3810 car and wheel carbins and the 120 Media\Brakes files of DVD1):
+        //  - cars (main, lod0, cockpit) and brakes are type 1, wheels type 2; the word at 4 is 0xD on
+        //    brakes (FM4 0x10, FH 0x11). Header as in the legacy ForzaCarBin reader: 8 bytes, 0x100 more
+        //    (type 1) or 20 (type 2) unless that word is 0xD, 8, N records of 140 bytes, 0x1AC;
+        //  - sections: marker 2, no Pre word before VbTest1/VbTest2, nothing after Lod0 (no Post9,
+        //    damage tables or Mid);
+        //  - subsections: 9 bytes (2, a byte, 2) instead of 5 + the 8 UV floats + 36;
+        //  - vertices are half floats: xyz a unit direction, w the radius, position = origin + xyz * w
+        //    (no bounds scale); 40 bytes on car parts, 16 on brakes, 44 on wheels.
+        public bool IsMotorsport3
+        {
+            get { return this.motorsport3; }
+        }
+
+        private bool motorsport3;
+        private bool allowMotorsport3;
+
         // FH (type 5) -> FM4 (type 2), measured on the Supra, which both games have:
         //  - header: FH has N 0x20-byte records after 0x154 (no FM4 counterpart, dropped) and format
         //    word 0x11 where FM4 has 0x10; the rest is the same layout (FM4 files also hold leftover
@@ -118,20 +138,26 @@ namespace ForzaStudio
         //    FM4; per subsection Three is 4 in FH, 3 in FM4, and FH's extra index word goes;
         //  - buffers lose the FH flag/ID; 28-byte vertices grow to 32: the 4 trailing SNORM8 values
         //    become the FM4 SNORM16 ones (same meaning, see WriteTail).
+        //  - wheels (type 3) and calipers/rotors (type 1) keep their header but for the format word
+        //    (FH 0x11, FM4 0x10: at 0x48 on wheels, at 4 on brakes; the only header difference on the
+        //    Supra's brakes and on all 120 Media\brakes files of both games). A file without sections
+        //    (brakes\Circle01, drum_null_caliper) reads as FM4, so the word is fixed first.
         public void ConvertHorizonToMotorsport4()
         {
+            if (this.Type == 1 || this.Type == 3)
+            {
+                int word = (this.Type == 3) ? 0x48 : 4;
+                if (ReadU32(this.Head, word) == 0x11)
+                {
+                    this.Head[word + 3] = 0x10;
+                }
+            }
             if (!this.IsHorizon)
             {
                 return;
             }
-            if (this.Type == 3)
+            if (this.Type == 1 || this.Type == 3)
             {
-                // Wheels: the same header but for the format word at 0x48 (FH 0x11, FM4 0x10; the
-                // only difference on a wheel both games have).
-                if (ReadU32(this.Head, 0x48) == 0x11)
-                {
-                    this.Head[0x4B] = 0x10;
-                }
                 this.ConvertSectionsToMotorsport4();
                 return;
             }
@@ -241,8 +267,14 @@ namespace ForzaStudio
         private byte[] data;
         private int position;
 
-        public CarbinModel(byte[] file)
+        public CarbinModel(byte[] file) : this(file, false)
         {
+        }
+
+        // allowMotorsport3: read FM3 files too (study only); otherwise they are refused.
+        public CarbinModel(byte[] file, bool allowMotorsport3)
+        {
+            this.allowMotorsport3 = allowMotorsport3;
             this.data = file;
             this.Parse();
             this.data = null;
@@ -290,7 +322,7 @@ namespace ForzaStudio
             buffer.Count = (int) this.U32();
             buffer.Stride = (int) this.U32();
             buffer.Extra = this.ReadExtra();
-            buffer.Data = this.Bytes(buffer.Count * buffer.Stride);
+            buffer.Data = this.Bytes(IsStripped(buffer.Extra) ? 0 : buffer.Count * buffer.Stride);
             buffer.ExtraFor = buffer.Data;
             return buffer;
         }
@@ -301,9 +333,15 @@ namespace ForzaStudio
             table.Count = (int) this.U32();
             table.Stride = (int) this.U32();
             table.Extra = this.ReadExtra();
-            table.Data = this.Bytes(table.Count * table.Stride);
+            table.Data = this.Bytes(IsStripped(table.Extra) ? 0 : table.Count * table.Stride);
             table.ExtraFor = table.Data;
             return table;
+        }
+
+        // FH stripped_*.carbin: flag 3 and the ID, and no data (count and stride kept).
+        private static bool IsStripped(byte[] extra)
+        {
+            return extra.Length == 8 && extra[0] == 0 && extra[1] == 0 && extra[2] == 0 && extra[3] == 3;
         }
 
         // FH: the flag word, and the ID when the flag is set.
@@ -323,14 +361,26 @@ namespace ForzaStudio
         {
             this.position = 0;
             this.Type = this.U32();
-            if (this.Type == 3)
+            if (IsMotorsport3File(this.data))
             {
-                // Wheels: a fixed 920-byte header in both games; FM4 and FH differ only in the section
-                // layout, so the FM4 reading is tried first and FH when it does not end on the trailer.
+                if (!this.allowMotorsport3)
+                {
+                    throw new NotSupportedException("Forza Motorsport 3 .carbin: it can be read for study, but editing FM3 models is not supported.");
+                }
+                this.motorsport3 = true;
+                this.ParseFrom(Motorsport3HeadLength(this.data));
+                return;
+            }
+            if (this.Type == 1 || this.Type == 3)
+            {
+                // Wheels (type 3, 920-byte header) and calipers/rotors (type 1, 0x354): a fixed header
+                // in both games; FM4 and FH differ only in the section layout, so the FM4 reading is
+                // tried first and FH when it does not end on the trailer.
+                int headLength = 4 + ((this.Type == 3) ? 920 : 0x354);
                 try
                 {
                     this.horizon = false;
-                    this.ParseFrom(4 + 920);
+                    this.ParseFrom(headLength);
                     if (this.Trailer.Length == 24)
                     {
                         return;
@@ -340,12 +390,12 @@ namespace ForzaStudio
                 {
                 }
                 this.horizon = true;
-                this.ParseFrom(4 + 920);
+                this.ParseFrom(headLength);
                 return;
             }
             if (this.Type != 2 && this.Type != 5)
             {
-                throw new NotSupportedException(string.Format("Structural editing of .carbin type {0} is not supported (car models: FM4 type 2, FH type 5; wheels: type 3).", this.Type));
+                throw new NotSupportedException(string.Format("Structural editing of .carbin type {0} is not supported (car models: FM4 type 2, FH type 5; wheels: type 3; brakes: type 1).", this.Type));
             }
             this.horizon = this.Type == 5;
             if (this.IsHorizon)
@@ -362,6 +412,35 @@ namespace ForzaStudio
             uint records = this.U32();
             this.position += 4 + ((int) records * 140) + 0x340;
             this.ParseFrom(this.position);
+        }
+
+        // FM3: type 1 with 0xD at 4 (brakes) or a large word there (a float on main files, 0x390000 or
+        // 0x3A0000 on lod0/cockpit; FM4/FH have 0x10/0x11, FM2 files small values such as 3, 4, 0x2C9), or
+        // type 2 without the FM4 word 0x10 at 0x154 and not FM2 (0x2CA at 0x104).
+        public static bool IsMotorsport3File(byte[] file)
+        {
+            if (file.Length < 0x158)
+            {
+                return false;
+            }
+            uint type = ReadU32(file, 0);
+            uint format = ReadU32(file, 4);
+            if (format == 0x2CA || ReadU32(file, 0x104) == 0x2CA)
+            {
+                return false;
+            }
+            return (type == 1 && (format == 0xD || format >= 0x10000)) || (type == 2 && ReadU32(file, 0x154) != 0x10);
+        }
+
+        private static int Motorsport3HeadLength(byte[] file)
+        {
+            int position = 8;
+            if (ReadU32(file, 4) != 0xD)
+            {
+                position += (ReadU32(file, 0) == 1) ? 0x100 : 20;
+            }
+            position += 8;
+            return position + 4 + ((int) ReadU32(file, position) * 140) + 0x1AC;
         }
 
         // Everything after the header (draw lists, sections, trailer).
@@ -414,7 +493,7 @@ namespace ForzaStudio
             section.AfterA = this.Bytes(4);
             section.BCount = this.U32();
             section.B = this.Bytes((int) section.BCount * 2);
-            section.Pre = this.Bytes(4);
+            section.Pre = this.Bytes(this.motorsport3 ? 0 : 4);
             section.VbTest1 = this.U32();
             section.VbTest2 = this.U32();
             int nameLength = this.data[this.position++];
@@ -427,12 +506,15 @@ namespace ForzaStudio
             for (int k = 0; k < subs; k++)
             {
                 SubSection sub = new SubSection();
-                sub.Pre5 = this.Bytes(5);
-                for (int i = 0; i < 8; i++)
+                sub.Pre5 = this.Bytes(this.motorsport3 ? 9 : 5);
+                if (!this.motorsport3)
                 {
-                    sub.Uv[i] = this.F32();
+                    for (int i = 0; i < 8; i++)
+                    {
+                        sub.Uv[i] = this.F32();
+                    }
                 }
-                sub.Fixed36 = this.Bytes(0x24);
+                sub.Fixed36 = this.Bytes(this.motorsport3 ? 0 : 0x24);
                 int subNameLength = (int) this.U32();
                 sub.Name = Encoding.ASCII.GetString(this.data, this.position, subNameLength);
                 this.position += subNameLength;
@@ -471,6 +553,12 @@ namespace ForzaStudio
             }
             section.AfterSubs = this.Bytes(4);
             section.Lod0 = this.ReadBuffer();
+            if (this.motorsport3)
+            {
+                section.Post9 = new byte[0];
+                section.Mid = new byte[0];
+                return section;
+            }
             section.Post9 = this.Bytes(9);
             section.DamageLod = this.ReadTable();
             section.Mid = this.Bytes(4);
@@ -533,9 +621,12 @@ namespace ForzaStudio
             foreach (SubSection sub in section.SubSections)
             {
                 Write(output, sub.Pre5);
-                foreach (float value in sub.Uv)
+                if (!model.IsMotorsport3)
                 {
-                    WriteF32(output, value);
+                    foreach (float value in sub.Uv)
+                    {
+                        WriteF32(output, value);
+                    }
                 }
                 Write(output, sub.Fixed36);
                 byte[] subName = Encoding.ASCII.GetBytes(sub.Name);
@@ -574,6 +665,10 @@ namespace ForzaStudio
             }
             Write(output, section.AfterSubs);
             WriteBuffer(model, output, section.Lod0, section.Name + "/lod0");
+            if (model.IsMotorsport3)
+            {
+                return;
+            }
             Write(output, section.Post9);
             WriteTable(model, output, section.DamageLod, section.Name + "/damage");
             Write(output, section.Mid);
@@ -615,6 +710,10 @@ namespace ForzaStudio
             if (count == 0)
             {
                 return new byte[4];
+            }
+            if (IsStripped(extra) && data.Length == 0)
+            {
+                return extra;
             }
             if (extra.Length == 8 && extra[3] == 1 && object.ReferenceEquals(extraFor, data))
             {

@@ -64,6 +64,10 @@ namespace ForzaStudio
         private int position;
 
         public int Type { get; private set; }
+
+        // FH file (type 5 models, and wheels/brakes with format word 0x11): 28-byte vertices and the
+        // flag word after each buffer's count and stride.
+        private bool horizon;
         public List<Section> Sections = new List<Section>();
 
         public CarbinFile(byte[] file)
@@ -86,6 +90,11 @@ namespace ForzaStudio
             return v;
         }
 
+        private uint U32At(int offset)
+        {
+            return (uint) ((this.data[offset] << 24) | (this.data[offset + 1] << 16) | (this.data[offset + 2] << 8) | this.data[offset + 3]);
+        }
+
         private float F32At(int offset)
         {
             byte[] b = { this.data[offset + 3], this.data[offset + 2], this.data[offset + 1], this.data[offset] };
@@ -105,12 +114,21 @@ namespace ForzaStudio
         {
             this.position = 0;
             this.Type = (int) this.U32();
-            if (this.Type != 2 && this.Type != 5)
+            if (this.Type == 1 || this.Type == 3)
             {
-                throw new NotSupportedException(string.Format("Editing .carbin type {0} is not supported yet (only car models: FM4 type 2, FH type 5).", this.Type));
+                // Calipers/rotors (0x354-byte header, format word at 4) and wheels (920 bytes, word at
+                // 0x48): 0x10 in FM4, 0x11 in FH.
+                int header = (this.Type == 1) ? 0x354 : 920;
+                this.horizon = this.U32At((this.Type == 1) ? 4 : 0x48) == 0x11;
+                this.position += header;
             }
-            if (this.Type == 5)
+            else if (this.Type != 2 && this.Type != 5)
             {
+                throw new NotSupportedException(string.Format("Editing .carbin type {0} is not supported yet (car models: FM4 type 2, FH type 5; wheels: type 3; brakes: type 1).", this.Type));
+            }
+            else if (this.Type == 5)
+            {
+                this.horizon = true;
                 this.position += 0x150;
                 uint extra = this.U32();
                 this.position += ((int) extra * 0x20) + 12;
@@ -119,8 +137,11 @@ namespace ForzaStudio
             {
                 this.position += 0x15c;
             }
-            uint records = this.U32();
-            this.position += 4 + ((int) records * 140) + 0x340;
+            if (this.Type == 2 || this.Type == 5)
+            {
+                uint records = this.U32();
+                this.position += 4 + ((int) records * 140) + 0x340;
+            }
             uint tables = this.U32() * 2;
             for (int i = 0; i < tables; i++)
             {
@@ -170,9 +191,9 @@ namespace ForzaStudio
                     sub.Lod = (int) this.U32();
                     sub.IndexType = (int) this.U32();
                     this.position += 56 + 4;
-                    if (this.Type == 5 && this.U32() == 2)
+                    if (this.horizon && this.U32() == 2)
                     {
-                        this.position += 8;     // stripped: no index list
+                        this.position += 8 + 4;     // stripped: no index list; then the tail word
                         section.SubSections.Add(sub);
                         continue;
                     }
@@ -188,11 +209,17 @@ namespace ForzaStudio
                 this.position += 9;
                 uint c1 = this.U32();
                 uint c2 = this.U32();
-                this.SkipFlag();
+                if (this.SkipFlag() == 3)
+                {
+                    c1 = 0;
+                }
                 this.position += (int) (c1 * c2) + 4;
                 uint d1 = this.U32();
                 uint d2 = this.U32();
-                this.SkipFlag();
+                if (this.SkipFlag() == 3)
+                {
+                    d1 = 0;
+                }
                 this.position += (int) (d1 * d2);
                 if (lod.Count > 0)
                 {
@@ -216,8 +243,12 @@ namespace ForzaStudio
             buffer.IsLod0 = isLod0;
             buffer.Count = (int) this.U32();
             buffer.Stride = (int) this.U32();
-            this.SkipFlag();
-            if (buffer.Count > 0 && buffer.Stride != ((this.Type == 5) ? 0x1c : 32))
+            if (this.SkipFlag() == 3)
+            {
+                buffer.Count = 0;   // FH stripped_*.carbin: no vertex data
+                return buffer;
+            }
+            if (buffer.Count > 0 && buffer.Stride != (this.horizon ? 0x1c : 32))
             {
                 throw new NotSupportedException(string.Format("Unsupported vertex size {0}.", buffer.Stride));
             }
@@ -227,16 +258,18 @@ namespace ForzaStudio
         }
 
         // FH buffers and tables: a flag word after count and stride, then a 32-bit ID when set.
-        private void SkipFlag()
+        private uint SkipFlag()
         {
-            if (this.Type == 5)
+            if (!this.horizon)
             {
-                uint flag = this.U32();
-                if (flag != 0)
-                {
-                    this.position += 4;
-                }
+                return 0;
             }
+            uint flag = this.U32();
+            if (flag != 0)
+            {
+                this.position += 4;
+            }
+            return flag;
         }
 
         public Section FindSection(string name)

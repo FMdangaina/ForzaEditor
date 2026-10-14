@@ -544,7 +544,7 @@ namespace ForzaStudio
             }
             catch (Exception exception)
             {
-                // Calipers, rotors and track models use other layouts: no part edits there yet.
+                // Track models and older games use other layouts: no part edits there.
                 this.lblEditPart.Text = "Part edits not available: " + exception.Message;
                 this.EnablePartEdit(false);
             }
@@ -760,7 +760,7 @@ namespace ForzaStudio
                     }
                     catch (NotSupportedException)
                     {
-                        continue;   // calipers / rotors (type 1)
+                        continue;   // a layout without part edits
                     }
                     this.zip.Replace(entry, edited);
                     this.RefreshEntryNode(entry);
