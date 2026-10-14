@@ -27,8 +27,12 @@ namespace ForzaStudio
             {
                 case 0x4D5307EA:
                     return ForzaGame.Motorsport2;
+                case 0x4D53084D:
+                    return ForzaGame.Motorsport3;
                 case 0x4D530910:
                     return ForzaGame.Motorsport4;
+                case 0x4D5309C9:
+                    return ForzaGame.Horizon1;
                 case 0x4D530AA4:
                     return ForzaGame.Horizon2;
             }

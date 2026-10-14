@@ -8,12 +8,12 @@ namespace ForzaStudio
     using System.Xml;
 
     // The music a game folder offers, as named track lists:
-    //   FM4  Media\audio\Music\*.xma: the menu music (UI_ tracks, in the order of the UI playlists)
-    //        and the whole soundtrack.
+    //   FM3, FM4  Media\audio\Music\*.xma: the menu music (UI_ tracks, in the order of the UI playlists),
+    //        the in-race playlists and the whole soundtrack (without FM3's song intros).
     //   FM2  Media\audio\Music\*.xma (numbered files): one list per *Playlist.xml (titles and artists
     //        from it) and the whole soundtrack.
-    //   FH2  Media\audio\radio\Radio_Music.fsb, one FMOD bank: its streams are the tracks, in the order
-    //        of Radio_Music.lst; RadioSystem.xml (not well-formed XML: bare '&') gives the stations.
+    //   FH1, FH2  Media\audio\radio\Radio_Music.fsb, one FMOD bank: its streams are the tracks, in the
+    //        order of Radio_Music.lst; RadioSystem.xml (not well-formed XML: bare '&') gives the stations.
     public static class GameMusic
     {
         public class Track
@@ -73,9 +73,11 @@ namespace ForzaStudio
             Dictionary<string, Track> known = new Dictionary<string, Track>(StringComparer.OrdinalIgnoreCase);
             Dictionary<string, List<Track>> playlists = new Dictionary<string, List<Track>>();
             List<string> playlistOrder = new List<string>();
+            // FM3's songs open with a separate intro file the game plays first: not a track of its own.
+            Dictionary<string, bool> intros = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             foreach (string path in Directory.GetFiles(music, "*Playlist*.xml"))
             {
-                List<Track> tracks = ReadPlaylist(music, path, known);
+                List<Track> tracks = ReadPlaylist(music, path, known, intros);
                 if (tracks.Count > 0)
                 {
                     string name = Path.GetFileNameWithoutExtension(path);
@@ -92,6 +94,10 @@ namespace ForzaStudio
             foreach (string file in files)
             {
                 Track track;
+                if (intros.ContainsKey(file) && !known.ContainsKey(file))
+                {
+                    continue;
+                }
                 if (!known.TryGetValue(file, out track))
                 {
                     track = new Track();
@@ -125,6 +131,17 @@ namespace ForzaStudio
                 {
                     sources.Add(menu);
                 }
+                // The race music: InRaceLayer1Playlist -> "In race layer 1".
+                foreach (string name in playlistOrder)
+                {
+                    if (name.IndexOf("UI", StringComparison.Ordinal) < 0)
+                    {
+                        Source source = new Source();
+                        source.Name = PlaylistName(name);
+                        source.Tracks.AddRange(playlists[name]);
+                        sources.Add(source);
+                    }
+                }
             }
             else
             {
@@ -155,11 +172,16 @@ namespace ForzaStudio
 
         // <Song filename="Game:\Media\Audio\Music\0.xma" title="..." artist="..."/>, read with a
         // pattern: FM2's playlists have bare '&' and are not well-formed XML. "na" means no title.
-        private static List<Track> ReadPlaylist(string music, string path, Dictionary<string, Track> known)
+        private static List<Track> ReadPlaylist(string music, string path, Dictionary<string, Track> known, Dictionary<string, bool> intros)
         {
             List<Track> tracks = new List<Track>();
             foreach (Match song in Regex.Matches(File.ReadAllText(path), "<Song\\s([^>]*)>", RegexOptions.IgnoreCase))
             {
+                string intro = Text(Attribute(song.Groups[1].Value, "intro"));
+                if (intro != null)
+                {
+                    intros[Path.Combine(music, Path.GetFileName(intro.Replace('/', '\\')))] = true;
+                }
                 string name = Attribute(song.Groups[1].Value, "filename");
                 if (string.IsNullOrEmpty(name))
                 {
@@ -228,7 +250,7 @@ namespace ForzaStudio
             {
                 name = name.Substring(0, name.Length - "Playlist".Length);
             }
-            string spaced = Spaced(name);
+            string spaced = Regex.Replace(Spaced(name), "(?<=[a-z])(?=\\d)", " ");
             return (spaced.Length > 1) ? spaced.Substring(0, 1) + spaced.Substring(1).ToLowerInvariant() : spaced;
         }
 
@@ -249,6 +271,18 @@ namespace ForzaStudio
         #endregion
 
         #region FH2 radio
+
+        // FH1's stations have no stinger idents to take a name from: the game names them only on the
+        // station stickers (gamedb Livery_Decals 519-521), in Radio1-3 order.
+        private static readonly string[] Fh1Stations = { "Horizon Bass Arena", "Horizon Pulse", "Horizon Rocks" };
+
+        // The song of a bank stream without its list prefix, the same for a station track and the menu
+        // edit of it: R1_Encore, PreRace_R1_Encore -> Encore (FH1); HZ2_R1_Chromeo_Jealous,
+        // HZ2_PreRace_Chromeo_Jealous -> Chromeo_Jealous (FH2).
+        private static string SongKey(string fmod)
+        {
+            return Regex.Replace(fmod, "^(?:HZ\\d+_)?(?:[A-Za-z]+_)?(?:R\\d+_)?", "");
+        }
 
         private static void LoadRadio(string radio, List<Source> sources)
         {
@@ -271,11 +305,25 @@ namespace ForzaStudio
                 }
             }
             string system = File.ReadAllText(Path.Combine(radio, "RadioSystem.xml"), Encoding.UTF8);
+            string[] blocks = Regex.Split(system, "<RadioStation ");
+
+            // Title and artist of each song the stations name; the menu lists carry "None" and get them
+            // from here (HZ2_PreRace_Chromeo_Jealous plays HZ2_R1_Chromeo_Jealous's song).
+            Dictionary<string, Match> songs = new Dictionary<string, Match>(StringComparer.OrdinalIgnoreCase);
+            foreach (Match track in Regex.Matches(system, "<MusicTrack ([^>]*)>"))
+            {
+                string fmod = Attribute(track.Groups[1].Value, "fmodname");
+                if (fmod != null && !IsUntitled(track.Groups[1].Value) && !songs.ContainsKey(SongKey(fmod)))
+                {
+                    songs[SongKey(fmod)] = track;
+                }
+            }
+
             Source all = new Source();
             all.Name = "All stations";
             List<Source> stations = new List<Source>();
             List<Source> others = new List<Source>();
-            foreach (string block in Regex.Split(system, "<RadioStation "))
+            foreach (string block in blocks)
             {
                 Match name = Regex.Match(block, "^name=\"([^\"]*)\"");
                 if (!name.Success)
@@ -284,15 +332,21 @@ namespace ForzaStudio
                 }
                 Source source = new Source();
                 Match ident = Regex.Match(block, "Stinger_([A-Za-z0-9]+)_");
+                Match numbered = Regex.Match(name.Groups[1].Value, "^Radio(\\d+)$");
                 int third = name.Groups[1].Value.IndexOf("_3d_", StringComparison.OrdinalIgnoreCase);
-                bool station = ident.Success;
-                if (station)
+                bool station = third < 0 && (ident.Success || numbered.Success);
+                if (third >= 0)
+                {
+                    source.Name = "Menu: " + Spaced(name.Groups[1].Value.Substring(third + 4));   // Radio5_3d_PreRace -> Menu: Pre Race
+                }
+                else if (ident.Success)
                 {
                     source.Name = Spaced(ident.Groups[1].Value);            // HorizonPulse -> Horizon Pulse
                 }
-                else if (third >= 0)
+                else if (numbered.Success)
                 {
-                    source.Name = "Menu: " + Spaced(name.Groups[1].Value.Substring(third + 4));   // Radio5_3d_PreRace -> Menu: Pre Race
+                    int number = int.Parse(numbered.Groups[1].Value);       // FH1 Radio1 -> Horizon Bass Arena
+                    source.Name = (number >= 1 && number <= Fh1Stations.Length) ? Fh1Stations[number - 1] : "Radio " + number;
                 }
                 else
                 {
@@ -309,13 +363,22 @@ namespace ForzaStudio
                     Track item = new Track();
                     item.File = bank;
                     item.Subsong = number;
-                    item.Title = Attribute(track.Groups[1].Value, "name");
-                    item.Artist = Attribute(track.Groups[1].Value, "artist");
-                    if (string.IsNullOrEmpty(item.Title) || item.Title.StartsWith("None", StringComparison.OrdinalIgnoreCase) || item.Artist == "None")
+                    Match song;
+                    if (!IsUntitled(track.Groups[1].Value))
+                    {
+                        item.Title = Text(Attribute(track.Groups[1].Value, "name"));
+                        item.Artist = Text(Attribute(track.Groups[1].Value, "artist"));
+                    }
+                    else if (songs.TryGetValue(SongKey(fmod), out song))
+                    {
+                        item.Title = Text(Attribute(song.Groups[1].Value, "name"));
+                        item.Artist = Text(Attribute(song.Groups[1].Value, "artist"));
+                    }
+                    else
                     {
                         // HZ2_PreRace_Chromeo_Jealous -> Chromeo – Jealous
-                        string[] parts = fmod.Split('_');
-                        item.Artist = (parts.Length >= 4) ? Spaced(parts[parts.Length - 2]) : null;
+                        string[] parts = SongKey(fmod).Split('_');
+                        item.Artist = (parts.Length >= 2) ? Spaced(parts[parts.Length - 2]) : null;
                         item.Title = Spaced(parts[parts.Length - 1]);
                     }
                     source.Tracks.Add(item);
@@ -343,6 +406,13 @@ namespace ForzaStudio
                 sources.Add(all);
             }
             sources.AddRange(others);
+        }
+
+        // A menu list's <MusicTrack name="None01" artist="None" ...>.
+        private static bool IsUntitled(string attributes)
+        {
+            string title = Attribute(attributes, "name");
+            return string.IsNullOrEmpty(title) || title.StartsWith("None", StringComparison.OrdinalIgnoreCase) || Attribute(attributes, "artist") == "None";
         }
 
         private static string Attribute(string attributes, string name)
