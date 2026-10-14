@@ -43,6 +43,7 @@
         private readonly List<long> originalWheels = new List<long>();   // wheels FM4 already had before the port
         private readonly Dictionary<string, ForzaZip> changedZips = new Dictionary<string, ForzaZip>(StringComparer.OrdinalIgnoreCase);
         private readonly List<string> newZips = new List<string>();
+        private readonly Dictionary<string, string> newFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // loose target file -> source file
 
         // FH2 materials FM4 has no shader for -> FM4 materials (null: the subsection goes).
         private static readonly Dictionary<string, string> MaterialMap = BuildMaterialMap();
@@ -131,6 +132,11 @@
                     this.Backup(output);
                     pair.Value.Save(output);
                     this.Line("saved {0}", this.Relative(pair.Key));
+                }
+                foreach (KeyValuePair<string, string> file in this.newFiles)
+                {
+                    File.Copy(file.Value, this.Out(file.Key), false);
+                    this.Line("added {0}", this.Relative(file.Key));
                 }
                 this.UpdateManifest();
             }
@@ -233,6 +239,30 @@
                 this.CopyById(from, to, "WheelID", this.wheelIds, null, "WheelExceptions");
             }
             this.CopyReferences(from, to);
+            this.StockTires();
+        }
+
+        // FH2 gives a few road cars (CarTypeID 1) DOT or slick tyres as stock (P1, LaFerrari, Veneno: 8
+        // RacingSlick at level 3; Veyron SS, R8 Plus...: 7 DOTCompetition). FM4 keeps those for track
+        // cars (Diablo GTR, Viper Competition Coupe, Leon Supercup); its road hypercars (Enzo, F50,
+        // MC12, One-77, LFA) have 6 MaxPerformance at level 1 and 7, 8, 9 as upgrades. Such a car gets
+        // the Enzo's rows (ids car*1000 + 0, 2, 3, 4).
+        private void StockTires()
+        {
+            object type = this.target.Scalar("SELECT CarTypeID FROM Data_Car WHERE Id = ?", this.carId);
+            object stock = this.target.Scalar("SELECT TireCompoundID FROM List_UpgradeTireCompound WHERE Ordinal = ? AND IsStock = 1", this.carId);
+            if (type == null || Convert.ToInt64(type) != 1 || stock == null || Convert.ToInt64(stock) < 7)
+            {
+                return;
+            }
+            this.target.Execute("DELETE FROM List_UpgradeTireCompound WHERE Ordinal = ?", this.carId);
+            long[][] rows = { new long[] { 0, 1, 1, 6, 0 }, new long[] { 2, 2, 0, 7, 5000 }, new long[] { 3, 3, 0, 8, 10000 }, new long[] { 4, 4, 0, 9, 10000 } };
+            foreach (long[] row in rows)
+            {
+                this.target.Execute("INSERT INTO List_UpgradeTireCompound (Id, Ordinal, Level, IsStock, TireCompoundID, ManufacturerID, Price, MassDiff, DragScale, WindInstabilityScale) VALUES (?, ?, ?, ?, ?, 0, ?, 0, 1, 1)",
+                    (this.carId * 1000) + row[0], this.carId, row[1], row[2], row[3], row[4]);
+            }
+            this.Line("  tyres: FH2 stock compound {0} on a road car -> FM4's 6 MaxPerformance stock, 7/8/9 as upgrades", stock);
         }
 
         // Every "...ID" value in the rows of the car (and of its engine and drivetrain) that names
@@ -419,6 +449,9 @@
         }
 
         // Copies the rows matching 'where' (common columns); rows already there are replaced.
+        // A row whose primary key FM4 already uses for another row: a key nothing refers to (a plain
+        // counter, Combo_Colors_Exceptions.ID: FH2's 670 is car 2016's, FM4's car 315's) gets the next
+        // free value; a key other tables refer to stops the port before anything is written.
         private int CopyRows(string table, List<string> sourceColumns, List<string> targetColumns, string where)
         {
             List<string> columns = new List<string>();
@@ -442,11 +475,97 @@
             this.target.Execute("DELETE FROM " + SqliteDatabase.Quote(table) + " WHERE " + where);
             string marks = string.Join(",", columns.ConvertAll<string>(delegate(string c) { return "?"; }).ToArray());
             string insert = "INSERT INTO " + SqliteDatabase.Quote(table) + " (" + string.Join(",", quoted.ToArray()) + ") VALUES (" + marks + ")";
+            List<int> key = new List<int>();
+            foreach (string column in this.PrimaryKey(table))
+            {
+                int index = columns.FindIndex(delegate(string c) { return string.Equals(c, column, StringComparison.OrdinalIgnoreCase); });
+                if (index < 0)
+                {
+                    key.Clear();
+                    break;
+                }
+                key.Add(index);
+            }
+            string keyWhere = string.Join(" AND ", key.ConvertAll<string>(delegate(int i) { return quoted[i] + " = ?"; }).ToArray());
+            int renumbered = 0;
             foreach (object[] row in rows.Rows)
             {
+                if (key.Count > 0)
+                {
+                    object[] values = key.ConvertAll<object>(delegate(int i) { return row[i]; }).ToArray();
+                    if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM " + SqliteDatabase.Quote(table) + " WHERE " + keyWhere, values)) > 0)
+                    {
+                        if (key.Count != 1 || !(row[key[0]] is long) || this.IsReferenced(table, columns[key[0]]))
+                        {
+                            throw new InvalidOperationException(string.Format("{0}: the key {1} = {2} of the FH2 row is another row's in FM4, and other tables refer to it.",
+                                table, string.Join(",", key.ConvertAll<string>(delegate(int i) { return columns[i]; }).ToArray()),
+                                string.Join(",", Array.ConvertAll<object, string>(values, delegate(object v) { return Convert.ToString(v, CultureInfo.InvariantCulture); }))));
+                        }
+                        row[key[0]] = Convert.ToInt64(this.target.Scalar("SELECT ifnull(max(" + quoted[key[0]] + "), 0) + 1 FROM " + SqliteDatabase.Quote(table)));
+                        renumbered++;
+                    }
+                }
                 this.target.Execute(insert, row);
             }
+            if (renumbered > 0)
+            {
+                this.Line("  {0}: {1} of {2} rows got a new {3} (FM4 uses theirs)", table, renumbered, rows.Rows.Count, columns[key[0]]);
+            }
             return rows.Rows.Count;
+        }
+
+        private readonly Dictionary<string, List<string>> primaryKeys = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        // The target table's primary key columns, in key order (PRAGMA table_info pk).
+        private List<string> PrimaryKey(string table)
+        {
+            List<string> key;
+            if (!this.primaryKeys.TryGetValue(table, out key))
+            {
+                SortedList<long, string> ordered = new SortedList<long, string>();
+                foreach (object[] column in this.target.Query("PRAGMA table_info(" + SqliteDatabase.Quote(table) + ")").Rows)
+                {
+                    if (Convert.ToInt64(column[5]) > 0)
+                    {
+                        ordered.Add(Convert.ToInt64(column[5]), (string) column[1]);
+                    }
+                }
+                key = new List<string>(ordered.Values);
+                this.primaryKeys[table] = key;
+            }
+            return key;
+        }
+
+        // Whether another FM4 table has a column naming this key, as CopyReferences reads them:
+        // the key's own name (AeroPhysicsID), or for a key called Id/ID the table's name without
+        // its prefix + ID (Data_CarBody -> CarBodyID).
+        private bool IsReferenced(string table, string keyColumn)
+        {
+            List<string> names = new List<string>();
+            if (!string.Equals(keyColumn, "Id", StringComparison.OrdinalIgnoreCase))
+            {
+                names.Add(keyColumn);
+            }
+            int prefix = table.IndexOf('_');
+            names.Add(((prefix >= 0) ? table.Substring(prefix + 1) : table) + "ID");
+            foreach (object[] other in this.target.Query("SELECT name FROM sqlite_master WHERE type = 'table'").Rows)
+            {
+                if (string.Equals((string) other[0], table, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                foreach (object[] column in this.target.Query("PRAGMA table_info(" + SqliteDatabase.Quote((string) other[0]) + ")").Rows)
+                {
+                    foreach (string name in names)
+                    {
+                        if (string.Equals((string) column[1], name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
         }
 
         // Data_Car: the FH2 row in FM4's columns; PI on the FM4 scale (MapPerformanceIndex), class
@@ -599,22 +718,18 @@
 
         #region Strings
 
-        // DisplayName / ModelShort are "_&<id>": the low 16 bits are the key in Data_Car.str.
+        // DisplayName / ModelShort are "_&<id>": the low 16 bits are the key in Data_Car.str. FH2 and
+        // FM4 numbered their strings apart, so an FH2 key can be another car's in FM4 (14 of the 73
+        // FH2 cars FM4 lacks: FOR_TransitSSV_11's DDD8 is IDS_DisplayName_1076 there). Such a string
+        // gets a key free in every language, and the database value follows it (same high bits); a
+        // car ported before finds its string again by name (IDS_...).
         private void PortStrings()
         {
-            List<int> keys = new List<int>();
-            foreach (string column in new string[] { "DisplayName", "ModelShort" })
-            {
-                object value = this.source.Scalar("SELECT " + column + " FROM Data_Car WHERE Id = ?", this.carId);
-                uint id;
-                if (value is string && ((string) value).StartsWith("_&") && uint.TryParse(((string) value).Substring(2), NumberStyles.None, CultureInfo.InvariantCulture, out id))
-                {
-                    keys.Add((int) (id & 0xFFFF));
-                }
-            }
             string targetTables = Path.Combine(Path.Combine(this.TargetRoot, "Media"), "StringTables");
             string sourceTables = Path.Combine(Path.Combine(this.SourceRoot, "Media"), "StringTables");
-            int languages = 0;
+            List<string> zips = new List<string>();
+            Dictionary<string, StrFile> sourceFiles = new Dictionary<string, StrFile>(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, StrFile> targetFiles = new Dictionary<string, StrFile>(StringComparer.OrdinalIgnoreCase);
             foreach (string targetZip in Directory.GetFiles(targetTables, "*.zip"))
             {
                 string sourceZip = Path.Combine(sourceTables, Path.GetFileName(targetZip));
@@ -630,35 +745,112 @@
                 {
                     continue;
                 }
-                StrFile from = new StrFile(sourceArchive.Read(sourceEntry));
-                StrFile to = new StrFile(archive.Read(entry));
-                foreach (int key in keys)
-                {
-                    StrFile.Entry text = null;
-                    foreach (StrFile.Entry candidate in from.Entries)
-                    {
-                        if (candidate.Key == key)
-                        {
-                            text = candidate;
-                        }
-                    }
-                    if (text == null)
-                    {
-                        continue;
-                    }
-                    foreach (StrFile.Entry existing in to.Entries)
-                    {
-                        if (existing.Key == key && existing.Name != text.Name)
-                        {
-                            throw new InvalidOperationException(string.Format("String key {0:X4} is already used by {1} in {2}.", key, existing.Name, Path.GetFileName(targetZip)));
-                        }
-                    }
-                    to.Set(key, text.Text, text.Name);
-                }
-                archive.Replace(entry, to.ToBytes());
-                languages++;
+                zips.Add(targetZip);
+                sourceFiles[targetZip] = new StrFile(sourceArchive.Read(sourceEntry));
+                targetFiles[targetZip] = new StrFile(archive.Read(entry));
             }
-            this.Line("strings: {0} keys in Data_Car.str of {1} languages", keys.Count, languages);
+
+            int keys = 0;
+            foreach (string column in new string[] { "DisplayName", "ModelShort" })
+            {
+                object value = this.source.Scalar("SELECT " + column + " FROM Data_Car WHERE Id = ?", this.carId);
+                uint id;
+                if (!(value is string) || !((string) value).StartsWith("_&") || !uint.TryParse(((string) value).Substring(2), NumberStyles.None, CultureInfo.InvariantCulture, out id))
+                {
+                    continue;
+                }
+                int key = (int) (id & 0xFFFF);
+                string name = null;
+                foreach (string zip in zips)
+                {
+                    StrFile.Entry text = Find(sourceFiles[zip], key);
+                    if (text != null && text.Name != null)
+                    {
+                        name = text.Name;
+                        break;
+                    }
+                }
+                int newKey = this.StringKey(targetFiles, key, name);
+                if (newKey != key)
+                {
+                    uint newId = (id & 0xFFFF0000u) | (uint) newKey;
+                    this.target.Execute("UPDATE Data_Car SET " + SqliteDatabase.Quote(column) + " = ? WHERE Id = ?", "_&" + newId.ToString(CultureInfo.InvariantCulture), this.carId);
+                    this.Line("  {0}: string key {1:X4} is another car's in FM4, {2:X4} used (_&{3})", column, key, newKey, newId);
+                }
+                foreach (string zip in zips)
+                {
+                    StrFile.Entry text = Find(sourceFiles[zip], key);
+                    if (text != null)
+                    {
+                        targetFiles[zip].Set(newKey, text.Text, text.Name);
+                    }
+                }
+                keys++;
+            }
+            foreach (string zip in zips)
+            {
+                ForzaZip archive = this.OpenChanged(zip);
+                archive.Replace(archive.Find("Data_Car.str"), targetFiles[zip].ToBytes());
+            }
+            this.Line("strings: {0} keys in Data_Car.str of {1} languages", keys, zips.Count);
+        }
+
+        private static StrFile.Entry Find(StrFile file, int key)
+        {
+            foreach (StrFile.Entry entry in file.Entries)
+            {
+                if (entry.Key == key)
+                {
+                    return entry;
+                }
+            }
+            return null;
+        }
+
+        // The FM4 key for an FH2 string: its own when free in every language or already holding this
+        // string (same name), the key a port before gave the name, else the highest key free everywhere
+        // (FFFF ends the key list).
+        private int StringKey(Dictionary<string, StrFile> files, int key, string name)
+        {
+            bool free = true;
+            foreach (StrFile file in files.Values)
+            {
+                StrFile.Entry existing = Find(file, key);
+                if (existing != null && (name == null || existing.Name != name))
+                {
+                    free = false;
+                }
+            }
+            if (free)
+            {
+                return key;
+            }
+            if (name != null)
+            {
+                foreach (StrFile file in files.Values)
+                {
+                    foreach (StrFile.Entry entry in file.Entries)
+                    {
+                        if (entry.Name == name)
+                        {
+                            return entry.Key;
+                        }
+                    }
+                }
+            }
+            for (int candidate = 0xFFFE; candidate > 0; candidate--)
+            {
+                bool used = false;
+                foreach (StrFile file in files.Values)
+                {
+                    used = used || file.Contains(candidate);
+                }
+                if (!used)
+                {
+                    return candidate;
+                }
+            }
+            throw new InvalidOperationException("Data_Car.str has no free string key.");
         }
 
         #endregion
@@ -1177,13 +1369,21 @@
         #region Sound and thumbnail
 
         // FH2's engine tuning (<engine media>_ET.xml) and car model tuning (<car>_CMT.xml) have the FM4
-        // layout and point at harmonic tunings by name; when FM4 lacks one, the donor's tuning is used.
+        // layout and point at harmonic tunings by name. A harmonic tuning FM4 lacks comes from FH2
+        // with the sound bank it names (<Soundbank name="2N1_Ducati998_EngAmb.fsb">, a loose FSB4 file
+        // in Engines\soundbanks\lod1): the 353 banks both games have are byte-identical and the
+        // tunings they share too. Only when FH2 lacks one of them is the donor's engine tuning used.
         private void PortSound()
         {
             string sourceAudio = Path.Combine(Path.Combine(Path.Combine(this.SourceRoot, "Media"), "audio"), "cars");
             string targetAudio = Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "audio"), "Cars");
             ForzaZip sourceTuning = new ForzaZip(Path.Combine(Path.Combine(sourceAudio, "Engines"), "EngineTuning.zip"));
-            ForzaZip harmonic = new ForzaZip(Path.Combine(Path.Combine(targetAudio, "Engines"), "harmonictuning.zip"));
+            ForzaZip sourceHarmonic = new ForzaZip(Path.Combine(Path.Combine(sourceAudio, "Engines"), "HarmonicTuning.zip"));
+            string sourceBanks = Path.Combine(Path.Combine(Path.Combine(sourceAudio, "Engines"), "Soundbanks"), "LOD1");
+            string targetBanks = Path.Combine(Path.Combine(Path.Combine(targetAudio, "Engines"), "soundbanks"), "lod1");
+            string harmonicPath = Path.Combine(Path.Combine(targetAudio, "Engines"), "harmonictuning.zip");
+            ForzaZip harmonic = new ForzaZip(harmonicPath);
+            List<string> imported = new List<string>();
             ForzaZip engineTuning = this.OpenChanged(Path.Combine(Path.Combine(targetAudio, "Engines"), "enginetuning.zip"));
             string donorEngine = this.target.Scalar("SELECT e.MediaName FROM Data_Engine e JOIN List_UpgradeEngine u ON u.EngineID = e.EngineID WHERE u.Ordinal = ? AND u.Level = 0", this.donorId) as string;
             foreach (string media in this.engineMedia)
@@ -1195,9 +1395,18 @@
                 {
                     foreach (Match reference in Regex.Matches(Encoding.UTF8.GetString(data), "\"([^\"]+_HT\\.xml)\"", RegexOptions.IgnoreCase))
                     {
-                        if (harmonic.Find(reference.Groups[1].Value) == null && !missing.Contains(reference.Groups[1].Value))
+                        string name = reference.Groups[1].Value;
+                        if (harmonic.Find(name) != null || imported.Contains(name) || missing.Contains(name))
                         {
-                            missing.Add(reference.Groups[1].Value);
+                            continue;
+                        }
+                        if (this.ImportHarmonic(sourceHarmonic, harmonicPath, name, sourceBanks, targetBanks))
+                        {
+                            imported.Add(name);
+                        }
+                        else
+                        {
+                            missing.Add(name);
                         }
                     }
                 }
@@ -1210,11 +1419,11 @@
                         continue;
                     }
                     data = engineTuning.Read(fallback);
-                    this.Line("engine sound {0}: the donor's ({1}; FM4 lacks {2})", media, donorEngine, (missing.Count > 0) ? string.Join(", ", missing.ToArray()) : "the FH2 tuning");
+                    this.Line("engine sound {0}: the donor's ({1}; FH2 lacks {2})", media, donorEngine, (missing.Count > 0) ? string.Join(", ", missing.ToArray()) : "the FH2 tuning");
                 }
                 else
                 {
-                    this.Line("engine sound {0}: FH2 tuning, its harmonic tunings are all in FM4", media);
+                    this.Line("engine sound {0}: FH2 tuning, its harmonic tunings are all in FM4{1}", media, (imported.Count > 0) ? " (" + imported.Count + " brought from FH2)" : "");
                 }
                 this.Put(engineTuning, media + "_ET.xml", data);
             }
@@ -1227,6 +1436,47 @@
                 this.Put(carModels, this.MediaName + "_CMT.xml", sourceModels.Read(modelTuning));
                 this.Line("car model tuning {0}_CMT.xml added", this.MediaName);
             }
+        }
+
+        // One FH2 harmonic tuning into FM4's harmonictuning.zip, with its sound bank when FM4 lacks
+        // it (written with the other files, lower-case like FM4's). False when FH2 lacks either.
+        private bool ImportHarmonic(ForzaZip sourceHarmonic, string harmonicPath, string name, string sourceBanks, string targetBanks)
+        {
+            ForzaZip.Entry entry = sourceHarmonic.Find(name);
+            if (entry == null)
+            {
+                return false;
+            }
+            byte[] data = sourceHarmonic.Read(entry);
+            Match bank = Regex.Match(Encoding.UTF8.GetString(data), "<Soundbank\\s+name=\"([^\"]+)\"", RegexOptions.IgnoreCase);
+            if (!bank.Success)
+            {
+                return false;
+            }
+            string target = Path.Combine(targetBanks, bank.Groups[1].Value.ToLowerInvariant());
+            if (!File.Exists(target) && !this.newFiles.ContainsKey(target))
+            {
+                string source = null;
+                if (Directory.Exists(sourceBanks))
+                {
+                    foreach (string file in Directory.GetFiles(sourceBanks))
+                    {
+                        if (string.Equals(Path.GetFileName(file), bank.Groups[1].Value, StringComparison.OrdinalIgnoreCase))
+                        {
+                            source = file;
+                        }
+                    }
+                }
+                if (source == null)
+                {
+                    return false;
+                }
+                this.newFiles[target] = source;
+                this.Line("  sound bank {0} from FH2", Path.GetFileName(target));
+            }
+            this.Put(this.OpenChanged(harmonicPath), name, data);
+            this.Line("  harmonic tuning {0} from FH2", name);
+            return true;
         }
 
         private void PortThumbnail()
@@ -1309,6 +1559,7 @@
             files.Add(Path.Combine(Path.Combine(media, "UI"), "Textures.zip"));
             files.Add(Path.Combine(Path.Combine(Path.Combine(media, "audio"), "Cars"), "CarModelTuning.zip"));
             files.Add(Path.Combine(Path.Combine(Path.Combine(Path.Combine(media, "audio"), "Cars"), "Engines"), "enginetuning.zip"));
+            files.Add(Path.Combine(Path.Combine(Path.Combine(Path.Combine(media, "audio"), "Cars"), "Engines"), "harmonictuning.zip"));
             files.Add(Path.Combine(Path.Combine(media, "cars"), this.MediaName + ".zip"));
             files.Add(Path.Combine(Path.Combine(media, "wheels"), this.MediaName + ".zip"));
             string strings = Path.Combine(media, "StringTables");
