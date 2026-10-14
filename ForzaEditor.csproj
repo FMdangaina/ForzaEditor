@@ -170,6 +170,13 @@
     <Compile Include="ForzaStudio\CarPortForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="ForzaStudio\AnarkFbf.cs" />
+    <Compile Include="ForzaStudio\AnarkBgf.cs" />
+    <Compile Include="ForzaStudio\AnarkBsg.cs" />
+    <Compile Include="ForzaStudio\AnarkDash.cs" />
+    <Compile Include="ForzaStudio\AnarkDashCanvas.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="ForzaStudio\ObjMesh.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartEdit.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartImport.cs" />
@@ -220,6 +227,9 @@
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="ForzaStudio\ArchiveEditorForm.Power.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Dash.cs">
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="ForzaStudio\PickDialog.cs">

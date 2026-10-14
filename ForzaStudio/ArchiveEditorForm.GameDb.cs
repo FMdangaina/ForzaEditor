@@ -1292,7 +1292,7 @@ namespace ForzaStudio
         private static bool CanView(string path)
         {
             string name = path.ToLowerInvariant();
-            foreach (string extension in new string[] { ".xds", ".xdc", ".tga", ".carbin", ".rmb.bin", ".xml", ".ini", ".cfg", ".txt", ".html", ".htm", ".slt", ".zip" })
+            foreach (string extension in new string[] { ".xds", ".xdc", ".tga", ".carbin", ".rmb.bin", ".xml", ".ini", ".cfg", ".txt", ".html", ".htm", ".slt", ".zip", ".fbf", ".bgf", ".bsg" })
             {
                 if (name.EndsWith(extension))
                 {

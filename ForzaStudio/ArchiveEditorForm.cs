@@ -120,6 +120,7 @@
             this.BuildTextureView();
             this.BuildXmlView();
             this.BuildGameDbView();
+            this.BuildDashView();
 
             this.pnlContent.Controls.Add(this.lblEmpty);
             this.pnlContent.Controls.Add(this.txtContent);
@@ -128,6 +129,7 @@
             this.pnlContent.Controls.Add(this.pnlInfo);
             this.pnlContent.Controls.Add(this.pnlModel);
             this.pnlContent.Controls.Add(this.pnlTexture);
+            this.pnlContent.Controls.Add(this.pnlDash);
             this.ShowView(this.lblEmpty);
 
             this.BuildMusicControls();
@@ -928,6 +930,10 @@
                 else if (extension == ".xml")
                 {
                     this.ShowXml(entry, data);
+                }
+                else if (extension == ".fbf" || extension == ".bgf" || extension == ".bsg")
+                {
+                    this.ShowDash(entry, data);
                 }
                 else if (extension == ".slt")
                 {
