@@ -459,7 +459,7 @@ namespace ForzaStudio
         // The list an id column picks from, or null for a plain value.
         public Lookup GetLookup(string tableName, string columnName)
         {
-            string key = LookupKey(tableName, columnName);
+            string key = LookupKey(tableName, columnName) ?? this.RelationLookupKey(tableName, columnName);
             if (key == null)
             {
                 return this.IsFlag(tableName, columnName) ? YesNo : null;
@@ -543,8 +543,17 @@ namespace ForzaStudio
             Lookup lookup = new Lookup();
             string sql = LookupSql(key);
             string table = LookupTable(key);
+            string[] relation = key.StartsWith(RelationPrefix, StringComparison.Ordinal) ? key.Substring(RelationPrefix.Length).Split('|') : null;
+            if (relation != null)
+            {
+                table = relation[0];
+            }
             foreach (GameDatabase source in new GameDatabase[] { this, this.reference })
             {
+                if (source != null && relation != null && source.HasTable(table))
+                {
+                    sql = RelationLookupSql(source, relation[0], relation[1]);
+                }
                 if (source == null || sql == null || (table != null && !source.HasTable(table)))
                 {
                     continue;
@@ -825,7 +834,8 @@ namespace ForzaStudio
                     return "colorclass";
                 case "partmanufacturerid":
                 case "manufacturerid":
-                    return "partmaker";
+                    // Engine and drivetrain swaps carry the car's make, the other upgrades a parts maker.
+                    return (t == "list_upgradeengine" || t == "list_upgradedrivetrain") ? "make" : "partmaker";
             }
             return null;
         }
@@ -892,6 +902,245 @@ namespace ForzaStudio
                     return "SELECT Id, '', PartManufacturer FROM List_PartManufacturer ORDER BY Id";
             }
             return null;
+        }
+
+        #endregion
+
+        #region Relations
+
+        private const string RelationPrefix = "rel:";
+
+        // A literal for SQL built from a value read from the database.
+        public static string SqlLiteral(object value)
+        {
+            if (value == null || value is DBNull)
+            {
+                return "NULL";
+            }
+            if (value is string)
+            {
+                return "'" + ((string) value).Replace("'", "''") + "'";
+            }
+            return FormatValue(value);
+        }
+
+        private bool HasColumn(string table, string column)
+        {
+            Table found = this.GetTable(table);
+            return found != null && found.Find(column) != null;
+        }
+
+        // The relation of a column (GameDbSchema), if both ends are in this database (or the target is in the reference one).
+        public GameDbSchema.Relation RelationOf(string table, string column)
+        {
+            GameDbSchema.Relation relation = GameDbSchema.Find(table, column);
+            if (relation == null)
+            {
+                return null;
+            }
+            foreach (string name in relation.Columns)
+            {
+                if (!this.HasColumn(table, name))
+                {
+                    return null;
+                }
+            }
+            bool here = this.HasColumn(relation.Target, relation.TargetColumns[0]);
+            bool inReference = this.reference != null && this.reference.HasColumn(relation.Target, relation.TargetColumns[0]);
+            return (here || inReference) ? relation : null;
+        }
+
+        // Ids of another table get a list of names when that table has something to show.
+        private string RelationLookupKey(string table, string column)
+        {
+            GameDbSchema.Relation relation = this.RelationOf(table, column);
+            Table source = this.GetTable(table);
+            if (relation == null || relation.IsComposite || source.Find(column).Kind != ValueKind.Integer)
+            {
+                return null;
+            }
+            GameDatabase owner = this.HasTable(relation.Target) ? this : this.reference;
+            return (NameColumns(owner, relation.Target).Count == 0) ? null : RelationPrefix + relation.Target + "|" + relation.TargetColumn;
+        }
+
+        private readonly Dictionary<string, List<string>> nameColumns = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        // The text columns that name a row: the plain name (or null), then up to two localized ones
+        // ("_&id"). Empty when the table has none. Paths and long descriptions are left out.
+        private static List<string> NameColumns(GameDatabase source, string tableName)
+        {
+            List<string> names;
+            if (!source.nameColumns.TryGetValue(tableName, out names))
+            {
+                names = FindNameColumns(source, tableName);
+                source.nameColumns[tableName] = names;
+            }
+            return names;
+        }
+
+        private static List<string> FindNameColumns(GameDatabase source, string tableName)
+        {
+            string plain = null;
+            List<string> localized = new List<string>();
+            Table table = source.GetTable(tableName);
+            foreach (Column column in table.Columns)
+            {
+                string c = column.Name;
+                if (column.Kind != ValueKind.Text || c.EndsWith("Path") || c.Contains("Image") || c.Contains("Icon") || c.Contains("Thumb") || c.StartsWith("Logo")
+                    || c.Contains("Description") || c == "Bio" || c == "Query" || c == "Clause" || c == "Token")
+                {
+                    continue;
+                }
+                object sample = source.db.Scalar("SELECT " + SqliteDatabase.Quote(c) + " FROM " + SqliteDatabase.Quote(tableName) + " WHERE " + SqliteDatabase.Quote(c) + " <> '' LIMIT 1");
+                string text = sample as string;
+                if (text == null || GamePaths.IsGamePath(text))
+                {
+                    continue;
+                }
+                if (text.StartsWith("_&"))
+                {
+                    if (localized.Count < 2)
+                    {
+                        localized.Add(c);
+                    }
+                }
+                else if (plain == null)
+                {
+                    plain = c;
+                }
+            }
+            List<string> names = new List<string>();
+            if (plain != null || localized.Count > 0)
+            {
+                names.Add(plain);
+                names.AddRange(localized);
+            }
+            return names;
+        }
+
+        private static string RelationLookupSql(GameDatabase source, string table, string key)
+        {
+            List<string> names = NameColumns(source, table);
+            if (names.Count == 0)
+            {
+                return null;
+            }
+            List<string> columns = new List<string>();
+            columns.Add(SqliteDatabase.Quote(key));
+            columns.Add((names[0] == null) ? "''" : "coalesce(" + SqliteDatabase.Quote(names[0]) + ", '')");
+            for (int i = 1; i < names.Count; i++)
+            {
+                columns.Add(SqliteDatabase.Quote(names[i]));
+            }
+            return "SELECT " + string.Join(", ", columns.ToArray()) + " FROM " + SqliteDatabase.Quote(table) + " ORDER BY " + SqliteDatabase.Quote(key);
+        }
+
+        // WHERE for the rows of relation.Table that point at the row with these values (of relation.Target), or null.
+        public static string PointingAt(GameDbSchema.Relation relation, Table target, object[] row)
+        {
+            string[] columns = relation.Columns;
+            string[] targetColumns = relation.TargetColumns;
+            List<string> parts = new List<string>();
+            for (int i = 0; i < columns.Length; i++)
+            {
+                Column column = target.Find(targetColumns[i]);
+                object value = (column == null) ? null : row[target.Columns.IndexOf(column)];
+                if (value == null || (value is long && GameDbSchema.IsNone((long) value)))
+                {
+                    return null;
+                }
+                parts.Add(SqliteDatabase.Quote(columns[i]) + " = " + SqlLiteral(value));
+            }
+            return string.Join(" AND ", parts.ToArray());
+        }
+
+        // Every row of the other tables that holds this row's id: what would break if it went away.
+        public List<Related> ReferencesTo(string tableName, object[] row)
+        {
+            List<Related> list = new List<Related>();
+            Table table = this.GetTable(tableName);
+            if (table == null || row == null)
+            {
+                return list;
+            }
+            foreach (GameDbSchema.Relation relation in GameDbSchema.Into(table.Name))
+            {
+                if (this.RelationOf(relation.Table, relation.Column) == null)
+                {
+                    continue;
+                }
+                string where = PointingAt(relation, table, row);
+                if (where != null)
+                {
+                    list.Add(new Related(relation.Table + "." + relation.Column, relation.Table, where));
+                }
+            }
+            return this.Counted(list);
+        }
+
+        // The rows of a relation whose id is not in the target table.
+        public class Orphans
+        {
+            public GameDbSchema.Relation Relation;
+            public int Rows;
+            public string Values;
+            public string Where;
+        }
+
+        public static string DanglingWhere(GameDbSchema.Relation relation)
+        {
+            string[] columns = relation.Columns;
+            string[] targetColumns = relation.TargetColumns;
+            List<string> set = new List<string>();
+            List<string> match = new List<string>();
+            for (int i = 0; i < columns.Length; i++)
+            {
+                string column = SqliteDatabase.Quote(relation.Table) + "." + SqliteDatabase.Quote(columns[i]);
+                set.Add(column + " IS NOT NULL AND " + column + " <> '' AND " + column + " NOT IN (0, -1)");
+                match.Add("t." + SqliteDatabase.Quote(targetColumns[i]) + " = " + column);
+            }
+            return string.Join(" AND ", set.ToArray()) + " AND NOT EXISTS (SELECT 1 FROM " + SqliteDatabase.Quote(relation.Target) + " t WHERE " + string.Join(" AND ", match.ToArray()) + ")";
+        }
+
+        // FM4's layout: the strict/loose marks of GameDbSchema were measured on the original FM4
+        // database. FM3 lacks the electric motors; FH1/FH2 add the event hubs and keep stale FM4 rows.
+        public bool IsFm4Layout
+        {
+            get { return this.HasTable("Data_Motor") && !this.HasTable("EventHubs"); }
+        }
+
+        // Checks every relation whose two tables are in this database. Returns the ones with dangling ids.
+        public List<Orphans> CheckReferences(out int checkedRelations)
+        {
+            List<Orphans> found = new List<Orphans>();
+            checkedRelations = 0;
+            foreach (GameDbSchema.Relation relation in GameDbSchema.Relations)
+            {
+                if (this.RelationOf(relation.Table, relation.Column) == null || !this.HasColumn(relation.Target, relation.TargetColumns[0]))
+                {
+                    continue;
+                }
+                checkedRelations++;
+                string where = DanglingWhere(relation);
+                string column = SqliteDatabase.Quote(relation.Table) + "." + SqliteDatabase.Quote(relation.Columns[0]);
+                long rows = Convert.ToInt64(this.db.Scalar("SELECT count(*) FROM " + SqliteDatabase.Quote(relation.Table) + " WHERE " + where));
+                if (rows == 0)
+                {
+                    continue;
+                }
+                List<string> values = new List<string>();
+                foreach (object[] value in this.db.Query("SELECT DISTINCT " + column + " FROM " + SqliteDatabase.Quote(relation.Table) + " WHERE " + where + " ORDER BY 1 LIMIT 12").Rows)
+                {
+                    values.Add(FormatValue(value[0]));
+                }
+                Orphans orphans = new Orphans();
+                orphans.Relation = relation;
+                orphans.Rows = (int) rows;
+                orphans.Values = string.Join(", ", values.ToArray());
+                orphans.Where = where;
+                found.Add(orphans);
+            }
+            return found;
         }
 
         #endregion

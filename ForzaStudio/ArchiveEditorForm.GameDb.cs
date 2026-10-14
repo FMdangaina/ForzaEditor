@@ -92,6 +92,9 @@ namespace ForzaStudio
             this.btnDbOpenPath = new ToolStripButton("Open GAME:\\ File", null, delegate { this.OpenGamePath(this.focusedGamePath); });
             this.btnDbOpenPath.Enabled = false;
             bar.Items.Add(this.btnDbOpenPath);
+            ToolStripButton check = new ToolStripButton("Check References", null, delegate { this.CheckDbReferences(); });
+            check.ToolTipText = "Checks that every id column points at an existing row (cars, engines, bodies, upgrades, tracks, events...)";
+            bar.Items.Add(check);
             this.lblDbLanguage = new ToolStripLabel("Text:");
             bar.Items.Add(this.lblDbLanguage);
             this.cmbDbLanguage = new ToolStripDropDownButton("IT");
@@ -203,6 +206,7 @@ namespace ForzaStudio
             this.gridTable.Changed += new EventHandler(this.OnGameDbEdited);
             this.gridTable.GamePathActivated += new GamePathHandler(this.OpenGamePath);
             this.gridTable.GamePathFocused += new GamePathHandler(this.SetFocusedGamePath);
+            this.gridTable.Jump += new DbJumpHandler(this.JumpInDb);
 
             this.lblDbHint = new Label();
             this.lblDbHint.Dock = DockStyle.Fill;
@@ -231,8 +235,17 @@ namespace ForzaStudio
             grid.ToolbarVisible = false;
             grid.HelpVisible = true;
             ContextMenuStrip menu = new ContextMenuStrip();
-            menu.Items.Add(new ToolStripMenuItem("Open GAME:\\ File", null, delegate { this.OpenGamePath(SelectedGridValue(grid)); }));
-            menu.Opening += delegate(object sender, CancelEventArgs e) { e.Cancel = !GamePaths.IsGamePath(SelectedGridValue(grid)); };
+            ToolStripMenuItem open = new ToolStripMenuItem("Open GAME:\\ File", null, delegate { this.OpenGamePath(SelectedGridValue(grid)); });
+            menu.Items.Add(open);
+            menu.Opening += delegate(object sender, CancelEventArgs e)
+            {
+                open.Visible = GamePaths.IsGamePath(SelectedGridValue(grid));
+                DbRecord record = grid.SelectedObject as DbRecord;
+                string column = (grid.SelectedGridItem != null && grid.SelectedGridItem.PropertyDescriptor != null) ? grid.SelectedGridItem.PropertyDescriptor.Name : null;
+                DbJumpMenu.Fill(menu, this.gameDb, (record == null) ? null : record.Table.Name, (record == null) ? null : record.Values, column, new DbJumpHandler(this.JumpInDb));
+                e.Cancel = !DbJumpMenu.HasVisibleItems(menu);
+            };
+            menu.Renderer = ForzaTheme.Renderer;
             grid.ContextMenuStrip = menu;
             grid.SelectedGridItemChanged += delegate { this.SetFocusedGamePath(SelectedGridValue(grid)); };
             grid.Enter += delegate { this.SetFocusedGamePath(SelectedGridValue(grid)); };
@@ -367,7 +380,140 @@ namespace ForzaStudio
             panel.Changed += new EventHandler(this.OnGameDbEdited);
             panel.GamePathActivated += new GamePathHandler(this.OpenGamePath);
             panel.GamePathFocused += new GamePathHandler(this.SetFocusedGamePath);
+            panel.Jump += new DbJumpHandler(this.JumpInDb);
             return panel;
+        }
+
+        // Sections that show a table's rows with their own page.
+        private static DbSection? SectionOf(string table)
+        {
+            switch (table)
+            {
+                case "Data_Car":
+                    return DbSection.Cars;
+                case "List_Wheels":
+                    return DbSection.Wheels;
+                case "Tracks":
+                    return DbSection.Tracks;
+                case "Events":
+                    return DbSection.Events;
+            }
+            return null;
+        }
+
+        // Go to rows of another table (Go to / Used by). A car, wheel, track or event opens in its
+        // own section; anything else in Tables, filtered. Back returns here.
+        private void JumpInDb(string table, string where, string key, object value)
+        {
+            if (this.gameDb == null || !this.gameDb.HasTable(table))
+            {
+                return;
+            }
+            Bookmark start = this.CaptureBookmark();
+            DbSection? section = SectionOf(table);
+            GameDatabase.Table info = this.gameDb.GetTable(table);
+            bool byId = section != null && key != null && value is long && info.Columns.Count > 0 && string.Equals(info.Columns[0].Name, key, StringComparison.OrdinalIgnoreCase);
+            if (byId)
+            {
+                this.SelectDbItem(section.Value, (long) value);
+            }
+            else
+            {
+                this.txtDbSearch.Text = "";
+                this.SelectDbSection(DbSection.Tables);
+                foreach (ListViewItem item in this.lvDb.Items)
+                {
+                    if (string.Equals(item.Tag as string, table, StringComparison.OrdinalIgnoreCase))
+                    {
+                        this.dbFilling = true;
+                        item.Selected = true;
+                        item.Focused = true;
+                        item.EnsureVisible();
+                        this.dbFilling = false;
+                        break;
+                    }
+                }
+                this.gridTable.ShowRows(this.gameDb, table, where);
+                this.ShowDbContent(this.gridTable);
+                this.gridTable.FocusGrid();
+            }
+            this.PushBookmark(start);
+            this.SetStatus(string.Format("{0} WHERE {1}   (Back returns)", table, where));
+        }
+
+        // Every id column of the database checked against the table it points to.
+        private void CheckDbReferences()
+        {
+            if (this.gameDb == null)
+            {
+                return;
+            }
+            int count;
+            List<GameDatabase.Orphans> found;
+            Cursor.Current = Cursors.WaitCursor;
+            try
+            {
+                found = this.gameDb.CheckReferences(out count);
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+            }
+            using (Form dialog = new Form())
+            {
+                dialog.Text = string.Format("References: {0} relations checked, {1} with dangling ids", count, found.Count);
+                dialog.Size = new Size(1000, 520);
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.ShowInTaskbar = false;
+                dialog.MinimizeBox = false;
+                ListView list = new ListView();
+                list.Dock = DockStyle.Fill;
+                list.View = View.Details;
+                list.FullRowSelect = true;
+                list.Columns.Add("Column", 300);
+                list.Columns.Add("Points to", 220);
+                list.Columns.Add("Rows", 50);
+                list.Columns.Add("Missing ids", 220);
+                list.Columns.Add("In the original FM4", 190);
+                bool fm4 = this.gameDb.IsFm4Layout;
+                foreach (GameDatabase.Orphans orphans in found)
+                {
+                    GameDbSchema.Relation relation = orphans.Relation;
+                    ListViewItem item = new ListViewItem(relation.Table + "." + relation.Column);
+                    item.SubItems.Add(relation.Target + "." + relation.TargetColumn);
+                    item.SubItems.Add(orphans.Rows.ToString(CultureInfo.InvariantCulture));
+                    item.SubItems.Add(orphans.Values);
+                    item.SubItems.Add(relation.Strict ? "never dangles: check this" : "also dangles" + (relation.Note != null ? " (" + relation.Note + ")" : ""));
+                    item.ForeColor = (relation.Strict && fm4) ? Color.FromArgb(255, 120, 100) : ForzaTheme.TextDim;
+                    item.Tag = orphans;
+                    list.Items.Add(item);
+                }
+                Label hint = new Label();
+                hint.Dock = DockStyle.Bottom;
+                hint.Height = 40;
+                hint.Padding = new Padding(6);
+                hint.ForeColor = ForzaTheme.TextDim;
+                hint.Text = found.Count == 0 ? "Every id points at an existing row."
+                    : fm4 ? "Red: these columns have no dangling id in the original FM4 database, so an edit made them. Double-click a line to see its rows."
+                    : "Not an FM4 database (FM3, FH1, FH2): the game itself keeps rows of cars and tracks it does not have, so nothing is marked red. Double-click a line to see its rows.";
+                GameDatabase.Orphans picked = null;
+                list.DoubleClick += delegate
+                {
+                    if (list.SelectedItems.Count == 1)
+                    {
+                        picked = (GameDatabase.Orphans) list.SelectedItems[0].Tag;
+                        dialog.Close();
+                    }
+                };
+                dialog.Controls.Add(list);
+                dialog.Controls.Add(hint);
+                ForzaTheme.Apply(dialog);
+                dialog.ShowDialog(this);
+                if (picked != null)
+                {
+                    this.JumpInDb(picked.Relation.Table, picked.Where, null, null);
+                }
+            }
         }
 
         private void AddTab(TabControl tabs, string title, Control content)

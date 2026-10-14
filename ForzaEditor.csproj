@@ -198,6 +198,7 @@
     </Compile>
     <Compile Include="ForzaStudio\SqliteDatabase.cs" />
     <Compile Include="ForzaStudio\GameDatabase.cs" />
+    <Compile Include="ForzaStudio\GameDbSchema.cs" />
     <Compile Include="ForzaStudio\GamePaths.cs" />
     <Compile Include="ForzaStudio\XdcFile.cs" />
     <Compile Include="ForzaStudio\ZipManifest.cs" />

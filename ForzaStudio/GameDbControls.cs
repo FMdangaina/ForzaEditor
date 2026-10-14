@@ -95,6 +95,11 @@ namespace ForzaStudio
                 string category = (this.record.Table.Name == "Data_Car") ? GameDatabase.CarCategory(this.column.Name) : GameDatabase.GenericCategory(this.column, this.lookup);
                 string description = string.Format("{0} ({1}{2})", this.column.Name, this.column.DeclaredType,
                     this.column.IsPrimaryKey ? ", row id: read only" : (this.lookup != null ? ", pick from the list or type the number" : ""));
+                GameDbSchema.Relation relation = this.column.IsPrimaryKey ? null : this.record.Database.RelationOf(this.record.Table.Name, this.column.Name);
+                if (relation != null)
+                {
+                    description += string.Format("\nId of a row in {0} ({1}). Right-click: Go to that row.", relation.Target, relation.TargetColumn);
+                }
                 return new AttributeCollection(new Attribute[] { new CategoryAttribute(category), new DescriptionAttribute(description) });
             }
         }
@@ -194,6 +199,7 @@ namespace ForzaStudio
         public event EventHandler Changed;
         public event GamePathHandler GamePathActivated;
         public event GamePathHandler GamePathFocused;
+        public event DbJumpHandler Jump;
 
         public string TableName
         {
@@ -271,7 +277,16 @@ namespace ForzaStudio
                 DataGridViewCell cell = this.grid.CurrentCell;
                 open.Visible = cell != null && GamePaths.IsGamePath(cell.Value as string);
                 pick.Visible = cell != null && this.IsColorCell(cell.ColumnIndex);
-                e.Cancel = !open.Visible && !pick.Visible;
+                object[] row = (cell == null || this.table == null) ? null : this.database.ReadRow(this.table.Name, (long) this.grid.Rows[cell.RowIndex].Tag);
+                string column = (cell == null) ? null : ((GameDatabase.Column) this.grid.Columns[cell.ColumnIndex].Tag).Name;
+                DbJumpMenu.Fill(menu, this.database, (this.table == null) ? null : this.table.Name, row, column, delegate(string table, string where, string key, object value)
+                {
+                    if (this.Jump != null)
+                    {
+                        this.Jump(table, where, key, value);
+                    }
+                });
+                e.Cancel = !DbJumpMenu.HasVisibleItems(menu);
             };
             menu.Renderer = ForzaTheme.Renderer;
             this.grid.CellMouseDown += delegate(object sender, DataGridViewCellMouseEventArgs e)
@@ -652,7 +667,19 @@ namespace ForzaStudio
                 return;
             }
             DataGridViewRow row = this.grid.CurrentRow;
-            if (MessageBox.Show(this, string.Format("Delete row #{0} from {1}?", row.Tag, this.table.Name), "Delete Row", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+            string question = string.Format("Delete row #{0} from {1}?", row.Tag, this.table.Name);
+            List<GameDatabase.Related> users = this.database.ReferencesTo(this.table.Name, this.database.ReadRow(this.table.Name, (long) row.Tag));
+            if (users.Count > 0)
+            {
+                // The game has no foreign keys: rows left pointing at a deleted one can break it (a car without body data has NaN physics).
+                List<string> lines = new List<string>();
+                foreach (GameDatabase.Related user in users)
+                {
+                    lines.Add("   " + user);
+                }
+                question += "\n\nThese rows still point at it and would be left dangling:\n" + string.Join("\n", lines.ToArray()) + "\n\nRight-click > Used by shows them.";
+            }
+            if (MessageBox.Show(this, question, "Delete Row", MessageBoxButtons.YesNo, (users.Count > 0) ? MessageBoxIcon.Warning : MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
             {
                 return;
             }
@@ -677,6 +704,89 @@ namespace ForzaStudio
 
     internal delegate void GamePathHandler(string gamePath);
 
+    // A jump to rows of a table: key and value are set when it is one row by its id.
+    internal delegate void DbJumpHandler(string table, string where, string key, object value);
+
+    // Right-click items: "Go to" the row an id points at, and "Used by": the rows of other tables
+    // that point at this one (GameDbSchema).
+    internal static class DbJumpMenu
+    {
+        private static readonly object Marker = new object();
+
+        public static void Fill(ContextMenuStrip menu, GameDatabase database, string tableName, object[] row, string columnName, DbJumpHandler jump)
+        {
+            for (int i = menu.Items.Count - 1; i >= 0; i--)
+            {
+                if (menu.Items[i].Tag == Marker)
+                {
+                    menu.Items.RemoveAt(i);
+                }
+            }
+            GameDatabase.Table table = (database == null || tableName == null) ? null : database.GetTable(tableName);
+            if (table == null || row == null)
+            {
+                return;
+            }
+            List<ToolStripItem> items = new List<ToolStripItem>();
+            GameDatabase.Column column = (columnName == null) ? null : table.Find(columnName);
+            GameDbSchema.Relation relation = (column == null || column.IsPrimaryKey) ? null : database.RelationOf(table.Name, column.Name);
+            object value = (column == null) ? null : row[table.Columns.IndexOf(column)];
+            if (relation != null && !relation.IsComposite && value != null && !(value is long && GameDbSchema.IsNone((long) value)) && !"".Equals(value))
+            {
+                GameDatabase.Lookup lookup = database.GetLookup(table.Name, column.Name);
+                string name = (lookup != null && value is long) ? lookup.Name((long) value) : null;
+                bool here = database.HasTable(relation.Target);
+                string where = SqliteDatabase.Quote(relation.TargetColumn) + " = " + GameDatabase.SqlLiteral(value);
+                bool exists = here && database.Count(relation.Target, where) > 0;
+                string text = string.Format("Go to {0} {1}{2}", relation.Target, GameDatabase.FormatValue(value), string.IsNullOrEmpty(name) ? "" : " - " + name);
+                ToolStripMenuItem go = new ToolStripMenuItem(text + (exists ? "" : here ? "   (missing: dangling id)" : "   (not in this database)"), null, delegate
+                {
+                    jump(relation.Target, where, relation.TargetColumn, value);
+                });
+                go.Enabled = exists;
+                items.Add(go);
+            }
+            if (GameDbSchema.Into(table.Name).Count > 0)
+            {
+                List<GameDatabase.Related> users = database.ReferencesTo(table.Name, row);
+                ToolStripMenuItem used = new ToolStripMenuItem((users.Count == 0) ? "Not used by other tables" : "Used by");
+                used.Enabled = users.Count > 0;
+                foreach (GameDatabase.Related user in users)
+                {
+                    GameDatabase.Related target = user;
+                    used.DropDownItems.Add(new ToolStripMenuItem(user.ToString(), null, delegate { jump(target.Table, target.Where, null, null); }));
+                }
+                items.Add(used);
+            }
+            if (items.Count == 0)
+            {
+                return;
+            }
+            if (HasVisibleItems(menu))
+            {
+                items.Insert(0, new ToolStripSeparator());
+            }
+            foreach (ToolStripItem item in items)
+            {
+                item.Tag = Marker;
+                menu.Items.Add(item);
+            }
+        }
+
+        // Visible before the menu is shown (Visible is false until then, Available is not).
+        public static bool HasVisibleItems(ContextMenuStrip menu)
+        {
+            foreach (ToolStripItem item in menu.Items)
+            {
+                if (item.Available && !(item is ToolStripSeparator))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     // A list of related tables on the left (upgrades of a car, races of an event...) and their rows.
     internal class RelatedPanel : SplitContainer
     {
@@ -687,6 +797,7 @@ namespace ForzaStudio
         public event EventHandler Changed;
         public event GamePathHandler GamePathActivated;
         public event GamePathHandler GamePathFocused;
+        public event DbJumpHandler Jump;
 
         public RecordGrid Grid
         {
@@ -746,6 +857,13 @@ namespace ForzaStudio
                 if (this.GamePathFocused != null)
                 {
                     this.GamePathFocused(path);
+                }
+            };
+            this.grid.Jump += delegate(string table, string where, string key, object value)
+            {
+                if (this.Jump != null)
+                {
+                    this.Jump(table, where, key, value);
                 }
             };
             this.Panel1.Controls.Add(this.list);
