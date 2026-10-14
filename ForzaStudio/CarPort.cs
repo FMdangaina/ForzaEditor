@@ -10,7 +10,7 @@
     // Brings a car from Forza Horizon 2 into Forza Motorsport 4, as a new car (measured on the cars
     // both games have; see the notes on each step):
     //   model     the FH2 .carbin files converted to FM4 (CarbinModel.ConvertHorizonToMotorsport4),
-    //             FH2-only materials renamed to FM4 ones; brakes (type 1) taken from a donor FM4 car;
+    //             FH2-only materials renamed to FM4 ones; brakes (type 1) converted too (ConvertBrake);
     //   files     textures, livery masks, MAX data, animations and gauges as they are (the digital
     //             dash .fbf converted to the FM4 Anark layout, ConvertAnarkLayout); CarAttribs.xml rebuilt in the FM4 version-17
     //             form from the donor's; ShaderSettings.xml cut to the materials and parameters FM4 has;
@@ -57,7 +57,10 @@
             map["drlinlorange"] = "lights_amber";
             map["indicator_left"] = "lights_amber";
             map["indicator_right"] = "lights_amber";
-            map["z_gauge_emissive_alpha"] = "gauge_emissive";
+            // Alpha-cut cockpit icons: on the cars both games have, FM4's badge holds FH2's badge plus
+            // these (X5M 286 + 573 indices -> 860); gauge_emissive has no alpha and shows the quads.
+            map["z_gauge_emissive_alpha"] = "badge";
+            map["gauge_emissive_alpha"] = "badge";
             map["deprecated"] = null;
             return map;
         }
@@ -446,17 +449,141 @@
             return rows.Rows.Count;
         }
 
-        // Data_Car: the FH2 row in FM4's columns; PI on the FM4 scale (fit on 31 cars both games
-        // have, FH2 PI > 0.7: FM4 = 1.025 FH2 - 0.261), class from FM4's PI ranges, base-game content.
+        // Data_Car: the FH2 row in FM4's columns; PI on the FM4 scale (MapPerformanceIndex), class
+        // from FM4's PI ranges, base-game content.
         private void PortCarRow(List<string> sourceColumns, List<string> targetColumns)
         {
             this.CopyRows("Data_Car", sourceColumns, targetColumns, "Id = " + this.carId);
             double pi = Convert.ToDouble(this.source.Scalar("SELECT PerformanceIndex FROM Data_Car WHERE Id = ?", this.carId), CultureInfo.InvariantCulture);
-            double fm4Pi = Math.Max(0.001, Math.Min(0.999, (1.025 * pi) - 0.261));
-            object classId = this.target.Scalar("SELECT ClassID FROM Data_Car WHERE Id <> ? AND PerformanceIndex <= ? GROUP BY ClassID ORDER BY max(PerformanceIndex) DESC LIMIT 1", this.carId, fm4Pi);
+            double fm4Pi = MapPerformanceIndex(PerformanceIndexPairs(this.source, this.target, this.carId, this.SourceRoot, this.TargetRoot), pi);
+            object classId = ClassFor(this.target, fm4Pi, this.carId);
             this.target.Execute("UPDATE Data_Car SET PerformanceIndex = ?, ClassID = ?, ContentId = 0, IsArcade = ?, IsPurchased = 1, IsInstalled = 1 WHERE Id = ?",
                 fm4Pi, (classId != null) ? Convert.ToInt64(classId) : 9L, this.Arcade ? 1L : 0L, this.carId);
-            this.Line("Data_Car {0}: PI {1:0.000} (FH2) -> {2:0.000} (FM4), class {3}, IsArcade {4}", this.carId, pi, fm4Pi, classId, this.Arcade ? 1 : 0);
+            this.Line("Data_Car {0}: PI {1:0.000} (FH2) -> {2:0.000} (FM4), class {3}, IsArcade {4}", this.carId, pi, fm4Pi, ClassName(this.target, classId), this.Arcade ? 1 : 0);
+        }
+
+        // (FH2 PI, FM4 PI) of the cars both games have (same MediaName), sorted; the car being
+        // ported and the cars ported earlier (their FM4 PI came from this mapping) left out.
+        public static List<double[]> PerformanceIndexPairs(SqliteDatabase source, SqliteDatabase target, long exclude, string sourceRoot, string targetRoot)
+        {
+            Dictionary<string, double> horizon = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            foreach (object[] row in source.Query("SELECT MediaName, PerformanceIndex FROM Data_Car").Rows)
+            {
+                if (row[0] is string && row[1] != null)
+                {
+                    horizon[(string) row[0]] = Convert.ToDouble(row[1], CultureInfo.InvariantCulture);
+                }
+            }
+            List<double[]> pairs = new List<double[]>();
+            foreach (object[] row in target.Query("SELECT Id, MediaName, PerformanceIndex FROM Data_Car").Rows)
+            {
+                double pi;
+                if (Convert.ToInt64(row[0]) != exclude && row[1] is string && row[2] != null && horizon.TryGetValue((string) row[1], out pi)
+                    && !IsPorted(sourceRoot, targetRoot, (string) row[1]))
+                {
+                    pairs.Add(new double[] { pi, Convert.ToDouble(row[2], CultureInfo.InvariantCulture) });
+                }
+            }
+            pairs.Sort(delegate(double[] a, double[] b) { return a[0].CompareTo(b[0]); });
+            return pairs;
+        }
+
+        // FM4 PI for an FH2 PI: a line through the 15 shared cars nearest in FH2 PI. On the 138 cars
+        // both games have (leave one out) the error is 0.013, against 0.027 for the single line
+        // FM4 = 1.025 FH2 - 0.261 fit on PI > 0.7, which puts slow cars a class too high
+        // (Ford Ka 0.331: 0.078 for 0.001). Outside the shared cars' range (above the MC12's 0.851,
+        // where FH2's hypercars are) it goes on from the edge with that line's slope: the edge fit
+        // is steeper and would push road cars into R1.
+        public static double MapPerformanceIndex(List<double[]> pairs, double pi)
+        {
+            const int Near = 15;
+            const double Slope = 1.025;
+            if (pairs.Count < Near)
+            {
+                return Math.Max(0.001, Math.Min(0.999, (Slope * pi) - 0.261));
+            }
+            double inside = Math.Max(pairs[0][0], Math.Min(pairs[pairs.Count - 1][0], pi));
+            List<double[]> near = new List<double[]>(pairs);
+            near.Sort(delegate(double[] a, double[] b) { return Math.Abs(a[0] - inside).CompareTo(Math.Abs(b[0] - inside)); });
+            near.RemoveRange(Near, near.Count - Near);
+            double mx = 0;
+            double my = 0;
+            foreach (double[] p in near)
+            {
+                mx += p[0] / Near;
+                my += p[1] / Near;
+            }
+            double sxx = 0;
+            double sxy = 0;
+            foreach (double[] p in near)
+            {
+                sxx += (p[0] - mx) * (p[0] - mx);
+                sxy += (p[0] - mx) * (p[1] - my);
+            }
+            double slope = (sxx > 1e-12) ? sxy / sxx : Slope;
+            return Math.Max(0.001, Math.Min(0.999, my + (slope * (inside - mx)) + (Slope * (pi - inside))));
+        }
+
+        // The FM4 class of a PI: the first in CarClasses whose MaxPerformanceIndex reaches it (F 0.157,
+        // E 0.2224 ... R1 0.938, U 1); without that table, the class of the car with the highest PI
+        // not above it.
+        public static object ClassFor(SqliteDatabase target, double pi, long exclude)
+        {
+            if (Convert.ToInt64(target.Scalar("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'CarClasses'")) == 1)
+            {
+                object id = target.Scalar("SELECT Id FROM CarClasses WHERE MaxPerformanceIndex >= ? ORDER BY MaxPerformanceIndex LIMIT 1", pi);
+                if (id != null)
+                {
+                    return id;
+                }
+            }
+            return target.Scalar("SELECT ClassID FROM Data_Car WHERE Id <> ? AND PerformanceIndex <= ? GROUP BY ClassID ORDER BY max(PerformanceIndex) DESC LIMIT 1", exclude, pi);
+        }
+
+        // "R2" for class 8 (CarClasses.BadgeTexturePathPrefix CLASS_R2), the number otherwise.
+        public static string ClassName(SqliteDatabase target, object classId)
+        {
+            if (classId == null)
+            {
+                return "?";
+            }
+            try
+            {
+                string prefix = target.Scalar("SELECT BadgeTexturePathPrefix FROM CarClasses WHERE Id = ?", classId) as string;
+                if (prefix != null && prefix.StartsWith("CLASS_", StringComparison.OrdinalIgnoreCase))
+                {
+                    return prefix.Substring(6);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            return Convert.ToString(classId, CultureInfo.InvariantCulture);
+        }
+
+        // True when the target's car zip is the source's, ported earlier: both carry the same
+        // buildnumber.txt (FM4's own cars have Turn 10 builds, e.g. 452838.FER_F40_87.RTMGSLTURNTEN27
+        // against FH2's 214061.FER_F40_87.PG-LEAM-BS09).
+        public static bool IsPorted(string sourceRoot, string targetRoot, string mediaName)
+        {
+            try
+            {
+                string from = Path.Combine(Path.Combine(Path.Combine(sourceRoot, "Media"), "cars"), mediaName + ".zip");
+                string to = Path.Combine(Path.Combine(Path.Combine(targetRoot, "Media"), "cars"), mediaName + ".zip");
+                if (!File.Exists(from) || !File.Exists(to))
+                {
+                    return false;
+                }
+                ForzaZip a = new ForzaZip(from);
+                ForzaZip b = new ForzaZip(to);
+                ForzaZip.Entry x = a.Find("buildnumber.txt");
+                ForzaZip.Entry y = b.Find("buildnumber.txt");
+                return x != null && y != null && Encoding.ASCII.GetString(a.Read(x)).Trim() == Encoding.ASCII.GetString(b.Read(y)).Trim();
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         private static long ToLong(object value, string error)
@@ -592,13 +719,21 @@
                 {
                     if (name.Contains("_caliper") || name.Contains("_rotor"))
                     {
-                        // Brakes are carbin type 1 (no converter yet): the donor's, renamed.
-                        ForzaZip.Entry brake = donor.Find(donorPrefix + name.Substring(prefix.Length));
-                        if (brake == null)
+                        // Brakes (type 1): converted; the donor's, renamed, if that fails.
+                        try
                         {
-                            continue;
+                            data = ConvertBrake(data, Path.GetFileName(name), this.Report);
                         }
-                        data = donor.Read(brake);
+                        catch (Exception ex)
+                        {
+                            ForzaZip.Entry brake = donor.Find(donorPrefix + name.Substring(prefix.Length));
+                            this.Line("  brake {0}: {1}; {2}", name, ex.Message, (brake != null) ? "the donor's is used" : "left out");
+                            if (brake == null)
+                            {
+                                continue;
+                            }
+                            data = donor.Read(brake);
+                        }
                     }
                     else
                     {
@@ -709,6 +844,49 @@
 
         // One FH2 model file in FM4 form: converted, FH2-only materials renamed (lod0 lights to the
         // _lod0 variants FM4 uses there), the 'deprecated' material removed.
+        // Calipers and rotors (carbin type 1): the same section layout as the car models, a fixed
+        // 0x354-byte header whose only FH2/FM4 difference is the format word. 1838 FH2 files convert
+        // and re-read as FM4; of the 870 both games have, 630 come out as FM4's but for the vertex
+        // tails (SNORM8 -> SNORM16 rounding), the others differ in content FH2 changed (renamed
+        // materials such as rotor -> brake, which FM4 also uses, and remodelled parts).
+        // Brake materials are not in ShaderSettings.xml; a name no FM4 brake uses is reported.
+        public static byte[] ConvertBrake(byte[] data, string name, StringBuilder report)
+        {
+            CarbinModel model = new CarbinModel(data);
+            if (model.Type != 1)
+            {
+                throw new NotSupportedException("not a type 1 carbin (type " + model.Type + ")");
+            }
+            model.ConvertHorizonToMotorsport4();
+            List<string> unknown = new List<string>();
+            foreach (CarbinModel.Section section in model.Sections)
+            {
+                foreach (CarbinModel.SubSection sub in section.SubSections)
+                {
+                    if (Array.IndexOf(BrakeMaterials, sub.Name) < 0 && !unknown.Contains(sub.Name))
+                    {
+                        unknown.Add(sub.Name);
+                    }
+                }
+            }
+            if (unknown.Count > 0 && report != null)
+            {
+                report.AppendFormat("  brake {0}: material {1} is not used by any FM4 brake", name, string.Join(", ", unknown.ToArray())).AppendLine();
+            }
+            return model.ToBytes();
+        }
+
+        // Every material name of the 2664 FM4 type-1 carbins (car zips and Media\brakes).
+        private static readonly string[] BrakeMaterials = new string[]
+        {
+            "back", "badge", "black_noOcclude", "brake", "brake_bump_metal", "brake_bump_metal2", "brake_bump_metal3",
+            "brake_bump_metal4", "brake_chrome", "brake_smooth_metal", "caliper", "caliper_", "caliper_noOcclude",
+            "caliperLF_LOD0", "caliperLR_LOD0", "caliperRF_LOD0", "caliperRR_LOD0", "chrome", "chrome_2", "chrome_noOcclude",
+            "detail_glass_clear", "drum", "drum_", "front", "hub", "hub_", "left_side", "Material__2", "Material__4",
+            "Material__5", "matte_colors", "matte_colors_NoOcclude_NoShadow", "matte_colors_NoOcclude_NoShadows", "misc",
+            "misc_noOcclude", "misc_NoOcclude_NoShadow", "outer_rim", "right_side", "rotor", "rotor_", "top", "undercarriage",
+        };
+
         public static byte[] ConvertModel(byte[] data, bool lod0, StringBuilder report)
         {
             return ConvertModel(data, lod0, report, null);
