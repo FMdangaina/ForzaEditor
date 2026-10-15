@@ -66,6 +66,9 @@ scratch/
 temp/
 tmp/
 
+# Documentation is part of the source
+!/docs/*.txt
+
 # App images and icons are part of the source
 !/Resources/*.png
 !/Resources/*.gif

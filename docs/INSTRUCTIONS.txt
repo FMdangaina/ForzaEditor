@@ -1,0 +1,121 @@
+ForzaEditor - BETA
+==================
+
+ForzaEditor is a modding tool for the Xbox 360 Forza games (FM4, FH1, FH2;
+FM2 and FM3 partly). It edits the game files in place: car models (.carbin),
+textures (.xds), XML files and the game database. It also ports cars from
+Forza Horizon 1 and 2 to Forza Motorsport 4, as a DLC package for Xenia.
+
+THIS IS AN EARLY BETA. Expect bugs. Work on a COPY of your game folder,
+never on your only copy.
+
+The full manual is MANUAL.md (open it with any text editor or a Markdown viewer).
+
+
+1. WHAT YOU NEED
+----------------
+- Windows 10 or 11.
+- .NET Framework 3.5. On Windows 10/11:
+  Control Panel > Programs > Turn Windows features on or off >
+  ".NET Framework 3.5 (includes .NET 2.0 and 3.0)".
+- Microsoft XNA Framework Redistributable 3.1 (for the 3D view).
+- An extracted copy of the game (the folder holding default.xex and Media).
+- For DLC packages: Xenia Canary.
+- xcompress.dll (Microsoft, from the Xbox 360 SDK). NOT included: it is
+  Microsoft's and cannot be shared. Copy your own next to ForzaEditor.exe.
+  Without it the game's compressed zips cannot be opened or saved.
+- xdevkit.dll (Microsoft, from the Xbox 360 SDK), only for
+  Tools > Console Modding. NOT included either.
+
+Everything else is already in this zip, next to ForzaEditor.exe.
+Keep the files together: do not move ForzaEditor.exe out of its folder.
+
+
+2. INSTALL
+----------
+1. Unzip the whole folder anywhere you can write to (for example the Desktop,
+   not Program Files).
+2. Run ForzaEditor.exe.
+
+ForzaEditor writes only inside its own folder:
+- settings.txt   your folders and options
+- materials.txt  texture previews chosen per material
+- bak\           a copy of every file before it is overwritten
+Car port trials go to %TEMP%\ForzaStudio\CarPort (they can be deleted).
+
+
+3. FIRST STEPS
+--------------
+- File > Open Folder...   pick the game folder (the one with Media).
+  The tree loads as you expand it. Double-click a .zip to open it.
+- File > Open Archive...  open one .zip, gamedb.slt or .xds directly.
+- Click a file in the tree to view it: .carbin (3D model), .xds (texture),
+  .xml/.ini/.txt (text editor), gamedb.slt (database), .fbf (digital dash).
+- Edits are kept in memory (shown with * in the tree) until File > Save.
+  Every save first copies the old file into bak\.
+- Ctrl+B (or Alt+Left) goes back to where you were.
+
+
+4. PORT A CAR FROM FORZA HORIZON TO FM4 (DLC FOR XENIA)
+-------------------------------------------------------
+Tools > Port Car From Forza Horizon...
+
+1. Set the Forza Horizon (1 or 2) folder and the Forza Motorsport 4 folder,
+   then press Load Cars.
+2. Select a car, choose its FM4 donor (a star = closest match),
+   press Add Selected Car. Repeat for every car you want.
+3. Give the pack a Name.
+4. Press Trial Pack. Nothing is written to the game yet.
+   Check the Review column and the Review tab; choose fixes if needed,
+   then run Trial Pack again.
+5. Set Xenia's folder (the one with xenia_canary.exe).
+6. CLOSE XENIA, then press Build DLC Package.
+7. Start FM4 in Xenia: the cars are listed under their makes, like any other car.
+
+Put all your cars in ONE pack: with two ForzaEditor packs installed,
+only one of them shows its car names.
+
+Use an FM4 folder where these cars were never installed with
+"Install In FM4": an old install hides the pack's version of the car.
+
+
+5. KNOWN PROBLEMS IN THIS BETA
+------------------------------
+- Packs with several cars: tested, but more in-game testing is needed.
+- Tyres can look too narrow on some ported cars with wide wheels.
+- Material fixes for lights, plates and fog lamps on ported cars are new:
+  please report what you see.
+- Models rebuilt from OBJ, and "Merge Into", are not fully tested in game.
+- The digital dash view is read-only.
+- Tools > Hex View only works after a model was opened in
+  Tools > Pay Respects (the classic Forza Studio window).
+- FM2 models can be exported but not imported back.
+- FM3 models can be viewed but not edited.
+- No package for a real Xbox 360 yet (Xenia only).
+
+
+6. REPORTING A BUG
+------------------
+Please send:
+- what you did, step by step, and what happened;
+- a screenshot of any error message;
+- for a car port: the car, the donor, and port_log.txt (inside the
+  converted car zip, or in the Report tab of the port window).
+
+Send reports to: <WHERE TO REPORT>
+
+
+7. CREDITS AND LICENSE
+----------------------
+ForzaEditor by FMdangaina.
+Derived from Forza Studio 4.6 by Mike Davis, with an earlier edit by JYSB59.
+DLC package format worked out with help from Jew (@mr.abortion) and
+XTD (@xtd_ac) on Discord.
+Music playback by vgmstream (https://github.com/vgmstream/vgmstream),
+see vgmstream\COPYING. xds.dll comes from Forza Studio 4.6.
+texconv.exe is from Microsoft DirectXTex (MIT).
+
+ForzaEditor is free software under the GNU GPL v3.0 (see LICENSE).
+Forza is a trademark of Microsoft. This tool is not affiliated with
+Microsoft, Turn 10 or Playground Games. No game data is included:
+use it only with games you own.

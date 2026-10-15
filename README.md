@@ -11,6 +11,9 @@ Ports cars from Forza Horizon and Forza Horizon 2 to FM4, either into the game's
 **DLC package** for Xenia that leaves the game untouched: see
 [docs/DLC_PACKAGES.md](docs/DLC_PACKAGES.md).
 
+User manual: [docs/MANUAL.md](docs/MANUAL.md). Quick start for the beta zip:
+[docs/INSTRUCTIONS.txt](docs/INSTRUCTIONS.txt).
+
 Derived from Forza Studio 4.6 by Mike Davis, with an earlier edit by JYSB59.
 Maintained by FMdangaina. The DLC package format was worked out with help from Jew
 (@mr.abortion) and XTD (@xtd_ac) on Discord.

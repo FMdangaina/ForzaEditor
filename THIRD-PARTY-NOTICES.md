@@ -23,6 +23,31 @@ Both are distributed under the MIT License, reproduced below.
 | `Be.Windows.Forms.HexBox.dll` | Be.HexEditor (Bernhard Elbl) | 1.4.7 | Copyright (c) 2011 Bernhard Elbl |
 | `texconv.exe` | [DirectXTex](https://github.com/microsoft/DirectXTex) | 2026.4.1.1 | Copyright (c) Microsoft Corporation |
 
+## vgmstream
+
+The music player runs `vgmstream-cli.exe` and its DLLs from the `vgmstream\` folder next to the
+exe. They are not in this repository but are shipped in the release zip, with vgmstream's own
+`COPYING` file. vgmstream is under an ISC-style license:
+
+    Copyright (c) 2008-2025 Adam Gashlin, Fastelbja, Ronny Elfert, bnnm,
+                            Christopher Snowhill, NicknineTheEagle, bxaimc,
+                            Thealexbarney, CyberBotX, EdnessP, et al
+
+    Permission to use, copy, modify, and distribute this software for any
+    purpose with or without fee is hereby granted, provided that the above
+    copyright notice and this permission notice appear in all copies.
+
+    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+The full notice, with the portions copyrighted by others, is in vgmstream's `COPYING`.
+Project: https://github.com/vgmstream/vgmstream
+
 ## MIT License
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -45,14 +70,13 @@ SOFTWARE.
 
 ## Not included
 
-These files are needed at build time or runtime but are not redistributable
-(or not under a permissive license), so they are never committed. Place them in
+These files are needed at build time or runtime but are not committed. Place them in
 `!ForzaStudio release/` yourself:
 
 | File | Why it is excluded |
 |------|--------------------|
-| `xdevkit.dll`, `xcompress.dll` | Microsoft Xbox 360 SDK, proprietary |
-| `xds.dll` | Unknown license |
+| `xdevkit.dll`, `xcompress.dll` | Microsoft Xbox 360 SDK, proprietary. Not in the release zip either. |
+| `xds.dll` | Comes from the Forza Studio 4.6 release. Shipped in the release zip, not kept in the repository. |
 
 Game data (Forza `.zip`, `.carbin`, `.xds`, `.xpr`, gamedb, etc.) is copyrighted
 and is never committed either.
