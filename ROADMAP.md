@@ -12,7 +12,8 @@ Status: ✅ done · 🔧 in progress · ⏸ paused · ⬜ not started
 
 ## Now
 
-**Topic 3: ported cars as a DLC package**, first goal a DLC folder for Xenia (3.3 → 3.5).
+**Topic 3: ported cars as a DLC package.** The Xenia DLC folder works in game (3.5). Next: the port
+window (3.6).
 
 ## Next (in order)
 
@@ -76,13 +77,27 @@ each other's names (still to be confirmed in game).
       `stringtables.xml`, `<offer>_pri_N` loose folder, `<offer>000_merge.slt`, full string tables
 - [x] 3.2 DEV DB restored to the clean FM4 one (FM4_Extracted, 503 cars); DEV's ported one backed up in
       `bin\Debug\bak\2026-10-15_21-00-00_bak_DEV_before_DLC_gamedb.slt`
-- [ ] 3.3 Merge DB: run the port on a temporary copy of the clean DB; the new rows go into
+- [x] 3.3 Merge DB: run the port on a temporary copy of the clean DB; the new rows go into
       `<offer>000_merge.slt`, plus `ContentOffers` and `ContentOffersMapping`
-- [ ] 3.4 Package folder for Xenia (`content\0000000000000000\4D530910\00000002\<package>`):
+      (`DlcPackage.BuildMerge`; 458 Spider: 133 rows in 49 tables; clean DB + merge = ported DB.
+      Offer names are filled in 3.4 with the strings; the in-game check is 3.5)
+- [x] 3.4 Package folder for Xenia (`content\0000000000000000\4D530910\00000002\<package>`):
       car/wheel files, audio tunings and banks, thumbnails, string tables, `zipmount.xml`, `.puboffer`
-- [ ] 3.5 In-game test in Xenia with the base game untouched (1 car, then several)
-- [ ] 3.6 Port window: choose n cars from the source game, pack name, trial run that converts and
-      fixes them all, then "build DLC package" (or "install into game")
+      (`DlcPackage.BuildFolder` from a trial run; Gallardo LP570-4 Superleggera (FH1), offer 91,
+      folder `4D530910FF005B00`, installed in Xenia for the 3.5 test)
+- [x] 3.5 In-game test in Xenia with the base game untouched: Gallardo LP570-4 (FH1) as a DLC
+      works (garage, model, dash, sound, upgrades). Xenia needs two things:
+      `Headers\00000002\<package>.header` next to the folder (written by the build), and
+      `license_mask = -1` in `xenia-canary.config.toml`
+- [ ] 3.6 Port window, so nobody needs the test tools:
+      - choose n cars from the source game, pack name; offer number picked free automatically
+      - trial run that converts and fixes them all (CarPort chained: each car starts from the
+        previous one's output, so the pack's ids and string keys do not clash)
+      - "Build DLC package": straight into Xenia's content folder (setting), header included;
+        rebuilding an existing pack replaces it after a confirmation; "Remove pack"
+      - a reminder when Xenia's `license_mask` is 0
+      - "Install into game" stays as it is today
+- [ ] 3.6b In-game test of a pack with several cars
 - [ ] 3.7 STFS package file for a real Xbox 360 (Jew's writer ported to C#), tested by XTD or on
       the user's RGH consoles
 - [ ] 3.8 Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (later, the user's side)
