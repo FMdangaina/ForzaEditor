@@ -25,6 +25,12 @@ namespace ForzaStudio
         private readonly CheckBox arcade;
         private readonly Label details;
         private readonly TextBox report;
+        private readonly Panel reviewPanel;
+        private readonly Label reviewTitle;
+        private readonly DataGridView review;
+        private readonly Dictionary<string, Dictionary<string, object>> fixes = new Dictionary<string, Dictionary<string, object>>(StringComparer.OrdinalIgnoreCase);   // per car media name
+        private string reviewCar;
+        private const string LeaveAsIs = "(leave as is)";
         private readonly Button load;
         private readonly Button trial;
         private readonly Button install;
@@ -77,8 +83,8 @@ namespace ForzaStudio
         public CarPortForm()
         {
             this.Text = "Port Car From Forza Horizon";
-            this.Size = new Size(1000, 760);
-            this.MinimumSize = new Size(820, 600);
+            this.Size = new Size(1000, 900);
+            this.MinimumSize = new Size(820, 700);
             this.StartPosition = FormStartPosition.CenterParent;
             this.Font = ForzaTheme.Regular;
 
@@ -175,6 +181,52 @@ namespace ForzaStudio
             options.Controls.Add(this.donors);
             options.Controls.Add(this.arcade);
 
+            // Review: what the last trial run found not regular, each with a fix to choose. The fixes are
+            // kept per car and used by the next trial run and by the install.
+            this.reviewPanel = new Panel();
+            this.reviewPanel.Dock = DockStyle.Bottom;
+            this.reviewPanel.Height = 170;
+            this.reviewPanel.Visible = false;
+            this.reviewTitle = new Label();
+            this.reviewTitle.Dock = DockStyle.Top;
+            this.reviewTitle.Height = 22;
+            this.reviewTitle.Font = ForzaTheme.Bold;
+            this.reviewTitle.Padding = new Padding(8, 4, 0, 0);
+            this.review = new DataGridView();
+            this.review.Dock = DockStyle.Fill;
+            this.review.AllowUserToAddRows = false;
+            this.review.AllowUserToDeleteRows = false;
+            this.review.RowHeadersVisible = false;
+            this.review.SelectionMode = DataGridViewSelectionMode.CellSelect;
+            this.review.EditMode = DataGridViewEditMode.EditOnEnter;
+            this.review.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            DataGridViewTextBoxColumn where = new DataGridViewTextBoxColumn();
+            where.HeaderText = "Where";
+            where.ReadOnly = true;
+            where.FillWeight = 25;
+            DataGridViewTextBoxColumn problem = new DataGridViewTextBoxColumn();
+            problem.HeaderText = "Problem";
+            problem.ReadOnly = true;
+            problem.FillWeight = 45;
+            DataGridViewComboBoxColumn fix = new DataGridViewComboBoxColumn();
+            fix.HeaderText = "Fix (used by the next trial run and the install)";
+            fix.FillWeight = 30;
+            fix.FlatStyle = FlatStyle.Flat;
+            this.review.Columns.Add(where);
+            this.review.Columns.Add(problem);
+            this.review.Columns.Add(fix);
+            this.review.CellValueChanged += delegate { this.StoreFixes(); };
+            this.review.CurrentCellDirtyStateChanged += delegate
+            {
+                if (this.review.IsCurrentCellDirty)
+                {
+                    this.review.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                }
+            };
+            this.review.DataError += delegate(object sender, DataGridViewDataErrorEventArgs e) { e.ThrowException = false; };
+            this.reviewPanel.Controls.Add(this.review);
+            this.reviewPanel.Controls.Add(this.reviewTitle);
+
             this.report = new TextBox();
             this.report.Dock = DockStyle.Bottom;
             this.report.Height = 170;
@@ -187,6 +239,7 @@ namespace ForzaStudio
 
             this.Controls.Add(this.cars);
             this.Controls.Add(options);
+            this.Controls.Add(this.reviewPanel);
             this.Controls.Add(this.report);
             this.Controls.Add(filter);
             this.Controls.Add(folders);
@@ -484,6 +537,10 @@ namespace ForzaStudio
         {
             Car car = this.SelectedCar;
             this.donors.Items.Clear();
+            if (car == null || !string.Equals(car.MediaName, this.reviewCar, StringComparison.OrdinalIgnoreCase))
+            {
+                this.reviewPanel.Visible = false;   // the fixes stay kept for that car
+            }
             if (car == null)
             {
                 this.UpdateButtons();
@@ -555,6 +612,11 @@ namespace ForzaStudio
             port.MediaName = car.MediaName;
             port.DonorMediaName = donor.Car.MediaName;
             port.Arcade = this.arcade.Checked;
+            Dictionary<string, object> chosen;
+            if (this.fixes.TryGetValue(car.MediaName, out chosen))
+            {
+                port.Fixes = new Dictionary<string, object>(chosen);
+            }
             string folder = null;
             if (!installing)
             {
@@ -599,8 +661,11 @@ namespace ForzaStudio
                         else
                         {
                             this.trialFolder = folder;
-                            this.details.Text = car.Name + ": trial run done, nothing in the FM4 folder changed. Read the report, then install.";
+                            this.details.Text = car.Name + ": trial run done, nothing in the FM4 folder changed. " + ((port.Issues.Count > 0)
+                                ? port.Issues.Count + " things to review below: choose the fixes, run the trial again, then install."
+                                : "Read the report, then install.");
                         }
+                        this.ShowReview(car.MediaName, port.Issues, port.Fixes.Count);
                     }
                     this.report.SelectionStart = this.report.TextLength;
                     this.report.ScrollToCaret();
@@ -618,6 +683,72 @@ namespace ForzaStudio
                     }
                 };
             });
+        }
+
+        // The issues of the last run of this car, each row preset to the fix chosen before (or the
+        // suggested one for a material).
+        private void ShowReview(string mediaName, List<CarPort.Issue> issues, int applied)
+        {
+            this.reviewCar = mediaName;
+            Dictionary<string, object> chosen;
+            if (!this.fixes.TryGetValue(mediaName, out chosen))
+            {
+                chosen = new Dictionary<string, object>();
+                this.fixes[mediaName] = chosen;
+            }
+            this.review.Rows.Clear();
+            foreach (CarPort.Issue issue in issues)
+            {
+                int index = this.review.Rows.Add();
+                DataGridViewRow row = this.review.Rows[index];
+                row.Tag = issue;
+                row.Cells[0].Value = issue.Where;
+                row.Cells[1].Value = issue.Problem;
+                DataGridViewComboBoxCell cell = (DataGridViewComboBoxCell) row.Cells[2];
+                cell.Items.Add(LeaveAsIs);
+                string selected = LeaveAsIs;
+                foreach (CarPort.Choice choice in issue.Choices)
+                {
+                    cell.Items.Add(choice.Label);
+                    object value;
+                    if ((chosen.TryGetValue(issue.Key, out value) && object.Equals(Convert.ToString(value, CultureInfo.InvariantCulture), Convert.ToString(choice.Value, CultureInfo.InvariantCulture)))
+                        || (!chosen.ContainsKey(issue.Key) && issue.Suggested != null && object.Equals(issue.Suggested, choice.Value)))
+                    {
+                        selected = choice.Label;
+                    }
+                }
+                cell.Value = selected;
+            }
+            this.reviewTitle.Text = string.Format("Review: {0} things not regular for FM4{1}", issues.Count, (applied > 0) ? string.Format(" ({0} fixes chosen earlier were applied)", applied) : "");
+            this.reviewPanel.Visible = issues.Count > 0 || applied > 0;
+            this.StoreFixes();
+        }
+
+        // The fixes picked in the grid, kept for the car on review.
+        private void StoreFixes()
+        {
+            if (this.reviewCar == null)
+            {
+                return;
+            }
+            Dictionary<string, object> chosen = this.fixes[this.reviewCar];
+            foreach (DataGridViewRow row in this.review.Rows)
+            {
+                CarPort.Issue issue = row.Tag as CarPort.Issue;
+                string text = row.Cells[2].Value as string;
+                if (issue == null || text == null)
+                {
+                    continue;
+                }
+                chosen.Remove(issue.Key);
+                foreach (CarPort.Choice choice in issue.Choices)
+                {
+                    if (choice.Label == text)
+                    {
+                        chosen[issue.Key] = choice.Value;
+                    }
+                }
+            }
         }
 
         // Work off the UI thread; the returned action runs back on it.

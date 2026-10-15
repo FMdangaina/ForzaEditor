@@ -33,6 +33,37 @@
         public string BackupFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bak");
         public StringBuilder Report = new StringBuilder();
 
+        // Review step: what the port found not regular for FM4, and the user's fixes for the next run.
+        // A database issue is a value of a row the port wrote that points at a row FM4 lacks, on a
+        // relation that has no such value in the original FM4 (GameDbSchema strict), e.g. FH-only
+        // FamilyBodyID 27 on the P1. A material issue is a model material no FM4 car uses.
+        public class Choice
+        {
+            public object Value;
+            public string Label;
+
+            public override string ToString()
+            {
+                return this.Label;
+            }
+        }
+
+        public class Issue
+        {
+            public string Key;              // Fixes key: "Table.Column=value" or "material:name"
+            public string Kind;             // "database" or "material"
+            public string Where;            // Data_Car.FamilyBodyID, or the model sections
+            public string Value;
+            public string Problem;
+            public List<Choice> Choices = new List<Choice>();
+            public object Suggested;        // the choice to preselect, or null
+        }
+
+        public List<Issue> Issues = new List<Issue>();
+        public Dictionary<string, object> Fixes = new Dictionary<string, object>();
+        private readonly List<string[]> writtenRows = new List<string[]>();   // table, where of every row the port wrote
+        private readonly Dictionary<string, List<string>> unknownMaterials = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+
         private string stamp;
         private bool skipThumbnail;     // Textures.zip locked by the running emulator
         private string game = "FH2";    // the source game in the report: FH (Forza Horizon writes the same files) or FH2
@@ -45,6 +76,9 @@
         private readonly List<long> originalWheels = new List<long>();   // wheels FM4 already had before the port
         private readonly Dictionary<string, ForzaZip> changedZips = new Dictionary<string, ForzaZip>(StringComparer.OrdinalIgnoreCase);
         private readonly List<string> newZips = new List<string>();
+        private readonly List<string> checkedBanks = new List<string>();   // sound banks FM4 already has (compared once)
+        private ForzaZip carZip;        // the converted car, saved last with port_log.txt in it
+        private string carZipPath;
         private readonly Dictionary<string, string> newFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // loose target file -> source file
 
         // FH2 materials FM4 has no shader for -> FM4 materials (null: the subsection goes).
@@ -124,6 +158,7 @@
                 this.PortDatabase();
                 this.PortStrings();
                 this.BuildCarZip();
+                this.ReviewMaterials();
                 this.BuildWheelZips();
                 this.PortSound();
                 this.PortThumbnail();
@@ -142,6 +177,13 @@
                     File.Copy(file.Value, this.Out(file.Key), false);
                     this.Line("added {0}", this.Relative(file.Key));
                 }
+                // The report travels with the car (FM4 ignores files in a car zip it does not ask for).
+                string log = string.Format(CultureInfo.InvariantCulture, "ForzaEditor car port, {0}\r\nsource {1} ({2})\r\ntarget {3}\r\n{4}\r\n",
+                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture), this.SourceRoot, this.game, this.TargetRoot,
+                    (this.OutputRoot != null) ? "trial run into " + this.OutputRoot : "installed into the game") + "\r\n" + this.Report.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n");
+                this.Put(this.carZip, "port_log.txt", Encoding.UTF8.GetBytes(log));
+                this.SaveNew(this.carZip, this.carZipPath);
+                this.Line("saved {0}", this.Relative(this.carZipPath));
                 this.UpdateManifest();
             }
             finally
@@ -270,6 +312,121 @@
             }
             this.CopyReferences(from, to);
             this.StockTires();
+            this.ReviewDatabase();
+        }
+
+        // Every value of the rows the port wrote that points at a row FM4 lacks: fixed when the user
+        // chose a value for it (Fixes), else listed for the review with FM4's own values to pick from.
+        private void ReviewDatabase()
+        {
+            StringTable names = null;
+            try
+            {
+                names = StringTable.Load(this.TargetRoot, "EN");
+            }
+            catch (Exception)
+            {
+            }
+            List<string> seen = new List<string>();
+            foreach (string[] written in this.writtenRows)
+            {
+                foreach (GameDbSchema.Relation relation in GameDbSchema.From(written[0]))
+                {
+                    if (!relation.Strict || relation.IsComposite || !this.TableHas(relation.Table, relation.Column) || !this.TableHas(relation.Target, relation.TargetColumn))
+                    {
+                        continue;
+                    }
+                    string column = SqliteDatabase.Quote(relation.Column);
+                    string where = "(" + written[1] + ") AND " + GameDatabase.DanglingWhere(relation);
+                    foreach (object[] row in this.target.Query("SELECT DISTINCT " + column + " FROM " + SqliteDatabase.Quote(relation.Table) + " WHERE " + where).Rows)
+                    {
+                        string value = Convert.ToString(row[0], CultureInfo.InvariantCulture);
+                        string key = relation.Table + "." + relation.Column + "=" + value;
+                        object fix;
+                        if (this.Fixes.TryGetValue(key, out fix) && fix != null)
+                        {
+                            this.target.Execute("UPDATE " + SqliteDatabase.Quote(relation.Table) + " SET " + column + " = ? WHERE (" + written[1] + ") AND " + column + " = ?", fix, row[0]);
+                            this.Line("  review fix: {0}.{1} {2} -> {3}", relation.Table, relation.Column, value, Convert.ToString(fix, CultureInfo.InvariantCulture));
+                            continue;
+                        }
+                        if (seen.Contains(key))
+                        {
+                            continue;
+                        }
+                        seen.Add(key);
+                        Issue issue = new Issue();
+                        issue.Key = key;
+                        issue.Kind = "database";
+                        issue.Where = relation.Table + "." + relation.Column;
+                        issue.Value = value;
+                        issue.Problem = string.Format("{0} {1} has no row in FM4's {2}", relation.Column, value, relation.Target);
+                        string label = this.TableHas(relation.Target, "DisplayName") ? ", DisplayName" : "";
+                        foreach (object[] choice in this.target.Query("SELECT " + SqliteDatabase.Quote(relation.TargetColumn) + label + " FROM " + SqliteDatabase.Quote(relation.Target) + " ORDER BY 1").Rows)
+                        {
+                            Choice c = new Choice();
+                            c.Value = choice[0];
+                            string text = (label.Length > 0 && names != null) ? names.Lookup(relation.Target, "DisplayName", choice[1] as string) : null;
+                            c.Label = Convert.ToString(choice[0], CultureInfo.InvariantCulture) + (string.IsNullOrEmpty(text) ? "" : "  " + text);
+                            issue.Choices.Add(c);
+                        }
+                        this.Issues.Add(issue);
+                        this.Line("  REVIEW {0}", issue.Problem);
+                    }
+                }
+            }
+        }
+
+        private bool TableHas(string table, string column)
+        {
+            foreach (object[] row in this.target.Query("PRAGMA table_info(" + SqliteDatabase.Quote(table) + ")").Rows)
+            {
+                if (string.Equals((string) row[1], column, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // The user's material fixes (Fixes "material:name" -> FM4 material) for ConvertModel.
+        private Dictionary<string, string> MaterialFixes()
+        {
+            Dictionary<string, string> renames = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, object> fix in this.Fixes)
+            {
+                if (fix.Key.StartsWith("material:", StringComparison.Ordinal) && fix.Value is string)
+                {
+                    renames[fix.Key.Substring("material:".Length)] = (string) fix.Value;
+                }
+            }
+            return renames;
+        }
+
+        // The materials no FM4 car uses that are left after the conversion, for the review.
+        private void ReviewMaterials()
+        {
+            foreach (KeyValuePair<string, List<string>> material in this.unknownMaterials)
+            {
+                Issue issue = new Issue();
+                issue.Key = "material:" + material.Key;
+                issue.Kind = "material";
+                issue.Where = string.Join(" ", material.Value.ToArray());
+                issue.Value = material.Key;
+                issue.Problem = string.Format("material {0} is used by no FM4 car (renders black)", material.Key);
+                foreach (string name in Fm4Materials(2))
+                {
+                    Choice c = new Choice();
+                    c.Value = name;
+                    c.Label = name;
+                    issue.Choices.Add(c);
+                }
+                issue.Suggested = SuggestMaterial(material.Key, this.MediaName + ".carbin");
+                this.Issues.Add(issue);
+            }
+            if (this.unknownMaterials.Count > 0)
+            {
+                this.Line("  REVIEW {0} materials no FM4 car uses", this.unknownMaterials.Count);
+            }
         }
 
         // FH2 gives a few road cars (CarTypeID 1) DOT or slick tyres as stock (P1, LaFerrari, Veneno: 8
@@ -502,6 +659,7 @@
             {
                 return 0;
             }
+            this.writtenRows.Add(new string[] { table, where });
             this.target.Execute("DELETE FROM " + SqliteDatabase.Quote(table) + " WHERE " + where);
             string marks = string.Join(",", columns.ConvertAll<string>(delegate(string c) { return "?"; }).ToArray());
             string insert = "INSERT INTO " + SqliteDatabase.Quote(table) + " (" + string.Join(",", quoted.ToArray()) + ") VALUES (" + marks + ")";
@@ -966,7 +1124,7 @@
                     }
                     else
                     {
-                        data = ConvertModel(data, name.EndsWith("_lod0.carbin"), this.Report, materials);
+                        data = ConvertModel(data, name.EndsWith("_lod0.carbin"), this.Report, materials, this.MaterialFixes(), this.unknownMaterials);
                         models++;
                     }
                 }
@@ -991,8 +1149,10 @@
                 car.Add("versiondata.xml", donor.Read(version));
             }
             string path = Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "cars"), this.MediaName + ".zip");
-            this.SaveNew(car, path);
-            this.Line("car zip: {0} entries, {1} models converted -> {2}", car.Entries.Count, models, this.Relative(path));
+            // Saved with the other files at the end, with the report as port_log.txt.
+            this.carZip = car;
+            this.carZipPath = path;
+            this.Line("car zip: {0} entries + port_log.txt, {1} models converted -> {2}", car.Entries.Count, models, this.Relative(path));
         }
 
         // Anark digital dash layout (.fbf), FH2 version 0x3F0 -> FM4 0x3EF. A text layer is
@@ -1158,8 +1318,15 @@
             return ConvertModel(data, lod0, report, null);
         }
 
-        // 'materials' (when given) collects the material names the converted model uses.
         public static byte[] ConvertModel(byte[] data, bool lod0, StringBuilder report, List<string> materials)
+        {
+            return ConvertModel(data, lod0, report, materials, null, null);
+        }
+
+        // 'materials' (when given) collects the material names the converted model uses; 'renames' are
+        // the user's fixes from the review (FH material -> FM4 material, before MaterialMap); 'unknown'
+        // collects the materials no FM4 car uses that are left, with the sections they sit on.
+        public static byte[] ConvertModel(byte[] data, bool lod0, StringBuilder report, List<string> materials, Dictionary<string, string> renames, Dictionary<string, List<string>> unknownOut)
         {
             CarbinModel model = new CarbinModel(data);
             model.ConvertHorizonToMotorsport4();
@@ -1170,7 +1337,11 @@
                 foreach (CarbinModel.SubSection sub in section.SubSections)
                 {
                     string to;
-                    if (!MaterialMap.TryGetValue(sub.Name, out to))
+                    if (renames != null && renames.TryGetValue(sub.Name, out to))
+                    {
+                        to = (lod0 && to == "tail_light") ? "tail_light_lod0" : to;
+                    }
+                    else if (!MaterialMap.TryGetValue(sub.Name, out to))
                     {
                         continue;
                     }
@@ -1255,6 +1426,22 @@
                     foreach (string name in order)
                     {
                         text.Add(name + " (" + string.Join(" ", unknown[name].ToArray()) + ")");
+                        if (unknownOut != null)
+                        {
+                            List<string> all;
+                            if (!unknownOut.TryGetValue(name, out all))
+                            {
+                                all = new List<string>();
+                                unknownOut[name] = all;
+                            }
+                            foreach (string section in unknown[name])
+                            {
+                                if (!all.Contains(section))
+                                {
+                                    all.Add(section);
+                                }
+                            }
+                        }
                     }
                     report.AppendLine("  WARNING materials no FM4 car uses, may render black: " + string.Join(", ", text.ToArray()));
                 }
@@ -1543,6 +1730,20 @@
                     }
                     data = engineTuning.Read(fallback);
                     this.Line("engine sound {0}: the donor's ({1}; " + this.game + " lacks {2})", media, donorEngine, (missing.Count > 0) ? string.Join(", ", missing.ToArray()) : "the " + this.game + " tuning");
+                    // The donor's tunings are FM4's, but their banks may be missing from this FM4 too: they
+                    // come from the source game like the car's own.
+                    foreach (Match reference in Regex.Matches(Encoding.UTF8.GetString(data), "\"([^\"]+_HT\\.xml)\"", RegexOptions.IgnoreCase))
+                    {
+                        string name = reference.Groups[1].Value;
+                        if (!checkedHarmonics.Contains(name) && !imported.Contains(name))
+                        {
+                            checkedHarmonics.Add(name);
+                            if (this.ImportHarmonic(harmonic, sourceHarmonic, harmonicPath, name, sourceBanks, targetBanks) < 0)
+                            {
+                                this.Line("  WARNING donor harmonic tuning {0}: a sound bank is in neither game", name);
+                            }
+                        }
+                    }
                 }
                 else
                 {
@@ -1586,7 +1787,7 @@
             foreach (Match bank in banks)
             {
                 string target = Path.Combine(targetBanks, bank.Groups[1].Value.ToLowerInvariant());
-                if (File.Exists(target) || this.newFiles.ContainsKey(target) || copies.ContainsKey(target))
+                if (this.newFiles.ContainsKey(target) || copies.ContainsKey(target) || this.checkedBanks.Contains(target))
                 {
                     continue;
                 }
@@ -1600,6 +1801,18 @@
                             source = file;
                         }
                     }
+                }
+                string existing = FindFile(targetBanks, bank.Groups[1].Value);
+                if (existing != null)
+                {
+                    // FM4 has a bank of that name: identical bytes are the usual case (all 353 banks FH2
+                    // and FM4 share). A different one stays FM4's, since FM4 cars use it, and is reported.
+                    this.checkedBanks.Add(target);
+                    if (source != null && !SameFile(source, existing))
+                    {
+                        this.Line("  WARNING sound bank {0}: FM4's differs from the {1} one, FM4's kept", Path.GetFileName(existing), this.game);
+                    }
+                    continue;
                 }
                 if (source == null)
                 {
@@ -1618,6 +1831,31 @@
                 this.Line("  harmonic tuning {0} from " + this.game, name);
             }
             return (own == null || copies.Count > 0) ? 1 : 0;
+        }
+
+        // The file of that name in a folder, any case; null if none.
+        private static string FindFile(string folder, string name)
+        {
+            string path = Path.Combine(folder, name);
+            return File.Exists(path) ? path : null;
+        }
+
+        private static bool SameFile(string a, string b)
+        {
+            if (new FileInfo(a).Length != new FileInfo(b).Length)
+            {
+                return false;
+            }
+            byte[] x = File.ReadAllBytes(a);
+            byte[] y = File.ReadAllBytes(b);
+            for (int i = 0; i < x.Length; i++)
+            {
+                if (x[i] != y[i])
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private void PortThumbnail()
