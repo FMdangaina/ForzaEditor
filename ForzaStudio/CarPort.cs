@@ -1501,6 +1501,7 @@
             string harmonicPath = Path.Combine(Path.Combine(targetAudio, "Engines"), "harmonictuning.zip");
             ForzaZip harmonic = new ForzaZip(harmonicPath);
             List<string> imported = new List<string>();
+            List<string> checkedHarmonics = new List<string>();   // in FM4 with all their sound banks
             ForzaZip engineTuning = this.OpenChanged(Path.Combine(Path.Combine(targetAudio, "Engines"), "enginetuning.zip"));
             string donorEngine = this.target.Scalar("SELECT e.MediaName FROM Data_Engine e JOIN List_UpgradeEngine u ON u.EngineID = e.EngineID WHERE u.Ordinal = ? AND u.Level = 0", this.donorId) as string;
             foreach (string media in this.engineMedia)
@@ -1513,17 +1514,22 @@
                     foreach (Match reference in Regex.Matches(Encoding.UTF8.GetString(data), "\"([^\"]+_HT\\.xml)\"", RegexOptions.IgnoreCase))
                     {
                         string name = reference.Groups[1].Value;
-                        if (harmonic.Find(name) != null || imported.Contains(name) || missing.Contains(name))
+                        if (imported.Contains(name) || missing.Contains(name) || checkedHarmonics.Contains(name))
                         {
                             continue;
                         }
-                        if (this.ImportHarmonic(sourceHarmonic, harmonicPath, name, sourceBanks, targetBanks))
+                        int result = this.ImportHarmonic(harmonic, sourceHarmonic, harmonicPath, name, sourceBanks, targetBanks);
+                        if (result > 0)
                         {
                             imported.Add(name);
                         }
-                        else
+                        else if (result < 0)
                         {
                             missing.Add(name);
+                        }
+                        else
+                        {
+                            checkedHarmonics.Add(name);
                         }
                     }
                 }
@@ -1555,24 +1561,35 @@
             }
         }
 
-        // One FH2 harmonic tuning into FM4's harmonictuning.zip, with its sound bank when FM4 lacks
-        // it (written with the other files, lower-case like FM4's). False when FH2 lacks either.
-        private bool ImportHarmonic(ForzaZip sourceHarmonic, string harmonicPath, string name, string sourceBanks, string targetBanks)
+        // A harmonic tuning the engine tuning names, made complete in FM4: the tuning itself from the
+        // source game when FM4's harmonictuning.zip lacks it, and EVERY sound bank it names
+        // (<Soundbank name="12T1_Bently_Exh.fsb">, loose FSB4 files in Engines\soundbanks\lod1, written
+        // lower-case like FM4's) that FM4 lacks, even when FM4 has the tuning: the extracted FM4 disc
+        // holds 356 banks against FH1's 937, and its own tunings name banks it does not have
+        // (MER_S65AMG_12's exhaust 12T1_Bently_Exh: "Disc Read Error" while loading the race).
+        // 1 = something imported, 0 = all already in FM4, -1 = the source game lacks a piece.
+        private int ImportHarmonic(ForzaZip targetHarmonic, ForzaZip sourceHarmonic, string harmonicPath, string name, string sourceBanks, string targetBanks)
         {
-            ForzaZip.Entry entry = sourceHarmonic.Find(name);
+            ForzaZip.Entry own = targetHarmonic.Find(name);
+            ForzaZip.Entry entry = (own != null) ? own : sourceHarmonic.Find(name);
             if (entry == null)
             {
-                return false;
+                return -1;
             }
-            byte[] data = sourceHarmonic.Read(entry);
-            Match bank = Regex.Match(Encoding.UTF8.GetString(data), "<Soundbank\\s+name=\"([^\"]+)\"", RegexOptions.IgnoreCase);
-            if (!bank.Success)
+            byte[] data = ((own != null) ? targetHarmonic : sourceHarmonic).Read(entry);
+            MatchCollection banks = Regex.Matches(Encoding.UTF8.GetString(data), "<Soundbank\\s+name=\"([^\"]+)\"", RegexOptions.IgnoreCase);
+            if (banks.Count == 0 && own == null)
             {
-                return false;
+                return -1;
             }
-            string target = Path.Combine(targetBanks, bank.Groups[1].Value.ToLowerInvariant());
-            if (!File.Exists(target) && !this.newFiles.ContainsKey(target))
+            Dictionary<string, string> copies = new Dictionary<string, string>();
+            foreach (Match bank in banks)
             {
+                string target = Path.Combine(targetBanks, bank.Groups[1].Value.ToLowerInvariant());
+                if (File.Exists(target) || this.newFiles.ContainsKey(target) || copies.ContainsKey(target))
+                {
+                    continue;
+                }
                 string source = null;
                 if (Directory.Exists(sourceBanks))
                 {
@@ -1586,14 +1603,21 @@
                 }
                 if (source == null)
                 {
-                    return false;
+                    return -1;
                 }
-                this.newFiles[target] = source;
-                this.Line("  sound bank {0} from " + this.game, Path.GetFileName(target));
+                copies[target] = source;
             }
-            this.Put(this.OpenChanged(harmonicPath), name, data);
-            this.Line("  harmonic tuning {0} from " + this.game, name);
-            return true;
+            foreach (KeyValuePair<string, string> copy in copies)
+            {
+                this.newFiles[copy.Key] = copy.Value;
+                this.Line("  sound bank {0} from " + this.game + "{1}", Path.GetFileName(copy.Key), (own != null) ? " (FM4 has the tuning, not the bank)" : "");
+            }
+            if (own == null)
+            {
+                this.Put(this.OpenChanged(harmonicPath), name, data);
+                this.Line("  harmonic tuning {0} from " + this.game, name);
+            }
+            return (own == null || copies.Count > 0) ? 1 : 0;
         }
 
         private void PortThumbnail()
