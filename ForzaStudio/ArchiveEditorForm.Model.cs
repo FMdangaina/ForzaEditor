@@ -64,6 +64,9 @@ namespace ForzaStudio
             this.lblModelInfo = new ToolStripLabel();
             this.lblModelInfo.Alignment = ToolStripItemAlignment.Right;
             toolbar.Items.Add(this.lblModelInfo);
+            ToolStripLabel warning = this.BuildMaterialWarning();
+            warning.Alignment = ToolStripItemAlignment.Right;
+            toolbar.Items.Add(warning);
 
             this.pnlViewport = new Panel();
             this.pnlViewport.Dock = DockStyle.Fill;
@@ -156,6 +159,7 @@ namespace ForzaStudio
             }
             this.tvModel.Nodes.Add(root);
             this.LoadDamageInfo(data);
+            this.MarkUnknownMaterials(data, root);
             root.Expand();
             this.tvModel.EndUpdate();
 

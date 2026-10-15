@@ -194,6 +194,9 @@
     <Compile Include="ForzaStudio\ArchiveEditorForm.Materials.cs">
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.MaterialCheck.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="ForzaStudio\ArchiveEditorForm.Xml.cs">
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>

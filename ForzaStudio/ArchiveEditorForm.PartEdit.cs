@@ -150,10 +150,12 @@ namespace ForzaStudio
             ToolStripMenuItem delete = new ToolStripMenuItem("Delete...", null, delegate { this.DeleteSelectedNode(); });
             ToolStripMenuItem focus = new ToolStripMenuItem("Focus", null, delegate { this.FocusPart(); });
             ToolStripMenuItem duplicate = new ToolStripMenuItem("Duplicate Part...", null, delegate { this.DuplicateSelectedPart(); });
+            ToolStripMenuItem rename = new ToolStripMenuItem("Rename Material...", null, delegate { this.RenameSelectedMaterial(); });
             ToolStripSeparator partSeparator = new ToolStripSeparator();
             ToolStripSeparator modelSeparator = new ToolStripSeparator();
             menu.Items.Add(focus);
             menu.Items.Add(duplicate);
+            menu.Items.Add(rename);
             menu.Items.Add(partSeparator);
             menu.Items.Add(delete);
             menu.Items.Add(modelSeparator);
@@ -168,9 +170,15 @@ namespace ForzaStudio
                 {
                     item.Visible = part;
                 }
+                rename.Visible = part && material != null;
+                if (rename.Visible)
+                {
+                    rename.Text = string.Format("Rename material \"{0}\"...", material);
+                    rename.ForeColor = this.IsUnknownMaterial(material) ? ForzaTheme.Red : delete.ForeColor;
+                }
                 if (part)
                 {
-                    delete.Text = (material != null) ? string.Format("Delete material \"{0}\" from {1}...", material, section) : string.Format("Delete part \"{0}\"...", section);
+                    delete.Text =(material != null) ? string.Format("Delete material \"{0}\" from {1}...", material, section) : string.Format("Delete part \"{0}\"...", section);
                     duplicate.Text = string.Format("Duplicate part \"{0}\"...", section);
                 }
             };

@@ -197,7 +197,7 @@ namespace ForzaStudio
                     string part = (node.Parent != null) ? node.Parent.Text : "";
                     string lod = (node.Parent != null && node.Parent.Parent != null) ? node.Parent.Parent.Text : "";
                     this.lblMeshInfo.Text = string.Format("Part: {0}\nLOD: {1}\nMaterial: {2}\nDamage: {7}\n\nVertices: {3:N0}\nFaces: {4:N0}\nParts with this material: {5}\n\nTexture: {6}",
-                        part, lod, first.MaterialName, vertices, faces, this.CountMaterial(first.MaterialName), DisplaySource(texture), this.DescribeDamage(part));
+                        part, lod, first.MaterialName + (this.IsUnknownMaterial(first.MaterialName) ? " (no FM4 car uses it: may render black)" : ""), vertices, faces, this.CountMaterial(first.MaterialName), DisplaySource(texture), this.DescribeDamage(part));
                 }
                 else
                 {
