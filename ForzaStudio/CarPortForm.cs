@@ -33,6 +33,7 @@ namespace ForzaStudio
         private readonly Button trialPack;
         private readonly Button buildPack;
         private readonly Button removePack;
+        private readonly Button buildXbox;
         private readonly List<PackEntry> pack = new List<PackEntry>();
         private int packOffer;              // 0 until the first build
         private string packTrialFolder;     // the last pack trial, null when the pack changed since
@@ -55,7 +56,7 @@ namespace ForzaStudio
         private readonly ListView cars;
         private readonly ComboBox donors;
         private readonly CheckBox arcade;
-        private readonly Label details;
+        private readonly ToolStripStatusLabel details;
         private readonly TextBox report;
         private readonly Panel reviewPanel;
         private readonly Label reviewTitle;
@@ -117,40 +118,71 @@ namespace ForzaStudio
         {
             this.Text = "Port Car From Forza Horizon";
             this.Size = new Size(1360, 900);
-            this.MinimumSize = new Size(1180, 760);
+            this.MinimumSize = new Size(1100, 720);
             this.StartPosition = FormStartPosition.CenterParent;
             this.Font = ForzaTheme.Regular;
+            try
+            {
+                this.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            }
+            catch (ArgumentException)
+            {
+            }
 
+            // The main window's look: the menu bar with the brand and the red rule, sections under
+            // upper-case headers, splitters, the game-style tabs, a status bar.
+            MenuStrip header = new MenuStrip();
+            ToolStripLabel forza = new ToolStripLabel("FORZA");
+            forza.Font = new Font("Segoe UI", 11f, FontStyle.Bold | FontStyle.Italic);
+            forza.ForeColor = ForzaTheme.Red;
+            forza.Margin = new Padding(6, 1, 0, 2);
+            ToolStripLabel studio = new ToolStripLabel("STUDIO");
+            studio.Font = new Font("Segoe UI Light", 11f, FontStyle.Italic);
+            studio.Margin = new Padding(0, 1, 18, 2);
+            ToolStripLabel title = new ToolStripLabel("PORT CAR FROM FORZA HORIZON");
+            title.Font = ForzaTheme.Bold;
+            title.ForeColor = ForzaTheme.TextDim;
+            header.Items.Add(forza);
+            header.Items.Add(studio);
+            header.Items.Add(title);
+
+            StatusStrip status = new StatusStrip();
+            this.details = new ToolStripStatusLabel("Choose the two game folders and load the cars.");
+            this.details.Spring = true;
+            this.details.TextAlign = ContentAlignment.MiddleLeft;
+            status.Items.Add(this.details);
+
+            // Game folders.
             Panel folders = new Panel();
             folders.Dock = DockStyle.Top;
             folders.Height = 74;
             folders.Width = this.ClientSize.Width;
-            this.sourceBox = FolderRow(folders, "Forza Horizon (1 or 2) folder:", 8, AppSettings.Get("CarPort.Source", ""));
-            this.targetBox = FolderRow(folders, "Forza Motorsport 4 folder:", 40, AppSettings.Get("CarPort.Target", ""));
+            this.sourceBox = FolderRow(folders, "Forza Horizon (1 or 2):", 10, AppSettings.Get("CarPort.Source", ""));
+            this.targetBox = FolderRow(folders, "Forza Motorsport 4:", 42, AppSettings.Get("CarPort.Target", ""));
             this.load = new Button();
             this.load.Text = "Load Cars";
-            this.load.Size = new Size(96, 28);
+            this.load.Size = new Size(110, 56);
             this.load.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            this.load.Location = new Point(folders.Width - 106, 6);
+            this.load.Location = new Point(folders.Width - 122, 9);
             this.load.Click += delegate { this.LoadCars(); };
             folders.Controls.Add(this.load);
 
+            // Cars (left): header, search, list, donor and the one-car actions.
             Panel filter = new Panel();
             filter.Dock = DockStyle.Top;
             filter.Height = 32;
             Label find = new Label();
             find.Text = "Search:";
-            find.Location = new Point(10, 8);
+            find.Location = new Point(8, 9);
             find.AutoSize = true;
             this.search = new TextBox();
-            this.search.Location = new Point(64, 5);
+            this.search.Location = new Point(62, 7);
             this.search.Width = 260;
-            this.search.BorderStyle = BorderStyle.FixedSingle;
             this.search.TextChanged += delegate { this.Filter(); };
             this.onlyNew = new CheckBox();
             this.onlyNew.Text = "Only cars FM4 lacks (and earlier ports)";
             this.onlyNew.Checked = true;
-            this.onlyNew.Location = new Point(340, 6);
+            this.onlyNew.Location = new Point(338, 7);
             this.onlyNew.AutoSize = true;
             this.onlyNew.CheckedChanged += delegate { this.Filter(); };
             filter.Controls.Add(find);
@@ -164,44 +196,39 @@ namespace ForzaStudio
             this.cars.MultiSelect = false;
             this.cars.HideSelection = false;
             this.cars.Columns.Add("Id", 56);
-            this.cars.Columns.Add("Car", 230);
+            this.cars.Columns.Add("Car", 220);
             this.cars.Columns.Add("Year", 50);
             this.cars.Columns.Add("Media name", 180);
             this.cars.Columns.Add("PI FH", 60);
             this.cars.Columns.Add("PI FM4", 60);
-            this.cars.Columns.Add("Class", 50);
-            this.cars.Columns.Add("In FM4", 230);
+            this.cars.Columns.Add("Class", 76);
+            this.cars.Columns.Add("In FM4", 220);
             this.cars.SelectedIndexChanged += delegate { this.CarSelected(); };
+            this.StyleList(this.cars);
 
             Panel options = new Panel();
             options.Dock = DockStyle.Bottom;
-            options.Height = 104;
-            this.details = new Label();
-            this.details.Location = new Point(10, 6);
-            this.details.Size = new Size(960, 20);
-            this.details.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            this.details.Text = "Choose the two game folders and load the cars.";
+            options.Height = 92;
             Label donorLabel = new Label();
             donorLabel.Text = "FM4 donor (templates; ★ = closest make, layout, drive, year, weight, PI):";
-            donorLabel.Location = new Point(10, 30);
+            donorLabel.Location = new Point(8, 8);
             donorLabel.AutoSize = true;
             this.donors = new ComboBox();
             this.donors.DropDownStyle = ComboBoxStyle.DropDownList;
-            this.donors.Location = new Point(10, 50);
+            this.donors.Location = new Point(8, 28);
             this.donors.Width = 460;
             this.donors.MaxDropDownItems = 24;
             this.donors.SelectedIndexChanged += delegate { this.UpdateButtons(); };
             this.arcade = new CheckBox();
             this.arcade.Text = "In arcade (Data_Car.IsArcade)";
             this.arcade.Checked = true;
-            this.arcade.Location = new Point(486, 52);
+            this.arcade.Location = new Point(484, 30);
             this.arcade.AutoSize = true;
-            this.trial = ActionButton(options, "Trial Run", 10, 78);
+            this.trial = ActionButton(options, "Trial Run", 8, 62, 100);
             this.trial.Click += delegate { this.Port(false); };
-            this.install = ActionButton(options, "Install In FM4...", 118, 78);
+            this.install = ActionButton(options, "Install In FM4...", 114, 62, 120);
             this.install.Click += delegate { this.Port(true); };
-            this.openTrial = ActionButton(options, "Open Trial Folder", 226, 78);
-            this.openTrial.Width = 130;
+            this.openTrial = ActionButton(options, "Open Trial Folder", 240, 62, 130);
             this.openTrial.Click += delegate
             {
                 if (this.trialFolder != null && Directory.Exists(this.trialFolder))
@@ -209,22 +236,143 @@ namespace ForzaStudio
                     Process.Start("explorer.exe", "\"" + this.trialFolder + "\"");
                 }
             };
-            options.Controls.Add(this.details);
             options.Controls.Add(donorLabel);
             options.Controls.Add(this.donors);
             options.Controls.Add(this.arcade);
 
+            Panel carsArea = new Panel();
+            carsArea.Dock = DockStyle.Fill;
+            carsArea.Controls.Add(this.cars);
+            carsArea.Controls.Add(options);
+            carsArea.Controls.Add(filter);
+            carsArea.Controls.Add(SectionHeader("Cars"));
+
+            // DLC pack (right).
+            Panel packPanel = new Panel();
+            packPanel.Dock = DockStyle.Fill;
+            Label nameLabel = new Label();
+            nameLabel.Text = "Name:";
+            nameLabel.Location = new Point(8, 39);
+            nameLabel.AutoSize = true;
+            this.packName = new TextBox();
+            this.packName.Location = new Point(58, 37);
+            this.packName.Width = 300;
+            this.packName.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            this.packName.Text = AppSettings.Get("CarPort.PackName", "ForzaEditor pack");
+            this.packName.TextChanged += delegate { AppSettings.Set("CarPort.PackName", this.packName.Text); this.UpdateButtons(); };
+            this.packOfferLabel = new Label();
+            this.packOfferLabel.Location = new Point(8, 64);
+            this.packOfferLabel.Size = new Size(350, 18);
+            this.packOfferLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            this.packOfferLabel.ForeColor = SystemColors.GrayText;
+            this.packList = new ListView();
+            this.packList.Location = new Point(8, 86);
+            this.packList.Size = new Size(350, 150);
+            this.packList.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            this.packList.View = View.Details;
+            this.packList.FullRowSelect = true;
+            this.packList.MultiSelect = false;
+            this.packList.HideSelection = false;
+            this.packList.Columns.Add("Car", 140);
+            this.packList.Columns.Add("Donor", 130);
+            this.packList.Columns.Add("Review", 70);
+            this.packList.SelectedIndexChanged += delegate { this.PackSelected(); };
+            this.StyleList(this.packList);
+
+            int bottom = 300;   // placed from the panel's bottom edge in Layout below
+            this.addToPack = PackButton(packPanel, "Add Selected Car", 8, bottom, 130);
+            this.addToPack.Click += delegate { this.AddToPack(); };
+            this.removeFromPack = PackButton(packPanel, "Remove", 144, bottom, 80);
+            this.removeFromPack.Click += delegate { this.RemoveFromPack(); };
+            this.newPack = PackButton(packPanel, "New Pack", 230, bottom, 80);
+            this.newPack.Click += delegate { this.NewPack(); };
+            Label xeniaLabel = new Label();
+            xeniaLabel.Text = "Xenia folder (with xenia_canary.exe):";
+            xeniaLabel.AutoSize = true;
+            packPanel.Controls.Add(xeniaLabel);
+            this.xeniaBox = new TextBox();
+            this.xeniaBox.Width = 312;
+            this.xeniaBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            this.xeniaBox.Text = AppSettings.Get("CarPort.Xenia", "");
+            this.xeniaBox.TextChanged += delegate { AppSettings.Set("CarPort.Xenia", this.xeniaBox.Text.Trim()); this.UpdatePackInfo(); };
+            Button xeniaBrowse = new Button();
+            xeniaBrowse.Text = "...";
+            xeniaBrowse.Size = new Size(32, 24);
+            xeniaBrowse.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            xeniaBrowse.Click += delegate
+            {
+                using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+                {
+                    dialog.Description = "Xenia's folder (the one with xenia_canary.exe and its config)";
+                    dialog.ShowNewFolderButton = false;
+                    if (Directory.Exists(this.xeniaBox.Text))
+                    {
+                        dialog.SelectedPath = this.xeniaBox.Text;
+                    }
+                    if (dialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        this.xeniaBox.Text = dialog.SelectedPath;
+                    }
+                }
+            };
+            packPanel.Controls.Add(this.xeniaBox);
+            packPanel.Controls.Add(xeniaBrowse);
+            this.trialPack = PackButton(packPanel, "Trial Pack", 8, bottom, 100);
+            this.trialPack.Click += delegate { this.TrialPack(); };
+            this.buildPack = PackButton(packPanel, "Build DLC Package", 114, bottom, 130);
+            this.buildPack.Click += delegate { this.BuildPack(); };
+            this.removePack = PackButton(packPanel, "Remove Pack", 250, bottom, 108);
+            this.removePack.Click += delegate { this.RemovePack(); };
+            this.buildXbox = PackButton(packPanel, "Build for Xbox 360...", 8, bottom, 238);
+            this.buildXbox.Click += delegate { this.BuildXbox(); };
+            this.packStatus = new Label();
+            this.packStatus.Size = new Size(350, 48);
+            this.packStatus.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            this.packStatus.ForeColor = SystemColors.GrayText;
+            packPanel.Controls.Add(this.packStatus);
+            packPanel.Controls.Add(nameLabel);
+            packPanel.Controls.Add(this.packName);
+            packPanel.Controls.Add(this.packOfferLabel);
+            packPanel.Controls.Add(this.packList);
+            Control packHeader = SectionHeader("DLC pack (Xenia / Xbox 360)");
+            packPanel.Controls.Add(packHeader);
+            // Rows from the bottom: hint, actions, Xenia folder, list buttons; the list takes the rest.
+            packPanel.Layout += delegate
+            {
+                int h = packPanel.ClientSize.Height;
+                int w = packPanel.ClientSize.Width;
+                this.packStatus.Bounds = new Rectangle(8, h - 52, w - 16, 48);
+                this.buildXbox.Top = h - 84;
+                this.trialPack.Top = this.buildPack.Top = this.removePack.Top = h - 116;
+                this.xeniaBox.Bounds = new Rectangle(8, h - 148, w - 54, this.xeniaBox.Height);
+                xeniaBrowse.Location = new Point(w - 40, h - 150);
+                xeniaLabel.Location = new Point(8, h - 168);
+                this.addToPack.Top = this.removeFromPack.Top = this.newPack.Top = h - 204;
+                this.packName.Width = w - 66;
+                this.packOfferLabel.Width = w - 16;
+                this.packList.Bounds = new Rectangle(8, this.packList.Top, w - 16, Math.Max(40, h - 212 - this.packList.Top));
+            };
+            this.packOffer = (int) Long(AppSettings.Get("CarPort.PackOffer", "0"));
+
+            // Report and review, as tabs under the two areas.
+            this.report = new TextBox();
+            this.report.Dock = DockStyle.Fill;
+            this.report.Multiline = true;
+            this.report.ReadOnly = true;
+            this.report.ScrollBars = ScrollBars.Both;
+            this.report.WordWrap = false;
+            this.report.Font = new Font("Consolas", 9f);
+
             // Review: what the last trial run found not regular, each with a fix to choose. The fixes are
             // kept per car and used by the next trial run and by the install.
             this.reviewPanel = new Panel();
-            this.reviewPanel.Dock = DockStyle.Bottom;
-            this.reviewPanel.Height = 170;
+            this.reviewPanel.Dock = DockStyle.Fill;
             this.reviewPanel.Visible = false;
             this.reviewTitle = new Label();
             this.reviewTitle.Dock = DockStyle.Top;
-            this.reviewTitle.Height = 22;
+            this.reviewTitle.Height = 24;
             this.reviewTitle.Font = ForzaTheme.Bold;
-            this.reviewTitle.Padding = new Padding(8, 4, 0, 0);
+            this.reviewTitle.Padding = new Padding(6, 5, 0, 0);
             this.review = new DataGridView();
             this.review.Dock = DockStyle.Fill;
             this.review.AllowUserToAddRows = false;
@@ -268,135 +416,171 @@ namespace ForzaStudio
             this.reviewPanel.Controls.Add(this.review);
             this.reviewPanel.Controls.Add(this.reviewTitle);
 
-            this.report = new TextBox();
-            this.report.Dock = DockStyle.Bottom;
-            this.report.Height = 170;
-            this.report.Multiline = true;
-            this.report.ReadOnly = true;
-            this.report.ScrollBars = ScrollBars.Both;
-            this.report.WordWrap = false;
-            this.report.Font = new Font("Consolas", 9f);
-            this.report.BorderStyle = BorderStyle.FixedSingle;
+            this.bottomTabs = new TabControl();
+            TabPage reportPage = new TabPage("Report");
+            reportPage.Controls.Add(this.report);
+            this.reviewPage = new TabPage("Review");
+            this.reviewPage.Controls.Add(this.reviewPanel);
+            this.bottomTabs.TabPages.Add(reportPage);
+            this.bottomTabs.TabPages.Add(this.reviewPage);
 
-            // DLC pack panel.
-            Panel packPanel = new Panel();
-            packPanel.Dock = DockStyle.Right;
-            packPanel.Width = 380;
-            packPanel.Padding = new Padding(8);
-            Label packTitle = new Label();
-            packTitle.Text = "DLC pack (Xenia)";
-            packTitle.Font = ForzaTheme.Bold;
-            packTitle.Location = new Point(10, 6);
-            packTitle.AutoSize = true;
-            Label nameLabel = new Label();
-            nameLabel.Text = "Name:";
-            nameLabel.Location = new Point(10, 34);
-            nameLabel.AutoSize = true;
-            this.packName = new TextBox();
-            this.packName.Location = new Point(60, 31);
-            this.packName.Width = 306;
-            this.packName.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            this.packName.BorderStyle = BorderStyle.FixedSingle;
-            this.packName.Text = AppSettings.Get("CarPort.PackName", "ForzaEditor pack");
-            this.packName.TextChanged += delegate { AppSettings.Set("CarPort.PackName", this.packName.Text); this.UpdateButtons(); };
-            this.packOfferLabel = new Label();
-            this.packOfferLabel.Location = new Point(10, 58);
-            this.packOfferLabel.Size = new Size(356, 18);
-            this.packOfferLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            this.packList = new ListView();
-            this.packList.Location = new Point(10, 80);
-            this.packList.Size = new Size(356, 150);
-            this.packList.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            this.packList.View = View.Details;
-            this.packList.FullRowSelect = true;
-            this.packList.MultiSelect = false;
-            this.packList.HideSelection = false;
-            this.packList.Columns.Add("Car", 150);
-            this.packList.Columns.Add("Donor", 130);
-            this.packList.Columns.Add("Review", 60);
-            this.packList.SelectedIndexChanged += delegate { this.PackSelected(); };
-
-            int bottom = 300;   // the controls below the list, from the panel's bottom edge
-            this.addToPack = PackButton(packPanel, "Add Selected Car", 10, bottom, 130);
-            this.addToPack.Click += delegate { this.AddToPack(); };
-            this.removeFromPack = PackButton(packPanel, "Remove", 146, bottom, 80);
-            this.removeFromPack.Click += delegate { this.RemoveFromPack(); };
-            this.newPack = PackButton(packPanel, "New Pack", 232, bottom, 80);
-            this.newPack.Click += delegate { this.NewPack(); };
-            Label xeniaLabel = new Label();
-            xeniaLabel.Text = "Xenia folder (with xenia_canary.exe):";
-            xeniaLabel.AutoSize = true;
-            xeniaLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-            packPanel.Controls.Add(xeniaLabel);
-            this.xeniaBox = new TextBox();
-            this.xeniaBox.Width = 318;
-            this.xeniaBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            this.xeniaBox.BorderStyle = BorderStyle.FixedSingle;
-            this.xeniaBox.Text = AppSettings.Get("CarPort.Xenia", "");
-            this.xeniaBox.TextChanged += delegate { AppSettings.Set("CarPort.Xenia", this.xeniaBox.Text.Trim()); this.UpdatePackInfo(); };
-            Button xeniaBrowse = new Button();
-            xeniaBrowse.Text = "...";
-            xeniaBrowse.Size = new Size(32, 24);
-            xeniaBrowse.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-            xeniaBrowse.Click += delegate
+            // Cars | pack above, report / review below.
+            SplitContainer top = new SplitContainer();
+            top.Dock = DockStyle.Fill;
+            top.FixedPanel = FixedPanel.Panel2;
+            top.Panel1.Controls.Add(carsArea);
+            top.Panel2.Controls.Add(packPanel);
+            SplitContainer body = new SplitContainer();
+            body.Dock = DockStyle.Fill;
+            body.Orientation = Orientation.Horizontal;
+            body.FixedPanel = FixedPanel.Panel2;
+            body.Panel1.Controls.Add(top);
+            body.Panel2.Controls.Add(TabHost(this.bottomTabs));
+            this.Load += delegate
             {
-                using (FolderBrowserDialog dialog = new FolderBrowserDialog())
-                {
-                    dialog.Description = "Xenia's folder (the one with xenia_canary.exe and its config)";
-                    dialog.ShowNewFolderButton = false;
-                    if (Directory.Exists(this.xeniaBox.Text))
-                    {
-                        dialog.SelectedPath = this.xeniaBox.Text;
-                    }
-                    if (dialog.ShowDialog(this) == DialogResult.OK)
-                    {
-                        this.xeniaBox.Text = dialog.SelectedPath;
-                    }
-                }
+                body.SplitterDistance = Math.Max(200, body.Height - 230);
+                top.SplitterDistance = Math.Max(400, top.Width - 380);
             };
-            packPanel.Controls.Add(this.xeniaBox);
-            packPanel.Controls.Add(xeniaBrowse);
-            this.trialPack = PackButton(packPanel, "Trial Pack", 10, bottom, 100);
-            this.trialPack.Click += delegate { this.TrialPack(); };
-            this.buildPack = PackButton(packPanel, "Build DLC Package", 116, bottom, 130);
-            this.buildPack.Click += delegate { this.BuildPack(); };
-            this.removePack = PackButton(packPanel, "Remove Pack", 252, bottom, 114);
-            this.removePack.Click += delegate { this.RemovePack(); };
-            this.packStatus = new Label();
-            this.packStatus.Size = new Size(356, 60);
-            this.packStatus.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            packPanel.Controls.Add(this.packStatus);
-            packPanel.Controls.Add(packTitle);
-            packPanel.Controls.Add(nameLabel);
-            packPanel.Controls.Add(this.packName);
-            packPanel.Controls.Add(this.packOfferLabel);
-            packPanel.Controls.Add(this.packList);
-            // Rows from the bottom: status, actions, Xenia folder, list buttons.
-            packPanel.Layout += delegate
-            {
-                int h = packPanel.ClientSize.Height;
-                this.packStatus.Location = new Point(10, h - 66);
-                this.trialPack.Top = this.buildPack.Top = this.removePack.Top = h - 98;
-                this.xeniaBox.Location = new Point(10, h - 132);
-                xeniaBrowse.Location = new Point(packPanel.ClientSize.Width - 46, h - 133);
-                xeniaLabel.Location = new Point(10, h - 152);
-                this.addToPack.Top = this.removeFromPack.Top = this.newPack.Top = h - 186;
-                this.packList.Height = Math.Max(40, h - 194 - this.packList.Top);
-            };
-            this.packOffer = (int) Long(AppSettings.Get("CarPort.PackOffer", "0"));
 
-            // Docked from the last added: folders and filter on top, the pack panel the whole height on the
-            // right, then report, review and options at the bottom left, the car list in what is left.
-            this.Controls.Add(this.cars);
-            this.Controls.Add(options);
-            this.Controls.Add(this.reviewPanel);
-            this.Controls.Add(this.report);
-            this.Controls.Add(packPanel);
-            this.Controls.Add(filter);
+            this.Controls.Add(body);
             this.Controls.Add(folders);
+            this.Controls.Add(status);
+            this.Controls.Add(header);
+            this.MainMenuStrip = header;
             this.BackColor = ForzaTheme.Background;
+            this.ForeColor = ForzaTheme.Text;
             ForzaTheme.Apply(this);
             this.UpdatePackInfo();
+        }
+
+        private readonly TabControl bottomTabs;
+        private readonly TabPage reviewPage;
+        private Dictionary<string, Color> classColors = new Dictionary<string, Color>(StringComparer.OrdinalIgnoreCase);
+
+        private static void FillLastColumn(ListView list)
+        {
+            // Closing the window resizes the lists once more while they are torn down (their rows are
+            // gone from the native list, GetItemRect(0) then throws): nothing to do then.
+            if (list.Columns.Count == 0 || !list.IsHandleCreated || list.Disposing || list.IsDisposed || list.FindForm() == null || list.FindForm().Disposing)
+            {
+                return;
+            }
+            int others = 0;
+            for (int i = 0; i < list.Columns.Count - 1; i++)
+            {
+                others += list.Columns[i].Width;
+            }
+            // From the outer width, less the vertical scroll bar when the rows do not fit (right after a
+            // refill the list has not shown that bar yet, so ClientSize would still include it).
+            int rowHeight = 18;
+            try
+            {
+                if (list.Items.Count > 0)
+                {
+                    rowHeight = list.GetItemRect(0).Height;
+                }
+            }
+            catch (ArgumentException)
+            {
+                return;
+            }
+            bool scrolls = (list.Items.Count * rowHeight) > (list.Height - 28);
+            int width = list.Width - (scrolls ? SystemInformation.VerticalScrollBarWidth : 0) - others;
+            list.Columns[list.Columns.Count - 1].Width = Math.Max(60, width);
+        }
+
+        // An upper-case section title over a thin red rule, like the game's menu headers.
+        private static Control SectionHeader(string text)
+        {
+            Label label = new Label();
+            label.Text = text.ToUpperInvariant();
+            label.Font = ForzaTheme.Bold;
+            label.Dock = DockStyle.Top;
+            label.Height = 28;
+            label.Padding = new Padding(6, 7, 0, 0);
+            label.Paint += delegate(object sender, PaintEventArgs e)
+            {
+                using (Pen pen = new Pen(ForzaTheme.Red))
+                {
+                    e.Graphics.DrawLine(pen, 0, label.Height - 2, label.Width, label.Height - 2);
+                }
+            };
+            return label;
+        }
+
+        // The game-style tab strip over a TabControl whose own tabs and border are hidden (as the
+        // main window's database view).
+        private static Control TabHost(TabControl tabs)
+        {
+            Panel host = new Panel();
+            host.Dock = DockStyle.Fill;
+            ForzaTabStrip strip = new ForzaTabStrip(tabs);
+            strip.Dock = DockStyle.None;
+            tabs.Dock = DockStyle.None;
+            host.Resize += delegate
+            {
+                strip.Bounds = new Rectangle(0, 0, host.Width, strip.Height);
+                tabs.Bounds = new Rectangle(-4, strip.Height - 4, host.Width + 8, host.Height - strip.Height + 8);
+            };
+            host.Controls.Add(tabs);
+            host.Controls.Add(strip);
+            strip.BringToFront();
+            return host;
+        }
+
+        // Lists drawn like the main window's: upper-case headers over a red rule, alternating dark
+        // rows, the selection in Forza red, the FM4 class as the game's badge, dimmed rows kept dim.
+        private void StyleList(ListView list)
+        {
+            list.OwnerDraw = true;
+            // The last column fills the row, so no light header area is left at the right.
+            list.Resize += delegate { FillLastColumn(list); };
+            list.DrawColumnHeader += delegate(object sender, DrawListViewColumnHeaderEventArgs e)
+            {
+                using (Brush brush = new SolidBrush(ForzaTheme.Background))
+                {
+                    e.Graphics.FillRectangle(brush, e.Bounds);
+                }
+                Rectangle text = new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 6, e.Bounds.Height);
+                TextRenderer.DrawText(e.Graphics, e.Header.Text.ToUpperInvariant(), ForzaTheme.Bold, text, ForzaTheme.TextDim, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+                using (Pen pen = new Pen(ForzaTheme.Red))
+                {
+                    e.Graphics.DrawLine(pen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+                }
+            };
+            list.DrawItem += delegate(object sender, DrawListViewItemEventArgs e) { };
+            list.DrawSubItem += delegate(object sender, DrawListViewSubItemEventArgs e)
+            {
+                bool selected = e.Item.Selected;
+                Color back = selected ? ForzaTheme.Selection : ((e.ItemIndex % 2 == 0) ? ForzaTheme.Surface : Color.FromArgb(31, 31, 34));
+                using (Brush brush = new SolidBrush(back))
+                {
+                    e.Graphics.FillRectangle(brush, e.Bounds);
+                }
+                string value = e.SubItem.Text;
+                if (list.Columns[e.ColumnIndex].Text == "Class" && value.Length > 0)
+                {
+                    string letter = value;
+                    string pi = "";
+                    int space = value.IndexOf(' ');
+                    if (space > 0)
+                    {
+                        letter = value.Substring(0, space);
+                        pi = value.Substring(space + 1);
+                    }
+                    Color color;
+                    if (!this.classColors.TryGetValue(letter, out color))
+                    {
+                        color = ForzaTheme.Line;
+                    }
+                    ForzaTheme.DrawClassBadge(e.Graphics, e.Bounds, letter, pi, color);
+                    return;
+                }
+                Rectangle text = new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 6, e.Bounds.Height);
+                bool dim = e.Item.ForeColor == ForzaTheme.TextDim;
+                Color fore = selected ? Color.White : ((e.ColumnIndex == 0 || dim) ? ForzaTheme.TextDim : ForzaTheme.Text);
+                TextRenderer.DrawText(e.Graphics, value, ForzaTheme.Regular, text, fore, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            };
         }
 
         protected override void OnShown(EventArgs e)
@@ -424,16 +608,15 @@ namespace ForzaStudio
             label.Location = new Point(10, y + 4);
             label.AutoSize = true;
             TextBox box = new TextBox();
-            box.Location = new Point(170, y);
-            box.Width = 640;
+            box.Location = new Point(150, y);
+            box.Width = parent.Width - 150 - 176;
             box.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            box.BorderStyle = BorderStyle.FixedSingle;
             box.Text = value;
             Button browse = new Button();
             browse.Text = "...";
             browse.Size = new Size(32, 24);
             browse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            browse.Location = new Point(816, y - 1);
+            browse.Location = new Point(parent.Width - 168, y - 2);
             browse.Click += delegate
             {
                 using (FolderBrowserDialog dialog = new FolderBrowserDialog())
@@ -456,11 +639,11 @@ namespace ForzaStudio
             return box;
         }
 
-        private static Button ActionButton(Panel parent, string text, int x, int y)
+        private static Button ActionButton(Panel parent, string text, int x, int y, int width)
         {
             Button button = new Button();
             button.Text = text;
-            button.Size = new Size(100, 24);
+            button.Size = new Size(width, 26);
             button.Location = new Point(x, y - 4);
             parent.Controls.Add(button);
             return button;
@@ -485,6 +668,7 @@ namespace ForzaStudio
             this.newPack.Enabled = !this.busy && this.pack.Count > 0;
             this.trialPack.Enabled = !this.busy && this.pack.Count > 0;
             this.buildPack.Enabled = !this.busy && this.packTrialFolder != null && Directory.Exists(this.packTrialFolder) && this.packName.Text.Trim().Length > 0 && this.XeniaContent() != null;
+            this.buildXbox.Enabled = !this.busy && this.packTrialFolder != null && Directory.Exists(this.packTrialFolder) && this.packName.Text.Trim().Length > 0;
             this.removePack.Enabled = !this.busy && this.packOffer > 0 && this.XeniaContent() != null && Directory.Exists(DlcPackage.PackagePath(this.XeniaContent(), this.packOffer));
         }
 
@@ -565,6 +749,7 @@ namespace ForzaStudio
                 this.packList.Items.Add(item);
             }
             this.packList.EndUpdate();
+            FillLastColumn(this.packList);
             this.UpdatePackInfo();
         }
 
@@ -751,6 +936,7 @@ namespace ForzaStudio
                 }
             }
             this.packTrialFolder = null;
+            this.bottomTabs.SelectedIndex = 0;
             this.report.Text = string.Format("Pack trial: {0} cars -> {1}\r\n", entries.Count, folder);
             this.packStatus.Text = "Trial running...";
             this.Background(delegate
@@ -840,24 +1026,9 @@ namespace ForzaStudio
             string trial = this.packTrialFolder;
             string target = this.targetBox.Text.Trim();
             string name = this.packName.Text.Trim();
-            if (content == null || trial == null)
+            if (content == null || trial == null || !this.ReadyToBuild(target))
             {
                 return;
-            }
-            List<string> changed = this.FixesChangedSinceTrial();
-            if (changed.Count > 0)
-            {
-                DialogResult answer = MessageBox.Show(this, "The fixes of " + string.Join(", ", changed.ToArray()) + " changed after the trial.\n\nYes: run Trial Pack again now to apply them (then build).\nNo: build the trial as it is.",
-                    this.Text, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
-                if (answer == DialogResult.Yes)
-                {
-                    this.TrialPack();
-                    return;
-                }
-                if (answer == DialogResult.Cancel)
-                {
-                    return;
-                }
             }
             if (XeniaRunning())
             {
@@ -875,6 +1046,7 @@ namespace ForzaStudio
             {
                 return;
             }
+            this.bottomTabs.SelectedIndex = 0;
             this.report.Text = string.Format("Building the DLC package \"{0}\" (offer {1}) into {2}\r\n", name, offer, content);
             this.packStatus.Text = "Building...";
             this.Background(delegate
@@ -917,6 +1089,148 @@ namespace ForzaStudio
                     this.report.ScrollToCaret();
                 };
             });
+        }
+
+        // Before a build: fixes changed since the trial (run it again?), and the pack's cars the FM4 folder
+        // has as its own zips (they would hide the pack's files). False: do not build now.
+        private bool ReadyToBuild(string target)
+        {
+            List<string> changed = this.FixesChangedSinceTrial();
+            if (changed.Count > 0)
+            {
+                DialogResult answer = MessageBox.Show(this, "The fixes of " + string.Join(", ", changed.ToArray()) + " changed after the trial.\n\nYes: run Trial Pack again now to apply them (then build).\nNo: build the trial as it is.",
+                    this.Text, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                if (answer == DialogResult.Yes)
+                {
+                    this.TrialPack();
+                    return false;
+                }
+                if (answer == DialogResult.Cancel)
+                {
+                    return false;
+                }
+            }
+            List<string> names = new List<string>();
+            foreach (PackEntry entry in this.pack)
+            {
+                names.Add(entry.Car.MediaName);
+            }
+            List<string> shadowed = DlcPackage.ShadowedBy(target, names);
+            return shadowed.Count == 0 || MessageBox.Show(this, "The FM4 folder already has these zips of the pack's cars (from an earlier Install In FM4):\n\n" + string.Join("\n", shadowed.ToArray())
+                + "\n\nThe game loads them instead of the pack's files, so the pack's changes (material fixes...) would not show. Take them out of the FM4 folder and its zipmanifest.xml first.\n\nBuild anyway?",
+                this.Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
+        }
+
+        // The pack as an Xbox 360 package (STFS file) for a modded console: built in a temporary folder
+        // like the Xenia one (same offer), then packed into <chosen folder>\Content\0000000000000000\
+        // 4D530910\00000002\<content id>, to copy to the console's Hdd1:\ by FTP.
+        private void BuildXbox()
+        {
+            string trial = this.packTrialFolder;
+            string target = this.targetBox.Text.Trim();
+            string name = this.packName.Text.Trim();
+            if (trial == null || !this.ReadyToBuild(target))
+            {
+                return;
+            }
+            string output;
+            using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+            {
+                dialog.Description = "Folder for the Xbox 360 package (a Content folder is made in it, to copy to the console's Hdd1:\\)";
+                string last = AppSettings.Get("CarPort.XboxOut", "");
+                if (Directory.Exists(last))
+                {
+                    dialog.SelectedPath = last;
+                }
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+                output = dialog.SelectedPath;
+            }
+            AppSettings.Set("CarPort.XboxOut", output);
+            if (this.packOffer == 0)
+            {
+                this.packOffer = DlcPackage.FreeOffer(target, this.XeniaContent() ?? "");
+                AppSettings.Set("CarPort.PackOffer", this.packOffer.ToString(CultureInfo.InvariantCulture));
+            }
+            int offer = this.packOffer;
+            byte[] thumbnail = PackThumbnail(this.Icon);
+            this.bottomTabs.SelectedIndex = 0;
+            this.report.Text = string.Format("Building the Xbox 360 package \"{0}\" (offer {1}) into {2}\r\n", name, offer, output);
+            this.packStatus.Text = "Building the Xbox 360 package...";
+            this.Background(delegate
+            {
+                System.Text.StringBuilder text = new System.Text.StringBuilder();
+                Exception error = null;
+                string file = null;
+                string work = Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "Xbox_" + DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture));
+                try
+                {
+                    string content = Path.Combine(work, "00000002");
+                    string folder = DlcPackage.BuildFolder(target, target, trial, content, offer, name, text);
+                    file = DlcPackage.BuildConsolePackage(folder, output, name, thumbnail, text);
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                }
+                finally
+                {
+                    try
+                    {
+                        if (Directory.Exists(work))
+                        {
+                            Directory.Delete(work, true);
+                        }
+                    }
+                    catch (IOException)
+                    {
+                    }
+                }
+                return delegate
+                {
+                    this.report.Text += text.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n");
+                    if (error != null)
+                    {
+                        this.report.Text += "\r\nFAILED: " + error.Message + "\r\n";
+                        this.packStatus.Text = "The Xbox 360 package failed (see the report).";
+                    }
+                    else
+                    {
+                        this.packStatus.Text = string.Format("Xbox 360 package ready: copy the Content folder in {0} to the console's Hdd1:\\ (FTP).", output);
+                        Process.Start("explorer.exe", "/select,\"" + file + "\"");
+                    }
+                    this.report.SelectionStart = this.report.TextLength;
+                    this.report.ScrollToCaret();
+                };
+            });
+        }
+
+        // The package picture the dashboard shows: the program's icon, 64 x 64 PNG.
+        private static byte[] PackThumbnail(Icon icon)
+        {
+            if (icon == null)
+            {
+                return null;
+            }
+            using (Bitmap bitmap = new Bitmap(64, 64))
+            {
+                using (Graphics graphics = Graphics.FromImage(bitmap))
+                {
+                    graphics.Clear(ForzaTheme.Background);
+                    graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    using (Icon large = new Icon(icon, 64, 64))
+                    {
+                        graphics.DrawIcon(large, new Rectangle(0, 0, 64, 64));
+                    }
+                }
+                using (MemoryStream png = new MemoryStream())
+                {
+                    bitmap.Save(png, System.Drawing.Imaging.ImageFormat.Png);
+                    return png.ToArray();
+                }
+            }
         }
 
         private void RemovePack()
@@ -965,8 +1279,10 @@ namespace ForzaStudio
                 List<Car> horizon;
                 List<Car> motorsport;
                 ReadCars(source, target, out horizon, out motorsport);
+                Dictionary<string, Color> colors = ClassColors(target);
                 return delegate
                 {
+                    this.classColors = colors;
                     this.sourceTag = GameInfo.Tag(sourceGame);
                     this.cars.Columns[4].Text = "PI " + this.sourceTag;
                     this.fm4Cars = motorsport;
@@ -980,7 +1296,8 @@ namespace ForzaStudio
                         item.SubItems.Add(car.MediaName);
                         item.SubItems.Add(car.Pi.ToString("0.000", CultureInfo.InvariantCulture));
                         item.SubItems.Add(car.Fm4Pi.ToString("0.000", CultureInfo.InvariantCulture));
-                        item.SubItems.Add(car.Fm4Class);
+                        // The class badge with the in-game PI (PerformanceIndex * 1000 + 100), as in the game.
+                        item.SubItems.Add(car.Fm4Class + " " + ((int) Math.Round((car.Fm4Pi * 1000) + 100)).ToString(CultureInfo.InvariantCulture));
                         item.SubItems.Add(car.Note);
                         if (car.State != Status.New && car.State != Status.Ported)
                         {
@@ -1002,6 +1319,23 @@ namespace ForzaStudio
                     this.details.Text = string.Format("{0} {1} cars, {2} not in FM4. Choose a car.", horizon.Count, this.sourceTag, portable);
                 };
             });
+        }
+
+        // FM4's class colors (CarClasses.ClassColor by badge letter), for the class badges.
+        private static Dictionary<string, Color> ClassColors(string target)
+        {
+            Dictionary<string, Color> colors = new Dictionary<string, Color>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                using (GameDatabase db = new GameDatabase(File.ReadAllBytes(Path.Combine(Path.Combine(Path.Combine(target, "Media"), "db"), "gamedb.slt"))))
+                {
+                    colors = db.ClassColors();
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            return colors;
         }
 
         private static void ReadCars(string source, string target, out List<Car> horizon, out List<Car> motorsport)
@@ -1146,6 +1480,7 @@ namespace ForzaStudio
             }
             this.cars.Items.AddRange(shown.ToArray());
             this.cars.EndUpdate();
+            FillLastColumn(this.cars);
         }
 
         private void CarSelected()
@@ -1239,6 +1574,7 @@ namespace ForzaStudio
                 Directory.CreateDirectory(folder);
                 port.OutputRoot = folder;
             }
+            this.bottomTabs.SelectedIndex = 0;
             this.report.Text = string.Format("{0} {1} -> {2}, donor {3}...\r\n", installing ? "Installing" : "Trial run:", car.MediaName, port.TargetRoot, donor.Car.MediaName);
             this.Background(delegate
             {
@@ -1337,6 +1673,12 @@ namespace ForzaStudio
             }
             this.reviewTitle.Text = string.Format("Review of {0}: {1} things not regular for FM4{2}", mediaName, issues.Count, (applied > 0) ? string.Format(" ({0} fixes chosen earlier were applied)", applied) : "");
             this.reviewPanel.Visible = issues.Count > 0 || applied > 0;
+            this.reviewPage.Text = (issues.Count > 0) ? "Review (" + issues.Count + ")" : "Review";
+            if (issues.Count > 0)
+            {
+                this.bottomTabs.SelectedTab = this.reviewPage;
+            }
+            this.bottomTabs.Parent.Invalidate(true);   // the tab strip shows the new count
             this.StoreFixes();
             this.showingReview = false;
         }

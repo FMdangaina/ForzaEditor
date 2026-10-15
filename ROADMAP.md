@@ -12,8 +12,8 @@ Status: ✅ done · 🔧 in progress · ⏸ paused · ⬜ not started
 
 ## Now
 
-**Topic 3: ported cars as a DLC package.** The Xenia DLC folder works in game (3.5) and the port
-window builds packs of n cars (3.6). Next: in-game test of a multi-car pack (3.6b).
+_to decide._ Topic 3 (ported cars as a DLC package) is done: packs of n cars work in Xenia and on
+a real Xbox 360. Its open points (3.6d, 3.8) are listed there.
 
 ## Next (in order)
 
@@ -58,7 +58,7 @@ Same tool and code as topic 1; its open points are listed there.
 - [x] In-game check of the cars without gr2 files after the animation fix (both R8s OK)
 - [x] FH1 cars without a harmonic tuning use the donor's (fixed rule, see topic 1)
 
-## 3. Ported cars as a DLC package 🔧 Now
+## 3. Ported cars as a DLC package ✅ done, open points
 
 Today the port writes into the game's own files (vanilla `gamedb.slt`, string tables, zips, manifest).
 The goal is a separate DLC package instead, so the base game stays untouched and the package can be
@@ -100,12 +100,33 @@ each other's names (still to be confirmed in game).
         header included; replacing a built pack asks first; Remove Pack; Xenia must be closed
       - "Install In FM4" stays as it is
       - checked with the real window (tools\packform.exe): Gallardo + M600, 270 merge rows
-- [ ] 3.6b In-game test of a pack with several cars, built from the window
+- [x] 3.6b In-game test of a pack with several cars, built from the window. First try (5 FH1 cars):
+      all load; material fixes looked "not applied" on 458 Spider, S65 AMG and R8 GT Spyder. Cause:
+      DEV still held their zips from earlier installs, mounted by `zipmanifest.xml` at priority 80,
+      above the package's loose files (65). The trial did apply the fixes (`port_log.txt`).
+      DEV cleaned (24 car/wheel zips of 12 old ports moved to `fm4dev\DEV_DLC\dev_leftovers`, their
+      manifest lines removed); Build now warns when the FM4 folder has a pack car's own zips.
+      Checked again in game: fixes applied
+- [x] 3.6f Material lists measured again on the 317 original FM4 cars (943 models, 150 names).
+      The old "FM4 materials" list had been measured on a game holding ported cars: 25 FH names
+      (`lights_gls_*`, `fogred`, `fogwhite`, `oldhead`, `numplate`...) counted as FM4 ones, were never
+      reported and stayed black. Now they go to the review. The fix list offers only the 67
+      materials used by at least 50 cars (was 175). Checked by the user
+- [x] 3.6e Port window restyled like the main window: program icon, menu bar with the brand and
+      the red rule, CARS / DLC PACK sections, splitters, REPORT / REVIEW tabs (review count, opens
+      by itself), status bar, lists drawn like the database view (class badges with in-game PI).
+      Checked by the user; the error on closing the window is fixed
 - [x] 3.6c Documentation: `docs/DLC_PACKAGES.md` (use, format, code, test tools, credits)
 - [ ] 3.6d Several ForzaEditor packs at once: each pack's string tables built on top of the other
       installed packs' (today only the highest priority pack shows its car names)
-- [ ] 3.7 STFS package file for a real Xbox 360 (Jew's writer ported to C#), tested by XTD or on
-      the user's RGH consoles
+- [x] 3.7 STFS package file for a real Xbox 360 (Jew's writer ported to C#, `StfsPackage.cs`):
+      LIVE, licence open to everyone, header fields as XTD's console package, empty signature
+      (RGH/JTAG). Names in STFS hold at most 40 characters and brake carbins exceed it, so the
+      `<offer>_pri_65` folder goes in as `<offer>_pri_65.zip` (stored, Forza layout) as in the
+      official packs. Demo built with Jew's Python writer works on the user's RGH console; the C#
+      writer and zip are byte-identical to it (1 car and 5 cars, all hash levels).
+      Port window: Build for Xbox 360... writes `<folder>\Content\0000000000000000\4D530910\00000002\<id>`
+- [x] 3.7b In-game test on the console of a package built by the window (works)
 - [ ] 3.8 Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (later, the user's side)
 
 ## 4. Materials FM4 renders black ✅ done

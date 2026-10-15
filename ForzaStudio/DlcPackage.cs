@@ -97,6 +97,149 @@ namespace ForzaStudio
             return package;
         }
 
+        // The package for a real Xbox 360 (modded: RGH/JTAG), from the Xenia package folder: an STFS file
+        // (StfsPackage) in <output>\Content\0000000000000000\4D530910\00000002\, ready to copy to the
+        // console's Hdd1:\ by FTP. Checked on a console 2026-10-16. Returns the file.
+        // Names in an STFS package hold at most 40 characters and brake carbins exceed it
+        // (lam_gallardolp570_11_caliperlf_lod0.carbin: 42), so the loose <offer>_pri_65 folder goes in as
+        // <offer>_pri_65.zip, as in the official packs (Jew) and XTD's: stored entries in the Forza layout;
+        // the game mounts it like the folder. The *_build_report.html files stay out.
+        public static string BuildConsolePackage(string packageFolder, string output, string name, byte[] thumbnail, StringBuilder report)
+        {
+            string stage = Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "Stfs_" + DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture));
+            string temp = stage + ".package";
+            try
+            {
+                CopyForConsole(packageFolder, stage, report);
+                string id = StfsPackage.Write(stage, temp, uint.Parse(TitleId, NumberStyles.HexNumber, CultureInfo.InvariantCulture), 2, name,
+                    "ForzaEditor DLC pack", "Forza Motorsport 4", thumbnail);
+                string folder = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.Combine(output, "Content"), "0000000000000000"), TitleId), "00000002"), string.Empty);
+                Directory.CreateDirectory(folder);
+                string file = Path.Combine(folder, id);
+                if (File.Exists(file))
+                {
+                    File.Delete(file);
+                }
+                File.Move(temp, file);
+                report.AppendLine(string.Format(CultureInfo.InvariantCulture, "Xbox 360 package {0} ({1:0.0} MB)", file, new FileInfo(file).Length / 1048576.0));
+                return file;
+            }
+            finally
+            {
+                if (Directory.Exists(stage))
+                {
+                    Directory.Delete(stage, true);
+                }
+                if (File.Exists(temp))
+                {
+                    File.Delete(temp);
+                }
+            }
+        }
+
+        // The package folder copied for the console: every <x>_pri_<n> folder under DLCZips as a zip.
+        private static void CopyForConsole(string from, string to, StringBuilder report)
+        {
+            Directory.CreateDirectory(to);
+            foreach (string file in Directory.GetFiles(from))
+            {
+                File.Copy(file, Path.Combine(to, Path.GetFileName(file)));
+            }
+            foreach (string folder in Directory.GetDirectories(from))
+            {
+                string name = Path.GetFileName(folder);
+                if (name.IndexOf("_pri_", StringComparison.OrdinalIgnoreCase) > 0 && string.Equals(Path.GetFileName(from), "DLCZips", StringComparison.OrdinalIgnoreCase))
+                {
+                    int count = WriteStoredZip(folder, Path.Combine(to, name + ".zip"));
+                    report.AppendLine(string.Format(CultureInfo.InvariantCulture, "  {0}.zip: {1} files", name, count));
+                    continue;
+                }
+                CopyForConsole(folder, Path.Combine(to, name), report);
+            }
+        }
+
+        // A zip of a folder's files (names relative to it, '/' separated, sorted), stored, in the layout of
+        // the game's zips: version 10, date field 0x21 as Jew's fm4dlc writes them, and the
+        // 0x1123 extra field of the central record holding the data offset the game reads.
+        private static int WriteStoredZip(string folder, string path)
+        {
+            List<string> files = new List<string>();
+            foreach (string file in Directory.GetFiles(folder, "*", SearchOption.AllDirectories))
+            {
+                if (!file.EndsWith("_build_report.html", StringComparison.OrdinalIgnoreCase))
+                {
+                    files.Add(file);
+                }
+            }
+            string root = Path.GetFullPath(folder).TrimEnd('\\') + "\\";
+            // Sorted by the '/' name, lower case (as the console demo checked on 2026-10-16 was written).
+            files.Sort(delegate(string a, string b)
+            {
+                string x = Path.GetFullPath(a).Substring(root.Length).Replace('\\', '/').ToLowerInvariant();
+                string y = Path.GetFullPath(b).Substring(root.Length).Replace('\\', '/').ToLowerInvariant();
+                return string.CompareOrdinal(x, y);
+            });
+            MemoryStream central = new MemoryStream();
+            using (FileStream zip = new FileStream(path, FileMode.Create, FileAccess.Write))
+            {
+                BinaryWriter writer = new BinaryWriter(zip);
+                foreach (string file in files)
+                {
+                    byte[] name = Encoding.ASCII.GetBytes(Path.GetFullPath(file).Substring(root.Length).Replace('\\', '/'));
+                    byte[] data = File.ReadAllBytes(file);
+                    uint crc = ForzaZip.Crc32(data);
+                    uint offset = (uint) zip.Position;
+                    writer.Write(0x04034b50);
+                    writer.Write((ushort) 10);
+                    writer.Write((ushort) 0);
+                    writer.Write((ushort) 0);
+                    writer.Write((ushort) 0);
+                    writer.Write((ushort) 0x21);
+                    writer.Write(crc);
+                    writer.Write(data.Length);
+                    writer.Write(data.Length);
+                    writer.Write((ushort) name.Length);
+                    writer.Write((ushort) 0);
+                    writer.Write(name);
+                    uint dataOffset = (uint) zip.Position;
+                    writer.Write(data);
+                    BinaryWriter record = new BinaryWriter(central);
+                    record.Write(0x02014b50);
+                    record.Write((ushort) 10);
+                    record.Write((ushort) 10);
+                    record.Write((ushort) 0);
+                    record.Write((ushort) 0);
+                    record.Write((ushort) 0);
+                    record.Write((ushort) 0x21);
+                    record.Write(crc);
+                    record.Write(data.Length);
+                    record.Write(data.Length);
+                    record.Write((ushort) name.Length);
+                    record.Write((ushort) 8);
+                    record.Write((ushort) 0);
+                    record.Write((ushort) 0);
+                    record.Write((ushort) 0);
+                    record.Write(0);
+                    record.Write(offset);
+                    record.Write(name);
+                    record.Write((ushort) 0x1123);
+                    record.Write((ushort) 4);
+                    record.Write(dataOffset);
+                }
+                uint start = (uint) zip.Position;
+                central.WriteTo(zip);
+                writer.Write(0x06054b50);
+                writer.Write((ushort) 0);
+                writer.Write((ushort) 0);
+                writer.Write((ushort) files.Count);
+                writer.Write((ushort) files.Count);
+                writer.Write((uint) central.Length);
+                writer.Write(start);
+                writer.Write((ushort) 0);
+            }
+            return files.Count;
+        }
+
         // Xenia's folder of marketplace content for FM4 (content\0000000000000000\4D530910\00000002), from
         // the emulator's folder: its config's content_root when set, else <emulator>\content.
         public static string XeniaContent(string xenia)
@@ -195,6 +338,26 @@ namespace ForzaStudio
                 offer = Math.Max(offer, installed);
             }
             return offer + 1;
+        }
+
+        // The pack's cars and wheels the game itself already has as zips (an earlier install into the
+        // game): the game mounts its own zips at priority 80, above the package's loose files (65), so
+        // it shows those instead of the pack's (seen 2026-10-15: material fixes "not applied").
+        public static List<string> ShadowedBy(string targetRoot, IEnumerable<string> mediaNames)
+        {
+            List<string> found = new List<string>();
+            foreach (string media in mediaNames)
+            {
+                foreach (string kind in new string[] { "cars", "wheels" })
+                {
+                    string zip = Path.Combine(Path.Combine(Path.Combine(targetRoot, "Media"), kind), media + ".zip");
+                    if (File.Exists(zip))
+                    {
+                        found.Add("Media\\" + kind + "\\" + Path.GetFileName(zip));
+                    }
+                }
+            }
+            return found;
         }
 
         // The package folder of an offer and its Xenia header.

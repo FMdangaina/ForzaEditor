@@ -7,14 +7,15 @@ loads like real downloadable content: install it, remove it, or rebuild it whene
 The format was worked out from an official FM4 car pack, with help from two people on Discord
 (see [Credits](#credits)).
 
-Status: checked in game in Xenia. A one-car pack works (Gallardo LP570-4 Superleggera from FH1):
-the car shows in the garage, and its model, dash, engine sound and upgrades all work.
-Packs with several cars are built and checked file by file, but the in-game test is still to
-come. Building a package for a real Xbox 360 (STFS) is planned, not done.
+Status:
+- **Xenia:** checked in game. One-car and five-car packs load; the Gallardo LP570-4 Superleggera
+  from FH1 shows in the garage, and its model, dash, engine sound and upgrades all work.
+- **Real Xbox 360 (RGH):** a package built with the window's **Build for Xbox 360…** works on
+  the user's console.
 
 ## Using it
 
-Tools > **Port Car From Forza Horizon…**, right panel **DLC pack (Xenia)**.
+Tools > **Port Car From Forza Horizon…**, right panel **DLC pack (Xenia / Xbox 360)**.
 
 1. Set the two game folders at the top (FH or FH2, and FM4), then press **Load Cars**.
 2. For each car you want:
@@ -34,6 +35,11 @@ Tools > **Port Car From Forza Horizon…**, right panel **DLC pack (Xenia)**.
    folder. A pack built before is replaced after a confirmation.
 7. Start FM4 in Xenia. The cars are with their makes, like any other car.
 
+For a real Xbox 360 (modded: RGH or JTAG), press **Build for Xbox 360…** after the trial and choose
+a folder. The package file is written to `<folder>\Content\0000000000000000\4D530910\00000002\`.
+Copy that `Content` folder to the console's `Hdd1:\` by FTP (Aurora / FSD) or Xbox 360
+Neighborhood. The pack shows in the game like the Xenia one.
+
 Other buttons:
 - **Remove** takes a car out of the pack.
 - **New Pack** starts an empty pack, with a new offer number.
@@ -49,6 +55,11 @@ The pack, its name, its offer number and Xenia's folder are kept in `settings.tx
 - Xenia must be closed while a package is built or removed.
 - The FM4 folder you port to is also the base of the package: its database and string tables are
   what the package adds to. Use an FM4 without earlier installs of the same cars.
+- **A car installed earlier with Install In FM4 hides the pack's version.** The game mounts its
+  own zips (`zipmanifest.xml`, priority 80) above a package's loose files (priority 65). If
+  `Media\cars\<car>.zip` or `Media\wheels\<car>.zip` is still in the FM4 folder, the game shows
+  that old copy, and changes such as material fixes seem not applied. Build DLC Package warns about
+  this. Remove those zips and their manifest lines first.
 - A pack trial keeps a copy of `UI\Textures.zip` (about 440 MB) in
   `%TEMP%\ForzaStudio\CarPort\Pack_*`. Each new pack trial deletes the earlier ones.
 - `license_mask` in Xenia's config does not matter: the packs work with the default 0.
@@ -132,6 +143,37 @@ content\0000000000000000\4D530910\Headers\00000002\<offer id>.header
 
   The file is 0xA000 bytes long.
 
+## The Xbox 360 package
+
+A real console reads content only from an **STFS package file**, never from a folder.
+ForzaEditor writes it with `StfsPackage.cs`, a C# port of Jew's `stfs_write.py`. Its output is
+byte-identical to that writer's on a 1-car and a 5-car pack. The header fields copy the FH1 car
+package XTD built with the Xbox 360 authoring tool, which a console loads:
+
+| Field | Value |
+|---|---|
+| magic | `LIVE` |
+| licence 0 | `FFFFFFFFFFFFFFFF` (everyone, any console) |
+| header size | `0xAD0E` (data from 0xB000) |
+| content type | 2, metadata version 2 |
+| title id | `4D530910`, title name "Forza Motorsport 4" |
+| volume | block separation 1 (one hash table per level) |
+| transfer flags | `C0` |
+| thumbnails | the program's icon, 64 × 64 PNG |
+
+- **Hash tables and content id.** Each 170 data blocks follow a level-0 hash table holding the
+  SHA-1 of each block and the next block of the chain. Each 170 level-0 tables are hashed in a
+  level-1 table, and above 170 × 170 blocks there is one level-2 table. The top hash goes in the
+  volume descriptor. The content id is the SHA-1 of the header from 0x344, and it is also the file
+  name, followed by `4D`.
+- **Signature.** The RSA signature is left empty. Modded consoles do not check it; a retail
+  console refuses the package.
+- **Names hold at most 40 characters.** Brake carbins exceed that, for example
+  `lam_gallardolp570_11_caliperlf_lod0.carbin`. So in the console package the loose
+  `<offer>_pri_65` folder becomes **`<offer>_pri_65.zip`**: stored entries in the game's zip
+  layout, with the `0x1123` extra field holding the data offset. The official packs do the same,
+  and the game mounts the zip like the folder. The `*_build_report.html` files stay out.
+
 ## Code
 
 - `ForzaStudio\DlcPackage.cs` builds a package. Main entry points:
@@ -162,12 +204,9 @@ In `fm4dev\DEV_DLC\tools`, outside the repository. They are one-file C# harnesse
 
 ## Not done yet
 
-- In-game test of a pack with several cars.
 - Several ForzaEditor packs at once: build each pack's string tables on top of the other
   installed packs' tables.
-- STFS package for a real Xbox 360 (RGH or JTAG): pack the folder into an STFS file with valid
-  hashes (Jew's writer, ported to C#), then test on a console.
-- Transfer to the console by FTP (Aurora or FSD) or Xbox 360 Neighborhood.
+- Sending the package to the console from the window (FTP).
 
 ## Credits
 

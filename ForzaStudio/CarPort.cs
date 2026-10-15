@@ -1,4 +1,4 @@
-﻿namespace ForzaStudio
+namespace ForzaStudio
 {
     using System;
     using System.Collections.Generic;
@@ -1250,10 +1250,11 @@
             return Array.IndexOf((type == 1) ? BrakeMaterials : ModelMaterials, name) >= 0;
         }
 
-        // The FM4 material names for a carbin type, sorted, for picking a replacement.
+        // The FM4 material names offered for a carbin type, sorted, for picking a replacement (models: the
+        // common ones, CommonMaterials).
         public static string[] Fm4Materials(int type)
         {
-            string[] names = (string[]) ((type == 1) ? BrakeMaterials : ModelMaterials).Clone();
+            string[] names = (string[]) ((type == 1) ? BrakeMaterials : CommonMaterials).Clone();
             Array.Sort(names, StringComparer.OrdinalIgnoreCase);
             return names;
         }
@@ -1290,35 +1291,52 @@
             return plain;
         }
 
-        // Every material name of the FM4 car models (.carbin, _lod0, _cockpit of all car zips). An FH2
-        // material outside this list (after MaterialMap) may have no FM4 shader and render black.
+        // Every material name of the original FM4 car models (.carbin, _lod0, _cockpit of the 317 car zips of
+        // the untouched game, 943 models, 150 names; fm4dev\DEV_DLC\tools\matcount, 2026-10-16). An FH material
+        // outside this list (after MaterialMap) has no FM4 shader and renders black. The list measured before
+        // (on a game holding ported cars) also had 25 FH names (lights_gls_*, fogred, oldhead...) that were
+        // then taken for FM4 ones and never reported.
         private static readonly string[] ModelMaterials = new string[]
         {
-            "01___Default", "4_MER_SLR_05_damage", "ADV_RGII_Wheel_LOD0", "Material__0", "Material__1", "Material__11",
-            "Material__12", "Material__14", "Material__15", "Material__16", "Material__3", "Material__6", "Plastic2",
-            "Tail_light_lod0", "anodized_aluminum", "badge", "badge2", "badge_chrome", "black", "black_glass",
-            "black_glass_breakable", "blur_lip", "blur_rim", "body", "body_2", "body_3", "bottom", "brake", "brushed_metal",
-            "bump_leather", "bump_leather2", "bump_leather3", "bump_metal", "bump_metal2", "bump_metal3", "bump_metal4",
-            "bump_plastic", "bump_plastic2", "bump_plastic3", "bump_plastic4", "bump_plastic5", "bump_stitching",
-            "bump_stitchingA", "bump_stitchingE", "bump_stitchingF", "bumperFa_LOD1", "bumper_frame", "carbon_fiber",
-            "carbon_fiber2", "carbon_fiber3", "carbon_fiber_no_env", "chrome", "chrome2", "chrome_2", "chrome_3",
-            "chrome_blur_lip", "chrome_blur_rim", "chrome_bump", "chrome_rim", "cloth", "defrost_lines", "detail_glass_amber",
-            "detail_glass_clear", "detail_glass_red", "digital_gauge", "doubleSided", "drlinlred", "drlorange", "drum",
-            "emblem", "embossed_badge", "embossed_leather", "embossed_metal", "embossed_plastic", "fogred", "fogwhite",
-            "frame", "gauge_emissive", "gauge_needle", "glass", "grille1", "grille1_alpha", "grille2", "grille2_alpha",
-            "grille3", "head_light", "headlight_paint", "headliner", "headliner2", "inner_rim", "interior", "leather",
-            "lights_amber", "lights_chrome", "lights_glass", "lights_gls_indicator_left", "lights_gls_indicator_right",
-            "lights_gls_noemit", "lights_gls_oldhead", "lights_gls_reverse_light", "lights_gls_tail_light",
-            "lights_gls_taillight2S", "lights_gls_taillightst", "lights_metal", "lights_plastic", "lindseq2", "lindseq3",
-            "liveryBadge", "matt_colors", "matt_colors2", "matte_colors", "metal", "metal2", "mirrorLeft", "mirrorMiddle",
-            "mirrorRight", "misc", "misc2", "mottled", "mottled2", "numplate", "oldhead", "outer_rim", "plastic", "plastic2",
-            "race_kit_red", "red_glass", "reflector", "reserved", "reverse_light", "reverse_light_lod0", "rim", "rim_black",
-            "rim_bump_metal", "rim_chrome", "rim_chrome_blur_lip", "rim_inner_rim", "rim_outer_rim", "rim_wheel_emblem",
-            "rubber", "rubber_trim", "slorange", "smooth_metal", "smooth_plastic", "solid", "stitching", "stripe_badge",
-            "suede", "tail_light", "tail_light2", "tail_light_lod0", "tail_light_on", "taillightL_LOD1", "taillightL_LOD5",
-            "taillightR_LOD1", "taillightR_LOD5", "textured_reflector", "tiling_cloth", "tiling_cloth2", "tire",
-            "undercarriage", "unicolor_carbon_fiber", "weatherstrip", "wheel_black", "wheel_emblem", "white_brake", "window",
-            "window_2", "wingz_LOD0", "wingz_LOD1", "wingz_LOD2", "wingz_LOD3", "wingz_LOD4", "wingz_LOD5", "wood",
+            "01___Default", "4_MER_SLR_05_damage", "ADV_RGII_Wheel_LOD0", "badge", "badge_chrome", "badge2", "black",
+            "black_glass", "black_glass_breakable", "blur_lip", "blur_rim", "body", "body_2", "body_3", "bottom",
+            "brake", "brushed_metal", "bump_leather", "bump_leather2", "bump_leather3", "bump_metal", "bump_metal2",
+            "bump_metal3", "bump_metal4", "bump_plastic", "bump_plastic2", "bump_plastic3", "bump_plastic4",
+            "bump_plastic5", "bump_stitching", "bump_stitchingA", "bumper_frame", "bumperFa_LOD1", "carbon_fiber",
+            "carbon_fiber_no_env", "carbon_fiber2", "carbon_fiber3", "chrome", "chrome_2", "chrome_3",
+            "chrome_blur_lip", "chrome_blur_rim", "chrome_bump", "chrome_rim", "chrome2", "cloth", "defrost_lines",
+            "detail_glass_amber", "detail_glass_clear", "detail_glass_red", "digital_gauge", "drum", "emblem",
+            "embossed_metal", "embossed_plastic", "frame", "gauge_emissive", "gauge_needle", "glass", "grille1",
+            "grille1_alpha", "grille2", "grille2_alpha", "grille3", "head_light", "headlight_paint", "headliner",
+            "headliner2", "inner_rim", "interior", "leather", "lights_amber", "lights_chrome", "lights_glass",
+            "lights_metal", "lights_plastic", "liveryBadge", "Material__0", "Material__1", "Material__11",
+            "Material__12", "Material__14", "Material__15", "Material__16", "Material__3", "Material__6",
+            "matt_colors", "matt_colors2", "matte_colors", "metal", "metal2", "mirrorLeft", "mirrorMiddle",
+            "mirrorRight", "misc", "misc2", "mottled", "mottled2", "outer_rim", "plastic", "Plastic2", "plastic2",
+            "race_kit_red", "red_glass", "reflector", "reverse_light", "reverse_light_lod0", "rim", "rim_black",
+            "rim_bump_metal", "rim_chrome", "rim_chrome_blur_lip", "rim_inner_rim", "rim_outer_rim",
+            "rim_wheel_emblem", "rubber", "rubber_trim", "smooth_metal", "smooth_plastic", "solid", "stitching",
+            "stripe_badge", "suede", "tail_light", "tail_light_lod0", "Tail_light_lod0", "tail_light_on",
+            "tail_light2", "taillightL_LOD1", "taillightL_LOD5", "taillightR_LOD1", "taillightR_LOD5",
+            "textured_reflector", "tiling_cloth", "tiling_cloth2", "tire", "undercarriage", "unicolor_carbon_fiber",
+            "weatherstrip", "wheel_black", "wheel_emblem", "white_brake", "window", "wingz_LOD0", "wingz_LOD1",
+            "wingz_LOD2", "wingz_LOD3", "wingz_LOD4", "wingz_LOD5", "wood",
+        };
+
+        // The materials offered as fixes: those of at least 50 of the 317 FM4 cars (67 names). The rare ones
+        // (one-off names such as Material__11 or wingz_LOD3) stay valid but are not offered.
+        private static readonly string[] CommonMaterials = new string[]
+        {
+            "badge", "black", "black_glass", "blur_lip", "blur_rim", "body", "body_2", "bottom", "bump_leather",
+            "bump_leather2", "bump_plastic", "bump_plastic2", "bump_stitching", "bumper_frame", "carbon_fiber",
+            "chrome", "chrome_2", "chrome_rim", "cloth", "defrost_lines", "detail_glass_amber", "detail_glass_clear",
+            "detail_glass_red", "digital_gauge", "emblem", "frame", "gauge_emissive", "gauge_needle", "glass",
+            "grille1", "grille1_alpha", "grille2", "grille2_alpha", "head_light", "headliner", "inner_rim",
+            "interior", "leather", "lights_glass", "matte_colors", "metal", "mirrorLeft", "mirrorMiddle",
+            "mirrorRight", "misc", "mottled", "outer_rim", "plastic", "plastic2", "race_kit_red", "reflector",
+            "reverse_light", "reverse_light_lod0", "rim", "rubber", "rubber_trim", "solid", "tail_light",
+            "tail_light_lod0", "textured_reflector", "tire", "undercarriage", "weatherstrip", "wheel_black",
+            "wheel_emblem", "window", "wood",
         };
 
         public static byte[] ConvertModel(byte[] data, bool lod0, StringBuilder report)
