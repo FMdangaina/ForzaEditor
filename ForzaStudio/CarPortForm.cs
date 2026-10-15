@@ -9,7 +9,8 @@ namespace ForzaStudio
     using System.Threading;
     using System.Windows.Forms;
 
-    // Tools > Port Car From FH2: pick the FH2 and FM4 folders, a car and an FM4 donor, then a trial
+    // Tools > Port Car From Forza Horizon: pick the FH or FH2 folder (both write the same car files and
+    // database layout) and the FM4 one, a car and an FM4 donor, then a trial
     // run (files written to a temporary folder, the report shown) and the install (CarPort).
     // The car list says what each car would be in FM4: new, ported earlier (the install updates it),
     // already an FM4 car or with its id taken (both refused), or without files.
@@ -32,6 +33,7 @@ namespace ForzaStudio
 
         private List<Car> fm4Cars = new List<Car>();
         private string trialFolder;
+        private string sourceTag = "FH";    // FH or FH2, once the cars are loaded
         private bool busy;
 
         private enum Status
@@ -55,7 +57,7 @@ namespace ForzaStudio
             public long Type;
             public double Weight;
             public double Pi;           // own game's PI
-            public double Fm4Pi;        // FH2 cars: the PI they would get in FM4
+            public double Fm4Pi;        // FH/FH2 cars: the PI they would get in FM4
             public string Fm4Class;
             public Status State;
             public string Note;
@@ -74,7 +76,7 @@ namespace ForzaStudio
 
         public CarPortForm()
         {
-            this.Text = "Port Car From Forza Horizon 2";
+            this.Text = "Port Car From Forza Horizon";
             this.Size = new Size(1000, 760);
             this.MinimumSize = new Size(820, 600);
             this.StartPosition = FormStartPosition.CenterParent;
@@ -84,7 +86,7 @@ namespace ForzaStudio
             folders.Dock = DockStyle.Top;
             folders.Height = 74;
             folders.Width = this.ClientSize.Width;
-            this.sourceBox = FolderRow(folders, "Forza Horizon 2 folder:", 8, AppSettings.Get("CarPort.Source", ""));
+            this.sourceBox = FolderRow(folders, "Forza Horizon (1 or 2) folder:", 8, AppSettings.Get("CarPort.Source", ""));
             this.targetBox = FolderRow(folders, "Forza Motorsport 4 folder:", 40, AppSettings.Get("CarPort.Target", ""));
             this.load = new Button();
             this.load.Text = "Load Cars";
@@ -126,7 +128,7 @@ namespace ForzaStudio
             this.cars.Columns.Add("Car", 230);
             this.cars.Columns.Add("Year", 50);
             this.cars.Columns.Add("Media name", 180);
-            this.cars.Columns.Add("PI FH2", 60);
+            this.cars.Columns.Add("PI FH", 60);
             this.cars.Columns.Add("PI FM4", 60);
             this.cars.Columns.Add("Class", 50);
             this.cars.Columns.Add("In FM4", 230);
@@ -283,14 +285,9 @@ namespace ForzaStudio
             string target = this.targetBox.Text.Trim();
             ForzaGame sourceGame = GameInfo.Detect(source);
             ForzaGame targetGame = GameInfo.Detect(target);
-            if (sourceGame == ForzaGame.Horizon1)
+            if ((sourceGame != ForzaGame.Horizon1 && sourceGame != ForzaGame.Horizon2) || targetGame != ForzaGame.Motorsport4)
             {
-                MessageBox.Show(this, "Forza Horizon (the first) is not supported yet: only Forza Horizon 2 cars can be ported.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-            if (sourceGame != ForzaGame.Horizon2 || targetGame != ForzaGame.Motorsport4)
-            {
-                MessageBox.Show(this, string.Format("The first folder must hold Forza Horizon 2 and the second Forza Motorsport 4.\n\nFound: {0} and {1}.",
+                MessageBox.Show(this, string.Format("The first folder must hold Forza Horizon or Forza Horizon 2 and the second Forza Motorsport 4.\n\nFound: {0} and {1}.",
                     GameInfo.Name(sourceGame) ?? "no Forza game", GameInfo.Name(targetGame) ?? "no Forza game"), this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -304,6 +301,8 @@ namespace ForzaStudio
                 ReadCars(source, target, out horizon, out motorsport);
                 return delegate
                 {
+                    this.sourceTag = GameInfo.Tag(sourceGame);
+                    this.cars.Columns[4].Text = "PI " + this.sourceTag;
                     this.fm4Cars = motorsport;
                     this.items.Clear();
                     foreach (Car car in horizon)
@@ -332,7 +331,7 @@ namespace ForzaStudio
                             portable++;
                         }
                     }
-                    this.details.Text = string.Format("{0} FH2 cars, {1} not in FM4. Choose a car.", horizon.Count, portable);
+                    this.details.Text = string.Format("{0} {1} cars, {2} not in FM4. Choose a car.", horizon.Count, this.sourceTag, portable);
                 };
             });
         }
@@ -364,7 +363,7 @@ namespace ForzaStudio
                     if (!File.Exists(Path.Combine(sourceCars, car.MediaName + ".zip")))
                     {
                         car.State = Status.NoFiles;
-                        car.Note = "no car zip in the FH2 folder";
+                        car.Note = "no car zip in the source folder";
                     }
                     else if (byName.TryGetValue(car.MediaName, out same))
                     {
@@ -490,9 +489,9 @@ namespace ForzaStudio
                 this.UpdateButtons();
                 return;
             }
-            this.details.Text = string.Format("{0} ({1}, id {2}): FH2 PI {3:0.000} -> FM4 PI {4:0.000}, class {5}.  {6}",
+            this.details.Text = string.Format("{0} ({1}, id {2}): {7} PI {3:0.000} -> FM4 PI {4:0.000}, class {5}.  {6}",
                 car.Name, car.MediaName, car.Id, car.Pi, car.Fm4Pi, car.Fm4Class,
-                (car.State == Status.New) ? "Not in FM4: it will be added." : car.Note + ".");
+                (car.State == Status.New) ? "Not in FM4: it will be added." : car.Note + ".", this.sourceTag);
             if (car.State == Status.New || car.State == Status.Ported)
             {
                 List<Car> ranked = new List<Car>(this.fm4Cars);

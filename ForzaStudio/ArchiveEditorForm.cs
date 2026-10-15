@@ -196,7 +196,7 @@
             tools.DropDownItems.Add(new ToolStripMenuItem("&Save Modding...", null, delegate { new SaveModding().Show(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("C&onsole Modding...", null, delegate { new ConsoleModding().Show(); }));
             tools.DropDownItems.Add(new ToolStripSeparator());
-            tools.DropDownItems.Add(new ToolStripMenuItem("&Port Car From FH2...", null, delegate { new CarPortForm().Show(this); }));
+            tools.DropDownItems.Add(new ToolStripMenuItem("&Port Car From Forza Horizon...", null, delegate { new CarPortForm().Show(this); }));
             tools.DropDownItems.Add(new ToolStripSeparator());
             // The original Forza Studio 4.6 window, kept as a tribute: Alt+T, F.
             tools.DropDownItems.Add(new ToolStripMenuItem("Pay Respects (&F)", null, delegate { new ForzaStudioForm().Show(); }));

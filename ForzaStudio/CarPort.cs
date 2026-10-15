@@ -24,7 +24,7 @@
     // Every file the port replaces is backed up first (<exe>\bak\<stamp>_bak_<name>).
     public class CarPort
     {
-        public string SourceRoot;       // FH2 game folder (with media)
+        public string SourceRoot;       // FH2 (or FH) game folder (with media)
         public string TargetRoot;       // FM4 game folder
         public string MediaName;        // the car, e.g. MCL_P1_13
         public string DonorMediaName;   // an FM4 car close to it, e.g. MCL_MP412C_11 (brakes, templates)
@@ -34,6 +34,8 @@
         public StringBuilder Report = new StringBuilder();
 
         private string stamp;
+        private bool skipThumbnail;     // Textures.zip locked by the running emulator
+        private string game = "FH2";    // the source game in the report: FH (Forza Horizon writes the same files) or FH2
         private SqliteDatabase source;
         private SqliteDatabase target;
         private long carId;
@@ -94,10 +96,12 @@
         public void Run()
         {
             this.stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture);
-            if (GameInfo.Detect(this.SourceRoot) != ForzaGame.Horizon2 || GameInfo.Detect(this.TargetRoot) != ForzaGame.Motorsport4)
+            ForzaGame sourceGame = GameInfo.Detect(this.SourceRoot);
+            if ((sourceGame != ForzaGame.Horizon2 && sourceGame != ForzaGame.Horizon1) || GameInfo.Detect(this.TargetRoot) != ForzaGame.Motorsport4)
             {
-                throw new InvalidOperationException("The source must be a Forza Horizon 2 folder and the target a Forza Motorsport 4 folder.");
+                throw new InvalidOperationException("The source must be a Forza Horizon or Forza Horizon 2 folder and the target a Forza Motorsport 4 folder.");
             }
+            this.game = GameInfo.Tag(sourceGame);
             string sourceDbPath = Path.Combine(Path.Combine(Path.Combine(this.SourceRoot, "Media"), "db"), "gamedb.slt");
             string targetDbPath = Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "db"), "gamedb.slt");
             this.source = SqliteDatabase.FromBytes(File.ReadAllBytes(sourceDbPath));
@@ -164,6 +168,12 @@
             return schema;
         }
 
+        // Car tables that belong to the source game's own career, not to the car: FH's EventParticipants
+        // put the car into FH events whose ids are other FM4 events (AUD_R8GT_11: 7 rows into FM4
+        // events 70, 84, 90, 208, 217, 235 with Priority 0 and ColorSequence 2-4; FM4's own rows have
+        // Priority 1..800 and ColorSequence 0).
+        private static readonly string[] SourceGameOnly = { "EventParticipants" };
+
         private void PortDatabase()
         {
             Dictionary<string, List<string>> from = this.Schema(this.source);
@@ -175,7 +185,7 @@
             foreach (KeyValuePair<string, List<string>> table in to)
             {
                 List<string> sourceColumns;
-                if (!from.TryGetValue(table.Key, out sourceColumns) || table.Key == "Data_Car")
+                if (!from.TryGetValue(table.Key, out sourceColumns) || table.Key == "Data_Car" || Array.IndexOf(SourceGameOnly, table.Key) >= 0)
                 {
                     continue;
                 }
@@ -206,23 +216,40 @@
             this.PortCarRow(from["Data_Car"], to["Data_Car"]);
             this.Line("database: {0} rows in {1} car tables + Data_Car", rows, tables);
 
-            // Engine, drivetrain, torque curves, wheel: rows the car refers to that FM4 lacks.
-            List<long> engines = this.Ids("SELECT DISTINCT EngineID FROM List_UpgradeEngine WHERE Ordinal = ?");
-            foreach (long engine in engines)
+            // Engine, drivetrain, torque curves, wheel: rows the car refers to that FM4 lacks. An engine or
+            // drivetrain another FM4 car already uses is FM4's own and stays as it is (FER_458Spider_12's
+            // Enzo engine swap, EngineID 87, is used by 13 FM4 cars; copying it replaced their rows).
+            List<long> engines = new List<long>();
+            foreach (long engine in this.Ids("SELECT DISTINCT EngineID FROM List_UpgradeEngine WHERE Ordinal = ?"))
             {
                 object media = this.source.Scalar("SELECT MediaName FROM Data_Engine WHERE EngineID = ?", engine);
+                object present = this.target.Scalar("SELECT MediaName FROM Data_Engine WHERE EngineID = ?", engine);
+                if (present != null && !string.Equals((string) present, (string) media, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(string.Format("Engine {0} is {1} in FM4 and {2} in " + this.game + ".", engine, present, media));
+                }
+                if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_UpgradeEngine WHERE EngineID = ? AND Ordinal <> ?", engine, this.carId)) > 0)
+                {
+                    this.Line("  engine {0} ({1}): FM4's own, kept", engine, present);
+                    continue;
+                }
+                engines.Add(engine);
                 if (media != null)
                 {
                     this.engineMedia.Add((string) media);
                 }
-                object present = this.target.Scalar("SELECT MediaName FROM Data_Engine WHERE EngineID = ?", engine);
-                if (present != null && !string.Equals((string) present, (string) media, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new InvalidOperationException(string.Format("Engine {0} is {1} in FM4 and {2} in FH2.", engine, present, media));
-                }
             }
             this.CopyById(from, to, "EngineID", engines, "List_UpgradeEngine");
-            List<long> drivetrains = this.Ids("SELECT DISTINCT DrivetrainID FROM List_UpgradeDrivetrain WHERE Ordinal = ?");
+            List<long> drivetrains = new List<long>();
+            foreach (long drivetrain in this.Ids("SELECT DISTINCT DrivetrainID FROM List_UpgradeDrivetrain WHERE Ordinal = ?"))
+            {
+                if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_UpgradeDrivetrain WHERE DrivetrainID = ? AND Ordinal <> ?", drivetrain, this.carId)) > 0)
+                {
+                    this.Line("  drivetrain {0}: FM4's own, kept", drivetrain);
+                    continue;
+                }
+                drivetrains.Add(drivetrain);
+            }
             this.CopyById(from, to, "DrivetrainID", drivetrains, "List_UpgradeDrivetrain");
             this.CopyTorqueCurves(from, to, engines);
             object wheel = this.source.Scalar("SELECT StockWheelID FROM Data_Car WHERE Id = ?", this.carId);
@@ -235,8 +262,11 @@
                 {
                     this.originalWheels.Add(Convert.ToInt64(wheel));
                 }
-                this.CopyById(from, to, "ID", this.wheelIds, null, "List_Wheels");
-                this.CopyById(from, to, "WheelID", this.wheelIds, null, "WheelExceptions");
+                else
+                {
+                    this.CopyById(from, to, "ID", this.wheelIds, null, "List_Wheels");
+                    this.CopyById(from, to, "WheelID", this.wheelIds, null, "WheelExceptions");
+                }
             }
             this.CopyReferences(from, to);
             this.StockTires();
@@ -262,7 +292,7 @@
                 this.target.Execute("INSERT INTO List_UpgradeTireCompound (Id, Ordinal, Level, IsStock, TireCompoundID, ManufacturerID, Price, MassDiff, DragScale, WindInstabilityScale) VALUES (?, ?, ?, ?, ?, 0, ?, 0, 1, 1)",
                     (this.carId * 1000) + row[0], this.carId, row[1], row[2], row[3], row[4]);
             }
-            this.Line("  tyres: FH2 stock compound {0} on a road car -> FM4's 6 MaxPerformance stock, 7/8/9 as upgrades", stock);
+            this.Line("  tyres: " + this.game + " stock compound {0} on a road car -> FM4's 6 MaxPerformance stock, 7/8/9 as upgrades", stock);
         }
 
         // Every "...ID" value in the rows of the car (and of its engine and drivetrain) that names
@@ -497,7 +527,7 @@
                     {
                         if (key.Count != 1 || !(row[key[0]] is long) || this.IsReferenced(table, columns[key[0]]))
                         {
-                            throw new InvalidOperationException(string.Format("{0}: the key {1} = {2} of the FH2 row is another row's in FM4, and other tables refer to it.",
+                            throw new InvalidOperationException(string.Format("{0}: the key {1} = {2} of the " + this.game + " row is another row's in FM4, and other tables refer to it.",
                                 table, string.Join(",", key.ConvertAll<string>(delegate(int i) { return columns[i]; }).ToArray()),
                                 string.Join(",", Array.ConvertAll<object, string>(values, delegate(object v) { return Convert.ToString(v, CultureInfo.InvariantCulture); }))));
                         }
@@ -578,7 +608,7 @@
             object classId = ClassFor(this.target, fm4Pi, this.carId);
             this.target.Execute("UPDATE Data_Car SET PerformanceIndex = ?, ClassID = ?, ContentId = 0, IsArcade = ?, IsPurchased = 1, IsInstalled = 1 WHERE Id = ?",
                 fm4Pi, (classId != null) ? Convert.ToInt64(classId) : 9L, this.Arcade ? 1L : 0L, this.carId);
-            this.Line("Data_Car {0}: PI {1:0.000} (FH2) -> {2:0.000} (FM4), class {3}, IsArcade {4}", this.carId, pi, fm4Pi, ClassName(this.target, classId), this.Arcade ? 1 : 0);
+            this.Line("Data_Car {0}: PI {1:0.000} (" + this.game + ") -> {2:0.000} (FM4), class {3}, IsArcade {4}", this.carId, pi, fm4Pi, ClassName(this.target, classId), this.Arcade ? 1 : 0);
         }
 
         // (FH2 PI, FM4 PI) of the cars both games have (same MediaName), sorted; the car being
@@ -863,7 +893,7 @@
             string donorPath = GamePaths.FindCar(this.TargetRoot, this.DonorMediaName);
             if (sourcePath == null || donorPath == null || !sourcePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("Car zips not found (" + this.MediaName + " in FH2, " + this.DonorMediaName + " in FM4).");
+                throw new InvalidOperationException("Car zips not found (" + this.MediaName + " in " + this.game + ", " + this.DonorMediaName + " in FM4).");
             }
             ForzaZip from = new ForzaZip(sourcePath);
             ForzaZip donor = new ForzaZip(donorPath);
@@ -877,17 +907,24 @@
             // version 7 at 0x20 as 00000007, measured on the MP4-12C both games have). Without a
             // converter the car goes without them, as FM4 cars without moving parts do.
             bool animations = true;
+            int grannyFiles = 0;
             foreach (ForzaZip.Entry entry in from.Entries)
             {
                 if (entry.Name.EndsWith(".gr2", StringComparison.OrdinalIgnoreCase))
                 {
                     byte[] granny = from.Read(entry);
                     animations &= granny.Length > 0x24 && granny[0x20] == 7 && granny[0x23] == 0;
+                    grannyFiles++;
                 }
             }
-            if (!animations)
+            if (grannyFiles == 0)
             {
-                this.Line("  animations: FH2 .gr2 files are big-endian, left out (no moving parts)");
+                animations = false;
+                this.Line("  animations: none in " + this.game + " (no .gr2 files), the donor's left out");
+            }
+            else if (!animations)
+            {
+                this.Line("  animations: " + this.game + " .gr2 files are big-endian, left out (no moving parts)");
             }
             foreach (ForzaZip.Entry entry in from.Entries)
             {
@@ -965,73 +1002,33 @@
         // first text layer (the P1 crashed while loading the race: a 5014-byte copy over its stack).
         // On the 38 dashes both games have, 29 come out byte for byte as FM4's. The others differ in content FH2
         // changed (fonts horizon_dg*, a few values). .bgf/.bsg are the same in both games.
+        // Rewritten on AnarkFbf (2026-10-15): the old byte-pattern version assumed an empty tag and an
+        // untagged text layer, and broke 9 FH and 6 FH2 dashes (tag "NLOC", 458 Spider, V12 Zagato, RS5...),
+        // which FM4 would then read as garbage. Each text record keeps its tag; the 4 bytes dropped are
+        // tail bytes 33..36 (the old converter's choice, byte-identical to FM4 on 29 of 38 shared dashes).
         public static byte[] ConvertAnarkLayout(byte[] fh2, out int layers)
         {
             layers = 0;
-            if (fh2.Length < 4 || ReadU32(fh2, 0) != 0x3F0)
+            if (fh2.Length < 4 || AnarkFbf.ReadU32(fh2, 0) != AnarkFbf.VersionFH2)
             {
                 return fh2;
             }
-            MemoryStream output = new MemoryStream();
-            output.Write(new byte[] { 0, 0, 3, 0xEF }, 0, 4);
-            int i = 4;
-            while (i < fh2.Length)
+            AnarkFbf fbf = AnarkFbf.Read(fh2);
+            fbf.Version = AnarkFbf.VersionFM4;
+            foreach (AnarkFbf.Record record in fbf.Records)
             {
-                int nameLength = (i + 4 <= fh2.Length) ? (int) ReadU32(fh2, i) : -1;
-                if (nameLength > 0 && nameLength < 64 && Printable(fh2, i + 4, nameLength))
+                if (record.Type != AnarkFbf.RecordType.Text)
                 {
-                    int afterName = i + 4 + nameLength;
-                    if (afterName + 8 <= fh2.Length && ReadU32(fh2, afterName) == 0)
-                    {
-                        int textLength = ReadU16(fh2, afterName + 6);
-                        int font = afterName + 8 + textLength + 14;
-                        if (textLength < 64 && Printable(fh2, afterName + 8, textLength) && font + 2 <= fh2.Length)
-                        {
-                            int fontLength = ReadU16(fh2, font);
-                            int fontEnd = font + 2 + fontLength;
-                            if (fontLength > 0 && fontLength < 64 && Printable(fh2, font + 2, fontLength) && fontEnd + 33 + 4 <= fh2.Length)
-                            {
-                                output.Write(fh2, i, afterName + 6 - i);
-                                output.WriteByte(0);
-                                output.WriteByte(0);
-                                output.Write(fh2, afterName + 8 + textLength, fontEnd + 33 - (afterName + 8 + textLength));
-                                i = fontEnd + 33 + 4;
-                                layers++;
-                                continue;
-                            }
-                        }
-                    }
+                    continue;
                 }
-                output.WriteByte(fh2[i]);
-                i++;
+                byte[] tail = new byte[34];
+                Array.Copy(record.TextTail, 0, tail, 0, 33);
+                tail[33] = record.TextTail[37];
+                record.TextTail = tail;
+                record.Text = "";
+                layers++;
             }
-            return output.ToArray();
-        }
-
-        private static uint ReadU32(byte[] data, int offset)
-        {
-            return (uint) ((data[offset] << 24) | (data[offset + 1] << 16) | (data[offset + 2] << 8) | data[offset + 3]);
-        }
-
-        private static int ReadU16(byte[] data, int offset)
-        {
-            return (data[offset] << 8) | data[offset + 1];
-        }
-
-        private static bool Printable(byte[] data, int offset, int length)
-        {
-            if (offset + length > data.Length)
-            {
-                return false;
-            }
-            for (int k = 0; k < length; k++)
-            {
-                if (data[offset + k] < 32 || data[offset + k] > 126)
-                {
-                    return false;
-                }
-            }
-            return true;
+            return fbf.Write();
         }
 
         // One FH2 model file in FM4 form: converted, FH2-only materials renamed (lod0 lights to the
@@ -1077,6 +1074,83 @@
             "detail_glass_clear", "drum", "drum_", "front", "hub", "hub_", "left_side", "Material__2", "Material__4",
             "Material__5", "matte_colors", "matte_colors_NoOcclude_NoShadow", "matte_colors_NoOcclude_NoShadows", "misc",
             "misc_noOcclude", "misc_NoOcclude_NoShadow", "outer_rim", "right_side", "rotor", "rotor_", "top", "undercarriage",
+        };
+
+        // True when some FM4 car uses the material in a model of this carbin type (1 brakes, else models).
+        public static bool IsFm4Material(string name, int type)
+        {
+            return Array.IndexOf((type == 1) ? BrakeMaterials : ModelMaterials, name) >= 0;
+        }
+
+        // The FM4 material names for a carbin type, sorted, for picking a replacement.
+        public static string[] Fm4Materials(int type)
+        {
+            string[] names = (string[]) ((type == 1) ? BrakeMaterials : ModelMaterials).Clone();
+            Array.Sort(names, StringComparer.OrdinalIgnoreCase);
+            return names;
+        }
+
+        // The FM4 name MaterialMap gives an FH2 material, or the FM4 name differing only in case; null if none.
+        public static string SuggestMaterial(string name, string fileName)
+        {
+            string to;
+            if (MaterialMap.TryGetValue(name, out to) && to != null)
+            {
+                return LodVariant(to, fileName);
+            }
+            foreach (string known in ModelMaterials)
+            {
+                if (string.Equals(known, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return known;
+                }
+            }
+            return null;
+        }
+
+        // The name a light material has in a given model file of an FM4 car: tail_light_lod0 in _lod0 and
+        // _cockpit (FM4 cockpits never use tail_light), reverse_light_lod0 in _lod0, the plain name in the main model.
+        public static string LodVariant(string material, string fileName)
+        {
+            string plain = (material == "tail_light_lod0" || material == "reverse_light_lod0") ? material.Substring(0, material.Length - 5) : material;
+            bool lod0 = fileName.EndsWith("_lod0.carbin", StringComparison.OrdinalIgnoreCase);
+            bool cockpit = fileName.EndsWith("_cockpit.carbin", StringComparison.OrdinalIgnoreCase);
+            if ((plain == "tail_light" && (lod0 || cockpit)) || (plain == "reverse_light" && lod0))
+            {
+                return plain + "_lod0";
+            }
+            return plain;
+        }
+
+        // Every material name of the FM4 car models (.carbin, _lod0, _cockpit of all car zips). An FH2
+        // material outside this list (after MaterialMap) may have no FM4 shader and render black.
+        private static readonly string[] ModelMaterials = new string[]
+        {
+            "01___Default", "4_MER_SLR_05_damage", "ADV_RGII_Wheel_LOD0", "Material__0", "Material__1", "Material__11",
+            "Material__12", "Material__14", "Material__15", "Material__16", "Material__3", "Material__6", "Plastic2",
+            "Tail_light_lod0", "anodized_aluminum", "badge", "badge2", "badge_chrome", "black", "black_glass",
+            "black_glass_breakable", "blur_lip", "blur_rim", "body", "body_2", "body_3", "bottom", "brake", "brushed_metal",
+            "bump_leather", "bump_leather2", "bump_leather3", "bump_metal", "bump_metal2", "bump_metal3", "bump_metal4",
+            "bump_plastic", "bump_plastic2", "bump_plastic3", "bump_plastic4", "bump_plastic5", "bump_stitching",
+            "bump_stitchingA", "bump_stitchingE", "bump_stitchingF", "bumperFa_LOD1", "bumper_frame", "carbon_fiber",
+            "carbon_fiber2", "carbon_fiber3", "carbon_fiber_no_env", "chrome", "chrome2", "chrome_2", "chrome_3",
+            "chrome_blur_lip", "chrome_blur_rim", "chrome_bump", "chrome_rim", "cloth", "defrost_lines", "detail_glass_amber",
+            "detail_glass_clear", "detail_glass_red", "digital_gauge", "doubleSided", "drlinlred", "drlorange", "drum",
+            "emblem", "embossed_badge", "embossed_leather", "embossed_metal", "embossed_plastic", "fogred", "fogwhite",
+            "frame", "gauge_emissive", "gauge_needle", "glass", "grille1", "grille1_alpha", "grille2", "grille2_alpha",
+            "grille3", "head_light", "headlight_paint", "headliner", "headliner2", "inner_rim", "interior", "leather",
+            "lights_amber", "lights_chrome", "lights_glass", "lights_gls_indicator_left", "lights_gls_indicator_right",
+            "lights_gls_noemit", "lights_gls_oldhead", "lights_gls_reverse_light", "lights_gls_tail_light",
+            "lights_gls_taillight2S", "lights_gls_taillightst", "lights_metal", "lights_plastic", "lindseq2", "lindseq3",
+            "liveryBadge", "matt_colors", "matt_colors2", "matte_colors", "metal", "metal2", "mirrorLeft", "mirrorMiddle",
+            "mirrorRight", "misc", "misc2", "mottled", "mottled2", "numplate", "oldhead", "outer_rim", "plastic", "plastic2",
+            "race_kit_red", "red_glass", "reflector", "reserved", "reverse_light", "reverse_light_lod0", "rim", "rim_black",
+            "rim_bump_metal", "rim_chrome", "rim_chrome_blur_lip", "rim_inner_rim", "rim_outer_rim", "rim_wheel_emblem",
+            "rubber", "rubber_trim", "slorange", "smooth_metal", "smooth_plastic", "solid", "stitching", "stripe_badge",
+            "suede", "tail_light", "tail_light2", "tail_light_lod0", "tail_light_on", "taillightL_LOD1", "taillightL_LOD5",
+            "taillightR_LOD1", "taillightR_LOD5", "textured_reflector", "tiling_cloth", "tiling_cloth2", "tire",
+            "undercarriage", "unicolor_carbon_fiber", "weatherstrip", "wheel_black", "wheel_emblem", "white_brake", "window",
+            "window_2", "wingz_LOD0", "wingz_LOD1", "wingz_LOD2", "wingz_LOD3", "wingz_LOD4", "wingz_LOD5", "wood",
         };
 
         public static byte[] ConvertModel(byte[] data, bool lod0, StringBuilder report)
@@ -1149,6 +1223,42 @@
                 }
                 report.AppendLine("  materials: " + string.Join(", ", text.ToArray()) + ((remove.Count > 0) ? string.Format(", {0} 'deprecated' removed", remove.Count) : ""));
             }
+            if (report != null)
+            {
+                // Material -> the sections it sits on.
+                Dictionary<string, List<string>> unknown = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+                List<string> order = new List<string>();
+                foreach (CarbinModel.Section section in model.Sections)
+                {
+                    foreach (CarbinModel.SubSection sub in section.SubSections)
+                    {
+                        if (Array.IndexOf(ModelMaterials, sub.Name) >= 0)
+                        {
+                            continue;
+                        }
+                        List<string> sections;
+                        if (!unknown.TryGetValue(sub.Name, out sections))
+                        {
+                            sections = new List<string>();
+                            unknown[sub.Name] = sections;
+                            order.Add(sub.Name);
+                        }
+                        if (!sections.Contains(section.Name))
+                        {
+                            sections.Add(section.Name);
+                        }
+                    }
+                }
+                if (order.Count > 0)
+                {
+                    List<string> text = new List<string>();
+                    foreach (string name in order)
+                    {
+                        text.Add(name + " (" + string.Join(" ", unknown[name].ToArray()) + ")");
+                    }
+                    report.AppendLine("  WARNING materials no FM4 car uses, may render black: " + string.Join(", ", text.ToArray()));
+                }
+            }
             return model.ToBytes();
         }
 
@@ -1208,8 +1318,15 @@
                 return Encoding.UTF8.GetBytes(target.Success ? result.Remove(target.Index, target.Length) : result);
             }
             Match source = Regex.Match(fh2, "<Animations>.*?</Animations>", RegexOptions.Singleline);
+            if (!source.Success || !Regex.IsMatch(source.Value, "<animation\\b", RegexOptions.IgnoreCase))
+            {
+                // The car has no animations of its own: the donor's would point at bones and .gr2 files
+                // the car lacks (AUD_R8GT_11 got the R8 V10's 12, doors and active wing, and crashed
+                // the game while loading its model in the showroom).
+                return Encoding.UTF8.GetBytes(target.Success ? result.Remove(target.Index, target.Length) : result);
+            }
             target = Regex.Match(result, "<Animations>.*?</Animations>", RegexOptions.Singleline);
-            if (source.Success && target.Success)
+            if (target.Success)
             {
                 StringBuilder list = new StringBuilder("<Animations>\r\n");
                 List<string> seen = new List<string>();
@@ -1419,11 +1536,11 @@
                         continue;
                     }
                     data = engineTuning.Read(fallback);
-                    this.Line("engine sound {0}: the donor's ({1}; FH2 lacks {2})", media, donorEngine, (missing.Count > 0) ? string.Join(", ", missing.ToArray()) : "the FH2 tuning");
+                    this.Line("engine sound {0}: the donor's ({1}; " + this.game + " lacks {2})", media, donorEngine, (missing.Count > 0) ? string.Join(", ", missing.ToArray()) : "the " + this.game + " tuning");
                 }
                 else
                 {
-                    this.Line("engine sound {0}: FH2 tuning, its harmonic tunings are all in FM4{1}", media, (imported.Count > 0) ? " (" + imported.Count + " brought from FH2)" : "");
+                    this.Line("engine sound {0}: " + this.game + " tuning, its harmonic tunings are all in FM4{1}", media, (imported.Count > 0) ? " (" + imported.Count + " brought from " + this.game + ")" : "");
                 }
                 this.Put(engineTuning, media + "_ET.xml", data);
             }
@@ -1472,15 +1589,20 @@
                     return false;
                 }
                 this.newFiles[target] = source;
-                this.Line("  sound bank {0} from FH2", Path.GetFileName(target));
+                this.Line("  sound bank {0} from " + this.game, Path.GetFileName(target));
             }
             this.Put(this.OpenChanged(harmonicPath), name, data);
-            this.Line("  harmonic tuning {0} from FH2", name);
+            this.Line("  harmonic tuning {0} from " + this.game, name);
             return true;
         }
 
         private void PortThumbnail()
         {
+            if (this.skipThumbnail)
+            {
+                this.Line("thumbnail: skipped, Media\\UI\\Textures.zip is in use (the emulator is running)");
+                return;
+            }
             string thumbnail = this.source.Scalar("SELECT Thumbnail FROM Data_Car WHERE Id = ?", this.carId) as string;
             string donorThumbnail = this.target.Scalar("SELECT Thumbnail FROM Data_Car WHERE Id = ?", this.donorId) as string;
             GamePaths.GameFile from = GamePaths.Locate(this.SourceRoot, thumbnail);
@@ -1588,6 +1710,13 @@
                 {
                     busy.Add(this.Relative(file));
                 }
+            }
+            // Xenia keeps Media\UI\Textures.zip open while it runs: the port goes on without the thumbnail
+            // (a later port of the same car with the emulator closed adds it).
+            string textures = this.Relative(Path.Combine(Path.Combine(media, "UI"), "Textures.zip"));
+            if (busy.Remove(textures))
+            {
+                this.skipThumbnail = true;
             }
             if (busy.Count > 0)
             {
