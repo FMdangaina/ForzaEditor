@@ -12,7 +12,7 @@ Status: ✅ done · 🔧 in progress · ⏸ paused · ⬜ not started
 
 ## Now
 
-_Nothing chosen yet. Pick one open item from the topics below and move it here._
+**Topic 3: ported cars as a DLC package**, first goal a DLC folder for Xenia (3.3 → 3.5).
 
 ## Next (in order)
 
@@ -57,21 +57,35 @@ Same tool and code as topic 1; its open points are listed there.
 - [x] In-game check of the cars without gr2 files after the animation fix (both R8s OK)
 - [x] FH1 cars without a harmonic tuning use the donor's (fixed rule, see topic 1)
 
-## 3. Ported cars as a DLC package ⬜ top priority, after the FH1/FH2 ports are flawless on DEV
+## 3. Ported cars as a DLC package 🔧 Now
 
 Today the port writes into the game's own files (vanilla `gamedb.slt`, string tables, zips, manifest).
 The goal is a separate DLC package instead, so the base game stays untouched and the package can be
 installed or removed on its own.
 
-- [ ] Study real FM4 car DLC: package layout (STFS), content type, and what is inside
-      (car zips, `*_merge.slt` database patch, strings, manifest)
-- [ ] Find how the game loads a DLC: database merge, mounting the zips, string tables
-- [ ] Port output as a package folder for Xenia
-      (`content\0000000000000000\4D530910\00000002\<package>`)
-- [ ] In-game test in Xenia with the base game untouched
-- [ ] Package file for a real Xbox 360: STFS build and signing for modded consoles
-- [ ] Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood
-- [ ] Port window: choose "install into game" or "build DLC package"
+Everything is written in C# inside ForzaEditor. No Python and no Xbox SDK. Comments credit the help
+from Discord: **Jew (@mr.abortion)**, whose `fm4dlc` toolchain covers layout, merge, strings and the
+STFS writer, and **XTD (@xtd_ac)**, who supplied the folder DLC for Xenia, the XLAST package and console
+tests. Material: `fm4dev\DEV_DLC`.
+
+One package holds **n cars** chosen by the user, with its own name (e.g. a pack of FH1 cars). The
+reason: a DLC string table replaces the game's whole table, so separate one-car packages would hide
+each other's names (still to be confirmed in game).
+
+- [x] 3.1 Study a real FM4 car DLC (official offer 31, 10 cars) and XTD's package: layout, `zipmount.xml`,
+      `stringtables.xml`, `<offer>_pri_N` loose folder, `<offer>000_merge.slt`, full string tables
+- [x] 3.2 DEV DB restored to the clean FM4 one (FM4_Extracted, 503 cars); DEV's ported one backed up in
+      `bin\Debug\bak\2026-10-15_21-00-00_bak_DEV_before_DLC_gamedb.slt`
+- [ ] 3.3 Merge DB: run the port on a temporary copy of the clean DB; the new rows go into
+      `<offer>000_merge.slt`, plus `ContentOffers` and `ContentOffersMapping`
+- [ ] 3.4 Package folder for Xenia (`content\0000000000000000\4D530910\00000002\<package>`):
+      car/wheel files, audio tunings and banks, thumbnails, string tables, `zipmount.xml`, `.puboffer`
+- [ ] 3.5 In-game test in Xenia with the base game untouched (1 car, then several)
+- [ ] 3.6 Port window: choose n cars from the source game, pack name, trial run that converts and
+      fixes them all, then "build DLC package" (or "install into game")
+- [ ] 3.7 STFS package file for a real Xbox 360 (Jew's writer ported to C#), tested by XTD or on
+      the user's RGH consoles
+- [ ] 3.8 Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (later, the user's side)
 
 ## 4. Materials FM4 renders black ✅ done
 
@@ -124,5 +138,5 @@ installed or removed on its own.
 
 - FM2 model writer (FM2 is out of scope for now)
 - .gr2 animation editor
-- Cars built from scratch
+- Cars built from scratch (a full wizard, also as a DLC package)
 - README update (FM3/FH1, port tool)
