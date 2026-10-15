@@ -14,8 +14,40 @@ namespace ForzaStudio
     // run (files written to a temporary folder, the report shown) and the install (CarPort).
     // The car list says what each car would be in FM4: new, ported earlier (the install updates it),
     // already an FM4 car or with its id taken (both refused), or without files.
+    //
+    // DLC pack (right panel): the cars go into a DLC package instead of the game's own files
+    // (DlcPackage). Add n cars of the source game with their donors, name the pack, run the pack trial
+    // (every car ported in turn into one trial folder, each starting from the one before, so their ids
+    // and string keys never clash; each car's review is shown when it is selected in the pack), then
+    // build the package straight into Xenia's content folder. The pack is kept in the settings.
     internal class CarPortForm : Form
     {
+        private readonly TextBox packName;
+        private readonly Label packOfferLabel;
+        private readonly ListView packList;
+        private readonly TextBox xeniaBox;
+        private readonly Label packStatus;
+        private readonly Button addToPack;
+        private readonly Button removeFromPack;
+        private readonly Button newPack;
+        private readonly Button trialPack;
+        private readonly Button buildPack;
+        private readonly Button removePack;
+        private readonly List<PackEntry> pack = new List<PackEntry>();
+        private int packOffer;              // 0 until the first build
+        private string packTrialFolder;     // the last pack trial, null when the pack changed since
+        private Dictionary<string, Dictionary<string, object>> packTrialFixes;   // the fixes that trial used, per car
+        private List<Car> horizonCars = new List<Car>();
+
+        private class PackEntry
+        {
+            public Car Car;
+            public string Donor;
+            public bool Arcade;
+            public List<CarPort.Issue> Issues;
+            public int Applied;
+        }
+
         private readonly TextBox sourceBox;
         private readonly TextBox targetBox;
         private readonly TextBox search;
@@ -30,6 +62,7 @@ namespace ForzaStudio
         private readonly DataGridView review;
         private readonly Dictionary<string, Dictionary<string, object>> fixes = new Dictionary<string, Dictionary<string, object>>(StringComparer.OrdinalIgnoreCase);   // per car media name
         private string reviewCar;
+        private bool showingReview;         // ShowReview filling the grid (not a fix chosen by hand)
         private const string LeaveAsIs = "(leave as is)";
         private readonly Button load;
         private readonly Button trial;
@@ -83,8 +116,8 @@ namespace ForzaStudio
         public CarPortForm()
         {
             this.Text = "Port Car From Forza Horizon";
-            this.Size = new Size(1000, 900);
-            this.MinimumSize = new Size(820, 700);
+            this.Size = new Size(1360, 900);
+            this.MinimumSize = new Size(1180, 760);
             this.StartPosition = FormStartPosition.CenterParent;
             this.Font = ForzaTheme.Regular;
 
@@ -215,7 +248,15 @@ namespace ForzaStudio
             this.review.Columns.Add(where);
             this.review.Columns.Add(problem);
             this.review.Columns.Add(fix);
-            this.review.CellValueChanged += delegate { this.StoreFixes(); };
+            this.review.CellValueChanged += delegate
+            {
+                this.StoreFixes();
+                // A fix of a pack car: the status says whether the trial still matches the fixes.
+                if (!this.showingReview && this.reviewCar != null && this.FindEntry(this.reviewCar) != null)
+                {
+                    this.UpdatePackInfo();
+                }
+            };
             this.review.CurrentCellDirtyStateChanged += delegate
             {
                 if (this.review.IsCurrentCellDirty)
@@ -237,15 +278,125 @@ namespace ForzaStudio
             this.report.Font = new Font("Consolas", 9f);
             this.report.BorderStyle = BorderStyle.FixedSingle;
 
+            // DLC pack panel.
+            Panel packPanel = new Panel();
+            packPanel.Dock = DockStyle.Right;
+            packPanel.Width = 380;
+            packPanel.Padding = new Padding(8);
+            Label packTitle = new Label();
+            packTitle.Text = "DLC pack (Xenia)";
+            packTitle.Font = ForzaTheme.Bold;
+            packTitle.Location = new Point(10, 6);
+            packTitle.AutoSize = true;
+            Label nameLabel = new Label();
+            nameLabel.Text = "Name:";
+            nameLabel.Location = new Point(10, 34);
+            nameLabel.AutoSize = true;
+            this.packName = new TextBox();
+            this.packName.Location = new Point(60, 31);
+            this.packName.Width = 306;
+            this.packName.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            this.packName.BorderStyle = BorderStyle.FixedSingle;
+            this.packName.Text = AppSettings.Get("CarPort.PackName", "ForzaEditor pack");
+            this.packName.TextChanged += delegate { AppSettings.Set("CarPort.PackName", this.packName.Text); this.UpdateButtons(); };
+            this.packOfferLabel = new Label();
+            this.packOfferLabel.Location = new Point(10, 58);
+            this.packOfferLabel.Size = new Size(356, 18);
+            this.packOfferLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            this.packList = new ListView();
+            this.packList.Location = new Point(10, 80);
+            this.packList.Size = new Size(356, 150);
+            this.packList.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            this.packList.View = View.Details;
+            this.packList.FullRowSelect = true;
+            this.packList.MultiSelect = false;
+            this.packList.HideSelection = false;
+            this.packList.Columns.Add("Car", 150);
+            this.packList.Columns.Add("Donor", 130);
+            this.packList.Columns.Add("Review", 60);
+            this.packList.SelectedIndexChanged += delegate { this.PackSelected(); };
+
+            int bottom = 300;   // the controls below the list, from the panel's bottom edge
+            this.addToPack = PackButton(packPanel, "Add Selected Car", 10, bottom, 130);
+            this.addToPack.Click += delegate { this.AddToPack(); };
+            this.removeFromPack = PackButton(packPanel, "Remove", 146, bottom, 80);
+            this.removeFromPack.Click += delegate { this.RemoveFromPack(); };
+            this.newPack = PackButton(packPanel, "New Pack", 232, bottom, 80);
+            this.newPack.Click += delegate { this.NewPack(); };
+            Label xeniaLabel = new Label();
+            xeniaLabel.Text = "Xenia folder (with xenia_canary.exe):";
+            xeniaLabel.AutoSize = true;
+            xeniaLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            packPanel.Controls.Add(xeniaLabel);
+            this.xeniaBox = new TextBox();
+            this.xeniaBox.Width = 318;
+            this.xeniaBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            this.xeniaBox.BorderStyle = BorderStyle.FixedSingle;
+            this.xeniaBox.Text = AppSettings.Get("CarPort.Xenia", "");
+            this.xeniaBox.TextChanged += delegate { AppSettings.Set("CarPort.Xenia", this.xeniaBox.Text.Trim()); this.UpdatePackInfo(); };
+            Button xeniaBrowse = new Button();
+            xeniaBrowse.Text = "...";
+            xeniaBrowse.Size = new Size(32, 24);
+            xeniaBrowse.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            xeniaBrowse.Click += delegate
+            {
+                using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+                {
+                    dialog.Description = "Xenia's folder (the one with xenia_canary.exe and its config)";
+                    dialog.ShowNewFolderButton = false;
+                    if (Directory.Exists(this.xeniaBox.Text))
+                    {
+                        dialog.SelectedPath = this.xeniaBox.Text;
+                    }
+                    if (dialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        this.xeniaBox.Text = dialog.SelectedPath;
+                    }
+                }
+            };
+            packPanel.Controls.Add(this.xeniaBox);
+            packPanel.Controls.Add(xeniaBrowse);
+            this.trialPack = PackButton(packPanel, "Trial Pack", 10, bottom, 100);
+            this.trialPack.Click += delegate { this.TrialPack(); };
+            this.buildPack = PackButton(packPanel, "Build DLC Package", 116, bottom, 130);
+            this.buildPack.Click += delegate { this.BuildPack(); };
+            this.removePack = PackButton(packPanel, "Remove Pack", 252, bottom, 114);
+            this.removePack.Click += delegate { this.RemovePack(); };
+            this.packStatus = new Label();
+            this.packStatus.Size = new Size(356, 60);
+            this.packStatus.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            packPanel.Controls.Add(this.packStatus);
+            packPanel.Controls.Add(packTitle);
+            packPanel.Controls.Add(nameLabel);
+            packPanel.Controls.Add(this.packName);
+            packPanel.Controls.Add(this.packOfferLabel);
+            packPanel.Controls.Add(this.packList);
+            // Rows from the bottom: status, actions, Xenia folder, list buttons.
+            packPanel.Layout += delegate
+            {
+                int h = packPanel.ClientSize.Height;
+                this.packStatus.Location = new Point(10, h - 66);
+                this.trialPack.Top = this.buildPack.Top = this.removePack.Top = h - 98;
+                this.xeniaBox.Location = new Point(10, h - 132);
+                xeniaBrowse.Location = new Point(packPanel.ClientSize.Width - 46, h - 133);
+                xeniaLabel.Location = new Point(10, h - 152);
+                this.addToPack.Top = this.removeFromPack.Top = this.newPack.Top = h - 186;
+                this.packList.Height = Math.Max(40, h - 194 - this.packList.Top);
+            };
+            this.packOffer = (int) Long(AppSettings.Get("CarPort.PackOffer", "0"));
+
+            // Docked from the last added: folders and filter on top, the pack panel the whole height on the
+            // right, then report, review and options at the bottom left, the car list in what is left.
             this.Controls.Add(this.cars);
             this.Controls.Add(options);
             this.Controls.Add(this.reviewPanel);
             this.Controls.Add(this.report);
+            this.Controls.Add(packPanel);
             this.Controls.Add(filter);
             this.Controls.Add(folders);
             this.BackColor = ForzaTheme.Background;
             ForzaTheme.Apply(this);
-            this.UpdateButtons();
+            this.UpdatePackInfo();
         }
 
         protected override void OnShown(EventArgs e)
@@ -328,7 +479,469 @@ namespace ForzaStudio
             this.install.Enabled = ready;
             this.load.Enabled = !this.busy;
             this.openTrial.Enabled = !this.busy && this.trialFolder != null && Directory.Exists(this.trialFolder);
+
+            this.addToPack.Enabled = !this.busy && car != null && car.State == Status.New && this.donors.SelectedItem != null && this.FindEntry(car.MediaName) == null;
+            this.removeFromPack.Enabled = !this.busy && this.packList.SelectedItems.Count == 1;
+            this.newPack.Enabled = !this.busy && this.pack.Count > 0;
+            this.trialPack.Enabled = !this.busy && this.pack.Count > 0;
+            this.buildPack.Enabled = !this.busy && this.packTrialFolder != null && Directory.Exists(this.packTrialFolder) && this.packName.Text.Trim().Length > 0 && this.XeniaContent() != null;
+            this.removePack.Enabled = !this.busy && this.packOffer > 0 && this.XeniaContent() != null && Directory.Exists(DlcPackage.PackagePath(this.XeniaContent(), this.packOffer));
         }
+
+        private static Button PackButton(Panel parent, string text, int x, int y, int width)
+        {
+            Button button = new Button();
+            button.Text = text;
+            button.Size = new Size(width, 26);
+            button.Location = new Point(x, y);
+            button.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            parent.Controls.Add(button);
+            return button;
+        }
+
+        #region DLC pack
+
+        // Xenia's FM4 marketplace content folder, or null when the Xenia folder is not set.
+        private string XeniaContent()
+        {
+            string xenia = this.xeniaBox.Text.Trim();
+            if (xenia.Length == 0 || !Directory.Exists(xenia))
+            {
+                return null;
+            }
+            try
+            {
+                return DlcPackage.XeniaContent(xenia);
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+        }
+
+        private PackEntry FindEntry(string mediaName)
+        {
+            foreach (PackEntry entry in this.pack)
+            {
+                if (string.Equals(entry.Car.MediaName, mediaName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return entry;
+                }
+            }
+            return null;
+        }
+
+        private PackEntry SelectedEntry
+        {
+            get { return (this.packList.SelectedItems.Count == 1) ? (PackEntry) this.packList.SelectedItems[0].Tag : null; }
+        }
+
+        // The pack changed: the last pack trial no longer matches it.
+        private void PackChanged()
+        {
+            this.packTrialFolder = null;
+            List<string> saved = new List<string>();
+            foreach (PackEntry entry in this.pack)
+            {
+                saved.Add(entry.Car.MediaName + "|" + entry.Donor + "|" + (entry.Arcade ? "1" : "0"));
+            }
+            AppSettings.Set("CarPort.PackCars", string.Join(";", saved.ToArray()));
+            AppSettings.Set("CarPort.PackSource", this.sourceBox.Text.Trim());
+            this.RefreshPack();
+        }
+
+        private void RefreshPack()
+        {
+            PackEntry selected = this.SelectedEntry;
+            this.packList.BeginUpdate();
+            this.packList.Items.Clear();
+            foreach (PackEntry entry in this.pack)
+            {
+                ListViewItem item = new ListViewItem(entry.Car.Name);
+                item.Tag = entry;
+                item.SubItems.Add(entry.Donor);
+                item.SubItems.Add((entry.Issues == null) ? "" : (entry.Issues.Count == 0) ? "ok" : entry.Issues.Count + " to see");
+                item.Selected = entry == selected;
+                this.packList.Items.Add(item);
+            }
+            this.packList.EndUpdate();
+            this.UpdatePackInfo();
+        }
+
+        private void UpdatePackInfo()
+        {
+            string content = this.XeniaContent();
+            string offer = (this.packOffer > 0) ? "offer " + this.packOffer + " (" + DlcPackage.OfferId(this.packOffer) + ")" : "offer chosen at the first build";
+            bool installed = this.packOffer > 0 && content != null && Directory.Exists(DlcPackage.PackagePath(content, this.packOffer));
+            this.packOfferLabel.Text = string.Format("{0} cars, {1}{2}", this.pack.Count, offer, installed ? ", in Xenia" : "");
+            if (!this.busy)
+            {
+                List<string> changed = this.FixesChangedSinceTrial();
+                this.packStatus.Text = (this.pack.Count == 0) ? "Select a car on the left, choose its donor, then Add Selected Car."
+                    : (this.packTrialFolder == null) ? "Run Trial Pack: every car is converted and checked; nothing is written to the game or to Xenia."
+                    : (changed.Count > 0) ? "Fixes changed since the trial (" + string.Join(", ", changed.ToArray()) + "): Trial Pack again applies them; Build DLC Package would use the trial as it is."
+                    : (content == null) ? "Set Xenia's folder, then Build DLC Package."
+                    : "Trial done. Build DLC Package writes it into Xenia (" + content + ").";
+            }
+            this.UpdateButtons();
+        }
+
+        // The pack cars whose fixes (as chosen now in their review) differ from those the last pack
+        // trial used. Opening a review counts too: it stores the suggested fixes.
+        private List<string> FixesChangedSinceTrial()
+        {
+            List<string> changed = new List<string>();
+            if (this.packTrialFixes == null)
+            {
+                return changed;
+            }
+            foreach (PackEntry entry in this.pack)
+            {
+                Dictionary<string, object> now;
+                Dictionary<string, object> then;
+                this.fixes.TryGetValue(entry.Car.MediaName, out now);
+                this.packTrialFixes.TryGetValue(entry.Car.MediaName, out then);
+                if (!SameFixes(now, then))
+                {
+                    changed.Add(entry.Car.Name);
+                }
+            }
+            return changed;
+        }
+
+        private static bool SameFixes(Dictionary<string, object> a, Dictionary<string, object> b)
+        {
+            int countA = (a == null) ? 0 : a.Count;
+            int countB = (b == null) ? 0 : b.Count;
+            if (countA != countB)
+            {
+                return false;
+            }
+            if (countA == 0)
+            {
+                return true;
+            }
+            foreach (KeyValuePair<string, object> pair in a)
+            {
+                object other;
+                if (!b.TryGetValue(pair.Key, out other) || Convert.ToString(other, CultureInfo.InvariantCulture) != Convert.ToString(pair.Value, CultureInfo.InvariantCulture))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // After the cars are loaded: the pack kept in the settings, when it was made from this source.
+        private void RestorePack()
+        {
+            this.pack.Clear();
+            if (string.Equals(AppSettings.Get("CarPort.PackSource", ""), this.sourceBox.Text.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (string saved in AppSettings.Get("CarPort.PackCars", "").Split(';'))
+                {
+                    string[] parts = saved.Split('|');
+                    if (parts.Length < 3)
+                    {
+                        continue;
+                    }
+                    foreach (Car car in this.horizonCars)
+                    {
+                        if (string.Equals(car.MediaName, parts[0], StringComparison.OrdinalIgnoreCase) && car.State == Status.New)
+                        {
+                            PackEntry entry = new PackEntry();
+                            entry.Car = car;
+                            entry.Donor = parts[1];
+                            entry.Arcade = parts[2] == "1";
+                            this.pack.Add(entry);
+                        }
+                    }
+                }
+            }
+            this.packTrialFolder = null;
+            this.RefreshPack();
+        }
+
+        private void AddToPack()
+        {
+            Car car = this.SelectedCar;
+            DonorChoice donor = this.donors.SelectedItem as DonorChoice;
+            if (car == null || donor == null || this.FindEntry(car.MediaName) != null)
+            {
+                return;
+            }
+            PackEntry entry = new PackEntry();
+            entry.Car = car;
+            entry.Donor = donor.Car.MediaName;
+            entry.Arcade = this.arcade.Checked;
+            this.pack.Add(entry);
+            this.PackChanged();
+        }
+
+        private void RemoveFromPack()
+        {
+            PackEntry entry = this.SelectedEntry;
+            if (entry != null)
+            {
+                this.pack.Remove(entry);
+                this.PackChanged();
+            }
+        }
+
+        // An empty pack with a new offer (the old package stays in Xenia until removed).
+        private void NewPack()
+        {
+            if (MessageBox.Show(this, "Start a new pack? The car list is emptied and the next build gets a new offer number.\n\nA package already built stays in Xenia (Remove From Xenia takes it away first).",
+                this.Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
+            {
+                return;
+            }
+            this.pack.Clear();
+            this.packOffer = 0;
+            AppSettings.Set("CarPort.PackOffer", "0");
+            this.PackChanged();
+        }
+
+        private void PackSelected()
+        {
+            PackEntry entry = this.SelectedEntry;
+            if (entry != null && entry.Issues != null)
+            {
+                this.ShowReview(entry.Car.MediaName, entry.Issues, entry.Applied);
+            }
+            this.UpdateButtons();
+        }
+
+        // Every car of the pack ported in turn into one trial folder (CarPort reads what the car before
+        // wrote there), with the fixes chosen in its review.
+        private void TrialPack()
+        {
+            string source = this.sourceBox.Text.Trim();
+            string target = this.targetBox.Text.Trim();
+            string trials = Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "CarPort");
+            // A pack trial holds a copy of UI\Textures.zip (436 MB): the earlier pack trials go.
+            if (Directory.Exists(trials))
+            {
+                foreach (string old in Directory.GetDirectories(trials, "Pack_*"))
+                {
+                    try
+                    {
+                        Directory.Delete(old, true);
+                    }
+                    catch (IOException)
+                    {
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                    }
+                }
+            }
+            string folder = Path.Combine(trials, "Pack_" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture));
+            Directory.CreateDirectory(folder);
+            List<PackEntry> entries = new List<PackEntry>(this.pack);
+            List<Dictionary<string, object>> chosen = new List<Dictionary<string, object>>();
+            Dictionary<string, Dictionary<string, object>> used = new Dictionary<string, Dictionary<string, object>>(StringComparer.OrdinalIgnoreCase);
+            foreach (PackEntry entry in entries)
+            {
+                Dictionary<string, object> fixes;
+                chosen.Add(this.fixes.TryGetValue(entry.Car.MediaName, out fixes) ? new Dictionary<string, object>(fixes) : null);
+                if (fixes != null)
+                {
+                    used[entry.Car.MediaName] = new Dictionary<string, object>(fixes);
+                }
+            }
+            this.packTrialFolder = null;
+            this.report.Text = string.Format("Pack trial: {0} cars -> {1}\r\n", entries.Count, folder);
+            this.packStatus.Text = "Trial running...";
+            this.Background(delegate
+            {
+                Stopwatch watch = Stopwatch.StartNew();
+                System.Text.StringBuilder text = new System.Text.StringBuilder();
+                List<CarPort> ports = new List<CarPort>();
+                Exception error = null;
+                PackEntry failed = null;
+                for (int i = 0; i < entries.Count && error == null; i++)
+                {
+                    CarPort port = new CarPort();
+                    port.SourceRoot = source;
+                    port.TargetRoot = target;
+                    port.OutputRoot = folder;
+                    port.MediaName = entries[i].Car.MediaName;
+                    port.DonorMediaName = entries[i].Donor;
+                    port.Arcade = entries[i].Arcade;
+                    if (chosen[i] != null)
+                    {
+                        port.Fixes = chosen[i];
+                    }
+                    text.AppendLine().AppendLine("=== " + entries[i].Car.Name + " (" + port.MediaName + "), donor " + port.DonorMediaName);
+                    try
+                    {
+                        port.Run();
+                    }
+                    catch (Exception ex)
+                    {
+                        error = ex;
+                        failed = entries[i];
+                    }
+                    text.Append(port.Report.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n"));
+                    ports.Add(port);
+                }
+                return delegate
+                {
+                    this.report.Text += text.ToString();
+                    int issues = 0;
+                    for (int i = 0; i < ports.Count; i++)
+                    {
+                        entries[i].Issues = ports[i].Issues;
+                        entries[i].Applied = ports[i].Fixes.Count;
+                        issues += ports[i].Issues.Count;
+                    }
+                    if (error != null)
+                    {
+                        this.report.Text += "\r\nFAILED (" + failed.Car.MediaName + "): " + error.Message + "\r\n";
+                        this.packStatus.Text = failed.Car.Name + ": the trial failed (see the report). Change its donor or take it out of the pack.";
+                        this.packTrialFolder = null;
+                    }
+                    else
+                    {
+                        this.report.Text += string.Format(CultureInfo.InvariantCulture, "\r\npack trial done in {0:0.0} s; files in {1}\r\n", watch.Elapsed.TotalSeconds, folder);
+                        this.packTrialFolder = folder;
+                        this.packTrialFixes = used;
+                        this.trialFolder = folder;
+                    }
+                    this.report.SelectionStart = this.report.TextLength;
+                    this.report.ScrollToCaret();
+                    this.RefreshPack();
+                    if (error == null)
+                    {
+                        this.packStatus.Text = (issues > 0)
+                            ? string.Format("Trial done: {0} things to review. Select a car in the pack to see them; a changed fix needs a new trial.", issues)
+                            : this.packStatus.Text;
+                    }
+                };
+            });
+        }
+
+        private static bool XeniaRunning()
+        {
+            foreach (string name in new string[] { "xenia_canary", "xenia" })
+            {
+                if (Process.GetProcessesByName(name).Length > 0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void BuildPack()
+        {
+            string content = this.XeniaContent();
+            string trial = this.packTrialFolder;
+            string target = this.targetBox.Text.Trim();
+            string name = this.packName.Text.Trim();
+            if (content == null || trial == null)
+            {
+                return;
+            }
+            List<string> changed = this.FixesChangedSinceTrial();
+            if (changed.Count > 0)
+            {
+                DialogResult answer = MessageBox.Show(this, "The fixes of " + string.Join(", ", changed.ToArray()) + " changed after the trial.\n\nYes: run Trial Pack again now to apply them (then build).\nNo: build the trial as it is.",
+                    this.Text, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                if (answer == DialogResult.Yes)
+                {
+                    this.TrialPack();
+                    return;
+                }
+                if (answer == DialogResult.Cancel)
+                {
+                    return;
+                }
+            }
+            if (XeniaRunning())
+            {
+                MessageBox.Show(this, "Close Xenia first: the game reads the DLC packages when it starts.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (this.packOffer == 0)
+            {
+                this.packOffer = DlcPackage.FreeOffer(target, content);
+                AppSettings.Set("CarPort.PackOffer", this.packOffer.ToString(CultureInfo.InvariantCulture));
+            }
+            int offer = this.packOffer;
+            if (Directory.Exists(DlcPackage.PackagePath(content, offer)) && MessageBox.Show(this, string.Format("The pack (offer {0}) is already in Xenia. Replace it with this build?", offer),
+                this.Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
+            {
+                return;
+            }
+            this.report.Text = string.Format("Building the DLC package \"{0}\" (offer {1}) into {2}\r\n", name, offer, content);
+            this.packStatus.Text = "Building...";
+            this.Background(delegate
+            {
+                System.Text.StringBuilder text = new System.Text.StringBuilder();
+                Exception error = null;
+                string package = null;
+                try
+                {
+                    DlcPackage.Remove(content, offer);
+                    // The target game is the base: in the DLC workflow its files stay untouched.
+                    package = DlcPackage.BuildFolder(target, target, trial, content, offer, name, text);
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                    try
+                    {
+                        DlcPackage.Remove(content, offer);
+                    }
+                    catch (IOException)
+                    {
+                    }
+                }
+                return delegate
+                {
+                    this.report.Text += text.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n");
+                    if (error != null)
+                    {
+                        this.report.Text += "\r\nFAILED: " + error.Message + "\r\n";
+                        this.packStatus.Text = "The build failed (see the report); nothing was left in Xenia.";
+                    }
+                    else
+                    {
+                        this.report.Text += "\r\nbuilt " + package + "\r\n";
+                        this.UpdatePackInfo();
+                        this.packStatus.Text = string.Format("\"{0}\" is in Xenia ({1} cars). Start FM4 from {2}: the cars are with their makes.", name, this.pack.Count, target);
+                    }
+                    this.report.SelectionStart = this.report.TextLength;
+                    this.report.ScrollToCaret();
+                };
+            });
+        }
+
+        private void RemovePack()
+        {
+            string content = this.XeniaContent();
+            if (content == null || this.packOffer == 0)
+            {
+                return;
+            }
+            if (XeniaRunning())
+            {
+                MessageBox.Show(this, "Close Xenia first.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (MessageBox.Show(this, string.Format("Remove the pack (offer {0}) from Xenia?\n\n{1}", this.packOffer, DlcPackage.PackagePath(content, this.packOffer)),
+                this.Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
+            {
+                return;
+            }
+            DlcPackage.Remove(content, this.packOffer);
+            this.UpdatePackInfo();
+            this.packStatus.Text = "The pack was removed from Xenia.";
+        }
+
+        #endregion
 
         #region Loading
 
@@ -376,6 +989,8 @@ namespace ForzaStudio
                         this.items.Add(item);
                     }
                     this.Filter();
+                    this.horizonCars = horizon;
+                    this.RestorePack();
                     int portable = 0;
                     foreach (Car car in horizon)
                     {
@@ -689,6 +1304,7 @@ namespace ForzaStudio
         // suggested one for a material).
         private void ShowReview(string mediaName, List<CarPort.Issue> issues, int applied)
         {
+            this.showingReview = true;
             this.reviewCar = mediaName;
             Dictionary<string, object> chosen;
             if (!this.fixes.TryGetValue(mediaName, out chosen))
@@ -719,9 +1335,10 @@ namespace ForzaStudio
                 }
                 cell.Value = selected;
             }
-            this.reviewTitle.Text = string.Format("Review: {0} things not regular for FM4{1}", issues.Count, (applied > 0) ? string.Format(" ({0} fixes chosen earlier were applied)", applied) : "");
+            this.reviewTitle.Text = string.Format("Review of {0}: {1} things not regular for FM4{2}", mediaName, issues.Count, (applied > 0) ? string.Format(" ({0} fixes chosen earlier were applied)", applied) : "");
             this.reviewPanel.Visible = issues.Count > 0 || applied > 0;
             this.StoreFixes();
+            this.showingReview = false;
         }
 
         // The fixes picked in the grid, kept for the car on review.

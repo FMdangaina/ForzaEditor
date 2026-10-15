@@ -29,7 +29,9 @@
         public string MediaName;        // the car, e.g. MCL_P1_13
         public string DonorMediaName;   // an FM4 car close to it, e.g. MCL_MP412C_11 (brakes, templates)
         public bool Arcade = true;      // Data_Car.IsArcade
-        public string OutputRoot;       // trial run: files written here (same layout) instead of TargetRoot
+        public string OutputRoot;       // trial run: files written here (same layout) instead of TargetRoot;
+                                        // a file already there (an earlier car of the same DLC pack) is
+                                        // read instead of the target's, so the cars of a pack chain
         public string BackupFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bak");
         public StringBuilder Report = new StringBuilder();
 
@@ -139,7 +141,7 @@
             string sourceDbPath = Path.Combine(Path.Combine(Path.Combine(this.SourceRoot, "Media"), "db"), "gamedb.slt");
             string targetDbPath = Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "db"), "gamedb.slt");
             this.source = SqliteDatabase.FromBytes(File.ReadAllBytes(sourceDbPath));
-            this.target = SqliteDatabase.FromBytes(File.ReadAllBytes(targetDbPath));
+            this.target = SqliteDatabase.FromBytes(File.ReadAllBytes(this.In(targetDbPath)));
             try
             {
                 this.carId = ToLong(this.source.Scalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", this.MediaName), "the source database has no car " + this.MediaName);
@@ -762,7 +764,7 @@
         {
             this.CopyRows("Data_Car", sourceColumns, targetColumns, "Id = " + this.carId);
             double pi = Convert.ToDouble(this.source.Scalar("SELECT PerformanceIndex FROM Data_Car WHERE Id = ?", this.carId), CultureInfo.InvariantCulture);
-            double fm4Pi = MapPerformanceIndex(PerformanceIndexPairs(this.source, this.target, this.carId, this.SourceRoot, this.TargetRoot), pi);
+            double fm4Pi = MapPerformanceIndex(PerformanceIndexPairs(this.source, this.target, this.carId, this.SourceRoot, this.TargetRoot, this.OutputRoot), pi);
             object classId = ClassFor(this.target, fm4Pi, this.carId);
             this.target.Execute("UPDATE Data_Car SET PerformanceIndex = ?, ClassID = ?, ContentId = 0, IsArcade = ?, IsPurchased = 1, IsInstalled = 1 WHERE Id = ?",
                 fm4Pi, (classId != null) ? Convert.ToInt64(classId) : 9L, this.Arcade ? 1L : 0L, this.carId);
@@ -772,6 +774,12 @@
         // (FH2 PI, FM4 PI) of the cars both games have (same MediaName), sorted; the car being
         // ported and the cars ported earlier (their FM4 PI came from this mapping) left out.
         public static List<double[]> PerformanceIndexPairs(SqliteDatabase source, SqliteDatabase target, long exclude, string sourceRoot, string targetRoot)
+        {
+            return PerformanceIndexPairs(source, target, exclude, sourceRoot, targetRoot, null);
+        }
+
+        // outputRoot: a trial folder whose cars (earlier cars of the same DLC pack) are ported ones too.
+        public static List<double[]> PerformanceIndexPairs(SqliteDatabase source, SqliteDatabase target, long exclude, string sourceRoot, string targetRoot, string outputRoot)
         {
             Dictionary<string, double> horizon = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
             foreach (object[] row in source.Query("SELECT MediaName, PerformanceIndex FROM Data_Car").Rows)
@@ -786,7 +794,7 @@
             {
                 double pi;
                 if (Convert.ToInt64(row[0]) != exclude && row[1] is string && row[2] != null && horizon.TryGetValue((string) row[1], out pi)
-                    && !IsPorted(sourceRoot, targetRoot, (string) row[1]))
+                    && !IsPorted(sourceRoot, targetRoot, (string) row[1]) && (outputRoot == null || !IsPorted(sourceRoot, outputRoot, (string) row[1])))
                 {
                     pairs.Add(new double[] { pi, Convert.ToDouble(row[2], CultureInfo.InvariantCulture) });
                 }
@@ -1686,7 +1694,7 @@
             string sourceBanks = Path.Combine(Path.Combine(Path.Combine(sourceAudio, "Engines"), "Soundbanks"), "LOD1");
             string targetBanks = Path.Combine(Path.Combine(Path.Combine(targetAudio, "Engines"), "soundbanks"), "lod1");
             string harmonicPath = Path.Combine(Path.Combine(targetAudio, "Engines"), "harmonictuning.zip");
-            ForzaZip harmonic = new ForzaZip(harmonicPath);
+            ForzaZip harmonic = new ForzaZip(this.In(harmonicPath));
             List<string> imported = new List<string>();
             List<string> checkedHarmonics = new List<string>();   // in FM4 with all their sound banks
             ForzaZip engineTuning = this.OpenChanged(Path.Combine(Path.Combine(targetAudio, "Engines"), "enginetuning.zip"));
@@ -1802,7 +1810,7 @@
                         }
                     }
                 }
-                string existing = FindFile(targetBanks, bank.Groups[1].Value);
+                string existing = FindFile(targetBanks, bank.Groups[1].Value) ?? this.InTrial(Path.Combine(targetBanks, bank.Groups[1].Value));
                 if (existing != null)
                 {
                     // FM4 has a bank of that name: identical bytes are the usual case (all 353 banks FH2
@@ -1889,7 +1897,7 @@
             ForzaZip archive;
             if (!this.changedZips.TryGetValue(path, out archive))
             {
-                archive = new ForzaZip(path);
+                archive = new ForzaZip(this.In(path));
                 this.changedZips[path] = archive;
             }
             return archive;
@@ -1917,6 +1925,24 @@
             }
             archive.Save(output);
             this.newZips.Add(path);
+        }
+
+        // Where a target file is read: its copy under OutputRoot when an earlier car of the same trial
+        // folder (a DLC pack) wrote one, else itself.
+        private string In(string path)
+        {
+            return this.InTrial(path) ?? path;
+        }
+
+        // The copy of a target file under OutputRoot, or null.
+        private string InTrial(string path)
+        {
+            if (this.OutputRoot == null)
+            {
+                return null;
+            }
+            string copy = Path.Combine(this.OutputRoot, this.Relative(path));
+            return File.Exists(copy) ? copy : null;
         }
 
         // Where a target file is written: itself, or its place under OutputRoot on a trial run.
@@ -2002,7 +2028,8 @@
 
         private void Backup(string path)
         {
-            if (!File.Exists(path))
+            // Trial files are not the game's (and a pack's second car would copy UI\Textures.zip again).
+            if (!File.Exists(path) || this.OutputRoot != null)
             {
                 return;
             }

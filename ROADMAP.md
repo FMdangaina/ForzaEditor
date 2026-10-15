@@ -12,8 +12,8 @@ Status: ✅ done · 🔧 in progress · ⏸ paused · ⬜ not started
 
 ## Now
 
-**Topic 3: ported cars as a DLC package.** The Xenia DLC folder works in game (3.5). Next: the port
-window (3.6).
+**Topic 3: ported cars as a DLC package.** The Xenia DLC folder works in game (3.5) and the port
+window builds packs of n cars (3.6). Next: in-game test of a multi-car pack (3.6b).
 
 ## Next (in order)
 
@@ -86,18 +86,24 @@ each other's names (still to be confirmed in game).
       (`DlcPackage.BuildFolder` from a trial run; Gallardo LP570-4 Superleggera (FH1), offer 91,
       folder `4D530910FF005B00`, installed in Xenia for the 3.5 test)
 - [x] 3.5 In-game test in Xenia with the base game untouched: Gallardo LP570-4 (FH1) as a DLC
-      works (garage, model, dash, sound, upgrades). Xenia needs two things:
-      `Headers\00000002\<package>.header` next to the folder (written by the build), and
-      `license_mask = -1` in `xenia-canary.config.toml`
-- [ ] 3.6 Port window, so nobody needs the test tools:
-      - choose n cars from the source game, pack name; offer number picked free automatically
-      - trial run that converts and fixes them all (CarPort chained: each car starts from the
-        previous one's output, so the pack's ids and string keys do not clash)
-      - "Build DLC package": straight into Xenia's content folder (setting), header included;
-        rebuilding an existing pack replaces it after a confirmation; "Remove pack"
-      - a reminder when Xenia's `license_mask` is 0
-      - "Install into game" stays as it is today
-- [ ] 3.6b In-game test of a pack with several cars
+      works (garage, model, dash, sound, upgrades). Xenia lists the folder only with
+      `Headers\00000002\<package>.header` next to it (written by the build). `license_mask` is not
+      needed: the test ran with 0
+- [x] 3.6 Port window, so nobody needs the test tools (right panel "DLC pack (Xenia)"):
+      - Add Selected Car / Remove / New Pack, pack name; the pack is kept in the settings; the
+        offer number is picked free (game DB and packages in Xenia) at the first build, then kept
+      - Trial Pack: every car in turn into one trial folder (CarPort reads what the car before
+        wrote there), each car's review shown when it is selected in the pack (its name in the
+        review title); fixes changed after the trial are named in the status, and Build asks
+        whether to run the trial again first; older pack trials (436 MB each) are deleted
+      - Build DLC Package straight into Xenia's content folder (its `content_root` honoured),
+        header included; replacing a built pack asks first; Remove Pack; Xenia must be closed
+      - "Install In FM4" stays as it is
+      - checked with the real window (tools\packform.exe): Gallardo + M600, 270 merge rows
+- [ ] 3.6b In-game test of a pack with several cars, built from the window
+- [x] 3.6c Documentation: `docs/DLC_PACKAGES.md` (use, format, code, test tools, credits)
+- [ ] 3.6d Several ForzaEditor packs at once: each pack's string tables built on top of the other
+      installed packs' (today only the highest priority pack shows its car names)
 - [ ] 3.7 STFS package file for a real Xbox 360 (Jew's writer ported to C#), tested by XTD or on
       the user's RGH consoles
 - [ ] 3.8 Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (later, the user's side)

@@ -7,8 +7,13 @@ Edits the game's zip archives directly: `.carbin` car models (OBJ export/import,
 part transplant and duplication), `.xds` textures (import, export, creation from
 images), livery masks and the gamedb, with the game's music and FH2 radio in the status bar.
 
+Ports cars from Forza Horizon and Forza Horizon 2 to FM4, either into the game's files or as a
+**DLC package** for Xenia that leaves the game untouched: see
+[docs/DLC_PACKAGES.md](docs/DLC_PACKAGES.md).
+
 Derived from Forza Studio 4.6 by Mike Davis, with an earlier edit by JYSB59.
-Maintained by FMdangaina.
+Maintained by FMdangaina. The DLC package format was worked out with help from Jew
+(@mr.abortion) and XTD (@xtd_ac) on Discord.
 
 ## License
 

@@ -90,11 +90,137 @@ namespace ForzaStudio
             WriteXml(Path.Combine(zips, "stringtables.xml"), "stringtables", lines.ToArray());
             // Xenia lists a content folder only with its header next to it (Headers\<type>\<name>.header);
             // without it the game's enumeration of type 00000002 comes back empty.
-            string headers = Path.Combine(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(content).TrimEnd('\\')), "Headers"), Path.GetFileName(Path.GetFullPath(content).TrimEnd('\\')));
-            Directory.CreateDirectory(headers);
-            File.WriteAllBytes(Path.Combine(headers, OfferId(offer) + ".header"), XeniaHeader(OfferId(offer), name));
+            string header = HeaderPath(content, offer);
+            Directory.CreateDirectory(Path.GetDirectoryName(header));
+            File.WriteAllBytes(header, XeniaHeader(OfferId(offer), name));
             report.AppendLine(string.Format(CultureInfo.InvariantCulture, "package {0}: offer {1} \"{2}\", strings priority {3}", package, offer, name, priority));
             return package;
+        }
+
+        // Xenia's folder of marketplace content for FM4 (content\0000000000000000\4D530910\00000002), from
+        // the emulator's folder: its config's content_root when set, else <emulator>\content.
+        public static string XeniaContent(string xenia)
+        {
+            string root = Path.Combine(xenia, "content");
+            string value = XeniaSetting(xenia, "content_root");
+            if (!string.IsNullOrEmpty(value))
+            {
+                root = Path.IsPathRooted(value) ? value : Path.Combine(xenia, value);
+            }
+            return Path.Combine(Path.Combine(Path.Combine(root, "0000000000000000"), TitleId), "00000002");
+        }
+
+        // The emulator's config file (xenia-canary.config.toml, or xenia.config.toml), or null.
+        public static string XeniaConfig(string xenia)
+        {
+            foreach (string name in new string[] { "xenia-canary.config.toml", "xenia.config.toml" })
+            {
+                string path = Path.Combine(xenia, name);
+                if (File.Exists(path))
+                {
+                    return path;
+                }
+            }
+            return null;
+        }
+
+        // A value of the config ("name = value  # comment"), without quotes; null when absent.
+        public static string XeniaSetting(string xenia, string name)
+        {
+            string config = XeniaConfig(xenia);
+            if (config == null)
+            {
+                return null;
+            }
+            foreach (string line in File.ReadAllLines(config))
+            {
+                string text = line.Trim();
+                if (!text.StartsWith(name + " ") && !text.StartsWith(name + "="))
+                {
+                    continue;
+                }
+                string value = text.Substring(text.IndexOf('=') + 1);
+                int comment = value.IndexOf('#');
+                if (comment >= 0)
+                {
+                    value = value.Substring(0, comment);
+                }
+                return value.Trim().Trim('"', '\'');
+            }
+            return null;
+        }
+
+        // The offers of the packages in a content folder (Media\<offer>.puboffer of every package).
+        public static List<int> InstalledOffers(string content)
+        {
+            List<int> offers = new List<int>();
+            if (!Directory.Exists(content))
+            {
+                return offers;
+            }
+            foreach (string package in Directory.GetDirectories(content))
+            {
+                string media = Path.Combine(package, "Media");
+                if (!Directory.Exists(media))
+                {
+                    continue;
+                }
+                foreach (string file in Directory.GetFiles(media, "*.puboffer"))
+                {
+                    int offer;
+                    if (int.TryParse(Path.GetFileNameWithoutExtension(file), NumberStyles.None, CultureInfo.InvariantCulture, out offer))
+                    {
+                        offers.Add(offer);
+                    }
+                }
+            }
+            return offers;
+        }
+
+        // An offer number neither the game nor an installed package uses, from 91 (official packs: up
+        // to the 40s).
+        public static int FreeOffer(string targetRoot, string content)
+        {
+            int offer = 90;
+            using (SqliteDatabase game = SqliteDatabase.FromBytes(File.ReadAllBytes(GameDb(targetRoot))))
+            {
+                object max = game.Scalar("SELECT max(PubOfferingID) FROM ContentOffers");
+                if (max != null)
+                {
+                    offer = Math.Max(offer, (int) Convert.ToInt64(max));
+                }
+            }
+            foreach (int installed in InstalledOffers(content))
+            {
+                offer = Math.Max(offer, installed);
+            }
+            return offer + 1;
+        }
+
+        // The package folder of an offer and its Xenia header.
+        public static string PackagePath(string content, int offer)
+        {
+            return Path.Combine(content, OfferId(offer));
+        }
+
+        public static string HeaderPath(string content, int offer)
+        {
+            string full = Path.GetFullPath(content).TrimEnd('\\');
+            return Path.Combine(Path.Combine(Path.Combine(Path.GetDirectoryName(full), "Headers"), Path.GetFileName(full)), OfferId(offer) + ".header");
+        }
+
+        public static void Remove(string content, int offer)
+        {
+            string package = PackagePath(content, offer);
+            if (Directory.Exists(package))
+            {
+                Directory.Delete(package, true);
+            }
+            string header = HeaderPath(content, offer);
+            if (File.Exists(header))
+            {
+                File.Delete(header);
+            }
         }
 
         // The header file Xenia keeps for an installed content folder, as it writes them itself
