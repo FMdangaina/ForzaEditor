@@ -50,3 +50,29 @@ ROADMAP item (or becomes one) and is removed from here.
 - If it does: find what picks TireA/B/C (compound, tire width, rim size?) in the DB
   (`List_Wheels`, `WheelLayouts`, `Combo_TireBrandCompound`) and compare the X5's rows with the
   X5M's.
+
+## 4. FH1/FH2 ports do not deform in a crash
+
+- Seen: 2026-10-17, in game (DEV). Cars ported from FH1 and FH2 keep their shape after a crash;
+  FM3 ports deform a lot, as FM4 cars do.
+- To note: which cars, and whether the port was made before or after commit 80f5104 (FM4 damage
+  values in `carattribs.xml` for soft source cars). Before 80f5104, FH cars kept the "soft" FH
+  preset (PartDropGlobalScalar 0.15, scrape off, low DamageScalars), which could explain part of
+  it.
+- Deformable flag: OK (user, 2026-10-17), the FH body parts have it after the port.
+- **Per-vertex damage words, TOY_SupraRZ_98 in all four games (2026-10-17, tool
+  `fm4dev\Deform\dmgcmp.exe`, outputs `fm3.txt`, `fh1.txt`, `fh2.txt`, `pairs_fh2.tsv`):**
+  - FM3 = FM4: 29655 of 31848 matched vertices (93%) have the same word.
+  - FH1 = FH2 (identical output), but **a different format from FM4**: 3 of 31098 matched
+    vertices have FM4's word. Deformable flags agree on every part.
+  - FH word: three signed fields 11:11:10 (x bits 0-10, y 11-21, z 22-31), a small model-space
+    vector (median length 43, max ~110), e.g. skirt `(-23, 0, 0)`, hood `(0, 32, 0)`.
+  - FM4 word, same split: a near-unit direction at full scale (x ±1023, z ±511, median length
+    614), e.g. the same skirt vertex `(1022, -23, 2)`. |FM4 y| follows |FH vector| (corr 0.81),
+    |FM4 z| follows |FH z| (0.82). Not decoded yet.
+  - Likely cause: FM4 reads FH's short vectors as its own format, so the deformation is about 20
+    times too small or in the wrong direction.
+- Next, one of:
+  - decode the FM4 word (pairs in `pairs_fh2.tsv`) and convert FH words in CarPort;
+  - or take each vertex's word from the nearest vertex of the same car in FM4/FM3 when it exists,
+    else from a similar FM4 car (as the OBJ import does, validated in game).
