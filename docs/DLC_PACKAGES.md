@@ -15,7 +15,7 @@ Status:
 
 ## Using it
 
-Tools > **Port Car From Forza Horizon…**, right panel **DLC pack (Xenia / Xbox 360)**.
+Tools > **Port Car From Another Forza…**, right panel **DLC pack (Xenia / Xbox 360)**.
 
 1. Set the two game folders at the top (FH or FH2, and FM4), then press **Load Cars**.
 2. For each car you want:

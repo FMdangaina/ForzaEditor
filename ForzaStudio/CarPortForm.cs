@@ -9,8 +9,8 @@ namespace ForzaStudio
     using System.Threading;
     using System.Windows.Forms;
 
-    // Tools > Port Car From Forza Horizon: pick the FH or FH2 folder (both write the same car files and
-    // database layout) and the FM4 one, a car and an FM4 donor, then a trial
+    // Tools > Port Car From Another Forza: pick the FH, FH2 or FM3 folder (FH and FH2 write the same car
+    // files and database layout; FM3 has its own conversion, see CarPort) and the FM4 one, a car and an FM4 donor, then a trial
     // run (files written to a temporary folder, the report shown) and the install (CarPort).
     // The car list says what each car would be in FM4: new, ported earlier (the install updates it),
     // already an FM4 car or with its id taken (both refused), or without files.
@@ -73,7 +73,7 @@ namespace ForzaStudio
 
         private List<Car> fm4Cars = new List<Car>();
         private string trialFolder;
-        private string sourceTag = "FH";    // FH or FH2, once the cars are loaded
+        private string sourceTag = "FH";    // FH, FH2 or FM3, once the cars are loaded
         private bool busy;
 
         private enum Status
@@ -116,7 +116,7 @@ namespace ForzaStudio
 
         public CarPortForm()
         {
-            this.Text = "Port Car From Forza Horizon";
+            this.Text = "Port Car From Another Forza";
             this.Size = new Size(1360, 900);
             this.MinimumSize = new Size(1100, 720);
             this.StartPosition = FormStartPosition.CenterParent;
@@ -157,7 +157,7 @@ namespace ForzaStudio
             folders.Dock = DockStyle.Top;
             folders.Height = 74;
             folders.Width = this.ClientSize.Width;
-            this.sourceBox = FolderRow(folders, "Forza Horizon (1 or 2):", 10, AppSettings.Get("CarPort.Source", ""));
+            this.sourceBox = FolderRow(folders, "Source (FH, FH2 or FM3):", 10, AppSettings.Get("CarPort.Source", ""));
             this.targetBox = FolderRow(folders, "Forza Motorsport 4:", 42, AppSettings.Get("CarPort.Target", ""));
             this.load = new Button();
             this.load.Text = "Load Cars";
@@ -1265,9 +1265,9 @@ namespace ForzaStudio
             string target = this.targetBox.Text.Trim();
             ForzaGame sourceGame = GameInfo.Detect(source);
             ForzaGame targetGame = GameInfo.Detect(target);
-            if ((sourceGame != ForzaGame.Horizon1 && sourceGame != ForzaGame.Horizon2) || targetGame != ForzaGame.Motorsport4)
+            if ((sourceGame != ForzaGame.Horizon1 && sourceGame != ForzaGame.Horizon2 && sourceGame != ForzaGame.Motorsport3) || targetGame != ForzaGame.Motorsport4)
             {
-                MessageBox.Show(this, string.Format("The first folder must hold Forza Horizon or Forza Horizon 2 and the second Forza Motorsport 4.\n\nFound: {0} and {1}.",
+                MessageBox.Show(this, string.Format("The first folder must hold Forza Horizon, Forza Horizon 2 or Forza Motorsport 3 and the second Forza Motorsport 4.\n\nFound: {0} and {1}.",
                     GameInfo.Name(sourceGame) ?? "no Forza game", GameInfo.Name(targetGame) ?? "no Forza game"), this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }

@@ -12,8 +12,8 @@ Status: ✅ done · 🔧 in progress · ⏸ paused · ⬜ not started
 
 ## Now
 
-_to decide._ Topic 3 (ported cars as a DLC package) is done: packs of n cars work in Xenia and on
-a real Xbox 360. Its open points (3.6d, 3.8) are listed there.
+**Topic 9, port step 3: FM3 → FM4 model conversion**, with the Supra RZ '98 (in both games) as the
+reference car. Started 2026-10-16. (Topic 3 is done; its open points 3.6d, 3.8, 3.9 are listed there.)
 
 ## Next (in order)
 
@@ -23,7 +23,7 @@ a real Xbox 360. Its open points (3.6d, 3.8) are listed there.
 
 ## 1. Car port: Forza Horizon 2 → FM4 ✅ working, open points
 
-Tools > Port Car From Forza Horizon… (`CarPort.cs`, `CarPortForm.cs`).
+Tools > Port Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`).
 
 - [x] Model, wheel and brake conversion (carbin type 5/3/1 → FM4)
 - [x] Database rows, reference closure, `Data_CarBody`, key clashes
@@ -58,7 +58,7 @@ Same tool and code as topic 1; its open points are listed there.
 - [x] In-game check of the cars without gr2 files after the animation fix (both R8s OK)
 - [x] FH1 cars without a harmonic tuning use the donor's (fixed rule, see topic 1)
 
-## 3. Ported cars as a DLC package ✅ done, open points
+## 3. Ported cars as a DLC package ✅ done, open points (3.9 very important)
 
 Today the port writes into the game's own files (vanilla `gamedb.slt`, string tables, zips, manifest).
 The goal is a separate DLC package instead, so the base game stays untouched and the package can be
@@ -128,6 +128,14 @@ each other's names (still to be confirmed in game).
       Port window: Build for Xbox 360... writes `<folder>\Content\0000000000000000\4D530910\00000002\<id>`
 - [x] 3.7b In-game test on the console of a package built by the window (works)
 - [ ] 3.8 Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (later, the user's side)
+- [ ] 3.9 **Very important.** Port FH → FM4 from a DLC package file, not only from the extracted FH1
+      game folder: the source is a FH1/FH2 car DLC (STFS file `CON`/`LIVE`, or its extracted folder,
+      e.g. XTD's FH1 package `4D5309C900000823`). The port reads the base game for the shared data
+      and the package on top of it: its `<offer>000_merge.slt` (car rows the base DB lacks), its
+      string tables, its car/wheel zips (`cars_pri_X.zip`, `wheels_pri_X.zip`, loose `_pri_N`
+      folders) and its audio. The DLC cars appear in the port window's car list like the base ones
+      and go into an FM4 pack as in 3.6.
+      Material: `fm4dev\Forza Horizon 1 DLC` (20 official FH1 STFS packages, 0.8–370 MB)
 
 ## 4. Materials FM4 renders black ✅ done
 
@@ -165,12 +173,34 @@ each other's names (still to be confirmed in game).
 - [ ] Keep UV seams, normals, materials and damage data
 - [ ] Hook into the OBJ work folder import
 
-## 9. Forza Motorsport 3 ⏸ study done, port not started
+## 9. Forza Motorsport 3 🔧 port step 3 in progress
 
 - [x] FM3 detected; FM3 carbins read byte-identical (study only)
-- [ ] Remaining FM3 vertex bytes; FM3 DigitalGauges format
+- [x] Remaining FM3 vertex bytes, decoded on the Supra against FM4's same vertices (2026-10-16):
+      car 40 B = pos 4 half, uv0 2 half, uv1 2 half, normal 11:11:10, tail 4 S16 (FM4's 24..31),
+      FM4 damage word, an unused word, frame Z axis 11:11:10; brakes 16 B = pos, uv0, normal;
+      wheels 44 B = pos, uv0, normal, tail, then constants
+- [x] Supra FM3 vs FM4 compared file by file (tools `supracmp`, `vcorr`, `structcmp` in `fm4dev\FM3_FM4`)
+- [ ] FM3 DigitalGauges format
 - [ ] Port step 3: FM3 → FM4 model conversion
-- [ ] Port step 4: database column diff for FM3-only cars
+  - [x] 3a Converter in `CarbinModel` (cars, brakes, wheels); check against the FM4 Supra on the
+        parts with the same vertices. `CarbinModelMotorsport3.cs`, checked offline 2026-10-16: all
+        3930 FM3 carbins convert and read back as FM4; on the Supra's 1:1 parts position ~0.1 mm,
+        normals and frames 0.04°, damage words identical; existing FM4/FH round trips unchanged
+        (allcheck). Approximated: brake caliper frames and brake tails (FM3 has none), wheel header
+        floats 8 and 10
+  - [x] 3b Converted FM3 Supra in game (DEV), in place of the FM4 one's carbins: it loads (user,
+        2026-10-16)
+  - [x] 3c FM3 as a source of the port tool (Tools > Port Car From Another Forza…): brake names
+        `_lod0`, carattribs/shadersettings/textures as for FH, wheel zips. Trial run passes on all 74
+        FM3-only cars of DVD1 (2026-10-16); the FH port gives the same files as before
+  - [ ] 3d In-game test of an FM3-only car ported with the tool
+  - [ ] 3e Porsche make (MakeID 39, 28 cars): FM4 has no List_CarMake row, string or logo for it
+  - [ ] 3f FM3 digital dashes (46 cars, Media\DigitalGauges): decode and convert to FM4 Anark
+  - [ ] 3g Engine sound banks of the same name differ between FM3 and FM4 (FM4's kept): listen in game
+- [x] Port step 4: database column diff for FM3-only cars (2026-10-16): no id clashes (cars, engines),
+      wheel 751 remapped, FM4-only columns filled as FM4 did on the 315 shared cars, torque curves
+      converted (zero-throttle curve -> ZeroThrottleTorqueScale)
 
 ## 10. Music ✅ done
 

@@ -22,6 +22,14 @@ namespace ForzaStudio
     //   thumbnail the car's thumbnail added to the UI textures;
     //   manifest  every rewritten or new zip listed in zipmanifest.xml.
     // Every file the port replaces is backed up first (<exe>\bak\<stamp>_bak_<name>).
+    //
+    // Forza Motorsport 3 as the source (2026-10-16, measured on the 315 cars FM3 and FM4 share, same ids):
+    //   model     CarbinModel.ConvertMotorsport3ToMotorsport4 (header, sections, 40/16/44-byte vertices);
+    //             brakes are caliperlf.carbin in FM3, caliperlf_lod0.carbin in FM4;
+    //   database  FM4 kept FM3's ids (cars, engines, wheels but two); what FM3 lacks is filled as FM4 did
+    //             on the shared cars (FillMotorsport4Columns), torque curves get FM4 ids and the
+    //             zero-throttle curve becomes ZeroThrottleTorqueScale (ConvertMotorsport3TorqueCurves);
+    //   dash      FM3's digital gauges (Media\DigitalGauges, format not decoded) are not converted.
     public class CarPort
     {
         public string SourceRoot;       // FH2 (or FH) game folder (with media)
@@ -68,7 +76,8 @@ namespace ForzaStudio
 
         private string stamp;
         private bool skipThumbnail;     // Textures.zip locked by the running emulator
-        private string game = "FH2";    // the source game in the report: FH (Forza Horizon writes the same files) or FH2
+        private string game = "FH2";    // the source game in the report: FH (Forza Horizon writes the same files), FH2 or FM3
+        private bool motorsport3;       // the source is Forza Motorsport 3
         private SqliteDatabase source;
         private SqliteDatabase target;
         private long carId;
@@ -133,11 +142,12 @@ namespace ForzaStudio
         {
             this.stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture);
             ForzaGame sourceGame = GameInfo.Detect(this.SourceRoot);
-            if ((sourceGame != ForzaGame.Horizon2 && sourceGame != ForzaGame.Horizon1) || GameInfo.Detect(this.TargetRoot) != ForzaGame.Motorsport4)
+            if ((sourceGame != ForzaGame.Horizon2 && sourceGame != ForzaGame.Horizon1 && sourceGame != ForzaGame.Motorsport3) || GameInfo.Detect(this.TargetRoot) != ForzaGame.Motorsport4)
             {
-                throw new InvalidOperationException("The source must be a Forza Horizon or Forza Horizon 2 folder and the target a Forza Motorsport 4 folder.");
+                throw new InvalidOperationException("The source must be a Forza Horizon, Forza Horizon 2 or Forza Motorsport 3 folder and the target a Forza Motorsport 4 folder.");
             }
             this.game = GameInfo.Tag(sourceGame);
+            this.motorsport3 = sourceGame == ForzaGame.Motorsport3;
             string sourceDbPath = Path.Combine(Path.Combine(Path.Combine(this.SourceRoot, "Media"), "db"), "gamedb.slt");
             string targetDbPath = Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "db"), "gamedb.slt");
             this.source = SqliteDatabase.FromBytes(File.ReadAllBytes(sourceDbPath));
@@ -295,8 +305,19 @@ namespace ForzaStudio
                 drivetrains.Add(drivetrain);
             }
             this.CopyById(from, to, "DrivetrainID", drivetrains, "List_UpgradeDrivetrain");
-            this.CopyTorqueCurves(from, to, engines);
+            if (this.motorsport3)
+            {
+                this.ConvertMotorsport3TorqueCurves(to, engines);
+            }
+            else
+            {
+                this.CopyTorqueCurves(from, to, engines);
+            }
             object wheel = this.source.Scalar("SELECT StockWheelID FROM Data_Car WHERE Id = ?", this.carId);
+            if (wheel != null && this.motorsport3 && this.Motorsport3Wheel(from, to, Convert.ToInt64(wheel)))
+            {
+                wheel = null;   // mapped to another FM4 id (Motorsport3Wheel)
+            }
             if (wheel != null)
             {
                 this.wheelIds.Add(Convert.ToInt64(wheel));
@@ -313,8 +334,208 @@ namespace ForzaStudio
                 }
             }
             this.CopyReferences(from, to);
+            if (this.motorsport3)
+            {
+                this.FillMotorsport4Columns(from, to);
+            }
             this.StockTires();
             this.ReviewDatabase();
+        }
+
+        // FM3 torque curves -> FM4 (measured on the 941 camshaft rows of the engines both games have):
+        // FM4 kept FM3's full-throttle curve (same values) under an id EngineID * 1000 + n, and FM3's
+        // zero-throttle curve became the full curve's ZeroThrottleTorqueScale (= that curve's
+        // TorqueScale). FM3 curves have up to 150 points, FM4's columns go to v185 (0 past the count).
+        private void ConvertMotorsport3TorqueCurves(Dictionary<string, List<string>> to, List<long> engines)
+        {
+            List<string> columns = to["List_TorqueCurve"];
+            int converted = 0;
+            foreach (long engine in engines)
+            {
+                foreach (object[] cam in this.source.Query("SELECT Id, Level, TorqueCurveFullThrottleID, TorqueCurveZeroThrottleID FROM List_UpgradeEngineCamshaft WHERE EngineID = ?", engine).Rows)
+                {
+                    if (cam[2] == null)
+                    {
+                        continue;
+                    }
+                    SqliteDatabase.Result full = this.source.Query("SELECT * FROM List_TorqueCurve WHERE TorqueCurveID = ?", Convert.ToInt64(cam[2]));
+                    if (full.Rows.Count == 0)
+                    {
+                        continue;
+                    }
+                    object zeroScale = (cam[3] != null) ? this.source.Scalar("SELECT TorqueScale FROM List_TorqueCurve WHERE TorqueCurveID = ?", Convert.ToInt64(cam[3])) : null;
+                    long id = (engine * 1000) + Convert.ToInt64(cam[1]);
+                    while (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_TorqueCurve WHERE TorqueCurveID = ?", id)) > 0)
+                    {
+                        id++;
+                    }
+                    object[] values = new object[columns.Count];
+                    for (int c = 0; c < columns.Count; c++)
+                    {
+                        int at = Array.FindIndex(full.Columns, delegate(string s) { return string.Equals(s, columns[c], StringComparison.OrdinalIgnoreCase); });
+                        if (string.Equals(columns[c], "TorqueCurveID", StringComparison.OrdinalIgnoreCase))
+                        {
+                            values[c] = id;
+                        }
+                        else if (string.Equals(columns[c], "ZeroThrottleTorqueScale", StringComparison.OrdinalIgnoreCase))
+                        {
+                            values[c] = (zeroScale != null) ? zeroScale : (object) 0.0;
+                        }
+                        else
+                        {
+                            values[c] = (at >= 0) ? full.Rows[0][at] : (object) 0.0;
+                        }
+                    }
+                    List<string> quoted = columns.ConvertAll<string>(delegate(string s) { return SqliteDatabase.Quote(s); });
+                    this.target.Execute("INSERT INTO List_TorqueCurve (" + string.Join(",", quoted.ToArray()) + ") VALUES (" + string.Join(",", columns.ConvertAll<string>(delegate(string s) { return "?"; }).ToArray()) + ")", values);
+                    this.target.Execute("UPDATE List_UpgradeEngineCamshaft SET TorqueCurveFullThrottleID = ? WHERE Id = ?", id, Convert.ToInt64(cam[0]));
+                    this.writtenRows.Add(new string[] { "List_TorqueCurve", "TorqueCurveID = " + id });
+                    converted++;
+                }
+            }
+            if (converted > 0)
+            {
+                this.Line("  List_TorqueCurve: {0} FM3 curves under FM4 ids (zero-throttle curve -> ZeroThrottleTorqueScale)", converted);
+            }
+        }
+
+        // FM3 wheel ids are FM4's but for two (707 renamed, 751 HOL_2_CommodoreVE_09 is FM4's
+        // HOL_88_CommodoreVE_11): an id FM4 gives another wheel is mapped to the FM4 id of the same wheel
+        // name, or to a new id. True when the wheel was handled here.
+        private bool Motorsport3Wheel(Dictionary<string, List<string>> from, Dictionary<string, List<string>> to, long id)
+        {
+            string media = this.source.Scalar("SELECT MediaName FROM List_Wheels WHERE ID = ?", id) as string;
+            string present = this.target.Scalar("SELECT MediaName FROM List_Wheels WHERE ID = ?", id) as string;
+            if (media == null || present == null || string.Equals(media, present, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            object same = this.target.Scalar("SELECT ID FROM List_Wheels WHERE MediaName = ? COLLATE NOCASE", media);
+            long newId;
+            if (same != null)
+            {
+                newId = Convert.ToInt64(same);
+                this.originalWheels.Add(newId);
+            }
+            else
+            {
+                newId = Convert.ToInt64(this.target.Scalar("SELECT max(ID) + 1 FROM List_Wheels"));
+                this.CopyRowAs("List_Wheels", from["List_Wheels"], to["List_Wheels"], "ID", id, newId);
+                if (to.ContainsKey("WheelExceptions") && from.ContainsKey("WheelExceptions"))
+                {
+                    this.CopyRowAs("WheelExceptions", from["WheelExceptions"], to["WheelExceptions"], "WheelID", id, newId);
+                }
+            }
+            this.wheelIds.Add(newId);
+            this.target.Execute("UPDATE Data_Car SET StockWheelID = ? WHERE Id = ?", newId, this.carId);
+            this.Line("  wheel {0}: FM3 id {1} is {2} in FM4, {3} id {4} used", media, id, present, (same != null) ? "its FM4" : "new", newId);
+            return true;
+        }
+
+        // The source rows whose 'key' is oldId, written with newId (common columns).
+        private void CopyRowAs(string table, List<string> sourceColumns, List<string> targetColumns, string key, long oldId, long newId)
+        {
+            List<string> columns = targetColumns.FindAll(delegate(string c) { return Has(sourceColumns, c); });
+            List<string> quoted = columns.ConvertAll<string>(delegate(string c) { return SqliteDatabase.Quote(c); });
+            int keyAt = columns.FindIndex(delegate(string c) { return string.Equals(c, key, StringComparison.OrdinalIgnoreCase); });
+            foreach (object[] row in this.source.Query("SELECT " + string.Join(",", quoted.ToArray()) + " FROM " + SqliteDatabase.Quote(table) + " WHERE " + SqliteDatabase.Quote(key) + " = ?", oldId).Rows)
+            {
+                row[keyAt] = newId;
+                this.target.Execute("INSERT INTO " + SqliteDatabase.Quote(table) + " (" + string.Join(",", quoted.ToArray()) + ") VALUES (" + string.Join(",", columns.ConvertAll<string>(delegate(string c) { return "?"; }).ToArray()) + ")", row);
+            }
+            this.writtenRows.Add(new string[] { table, SqliteDatabase.Quote(key) + " = " + newId });
+        }
+
+        // The FM4 columns FM3 lacks, in every row the port wrote, filled as FM4 filled them on the 315
+        // cars both games have: stock ride heights = the car body's (452 of 503 FM4 cars),
+        // CarPartPositions.ID = car * 1000 + PartId, chassis lateral and longitudinal friction = FM3's one
+        // friction scale (194 rows equal, FM4 retuned the others); every other column the value FM4 uses
+        // most (IsDrivable 1, MaxStretchDeltaFromRideHeight 0.5 on all 2686 rows, CVTShiftTime -1,
+        // camera offsets 0...). Torque curves are written whole by ConvertMotorsport3TorqueCurves.
+        private void FillMotorsport4Columns(Dictionary<string, List<string>> from, Dictionary<string, List<string>> to)
+        {
+            Dictionary<string, List<string>> wheres = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (string[] written in this.writtenRows)
+            {
+                List<string> list;
+                if (!wheres.TryGetValue(written[0], out list))
+                {
+                    list = new List<string>();
+                    wheres[written[0]] = list;
+                }
+                if (!list.Contains(written[1]))
+                {
+                    list.Add(written[1]);
+                }
+            }
+            List<string> filled = new List<string>();
+            foreach (KeyValuePair<string, List<string>> table in wheres)
+            {
+                List<string> sourceColumns;
+                List<string> targetColumns;
+                if (table.Key == "List_TorqueCurve" || !from.TryGetValue(table.Key, out sourceColumns) || !to.TryGetValue(table.Key, out targetColumns))
+                {
+                    continue;
+                }
+                string where = "(" + string.Join(") OR (", table.Value.ToArray()) + ")";
+                foreach (string column in targetColumns)
+                {
+                    if (Has(sourceColumns, column))
+                    {
+                        continue;
+                    }
+                    string t = SqliteDatabase.Quote(table.Key);
+                    string c = SqliteDatabase.Quote(column);
+                    string missing = " WHERE (" + where + ") AND " + c + " IS NULL";
+                    if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM " + t + missing)) == 0)
+                    {
+                        continue;
+                    }
+                    if (table.Key == "Data_Car" && (column == "FrontStockRideHeight" || column == "RearStockRideHeight"))
+                    {
+                        string body = "Model" + column;
+                        this.target.Execute("UPDATE Data_Car SET " + c + " = round((SELECT " + SqliteDatabase.Quote(body) + " FROM Data_CarBody WHERE Data_CarBody.Id = Data_Car.Id * 1000), 4)" + missing);
+                        filled.Add(table.Key + "." + column + " = the car body's");
+                    }
+                    else if (table.Key == "CarPartPositions" && column == "ID")
+                    {
+                        this.target.Execute("UPDATE CarPartPositions SET ID = Ordinal * 1000 + PartId" + missing);
+                        filled.Add("CarPartPositions.ID = car * 1000 + PartId");
+                    }
+                    else if (table.Key == "List_UpgradeCarBodyChassisStiffness" && column.EndsWith("FrictionScale", StringComparison.Ordinal) && Has(sourceColumns, column.StartsWith("Front", StringComparison.Ordinal) ? "FrontFrictionScale" : "RearFrictionScale"))
+                    {
+                        string old = column.StartsWith("Front", StringComparison.Ordinal) ? "FrontFrictionScale" : "RearFrictionScale";
+                        foreach (object[] row in this.target.Query("SELECT Id FROM " + t + missing).Rows)
+                        {
+                            this.target.Execute("UPDATE " + t + " SET " + c + " = ? WHERE Id = ?", this.source.Scalar("SELECT " + old + " FROM " + t + " WHERE Id = ?", row[0]), row[0]);
+                        }
+                        filled.Add(table.Key + "." + column + " = FM3 " + old);
+                    }
+                    else
+                    {
+                        object common = this.target.Scalar("SELECT " + c + " FROM " + t + " WHERE " + c + " IS NOT NULL GROUP BY " + c + " ORDER BY count(*) DESC LIMIT 1");
+                        if (common == null)
+                        {
+                            continue;
+                        }
+                        this.target.Execute("UPDATE " + t + " SET " + c + " = ?" + missing, common);
+                        filled.Add(table.Key + "." + column + " = " + Convert.ToString(common, CultureInfo.InvariantCulture));
+                    }
+                }
+            }
+            if (filled.Count > 0)
+            {
+                this.Line("  FM4 columns FM3 lacks: {0}", string.Join("; ", filled.ToArray()));
+            }
+            object gauge = null;
+            if (from.ContainsKey("Data_Car") && Has(from["Data_Car"], "GaugeID"))
+            {
+                gauge = this.source.Scalar("SELECT GaugeID FROM Data_Car WHERE Id = ?", this.carId);
+            }
+            if (gauge != null && Convert.ToInt64(gauge) > 0)
+            {
+                this.Line("  WARNING digital dash: FM3 gauge {0} (Media\\DigitalGauges) is not converted, the car goes without it", gauge);
+            }
         }
 
         // Every value of the rows the port wrote that points at a row FM4 lacks: fixed when the user
@@ -893,6 +1114,11 @@ namespace ForzaStudio
                 ForzaZip b = new ForzaZip(to);
                 ForzaZip.Entry x = a.Find("buildnumber.txt");
                 ForzaZip.Entry y = b.Find("buildnumber.txt");
+                if (x == null)
+                {
+                    // FM3 car zips have no build number: a ported car carries the port's log.
+                    return b.Find("port_log.txt") != null;
+                }
                 return x != null && y != null && Encoding.ASCII.GetString(a.Read(x)).Trim() == Encoding.ASCII.GetString(b.Read(y)).Trim();
             }
             catch (Exception)
@@ -1112,6 +1338,10 @@ namespace ForzaStudio
                 }
                 if (name.EndsWith(".carbin"))
                 {
+                    if ((name.Contains("_caliper") || name.Contains("_rotor")) && !name.EndsWith("_lod0.carbin") && this.motorsport3)
+                    {
+                        name = name.Substring(0, name.Length - ".carbin".Length) + "_lod0.carbin";   // FM3 caliperlf.carbin
+                    }
                     if (name.Contains("_caliper") || name.Contains("_rotor"))
                     {
                         // Brakes (type 1): converted; the donor's, renamed, if that fails.
@@ -1209,12 +1439,12 @@ namespace ForzaStudio
         // Brake materials are not in ShaderSettings.xml; a name no FM4 brake uses is reported.
         public static byte[] ConvertBrake(byte[] data, string name, StringBuilder report)
         {
-            CarbinModel model = new CarbinModel(data);
+            CarbinModel model = new CarbinModel(data, true);
             if (model.Type != 1)
             {
                 throw new NotSupportedException("not a type 1 carbin (type " + model.Type + ")");
             }
-            model.ConvertHorizonToMotorsport4();
+            ConvertToMotorsport4(model);
             List<string> unknown = new List<string>();
             foreach (CarbinModel.Section section in model.Sections)
             {
@@ -1231,6 +1461,20 @@ namespace ForzaStudio
                 report.AppendFormat("  brake {0}: material {1} is not used by any FM4 brake", name, string.Join(", ", unknown.ToArray())).AppendLine();
             }
             return model.ToBytes();
+        }
+
+        // A source model (read with the FM3 opt-in) in FM4 form: FM3 through its own converter, FH (and
+        // FM4 files, which it leaves as they are) through ConvertHorizonToMotorsport4.
+        private static void ConvertToMotorsport4(CarbinModel model)
+        {
+            if (model.IsMotorsport3)
+            {
+                model.ConvertMotorsport3ToMotorsport4();
+            }
+            else
+            {
+                model.ConvertHorizonToMotorsport4();
+            }
         }
 
         // Every material name of the 2664 FM4 type-1 carbins (car zips and Media\brakes).
@@ -1354,8 +1598,8 @@ namespace ForzaStudio
         // collects the materials no FM4 car uses that are left, with the sections they sit on.
         public static byte[] ConvertModel(byte[] data, bool lod0, StringBuilder report, List<string> materials, Dictionary<string, string> renames, Dictionary<string, List<string>> unknownOut)
         {
-            CarbinModel model = new CarbinModel(data);
-            model.ConvertHorizonToMotorsport4();
+            CarbinModel model = new CarbinModel(data, true);
+            ConvertToMotorsport4(model);
             Dictionary<string, int> renamed = new Dictionary<string, int>();
             List<string[]> remove = new List<string[]>();
             foreach (CarbinModel.Section section in model.Sections)
@@ -1655,6 +1899,10 @@ namespace ForzaStudio
             foreach (long id in this.wheelIds)
             {
                 string media = this.source.Scalar("SELECT MediaName FROM List_Wheels WHERE ID = ?", id) as string;
+                if (media == null && this.motorsport3)
+                {
+                    media = this.target.Scalar("SELECT MediaName FROM List_Wheels WHERE ID = ?", id) as string;   // a new id (Motorsport3Wheel)
+                }
                 string sourcePath = GamePaths.FindMedia(this.SourceRoot, "wheels", media);
                 string donorPath = (donorWheelMedia != null) ? GamePaths.FindMedia(this.TargetRoot, "wheels", donorWheelMedia) : null;
                 if (sourcePath == null || donorPath == null)
@@ -1678,8 +1926,8 @@ namespace ForzaStudio
                     byte[] data = from.Read(entry);
                     if (name.EndsWith(".carbin"))
                     {
-                        CarbinModel model = new CarbinModel(data);
-                        model.ConvertHorizonToMotorsport4();
+                        CarbinModel model = new CarbinModel(data, true);
+                        ConvertToMotorsport4(model);
                         data = model.ToBytes();
                     }
                     wheel.Add(name, data);

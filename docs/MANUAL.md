@@ -354,10 +354,10 @@ the dash to the view. **Outlines** shows the element borders.
 
 This view is **read-only** for now.
 
-## 11. Porting cars from Forza Horizon to FM4
+## 11. Porting cars from Forza Horizon or Forza Motorsport 3 to FM4
 
-**Tools > Port Car From Forza Horizon...** converts a Forza Horizon 1 or Forza Horizon 2 car into
-FM4. A port includes:
+**Tools > Port Car From Another Forza...** converts a Forza Horizon 1, Forza Horizon 2 or Forza
+Motorsport 3 car into FM4. A port includes:
 
 - the model, wheels and brakes;
 - textures and dash;
@@ -366,9 +366,12 @@ FM4. A port includes:
 - the engine sound;
 - the thumbnail.
 
+From Forza Motorsport 3, the digital dash is not converted yet: a car with a digital dash goes
+without it. The Porsches need a make FM4 lacks: the review asks for one.
+
 ### Setting up
 
-1. Set the **Forza Horizon (1 or 2)** folder and the **Forza Motorsport 4** folder: the folders
+1. Set the **source** folder (FH, FH2 or FM3) and the **Forza Motorsport 4** folder: the folders
    with `default.xex` and `Media`. Press **Load Cars**.
 2. The list shows every car with its PI and class in both games.
    - **Only cars FM4 lacks** hides the cars FM4 already has.
