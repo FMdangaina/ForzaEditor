@@ -1,8 +1,8 @@
 1. rimuovere console modding, levo una dipendenza da una dll che non serve
 2. portare a net framework recente
-3. vedere di capire come cambiare il renderer
+3. vedere di capire come cambiare il renderer sogno
 4. migliorare carbin viewer, magari cercando di capire quali sono veramente i materiali da usare.
-4.5 studiare i materiali del gioco. Capire se sono hardcoded o se sono file .shader da qualche parte.
+4.5 studiare i materiali del gioco. Capire se sono hardcoded o se sono file .shader da qualche parte.capire shader con morph per ruote, indagare sul morph in generale. sembra un flag che viaggia insieme a shader e flag is stock
 5. editor camera su base fov del gioco e viewport
 6. andare a creare un tab/pulsante delle impostazioni
 7. tool di conversione farlo a mo di MDI
