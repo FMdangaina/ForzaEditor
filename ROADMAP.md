@@ -12,8 +12,8 @@ Status: ✅ done · 🔧 in progress · ⏸ paused · ⬜ not started
 
 ## Now
 
-**Topic 9, port step 3: FM3 → FM4 model conversion**, with the Supra RZ '98 (in both games) as the
-reference car. Started 2026-10-16. (Topic 3 is done; its open points 3.6d, 3.8, 3.9 are listed there.)
+**Topic 16: car cameras** (hood, thumbnail, bumper and chase), started 2026-10-17. (Topic 9's
+model conversion works in game; its open points 3f and 3g are listed there.)
 
 ## Next (in order)
 
@@ -218,8 +218,8 @@ each other's names (still to be confirmed in game).
   - [x] 3c FM3 as a source of the port tool (Tools > Port Car From Another Forza…): brake names
         `_lod0`, carattribs/shadersettings/textures as for FH, wheel zips. Trial run passes on all 74
         FM3-only cars of DVD1 (2026-10-16); the FH port gives the same files as before
-  - [ ] 3d In-game test of an FM3-only car ported with the tool. First car: BMW_X5_09 (user,
-        2026-10-16), two problems:
+  - [x] 3d In-game test of an FM3-only car ported with the tool (closed by the user 2026-10-17:
+        X5 and Boxster work). First car: BMW_X5_09 (user, 2026-10-16), two problems:
     - [x] 3d.1 (closed 2026-10-16) Textures and shaders too bright: look into the textures; compare the Supra's .xds
           files in FM3 and FM4 (xds only: FM4 re-exported them, same size and format, other pixels;
           header word +0x1C differs, 0x...02 in FM3 vs 0x...FE in FM4).
@@ -325,6 +325,28 @@ Background and Jew's notes: `docs/todo_research.md`, C1.
 - [ ] 15.1 Format documentation in `docs/` (carbin, xds, Anark, gamedb, DLC...)
 - [ ] 15.2 Discord feedback: reports become items in the right topic
 - [ ] 15.3 README update (FM3/FH1, port tool)
+
+## 16. Car cameras 🔧
+
+Race cameras and thumbnail camera of a car, shown and editable in the model view (the cockpit camera
+is done: `CarCamera.cs`, COCKPIT CAMERA panel, ROADMAP 9 3d.2). Found 2026-10-17 on the clean FM4 DB:
+
+- Hood: `CameraOverrides.CamHoodHeightOffset` / `CamHoodZOffset` set on 501 of 503 cars, pitch always
+  0, FOV 66 (`CameraSettings.ini`). Despite the names they look like car-space positions: height ≈
+  steering wheel point y + 0.19 (sd 4.5 cm), Z ≈ steering wheel z.
+- Bumper and chase (follow low/high): per-car offsets in `CameraOverrides`, 0 on all cars but one;
+  globals in `Media\Camera\CameraSettings.ini`. The base position is computed by the game's code
+  (probably from the car's size), not stored in the files.
+- Thumbnails: `Media\ThumbnailCamSettings.xml`, two default cameras (288×160 and 608×288: position,
+  facing, FOV, roll) and 24 per-car ones (`ordinal` = car Id). The car's place in that scene is not
+  known yet.
+
+- [ ] 16.1 Hood camera: panel (show, edit, View From Camera, save), then an in-game check (move the
+      hood Z on a DEV car)
+- [ ] 16.2 Thumbnail camera: car placement calibrated against the game's own thumbnails; panel
+      preview, edit, per-car camera
+- [ ] 16.3 Bumper and chase cameras: offsets editable; base position calibrated with in-game
+      screenshots (2-3 per camera) of a DEV car
 
 ## Later
 
