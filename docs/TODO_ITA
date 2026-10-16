@@ -1,0 +1,10 @@
+1. rimuovere console modding, levo una dipendenza da una dll che non serve
+2. portare a net framework recente
+3. vedere di capire come cambiare il renderer
+4. migliorare carbin viewer
+5. editor camera su base fov del gioco e viewport
+6. andare a creare un tab/pulsante delle impostazioni
+7. tool di conversione farlo a mo di MDI
+8a. Prendere in mano modello fh1/2 traffico 
+8b. Prendere in mano modello FM2
+8c. fix creazione ruote manuali @delete.diskord
