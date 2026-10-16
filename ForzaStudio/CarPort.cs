@@ -6,6 +6,7 @@ namespace ForzaStudio
     using System.IO;
     using System.Text;
     using System.Text.RegularExpressions;
+    using System.Xml;
 
     // Brings a car from Forza Horizon 2 into Forza Motorsport 4, as a new car (measured on the cars
     // both games have; see the notes on each step):
@@ -92,6 +93,8 @@ namespace ForzaStudio
         private ForzaZip carZip;        // the converted car, saved last with port_log.txt in it
         private string carZipPath;
         private readonly Dictionary<string, string> newFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // loose target file -> source file
+        private readonly List<string> donorContent = new List<string>();   // what the car took from the donor (DonorReport)
+        private readonly List<string> donorFormat = new List<string>();    // donor files used only as a layout model
 
         // FH2 materials FM4 has no shader for -> FM4 materials (null: the subsection goes).
         private static readonly Dictionary<string, string> MaterialMap = BuildMaterialMap();
@@ -176,6 +179,7 @@ namespace ForzaStudio
                 this.BuildWheelZips();
                 this.PortSound();
                 this.PortThumbnail();
+                this.DonorReport();
 
                 // Write everything: backups first, then files, then the manifest.
                 this.Write(targetDbPath, this.target.ToBytes());
@@ -1347,6 +1351,8 @@ namespace ForzaStudio
             ForzaZip from = new ForzaZip(sourcePath);
             ForzaZip donor = new ForzaZip(donorPath);
             ForzaZip car = ForzaZip.CreateLike(donor);
+            this.donorFormat.Add("car zip: entry headers (zip versions, extra field, compression) of " + Path.GetFileName(donorPath));
+            this.donorFormat.Add("zipmanifest.xml: the car zip's line modelled on the donor's");
             string prefix = this.MediaName.ToLowerInvariant();
             string donorPrefix = this.DonorMediaName.ToLowerInvariant();
             int models = 0;
@@ -1415,6 +1421,7 @@ namespace ForzaStudio
                                 continue;
                             }
                             data = donor.Read(brake);
+                            this.donorContent.Add("brake " + name + ": the donor's model " + brake.Name + " (conversion failed: " + ex.Message + ")");
                         }
                     }
                     else
@@ -1425,7 +1432,12 @@ namespace ForzaStudio
                 }
                 else if (name == "carattribs.xml")
                 {
-                    data = ConvertCarAttributes(Encoding.UTF8.GetString(data), Encoding.UTF8.GetString(donor.Read(donor.Find("carattribs.xml"))), animations, this.Report);
+                    List<string> kept = new List<string>();
+                    data = ConvertCarAttributes(Encoding.UTF8.GetString(data), Encoding.UTF8.GetString(donor.Read(donor.Find("carattribs.xml"))), animations, this.Report, kept);
+                    foreach (string element in kept)
+                    {
+                        this.donorContent.Add("carattribs.xml " + element);
+                    }
                 }
                 else if (name == "shadersettings.xml")
                 {
@@ -1446,6 +1458,7 @@ namespace ForzaStudio
             if (version != null && car.Find("versiondata.xml") == null)
             {
                 car.Add("versiondata.xml", donor.Read(version));
+                this.donorContent.Add("car zip versiondata.xml: the donor's (" + this.game + " has none)");
             }
             string path = Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "cars"), this.MediaName + ".zip");
             // Saved with the other files at the end, with the report as port_log.txt.
@@ -1805,7 +1818,63 @@ namespace ForzaStudio
 
         // FM4 CarAttribs version 17: the donor's file with the car's own gauges, driver placement,
         // part drops and animations (FH2 version 21 writes <animation Version="2" ... inrace="1"/>,
-        // FM4 <Animation ... inrace="true" />; FH2 repeats each one per LOD).
+        // FM4 <Animation ... inrace="true" />; FH2 repeats each one per LOD). donorKept (may be null)
+        // gets the donor's elements that stay and differ from the car's own (DonorElements).
+        public static byte[] ConvertCarAttributes(string fh2, string fm4Donor, bool animations, StringBuilder report, List<string> donorKept)
+        {
+            byte[] converted = ConvertCarAttributes(fh2, fm4Donor, animations, report);
+            if (donorKept != null)
+            {
+                string text = Encoding.UTF8.GetString(converted);
+                donorKept.AddRange(DonorElements(text, fh2));
+                if (!fh2.Contains("<PartDropValues>") && text.Contains("<PartDropValues>"))
+                {
+                    donorKept.Add("Damage PartDropValues: the donor's (the car's file has none)");
+                }
+            }
+            return converted;
+        }
+
+        // The top-level elements of the converted CarAttribs (but Animations, always the car's own or
+        // none, and Damage and CarDebris, the car's or FM4's standard, ConvertDamage) that the car's
+        // own file lacks or has with other values: what stays the donor's. Gauges the car has count as
+        // its own (their repeated tick marks are cut). Compared as parsed XML, so only whitespace is
+        // ignored: "0.0" against "0.000000" counts as different.
+        private static List<string> DonorElements(string converted, string source)
+        {
+            List<string> kept = new List<string>();
+            XmlDocument result = new XmlDocument();
+            XmlDocument own = new XmlDocument();
+            try
+            {
+                result.LoadXml(converted.Trim());
+                own.LoadXml(source.Trim());
+            }
+            catch (XmlException ex)
+            {
+                kept.Add("compared not: " + ex.Message + " (the donor's file is the base, only gauges, driver, part drops and animations are the car's)");
+                return kept;
+            }
+            foreach (XmlNode node in result.DocumentElement.ChildNodes)
+            {
+                XmlElement element = node as XmlElement;
+                if (element == null || element.Name == "Animations" || element.Name == "Damage" || element.Name == "CarDebris")
+                {
+                    continue;
+                }
+                XmlElement mine = own.DocumentElement[element.Name];
+                if (mine == null)
+                {
+                    kept.Add(element.Name + ": the donor's (the car's file has none)");
+                }
+                else if (element.Name != "Gauges" && mine.OuterXml != element.OuterXml)
+                {
+                    kept.Add(element.Name + ": the donor's (the car's differs)");
+                }
+            }
+            return kept;
+        }
+
         public static byte[] ConvertCarAttributes(string fh2, string fm4Donor, bool animations, StringBuilder report)
         {
             fh2 = Regex.Replace(fh2, "<(\\w+) NumTicks=\"\\d+\">(.*?)</\\1>", delegate(Match gauge)
@@ -1852,6 +1921,7 @@ namespace ForzaStudio
                     result = result.Substring(0, to.Index) + from.Value + result.Substring(to.Index + to.Length);
                 }
             }
+            result = ConvertDamage(result, fh2, report);
             Match target = Regex.Match(result, "[ \t]*<Animations>.*?</Animations>\r?\n?", RegexOptions.Singleline);
             if (!animations)
             {
@@ -1887,6 +1957,183 @@ namespace ForzaStudio
                 result = result.Substring(0, target.Index) + list.ToString() + result.Substring(target.Index + target.Length);
             }
             return Encoding.UTF8.GetBytes(result);
+        }
+
+        // Damage tuning (2026-10-17, CarAttribs of all FM4/FH2/FH1/FM3 cars read, fm4dev\DonorLog\dmg_*.tsv).
+        // FM4's standard, on 247 of 315 cars: DamageScalars at 5/35/98 (speed, m/s by the 98 top: 353
+        // km/h) giving damage 0.5/1.5/2.5, PartDropGlobalScalar 1, DamageScrape from 0.01 to 0.3 with
+        // ScrapeDamage 0.08, CarDebris with its four piece kinds. FH1 and FH2 have a soft preset no FM4
+        // car uses on ~138 cars each (the P1): damage 1.0 only at 200 m/s, PartDropGlobalScalar 0.15,
+        // scrape from 500 (off), CarDebris empty: the car stays whole after a crash at 200 km/h. The
+        // car's own values are kept, each part that is softer than FM4's goes to FM4's standard:
+        //   scalars   damage at 200 km/h (55.6 m/s, linear between the points) under 1.7; the common
+        //             FM4 curves give 1.83 and 1.71, FH's soft one 0.30, the 60/120/180 one 0.2, the
+        //             zeroed blocks (uninitialised, 18 FM4 and 37 FM3 cars) 0;
+        //   value     the Damage multiplier outside 1..10 (zeroed blocks have 1.7e29);
+        //   drops     PartDropGlobalScalar under 1 (every FM4 car with a real block has 1);
+        //   scrape    starting over 0.3 or ScrapeDamage under 0.08, or missing;
+        //   debris    CarDebris empty or missing.
+        // The car's PartDropValues stay (the donor's only when the car has none).
+        private const double DamageSpeed = 200 / 3.6;
+        private const double MinimumDamage = 1.7;
+        private static readonly double[][] StandardScalars = { new double[] { 5, 0.3, 0.5 }, new double[] { 35, 1.3, 1.5 }, new double[] { 98, 3.2, 2.5 } };
+        private const string StandardScrape = "<DamageScrape ScrapeMinSpeed=\"0.010000\" ScrapeMaxSpeed=\"0.300000\" ScrapeRadius=\"1.300000\" ScrapeDamage=\"0.080000\" DamageBias=\"0.750000\" ScrapeBias=\"0.700000\" GlassDamageCausingBreak=\"0.005000\" />";
+        private static readonly string[] StandardDebris = { "Mechanical", "Fiber", "Frame", "Crumb" };
+
+        private static string ConvertDamage(string result, string source, StringBuilder report)
+        {
+            string newline = result.Contains("\r\n") ? "\r\n" : "\n";
+            List<string> notes = new List<string>();
+
+            // CarDebris
+            Match sourceDebris = Regex.Match(source, "<CarDebris\\s*/>|<CarDebris>.*?</CarDebris>", RegexOptions.Singleline);
+            Match debris = Regex.Match(result, "([ \\t]*)(<CarDebris\\s*/>|<CarDebris>.*?</CarDebris>)", RegexOptions.Singleline);
+            if (debris.Success)
+            {
+                string indent = debris.Groups[1].Value;
+                string text;
+                if (sourceDebris.Success && Regex.IsMatch(sourceDebris.Value, "<\\w+\\b[^>]*MaxDropCount"))
+                {
+                    text = sourceDebris.Value;
+                }
+                else
+                {
+                    StringBuilder pieces = new StringBuilder("<CarDebris>" + newline);
+                    foreach (string piece in StandardDebris)
+                    {
+                        pieces.Append(indent + "  <" + piece + " MaxDropCount_DamageCosmetic=\"1000\" MaxDropCount_DamageLimited=\"1000\" MaxDropCount_DamageFull=\"1000\" MinDropForce=\"1.000000\" MaxDropForce=\"100.000000\" Area=\"\" />" + newline);
+                    }
+                    text = pieces.Append(indent + "</CarDebris>").ToString();
+                    notes.Add("debris FM4 standard (the car's " + (sourceDebris.Success ? "is empty" : "file has none") + ")");
+                }
+                result = result.Substring(0, debris.Groups[2].Index) + text + result.Substring(debris.Groups[2].Index + debris.Groups[2].Length);
+            }
+
+            // Damage
+            Match sourceDamage = Regex.Match(source, "<Damage\\b[^>]*?(/>|>.*?</Damage>)", RegexOptions.Singleline);
+            Match damage = Regex.Match(result, "([ \\t]*)(<Damage\\b[^>]*?(/>|>.*?</Damage>))", RegexOptions.Singleline);
+            string own = sourceDamage.Success ? sourceDamage.Value : "";
+            string ownTag = Regex.Match(own, "^<Damage\\b[^>]*>").Value;
+
+            double value = Number(Attribute(ownTag, "value"));
+            string valueText = (value >= 1 && value <= 10) ? Attribute(ownTag, "value") : "1.000000";
+            if (valueText != Attribute(ownTag, "value"))
+            {
+                notes.Add("multiplier 1 (the car's " + (Attribute(ownTag, "value") ?? "none") + ")");
+            }
+
+            List<double[]> points = new List<double[]>();
+            List<string> scalarLines = new List<string>();
+            foreach (Match scalar in Regex.Matches(own, "<DamageScalars\\b[^>]*/>"))
+            {
+                points.Add(new double[] { Number(Attribute(scalar.Value, "speed")), Number(Attribute(scalar.Value, "radius")), Number(Attribute(scalar.Value, "damage")) });
+                scalarLines.Add(scalar.Value);
+            }
+            double at = DamageAt(points, DamageSpeed);
+            if (!(at >= MinimumDamage))
+            {
+                scalarLines.Clear();
+                foreach (double[] point in StandardScalars)
+                {
+                    scalarLines.Add(string.Format(CultureInfo.InvariantCulture, "<DamageScalars speed=\"{0:0.000000}\" radius=\"{1:0.000000}\" damage=\"{2:0.000000}\" />", point[0], point[1], point[2]));
+                }
+                notes.Add(string.Format(CultureInfo.InvariantCulture, "scalars FM4 standard (the car's: {0} at 200 km/h, under {1})", (points.Count > 0) ? at.ToString("0.00", CultureInfo.InvariantCulture) : "none", MinimumDamage));
+            }
+
+            Match drops = Regex.Match(damage.Success ? damage.Value : "", "<PartDropValues>.*?</PartDropValues>", RegexOptions.Singleline);
+            if (!drops.Success)
+            {
+                drops = Regex.Match(own, "<PartDropValues>.*?</PartDropValues>", RegexOptions.Singleline);
+            }
+
+            Match global = Regex.Match(own, "<PartDropGlobalScalar\\b[^>]*/>");
+            string globalLine = global.Value;
+            if (!(Number(Attribute(global.Value, "value")) >= 1 && Number(Attribute(global.Value, "value")) <= 10))
+            {
+                globalLine = "<PartDropGlobalScalar value=\"1.000000\" />";
+                notes.Add("part drop scale 1 (the car's " + (Attribute(global.Value, "value") ?? "none") + ")");
+            }
+
+            Match scrape = Regex.Match(own, "<DamageScrape\\b[^>]*/>");
+            string scrapeLine = scrape.Value;
+            double scrapeFrom = Number(Attribute(scrape.Value, "ScrapeMinSpeed"));
+            double scrapeDamage = Number(Attribute(scrape.Value, "ScrapeDamage"));
+            double scrapeRadius = Number(Attribute(scrape.Value, "ScrapeRadius"));
+            if (!(scrapeFrom >= 0 && scrapeFrom <= 0.3 && scrapeDamage >= 0.08 && scrapeRadius > 0 && scrapeRadius <= 10))
+            {
+                scrapeLine = StandardScrape;
+                notes.Add(scrape.Success ? string.Format(CultureInfo.InvariantCulture, "scrape FM4 standard (the car's from {0}, damage {1})", Attribute(scrape.Value, "ScrapeMinSpeed"), Attribute(scrape.Value, "ScrapeDamage")) : "scrape FM4 standard (the car's file has none)");
+            }
+
+            string at0 = damage.Success ? damage.Groups[1].Value : "  ";
+            string inner = at0 + "  ";
+            StringBuilder block = new StringBuilder("<Damage Version=\"3\" value=\"" + valueText + "\">" + newline);
+            foreach (string line in scalarLines)
+            {
+                block.Append(inner + line + newline);
+            }
+            if (drops.Success)
+            {
+                block.Append(inner + drops.Value + newline);
+            }
+            block.Append(inner + globalLine + newline);
+            block.Append(inner + scrapeLine + newline);
+            block.Append(at0 + "</Damage>");
+            if (damage.Success)
+            {
+                result = result.Substring(0, damage.Groups[2].Index) + block.ToString() + result.Substring(damage.Groups[2].Index + damage.Groups[2].Length);
+            }
+            else
+            {
+                Match before = Regex.Match(result, "[ \\t]*<Tires\\b|</CarAttributes>");
+                if (before.Success)
+                {
+                    result = result.Substring(0, before.Index) + at0 + block.ToString() + newline + result.Substring(before.Index);
+                }
+            }
+
+            if (report != null)
+            {
+                report.AppendLine("  carattribs damage: " + ((notes.Count == 0) ? "the car's own" : "the car's, but " + string.Join("; ", notes.ToArray())));
+            }
+            return result;
+        }
+
+        // Damage at a speed on the DamageScalars curve: linear between the points, the end values past them.
+        private static double DamageAt(List<double[]> points, double speed)
+        {
+            if (points.Count == 0)
+            {
+                return 0;
+            }
+            List<double[]> sorted = new List<double[]>(points);
+            sorted.Sort(delegate(double[] a, double[] b) { return a[0].CompareTo(b[0]); });
+            if (speed <= sorted[0][0])
+            {
+                return sorted[0][2];
+            }
+            for (int i = 1; i < sorted.Count; i++)
+            {
+                if (speed <= sorted[i][0])
+                {
+                    double[] a = sorted[i - 1];
+                    double[] b = sorted[i];
+                    return (b[0] > a[0]) ? a[2] + (b[2] - a[2]) * (speed - a[0]) / (b[0] - a[0]) : b[2];
+                }
+            }
+            return sorted[sorted.Count - 1][2];
+        }
+
+        private static string Attribute(string element, string name)
+        {
+            Match match = Regex.Match(element ?? "", "\\b" + Regex.Escape(name) + "=\"([^\"]*)\"");
+            return match.Success ? match.Groups[1].Value : null;
+        }
+
+        private static double Number(string text)
+        {
+            double number;
+            return (text != null && double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out number)) ? number : double.NaN;
         }
 
         // FM4 ShaderSettings.xml: only the materials the converted models use (FH2-only ones under
@@ -2024,7 +2271,9 @@ namespace ForzaStudio
                 if (version != null && wheel.Find("versiondata.xml") == null)
                 {
                     wheel.Add("versiondata.xml", donor.Read(version));
+                    this.donorContent.Add("wheel " + media + " versiondata.xml: the donor wheel's (" + this.game + " has none)");
                 }
+                this.donorFormat.Add("wheel " + media + " zip: entry headers and zipmanifest.xml line of the donor wheel " + donorWheelMedia);
                 this.SaveNew(wheel, path);
                 this.Line("wheel zip: {0} ({1} entries)", this.Relative(path), wheel.Entries.Count);
             }
@@ -2091,6 +2340,7 @@ namespace ForzaStudio
                         continue;
                     }
                     data = engineTuning.Read(fallback);
+                    this.donorContent.Add(string.Format("engine sound {0}: the donor's tuning {1}_ET.xml ({2} lacks {3})", media, donorEngine, this.game, (missing.Count > 0) ? string.Join(", ", missing.ToArray()) : "its tuning"));
                     this.Line("engine sound {0}: the donor's ({1}; " + this.game + " lacks {2})", media, donorEngine, (missing.Count > 0) ? string.Join(", ", missing.ToArray()) : "the " + this.game + " tuning");
                     // The donor's tunings are FM4's, but their banks may be missing from this FM4 too: they
                     // come from the source game like the car's own.
@@ -2239,6 +2489,7 @@ namespace ForzaStudio
             ForzaZip textures = this.OpenChanged(like.ZipPath);
             string name = like.EntryName.Substring(0, like.EntryName.LastIndexOf('/') + 1) + Path.GetFileName(thumbnail.Replace('\\', '/').Replace('/', Path.DirectorySeparatorChar));
             this.Put(textures, name, GamePaths.Read(from));
+            this.donorFormat.Add("thumbnail: put in the folder of the donor's (" + like.EntryName.Substring(0, like.EntryName.LastIndexOf('/') + 1) + ")");
             this.Line("thumbnail: {0} in {1}", name, this.Relative(like.ZipPath));
         }
 
@@ -2419,6 +2670,25 @@ namespace ForzaStudio
                 }
             }
             this.Line("zipmanifest.xml: {0} lines updated, {1} added", this.changedZips.Count, this.newZips.Count);
+        }
+
+        // What the car took from the donor, at the end of the report: content (files or values the
+        // car uses as its own) apart from donor files used only as a layout model.
+        private void DonorReport()
+        {
+            this.Line("");
+            this.Line("donor {0}, used for:", this.DonorMediaName);
+            this.Line("  content{0}", (this.donorContent.Count == 0) ? ": nothing" : "");
+            foreach (string use in this.donorContent)
+            {
+                this.Line("    " + use.Replace("{", "{{").Replace("}", "}}"));
+            }
+            this.Line("  layout only{0}", (this.donorFormat.Count == 0) ? ": nothing" : "");
+            foreach (string use in this.donorFormat)
+            {
+                this.Line("    " + use.Replace("{", "{{").Replace("}", "}}"));
+            }
+            this.Line("");
         }
 
         private string DonorWheel()
