@@ -340,6 +340,7 @@ namespace ForzaStudio
                 this.FillMotorsport4Columns(from, to);
             }
             this.StockTires();
+            this.DragTires();
             this.ReviewDatabase();
         }
 
@@ -707,6 +708,27 @@ namespace ForzaStudio
                     (this.carId * 1000) + row[0], this.carId, row[1], row[2], row[3], row[4]);
             }
             this.Line("  tyres: " + this.game + " stock compound {0} on a road car -> FM4's 6 MaxPerformance stock, 7/8/9 as upgrades", stock);
+        }
+
+        // FM4 sells drag tyres (9 DragTire) to 502 of its 503 cars, always the same row: level 4, price
+        // 10000, no manufacturer. FM3 has no compound 9, and FH1/FH2 have it but give it to no car, so
+        // every ported car gets that row (the next free level if 4 is taken).
+        private void DragTires()
+        {
+            if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_UpgradeTireCompound WHERE Ordinal = ?", this.carId)) == 0
+                || Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_UpgradeTireCompound WHERE Ordinal = ? AND TireCompoundID = 9", this.carId)) > 0)
+            {
+                return;
+            }
+            long level = Math.Max(4, Convert.ToInt64(this.target.Scalar("SELECT max(Level) FROM List_UpgradeTireCompound WHERE Ordinal = ?", this.carId)) + 1);
+            long id = (this.carId * 1000) + level;
+            while (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_UpgradeTireCompound WHERE Id = ?", id)) > 0)
+            {
+                id++;
+            }
+            this.target.Execute("INSERT INTO List_UpgradeTireCompound (Id, Ordinal, Level, IsStock, TireCompoundID, ManufacturerID, Price, MassDiff, DragScale, WindInstabilityScale) VALUES (?, ?, ?, 0, 9, 0, 10000, 0, 1, 1)",
+                id, this.carId, level);
+            this.Line("  tyres: no drag tyres in " + this.game + " -> FM4's 9 DragTire added as upgrade level {0}", level);
         }
 
         // Every "...ID" value in the rows of the car (and of its engine and drivetrain) that names
