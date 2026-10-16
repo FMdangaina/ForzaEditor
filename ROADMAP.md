@@ -163,8 +163,8 @@ each other's names (still to be confirmed in game).
 - [x] Port report lists materials no FM4 car uses
 - [x] Model view marks them in red, with Rename Material…
 - [x] User test of the rename in the editor (works)
-- [x] Decision: no fixed FH → FM4 table; the user fixes the red nodes in the carbin editor
-      (they can also go into the data review step, topic 1)
+- [x] Decision for now: no fixed FH → FM4 table; the user fixes the red nodes in the carbin editor
+      (they can also go into the data review step, topic 1). Automatic mapping: see Later
 
 ## 5. Digital dash (Anark) editor 🔧
 
@@ -276,6 +276,9 @@ Background and Jew's notes: `docs/todo_research.md`, C1.
 ## Later
 
 - FM2 model writer (FM2 is out of scope for now)
+- Materials FM4 renders black (topic 4): automatic FH → FM4 material mapping instead of the manual fix.
+  @BlackBirdOsaka (Discord) is converting cars and writing down the materials they replace: useful
+  as a starting point for the mapping
 - .gr2 animation editor
 - Cars built from scratch (a full wizard, also as a DLC package)
 - New renderer in place of XNA (a dream; almost impossible for now)
