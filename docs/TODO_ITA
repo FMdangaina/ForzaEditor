@@ -2,10 +2,13 @@
 2. portare a net framework recente
 3. vedere di capire come cambiare il renderer sogno
 4. migliorare carbin viewer, magari cercando di capire quali sono veramente i materiali da usare.
-4.5 studiare i materiali del gioco. Capire se sono hardcoded o se sono file .shader da qualche parte.capire shader con morph per ruote, indagare sul morph in generale @Jew dice
-   
+4.a studiare i materiali del gioco. Capire se sono hardcoded o se sono file .shader da qualche parte
+4.a.1 cspire se possibile usare shader fm in viewer per sntrprima real time adpetto.
+4.b capire shader con morph per ruote, indagare sul morph in generale @Jew dice
+it's dependant on the wheel having a morph target in its package. 
+sembra un flag che viaggia insieme a shader e flag is stock.
+4.b.1controllare morph target cerchio bmw e30 non scala mentre s60 scala.
 
-it's dependant on the wheel having a morph target in its package. sembra un flag che viaggia insieme a shader e flag is stock
 5. editor camera su base fov del gioco e viewport
 6. andare a creare un tab/pulsante delle impostazioni
 7. tool di conversione farlo a mo di MDI
