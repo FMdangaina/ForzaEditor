@@ -162,6 +162,7 @@
     <Compile Include="ForzaStudio\TgaImage.cs" />
     <Compile Include="ForzaStudio\CarbinFile.cs" />
     <Compile Include="ForzaStudio\CarbinModel.cs" />
+    <Compile Include="ForzaStudio\CarbinModelMotorsport3.cs" />
     <Compile Include="ForzaStudio\CarModelFolder.cs" />
     <Compile Include="ForzaStudio\GameInfo.cs" />
     <Compile Include="ForzaStudio\GameMusic.cs" />

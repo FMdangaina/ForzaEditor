@@ -19,7 +19,7 @@ namespace ForzaStudio
     // Header draw lists: after the fixed header come 2 x N lists (N = LOD count of the file, two
     // render passes). Each entry is (section index << 16) | subsection index, so every structural
     // change must renumber them.
-    public class CarbinModel
+    public partial class CarbinModel
     {
         // FH buffers and tables carry a word after count and stride: 0 when empty, else 1 followed by a
         // 32-bit ID that is unique in the car and is no checksum of the data (see BufferId).
