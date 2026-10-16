@@ -170,6 +170,7 @@ namespace ForzaStudio
                 this.PortDatabase();
                 this.PortStrings();
                 this.BuildCarZip();
+                this.SteeringWheelPosition();
                 this.ReviewMaterials();
                 this.BuildWheelZips();
                 this.PortSound();
@@ -340,6 +341,39 @@ namespace ForzaStudio
             }
             this.StockTires();
             this.ReviewDatabase();
+        }
+
+        // FM4's cockpit camera hangs on CarPartPositions PartId 9, the steering wheel point, which FM3
+        // lacks (PartId 0-8): without it the cockpit view sits at 0,0,0. It is rebuilt from the
+        // converted cockpit model's steering_wheel section (CarCamera).
+        private void SteeringWheelPosition()
+        {
+            if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM CarPartPositions WHERE Ordinal = ? AND PartId = ?", this.carId, CarCamera.SteeringWheelPart)) > 0)
+            {
+                return;
+            }
+            Microsoft.Xna.Framework.Vector3 point = Microsoft.Xna.Framework.Vector3.Zero;
+            bool found = false;
+            foreach (ForzaZip.Entry entry in this.carZip.Entries)
+            {
+                if (entry.Name.EndsWith("_cockpit.carbin", StringComparison.OrdinalIgnoreCase))
+                {
+                    found = CarCamera.SteeringWheelFromModel(new CarbinModel(this.carZip.Read(entry)), out point);
+                    break;
+                }
+            }
+            if (!found)
+            {
+                this.Line("  WARNING cockpit camera: no steering_wheel part in the cockpit model and no CarPartPositions part 9; the cockpit view will sit at 0,0,0 (set it in the model view, Cockpit Camera)");
+                return;
+            }
+            CarCamera camera = CarCamera.Load(this.target, this.MediaName);
+            camera.SteeringWheel = point;
+            this.Line("  cockpit camera: no CarPartPositions part 9 (steering wheel point), rebuilt from the cockpit model's steering_wheel");
+            foreach (string line in camera.Save(this.target))
+            {
+                this.Line("    {0}", line);
+            }
         }
 
         // FM3 torque curves -> FM4 (measured on the 941 camshaft rows of the engines both games have):

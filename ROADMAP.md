@@ -223,7 +223,21 @@ each other's names (still to be confirmed in game).
     - [ ] 3d.1 Textures and shaders too bright: look into the textures; compare the Supra's .xds
           files in FM3 and FM4 (xds only: FM4 re-exported them, same size and format, other pixels;
           header word +0x1C differs, 0x...02 in FM3 vs 0x...FE in FM4)
-    - [ ] 3d.2 Interior camera settings wrong: the cockpit view sits at position 0,0,0
+    - [ ] 3d.2 Interior camera settings wrong: the cockpit view sits at position 0,0,0 (exterior
+          cameras fine). **Cause found 2026-10-16:** FM4's cockpit camera hangs on
+          `CarPartPositions` PartId 9, the steering wheel point; FM4/FH1/FH2 have it for every car,
+          FM3 only PartId 0-8, so the X5 (the only DEV car without it) has its wheel at 0,0,0.
+          Rule (313 FM4 cars, 1.2 cm median): x = cockpit `steering_wheel` origin x, y = origin y +
+          half height / 3, z = -(origin z + mean vertex z) + 0.02 (DB Z forward, model Z backward).
+          Eye = part 9 + `CameraOverrides.CamCockpitOffset` (0,0,0 = CameraSettings.ini default
+          0, 0.21, -0.51; replace, not add: inferred). `CarCamera.cs`; the port adds part 9
+          (trial on the X5: added); the model view has a COCKPIT CAMERA panel (wheel point and eye
+          offset shown in the 3D view, editable, rebuilt from the cockpit model, View From Camera,
+          Save to Database with backup). Tools in `fm4dev\Camera\tools`. Not the 0x104 block of the
+          cockpit header: that is the interior rear-view mirror (zero on the 45 race cars without one)
+      - [x] In game: X5 with part 9 (row -0.3985, 0.9250, 0.4521 written to the DEV DB):
+            cockpit camera position OK (user, 2026-10-16)
+      - [ ] User check of the panel in the editor
   - [ ] 3e Porsche make (MakeID 39, 28 cars): FM4 has no List_CarMake row, string or logo for it
   - [ ] 3f FM3 digital dashes (46 cars, Media\DigitalGauges): decode and convert to FM4 Anark
   - [ ] 3g Engine sound banks of the same name differ between FM3 and FM4 (FM4's kept): listen in game
@@ -259,7 +273,20 @@ Background and Jew's notes: `docs/todo_research.md`, C1.
       `shadersettings`)
 - [ ] 13.2 If the FM shaders are found: real-time preview of the in-game look in the viewer; carbin
       viewer with the real materials
-- [ ] 13.3 Viewer camera with the game's FOV and the viewport's aspect ratio
+- [ ] 13.4 Go to Camera (model toolbar): cockpit (part 9 + offset) and the 27 garage/photo/livery/
+      upgrade presets of `UICarTargetCameraPresets.xml` done 2026-10-16 (user check pending). Open:
+      chase, hood, bumper (base point from the car box + CameraSettings.ini + CameraOverrides, to be
+      measured in game); thumbnail cameras (`ThumbnailCamSettings.xml`, their frame is not car-centred)
+- [ ] 13.3 Viewer camera with the game's FOV and the viewport's aspect ratio. Code done 2026-10-16,
+      user check in the editor pending:
+  - [x] The game's FOVs are vertical, as XNA's (checked on `ThumbnailCamSettings.xml`: 14.3° on a
+        608×288 thumbnail at 8.9 m frames about 4.7 m, a whole car; read as horizontal it would be 2.2 m)
+  - [x] Default 45° (photo mode and garage, `UICarTargetCameraPresets.xml`) instead of 90°; zoom
+        range 0.5–90° (`CameraSettings.ini`, FreeCam); toolbar FOV list with the race cameras
+        (bumper 53, chase 54, cockpit 62, hood 66) and the current FOV shown
+  - [x] Aspect ratio: already the panel's on every frame (device reset on resize); guarded against a
+        zero height. Near clip 0.1 mm → 1 cm for depth precision
+  - [ ] User check in the editor
 - New renderer: almost impossible, the viewer stays on XNA (see Later)
 
 ## 14. Other model formats ⬜

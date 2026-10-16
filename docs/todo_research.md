@@ -30,7 +30,10 @@ Status: ⬜ to do · 🔍 research (understand first, then write code) · 🐞 r
   - [ ] 🔍 B2.1 If the FM shaders are found: use (or imitate) them in the viewer for a real-time
         preview of the in-game look.
   - [ ] ⬜ B2.2 Better carbin viewer with the real materials (depends on B2).
-- [ ] ⬜ **B3. Viewer camera like the game's:** the game's FOV and the viewport's aspect ratio.
+- [ ] 🔧 **B3. Viewer camera like the game's:** the game's FOV and the viewport's aspect ratio.
+      Code done 2026-10-16 (ROADMAP 13.3), user check pending. The FOVs are in
+      `Media\Camera\CameraSettings.ini` (race cameras) and `Media\UICarTargetCameraPresets.xml`
+      (garage, photo mode), vertical degrees.
 
 ## C. Wheels and morph targets (ROADMAP 11, C2 in ROADMAP 7)
 

@@ -18,6 +18,8 @@ namespace ForzaStudio
         private Panel pnlViewport;
         private ToolStripButton btnWireframe;
         private ToolStripComboBox cmbCameraSpeed;
+        private ToolStripComboBox cmbCameraFov;
+        private ToolStripLabel lblCameraFov;
         private ToolStripLabel lblModelInfo;
         private Timer modelTimer;
         private RenderScene scene;
@@ -57,8 +59,31 @@ namespace ForzaStudio
             this.cmbCameraSpeed.Items.Add(new ComboBoxItem<float>(1f, "Camera: normal"));
             this.cmbCameraSpeed.Items.Add(new ComboBoxItem<float>(4f, "Camera: fast"));
             this.cmbCameraSpeed.SelectedIndex = 1;
+            // The game's own camera FOVs (vertical): photo mode and garage from
+            // UICarTargetCameraPresets.xml, the race cameras from Media\Camera\CameraSettings.ini.
+            this.cmbCameraFov = new ToolStripComboBox();
+            this.cmbCameraFov.DropDownStyle = ComboBoxStyle.DropDownList;
+            this.cmbCameraFov.Items.Add(new ComboBoxItem<float>(45f, "FOV: photo mode 45\u00B0"));
+            this.cmbCameraFov.Items.Add(new ComboBoxItem<float>(53f, "FOV: bumper 53\u00B0"));
+            this.cmbCameraFov.Items.Add(new ComboBoxItem<float>(54f, "FOV: chase 54\u00B0"));
+            this.cmbCameraFov.Items.Add(new ComboBoxItem<float>(62f, "FOV: cockpit 62\u00B0"));
+            this.cmbCameraFov.Items.Add(new ComboBoxItem<float>(66f, "FOV: hood 66\u00B0"));
+            this.cmbCameraFov.SelectedIndex = 0;
+            this.cmbCameraFov.SelectedIndexChanged += delegate
+            {
+                if (this.scene != null)
+                {
+                    this.scene.Camera.FieldOfViewDegrees = ((ComboBoxItem<float>) this.cmbCameraFov.SelectedItem).Value;
+                    this.scene.Update(true);
+                }
+            };
+            this.lblCameraFov = new ToolStripLabel();
+            this.lblCameraFov.ForeColor = SystemColors.GrayText;
             toolbar.Items.Add(this.btnWireframe);
             toolbar.Items.Add(this.cmbCameraSpeed);
+            toolbar.Items.Add(this.cmbCameraFov);
+            toolbar.Items.Add(this.lblCameraFov);
+            toolbar.Items.Add(this.BuildGoToCameraButton());
             toolbar.Items.Add(new ToolStripSeparator());
             toolbar.Items.Add(new ToolStripButton("Export Checked to OBJ...", null, delegate { this.ExportObj(); }));
             this.lblModelInfo = new ToolStripLabel();
@@ -185,9 +210,11 @@ namespace ForzaStudio
                 this.splitModel.SplitterDistance = Math.Min(260, Math.Max(this.splitModel.Width / 3, 50));
                 this.scene = new RenderScene(ref this.tvModel, ref this.pnlViewport);
                 this.scene.ShowWireframe = this.btnWireframe.Checked;
+                this.scene.Camera.FieldOfViewDegrees = ((ComboBoxItem<float>) this.cmbCameraFov.SelectedItem).Value;
             }
             this.UpdateModelInfo();
             this.OnModelLoaded();
+            this.LoadCockpitCamera();
             this.modelTimer.Start();
         }
 
@@ -304,6 +331,12 @@ namespace ForzaStudio
                     if (keys.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Right)) camera.ApplyLookForce(new Vector2(0.1f, 0f));
                 }
                 this.scene.Update(false);
+                // The wheel zooms by changing the FOV; show where it is.
+                string fov = string.Format("{0:0.#}\u00B0", camera.FieldOfViewDegrees);
+                if (this.lblCameraFov.Text != fov)
+                {
+                    this.lblCameraFov.Text = fov;
+                }
             }
             catch (DeviceLostException)
             {

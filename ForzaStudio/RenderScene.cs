@@ -315,6 +315,12 @@ namespace ForzaStudio
                             this.DrawCheckedModels(this.Models.Nodes, FillMode.WireFrame);
                         }
                         this.DrawAxes(1f);
+                        if (this.Overlay != null && this.Overlay.Length >= 2)
+                        {
+                            this.Graphics.RenderState.DepthBufferEnable = false;
+                            this.DrawLines(this.Overlay);
+                            this.Graphics.RenderState.DepthBufferEnable = true;
+                        }
                         this.Graphics.Present();
                     }
                 }
@@ -329,6 +335,9 @@ namespace ForzaStudio
         public TreeView Models { get; private set; }
 
         public bool ShowWireframe { get; set; }
+
+        // Line pairs drawn over the model (no depth test), e.g. the cockpit camera markers.
+        public VertexPositionColor[] Overlay { get; set; }
 
         public Panel Viewport { get; private set; }
     }

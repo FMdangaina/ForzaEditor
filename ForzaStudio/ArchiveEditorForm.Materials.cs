@@ -90,6 +90,7 @@ namespace ForzaStudio
             };
 
             side.Controls.Add(this.lblMeshInfo);
+            this.AddCameraControls(side);
             this.AddPartEditControls(side);
             side.Controls.Add(SideLabel("PREVIEW TEXTURE"));
             side.Controls.Add(this.cmbMeshTexture);

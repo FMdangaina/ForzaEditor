@@ -167,13 +167,42 @@ The toolbar has these controls:
 |---|---|
 | Drag | Look around |
 | Right drag or middle drag | Move |
-| Wheel | Zoom |
+| Wheel | Zoom (changes the FOV) |
 | W A S D, Q E | Move |
 | Arrow keys | Look |
 
 **Red materials.** A material that no FM4 car uses is drawn red in the tree, and it may render
 black in game. Right-click it > **Rename material...** and pick an FM4 material from the list. You
 can rename it in every part and in every model file of the car (main, lod0, cockpit).
+
+### Cockpit camera (COCKPIT CAMERA panel)
+
+Open a car model from the game folder (FM4): the panel reads the car's cockpit camera from
+`GAME:\Media\db\gamedb.slt`. Values are in the database's axes, where Z points forward.
+
+- **Steering wheel (part 9)**: the `CarPartPositions` row PartId 9. The game hangs the cockpit
+  camera on this point. Without it, the cockpit view sits at 0,0,0 (cars ported from FM3 lack it).
+  When it is missing, the panel rebuilds it at once from the cockpit model and shows it in red as
+  not saved.
+- **Eye offset from the wheel**: `CameraOverrides` CamCockpitOffset X/Y/Z. 0, 0, 0 means the game's
+  default (0, 0.21, -0.51, from `Media\Camera\CameraSettings.ini`).
+- The view shows the wheel point (yellow cross), the eye (cyan cross) and what it sees (FOV 62°).
+- **Wheel From Cockpit Model** computes the wheel point from the `steering_wheel` part of the car's
+  `_cockpit.carbin` (within about 1 cm of the game's own points on FM4 cars).
+- **View From Camera** puts the viewer at the eye, looking forward, with the cockpit FOV.
+- **Save to Database** writes both rows into `gamedb.slt` (missing rows are added) after a backup in
+  the `bak` folder. Close the game first.
+
+The port tool adds the steering wheel point by itself when the source car has none.
+
+**Go to Camera** (model toolbar) moves the viewer to a game camera:
+
+- **Cockpit**: the eye of the panel above, FOV 62°.
+- The garage, photo mode, livery and upgrade cameras of `Media\UICarTargetCameraPresets.xml`
+  (position, direction and FOV as the game stores them; a preset made for this car is used instead
+  of the general one).
+- The race chase, hood and bumper cameras are not there yet: the game builds them from the car's
+  box and offsets in a way not decoded so far.
 
 ### Editing parts (EDIT PART panel)
 

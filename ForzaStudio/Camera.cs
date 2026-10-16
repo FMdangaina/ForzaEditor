@@ -72,9 +72,12 @@ namespace ForzaStudio
             this.MinMoveAccel = 0.01f;
             this.MaxLookAccel = 1f;
             this.MinLookAccel = 0.01f;
-            this.FieldOfView = this.DegreesToRadians(90f);
-            this.MinFieldOfView = this.DegreesToRadians(0.05f);
-            this.MaxFieldOfView = this.DegreesToRadians(120f);
+            // Vertical FOV, as in the game. FM4's photo mode and garage use 45 degrees
+            // (UICarTargetCameraPresets.xml); its free camera zooms between 0.5 and 90
+            // (Media\Camera\CameraSettings.ini, FreeCam\MinFOV and MaxFOV).
+            this.FieldOfView = this.DegreesToRadians(45f);
+            this.MinFieldOfView = this.DegreesToRadians(0.5f);
+            this.MaxFieldOfView = this.DegreesToRadians(90f);
             this.MoveTo(new Vector3(2.1f, 1.25f, 1.1f));
             this.LookTo(new Vector2(-2.75f, -0.4f));
         }
@@ -167,7 +170,25 @@ namespace ForzaStudio
             this.HorizontalDirection = new Vector3(x, 0f, z);
             this.LookAt = this.Position + this.ForwardDirection;
             this.View = Matrix.CreateLookAt(this.Position, this.LookAt, new Vector3(0f, 1f, 0f));
-            this.Projection = Matrix.CreatePerspectiveFieldOfView(this.FieldOfView, ((float) this.Viewport.Width) / ((float) this.Viewport.Height), 0.0001f, this.ViewDistance);
+            // The aspect ratio is the panel's, the size the image is shown at. Near clip 1 cm: the old
+            // 0.1 mm against a 2500 m far plane left the depth buffer too little precision.
+            float aspect = (screenHeight >= 1f) ? (screenWidth / screenHeight) : 1f;
+            this.Projection = Matrix.CreatePerspectiveFieldOfView(this.FieldOfView, aspect, 0.01f, this.ViewDistance);
+        }
+
+        // Vertical field of view in degrees, clamped to the zoom range.
+        public float FieldOfViewDegrees
+        {
+            get
+            {
+                return this.RadiansToDegrees(this.FieldOfView);
+            }
+            set
+            {
+                this.ZoomVelocity = 0f;
+                this.FieldOfView = this.Clamp(this.DegreesToRadians(value), this.MinFieldOfView, this.MaxFieldOfView);
+                this.hasChanged = true;
+            }
         }
 
         public void Zoom(float scale)
