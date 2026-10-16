@@ -34,7 +34,7 @@ MSBuild ForzaEditor.csproj -p:Configuration=Debug -p:Platform=x86
 ```
 
 `!ForzaStudio release/` must also contain the non-redistributable files listed in
-[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) (`xdevkit.dll` is needed to compile).
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 At runtime the editor expects `texconv.exe`, `xds.dll` and the other tools next to the exe.
 
 ## Repository policy

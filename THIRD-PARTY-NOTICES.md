@@ -75,7 +75,7 @@ These files are needed at build time or runtime but are not committed. Place the
 
 | File | Why it is excluded |
 |------|--------------------|
-| `xdevkit.dll`, `xcompress.dll` | Microsoft Xbox 360 SDK, proprietary. Not in the release zip either. |
+| `xcompress.dll` | Microsoft Xbox 360 SDK, proprietary. Not in the release zip either. |
 | `xds.dll` | Comes from the Forza Studio 4.6 release. Shipped in the release zip, not kept in the repository. |
 
 Game data (Forza `.zip`, `.carbin`, `.xds`, `.xpr`, gamedb, etc.) is copyrighted

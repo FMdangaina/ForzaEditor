@@ -74,7 +74,7 @@ tmp/
 !/Resources/*.gif
 
 # Third-party tools: only MIT-licensed ones are committed (see THIRD-PARTY-NOTICES.md).
-# Xbox 360 SDK files (xdevkit, xcompress) and xds.dll stay local.
+# Xbox 360 SDK files (xcompress) and xds.dll stay local.
 /\!ForzaStudio release/*
 !/\!ForzaStudio release/Be.Windows.Forms.HexBox.dll
 !/\!ForzaStudio release/texconv.exe

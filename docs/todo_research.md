@@ -10,7 +10,7 @@ Status: ⬜ to do · 🔍 research (understand first, then write code) · 🐞 r
 
 ## A. Cleanup and platform (ROADMAP 12)
 
-- [ ] ⬜ **A1. Remove Console Modding.** Drops the dependency on `xdevkit.dll` (Xbox 360 SDK, not
+- [x] ✅ **A1. Remove Console Modding.** Done 2026-10-16. Drops the dependency on `xdevkit.dll` (Xbox 360 SDK, not
       needed). Files: `ConsoleModding.cs` + `.Designer.cs`, `ConsoleFunctions.cs`,
       `ConsoleMethod.cs`, references in `ForzaStudioForm.cs` and `ArchiveEditorForm.cs`, the
       reference in `ForzaEditor.csproj`. Small; do it before A2.

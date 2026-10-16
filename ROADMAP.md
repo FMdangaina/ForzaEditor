@@ -22,22 +22,21 @@ Fastest first. The research list with its background is `docs/todo_research.md`.
 Quick (hours to a day):
 
 1. 7: OBJ wheel import, LOD 0 and LODs 1+ split between the two carbins (bug from Discord)
-2. 12.1: Remove Console Modding and `xdevkit.dll`
-3. 13.3: Viewer camera with the game's FOV and the viewport's aspect ratio
-4. 12.3: Settings window
+2. 13.3: Viewer camera with the game's FOV and the viewport's aspect ratio
+3. 12.3: Settings window
 
 Medium (a few days):
 
-5. 11: Wheel morph targets (why the E30 rim does not scale and the S60 one does)
-6. 14.1: FH1/FH2 traffic models
-7. 12.4: Conversion tool as MDI
-8. 15.1: Format documentation (grows with each topic)
+4. 11: Wheel morph targets (why the E30 rim does not scale and the S60 one does)
+5. 14.1: FH1/FH2 traffic models
+6. 12.4: Conversion tool as MDI
+7. 15.1: Format documentation (grows with each topic)
 
 Long (research first, size unknown):
 
-9. 13.1: Game materials and shaders (hardcoded or shader files)
-10. 12.2: Recent .NET, keeping XNA as the renderer
-11. 14.2: FM2 models
+8. 13.1: Game materials and shaders (hardcoded or shader files)
+9. 12.2: Recent .NET, keeping XNA as the renderer
+10. 14.2: FM2 models
 
 Always open: 15.2 Discord feedback, added here as items when reported.
 
@@ -247,8 +246,8 @@ Background and Jew's notes: `docs/todo_research.md`, C1.
 
 ## 12. Cleanup and platform ⬜
 
-- [ ] 12.1 Remove Console Modding (`ConsoleModding`, `ConsoleFunctions`, `ConsoleMethod`) and the
-      `xdevkit.dll` reference
+- [x] 12.1 Remove Console Modding (`ConsoleModding`, `ConsoleFunctions`, `ConsoleMethod`) and the
+      `xdevkit.dll` reference (2026-10-16; the editor builds without the SDK's xdevkit)
 - [ ] 12.2 Recent .NET Framework: today `v2.0` with XNA, x86. The renderer stays XNA, so the newest
       .NET that XNA allows; check what else breaks (SQLite, HexBox)
 - [ ] 12.3 Settings window (game folders, Xenia, DEV folder, viewer options)

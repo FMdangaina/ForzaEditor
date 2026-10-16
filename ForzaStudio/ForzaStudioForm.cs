@@ -156,7 +156,6 @@ namespace ForzaStudio
         public bool customkeyboard = false;
         private ToolStripMenuItem hexViewToolStripMenuItem;
         private ToolStripMenuItem saveModdingToolStripMenuItem;
-        private ToolStripMenuItem consoleModdingToolStripMenuItem;
         private ToolStripMenuItem optionsToolStripMenuItem;
         private ToolStripMenuItem customKeyboardToolStripMenuItem;
         private ToolStripMenuItem custom3DColorToolStripMenuItem;
@@ -635,7 +634,6 @@ namespace ForzaStudio
             this.mnuUnpackArchive = new System.Windows.Forms.ToolStripMenuItem();
             this.hexViewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveModdingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.consoleModdingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.customKeyboardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.custom3DColorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -990,8 +988,7 @@ namespace ForzaStudio
             this.mnuUtilities.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.mnuUnpackArchive,
             this.hexViewToolStripMenuItem,
-            this.saveModdingToolStripMenuItem,
-            this.consoleModdingToolStripMenuItem});
+            this.saveModdingToolStripMenuItem});
             this.mnuUtilities.ForeColor = System.Drawing.Color.White;
             this.mnuUtilities.Image = global::Properties.Resources.IconUtil1;
             this.mnuUtilities.Name = "mnuUtilities";
@@ -1028,16 +1025,6 @@ namespace ForzaStudio
             this.saveModdingToolStripMenuItem.Text = "Save Modding";
             this.saveModdingToolStripMenuItem.Visible = false;
             this.saveModdingToolStripMenuItem.Click += new System.EventHandler(this.saveModToolStripMenuItem_Click);
-            // 
-            // consoleModdingToolStripMenuItem
-            // 
-            this.consoleModdingToolStripMenuItem.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(17)))), ((int)(((byte)(17)))), ((int)(((byte)(17)))));
-            this.consoleModdingToolStripMenuItem.ForeColor = System.Drawing.Color.White;
-            this.consoleModdingToolStripMenuItem.Image = global::Properties.Resources.IconConsole1;
-            this.consoleModdingToolStripMenuItem.Name = "consoleModdingToolStripMenuItem";
-            this.consoleModdingToolStripMenuItem.Size = new System.Drawing.Size(169, 22);
-            this.consoleModdingToolStripMenuItem.Text = "Console Modding";
-            this.consoleModdingToolStripMenuItem.Click += new System.EventHandler(this.consoleModToolStripMenuItem_Click);
             // 
             // optionsToolStripMenuItem
             // 
@@ -1612,12 +1599,6 @@ namespace ForzaStudio
                 clicked = 0;
                 pnlTextureDisplay.BackColor = System.Drawing.Color.White;
             }
-        }
-
-        private void consoleModToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            ConsoleModding Form = new ConsoleModding();
-            Form.Show();
         }
 
         private void saveModToolStripMenuItem_Click(object sender, EventArgs e)

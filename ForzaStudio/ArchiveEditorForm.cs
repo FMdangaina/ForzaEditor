@@ -194,7 +194,6 @@
             ToolStripMenuItem tools = new ToolStripMenuItem("&Tools");
             tools.DropDownItems.Add(new ToolStripMenuItem("&Hex View...", null, delegate { new HexView().Show(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("&Save Modding...", null, delegate { new SaveModding().Show(); }));
-            tools.DropDownItems.Add(new ToolStripMenuItem("C&onsole Modding...", null, delegate { new ConsoleModding().Show(); }));
             tools.DropDownItems.Add(new ToolStripSeparator());
             tools.DropDownItems.Add(new ToolStripMenuItem("&Port Car From Another Forza...", null, delegate { new CarPortForm().Show(this); }));
             tools.DropDownItems.Add(new ToolStripSeparator());

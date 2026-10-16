@@ -24,8 +24,6 @@ The full manual is MANUAL.md (open it with any text editor or a Markdown viewer)
 - xcompress.dll (Microsoft, from the Xbox 360 SDK). NOT included: it is
   Microsoft's and cannot be shared. Copy your own next to ForzaEditor.exe.
   Without it the game's compressed zips cannot be opened or saved.
-- xdevkit.dll (Microsoft, from the Xbox 360 SDK), only for
-  Tools > Console Modding. NOT included either.
 
 Everything else is already in this zip, next to ForzaEditor.exe.
 Keep the files together: do not move ForzaEditor.exe out of its folder.

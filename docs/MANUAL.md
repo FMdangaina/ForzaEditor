@@ -49,19 +49,15 @@ that holds `default.xex` and `Media`.
   off* > *.NET Framework 3.5 (includes .NET 2.0 and 3.0)*.
 - **Microsoft XNA Framework Redistributable 3.1**, used by the 3D view.
 - **Xenia Canary**, only to play ported cars as DLC packages.
-- **Two Microsoft files that are not in the zip.** They come from the Xbox 360 SDK and are
-  Microsoft's, so they cannot be shared. Copy your own next to `ForzaEditor.exe`:
-
-  | File | Needed for |
-  |---|---|
-  | `xcompress.dll` | Opening and saving the game's compressed zips. Without it, most game files cannot be read. |
-  | `xdevkit.dll` | Tools > Console Modding only. |
+- **`xcompress.dll`, not in the zip.** It comes from the Xbox 360 SDK and is Microsoft's, so it
+  cannot be shared. Copy your own next to `ForzaEditor.exe`. It opens and saves the game's
+  compressed zips; without it, most game files cannot be read.
 
 **Steps**
 
 1. Unzip the whole ForzaEditor folder somewhere you can write to, such as the Desktop. Avoid
    *Program Files*.
-2. Copy `xcompress.dll` (and `xdevkit.dll` if you want Console Modding) next to the exe.
+2. Copy `xcompress.dll` next to the exe.
 3. Run `ForzaEditor.exe`.
 
 Keep every file of the zip next to the exe:
@@ -157,6 +153,9 @@ The toolbar has these controls:
 
 - **Wireframe**.
 - **Camera speed**: slow, normal or fast.
+- **FOV**: the field of view of one of the game's cameras: photo mode (45°, the default), bumper
+  (53°), chase (54°), cockpit (62°) or hood (66°). Next to it, the current FOV. The wheel changes it
+  between 0.5° and 90°, as the game's free camera does.
 - **Export Checked to OBJ...** writes the checked parts as one OBJ.
 - The vertex and face count.
 - A red warning, **"N material(s) not in FM4"**, when the model has any. Click it to jump to the
