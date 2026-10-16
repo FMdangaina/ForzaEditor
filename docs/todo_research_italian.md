@@ -8,7 +8,10 @@
 it's dependant on the wheel having a morph target in its package. 
 sembra un flag che viaggia insieme a shader e flag is stock.parla di un certo tex, larger tex = resizable
 
-4.b.1controllare morph target cerchio bmw e30 non scala mentre s60 scala.
+4.b.1controllare morph target cerchio bmw e30 non scala mentre s60 scala.sempre @Jew 
+You need morph targets in the wheel model for Forza to scale them to size
+
+Morph_LODO
 
 5. editor camera su base fov del gioco e viewport
 6. andare a creare un tab/pulsante delle impostazioni
