@@ -194,7 +194,12 @@ each other's names (still to be confirmed in game).
   - [x] 3c FM3 as a source of the port tool (Tools > Port Car From Another Forza…): brake names
         `_lod0`, carattribs/shadersettings/textures as for FH, wheel zips. Trial run passes on all 74
         FM3-only cars of DVD1 (2026-10-16); the FH port gives the same files as before
-  - [ ] 3d In-game test of an FM3-only car ported with the tool
+  - [ ] 3d In-game test of an FM3-only car ported with the tool. First car: BMW_X5_09 (user,
+        2026-10-16), two problems:
+    - [ ] 3d.1 Textures and shaders too bright: look into the textures; compare the Supra's .xds
+          files in FM3 and FM4 (xds only: FM4 re-exported them, same size and format, other pixels;
+          header word +0x1C differs, 0x...02 in FM3 vs 0x...FE in FM4)
+    - [ ] 3d.2 Interior camera settings wrong: the cockpit view sits at position 0,0,0
   - [ ] 3e Porsche make (MakeID 39, 28 cars): FM4 has no List_CarMake row, string or logo for it
   - [ ] 3f FM3 digital dashes (46 cars, Media\DigitalGauges): decode and convert to FM4 Anark
   - [ ] 3g Engine sound banks of the same name differ between FM3 and FM4 (FM4's kept): listen in game
