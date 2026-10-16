@@ -255,7 +255,15 @@ each other's names (still to be confirmed in game).
       - [x] In game: X5 with part 9 (row -0.3985, 0.9250, 0.4521 written to the DEV DB):
             cockpit camera position OK (user, 2026-10-16)
       - [x] User check of the panel in the editor (closed with 3d.2; reopen if the panel misbehaves)
-  - [ ] 3e Porsche make (MakeID 39, 28 cars): FM4 has no List_CarMake row, string or logo for it
+  - [ ] 3e Porsche make (MakeID 39, 28 cars): FM4 has no List_CarMake row or strings for it.
+        **Done in the port 2026-10-17 (`CarPort.PortMake`):** Porsche is the only FM3 make FM4 lacks;
+        FM4 still has its logos in all 6 logo folders of `UI\Textures.zip` and id 39 in
+        List_PartAttribute and 3 body kit tables. The port adds the FM3 row (IconPathBase `Porsche`,
+        IconPath/IconPathLight in FM4's `_I`/`_SM` form), DisplayName + Profile in List_CarMake.str of
+        the 18 FM4 languages (BR, GB, NL get EN) and FM3's 69 Livery_DecalsSortOrder rows (all decals in
+        FM4, same ids). Trial of all 28 FM3 Porsches with zips: 28/28 OK, 0 review issues.
+        Note: a real FM4 Porsche DLC would bring its own make 39.
+    - [x] In game: a ported Porsche shows make name, logo, profile and livery decals
   - [ ] 3f FM3 digital dashes (46 cars, Media\DigitalGauges): decode and convert to FM4 Anark
   - [ ] 3g Engine sound banks of the same name differ between FM3 and FM4 (FM4's kept): listen in game
 - [x] Port step 4: database column diff for FM3-only cars (2026-10-16): no id clashes (cars, engines),

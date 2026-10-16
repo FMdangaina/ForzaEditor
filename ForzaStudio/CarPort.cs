@@ -31,6 +31,7 @@ namespace ForzaStudio
     //   database  FM4 kept FM3's ids (cars, engines, wheels but two); what FM3 lacks is filled as FM4 did
     //             on the shared cars (FillMotorsport4Columns), torque curves get FM4 ids and the
     //             zero-throttle curve becomes ZeroThrottleTorqueScale (ConvertMotorsport3TorqueCurves);
+    //   make      Porsche (MakeID 39), which FM4 lacks, added with its names and livery decals (PortMake);
     //   dash      FM3's digital gauges (Media\DigitalGauges, format not decoded) are not converted.
     public class CarPort
     {
@@ -84,6 +85,7 @@ namespace ForzaStudio
         private SqliteDatabase target;
         private long carId;
         private long donorId;
+        private long? newMake;          // a make the port added to List_CarMake (PortMake)
         private readonly List<string> engineMedia = new List<string>();
         private readonly List<long> wheelIds = new List<long>();
         private readonly List<long> originalWheels = new List<long>();   // wheels FM4 already had before the port
@@ -340,6 +342,7 @@ namespace ForzaStudio
                 }
             }
             this.CopyReferences(from, to);
+            this.PortMake(from, to);
             if (this.motorsport3)
             {
                 this.FillMotorsport4Columns(from, to);
@@ -347,6 +350,79 @@ namespace ForzaStudio
             this.StockTires();
             this.DragTires();
             this.ReviewDatabase();
+        }
+
+        // Logo folders of UI\Textures.zip the game builds from IconPathBase (L_MAN_<base>_Logo.xds).
+        private static readonly string[] LogoFolders = { "Manufacturer_Logos", "Manufacturer_Logos_I", "Manufacturer_Logos_LG", "Manufacturer_Logos_SM", "Manufacturer_Logos_SM_wtbg", "Manufacturer_Logos_kinect" };
+
+        // A make FM4 has no row for comes from the source game: FM3's Porsche (MakeID 39, 28 FM3-only
+        // cars) is the only one. FM4 still has its logos in every folder of UI\Textures.zip and its id
+        // in List_PartAttribute and three body kit tables, but no List_CarMake row, names or livery
+        // decals. The port adds the row, its names (PortStrings: DisplayName, Profile in
+        // List_CarMake.str) and its Livery_DecalsSortOrder rows (the livery editor's decals for the
+        // make; FM3's 69 Porsche rows all name decals FM4 has, same ids and files). FM4's rows have
+        // IconPathBase, the logo's name part (L_MAN_<base>_Logo), and IconPath / IconPathLight in the
+        // _I / _SM folders (FM3: Manufacturer_Logos, Manufacturer_Logos_SM\..._lt).
+        private void PortMake(Dictionary<string, List<string>> from, Dictionary<string, List<string>> to)
+        {
+            object make = this.target.Scalar("SELECT MakeID FROM Data_Car WHERE Id = ?", this.carId);
+            if (make == null || !from.ContainsKey("List_CarMake") || !to.ContainsKey("List_CarMake"))
+            {
+                return;
+            }
+            if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_CarMake WHERE ID = ?", make)) > 0)
+            {
+                // FM4 names a car's make with the make's own string (all 504 cars); a make an earlier
+                // port added may have got another string key.
+                if (Has(to["Data_Car"], "MakeName"))
+                {
+                    this.target.Execute("UPDATE Data_Car SET MakeName = (SELECT DisplayName FROM List_CarMake WHERE ID = ?) WHERE Id = ?", make, this.carId);
+                }
+                return;
+            }
+            string where = "ID = " + Convert.ToInt64(make).ToString(CultureInfo.InvariantCulture);
+            if (this.CopyRows("List_CarMake", from["List_CarMake"], to["List_CarMake"], where) == 0)
+            {
+                return;     // the source has no row either: the review asks for an FM4 make
+            }
+            this.newMake = Convert.ToInt64(make);
+            string icon = Convert.ToString(this.source.Scalar("SELECT IconPath FROM List_CarMake WHERE " + where), CultureInfo.InvariantCulture);
+            Match name = Regex.Match(Path.GetFileNameWithoutExtension(icon.Replace('\\', '/')), "^L_MAN_(.+?)_Logo", RegexOptions.IgnoreCase);
+            if (name.Success && Has(to["List_CarMake"], "IconPathBase") && !Has(from["List_CarMake"], "IconPathBase"))
+            {
+                string logos = @"GAME:\Media\UI\Textures\UI4\Logos\";
+                string file = @"\L_MAN_" + name.Groups[1].Value + "_Logo.tga";
+                this.target.Execute("UPDATE List_CarMake SET IconPathBase = ?, IconPath = ?, IconPathLight = ? WHERE " + where,
+                    name.Groups[1].Value, logos + "Manufacturer_Logos_I" + file, logos + "Manufacturer_Logos_SM" + file);
+            }
+            this.Line("make {0} ({1}): not in FM4, the " + this.game + " row added", make, this.source.Scalar("SELECT ManufacturerCode FROM List_CarMake WHERE " + where));
+            if (name.Success)
+            {
+                List<string> missing = new List<string>();
+                try
+                {
+                    ForzaZip textures = new ForzaZip(this.In(Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "UI"), "Textures.zip")));
+                    foreach (string folder in LogoFolders)
+                    {
+                        if (textures.Find("UI4/Logos/" + folder + "/L_MAN_" + name.Groups[1].Value + "_Logo.xds") == null)
+                        {
+                            missing.Add(folder);
+                        }
+                    }
+                }
+                catch (IOException)
+                {
+                    missing.Add("UI\\Textures.zip unreadable");
+                }
+                this.Line(missing.Count == 0 ? "  logos: L_MAN_{0}_Logo in all {1} FM4 logo folders" : "  WARNING logos: L_MAN_{0}_Logo missing in " + string.Join(", ", missing.ToArray()), name.Groups[1].Value, LogoFolders.Length);
+            }
+            if (from.ContainsKey("Livery_DecalsSortOrder") && to.ContainsKey("Livery_DecalsSortOrder"))
+            {
+                string decals = "MakeID = " + Convert.ToInt64(make).ToString(CultureInfo.InvariantCulture);
+                int copied = this.CopyRows("Livery_DecalsSortOrder", from["Livery_DecalsSortOrder"], to["Livery_DecalsSortOrder"], decals);
+                int dropped = this.target.Execute("DELETE FROM Livery_DecalsSortOrder WHERE " + decals + " AND Livery_DecalID NOT IN (SELECT ID FROM Livery_Decals)");
+                this.Line("  livery decals: {0} Livery_DecalsSortOrder rows{1}", copied - dropped, (dropped > 0) ? string.Format(CultureInfo.InvariantCulture, " ({0} name decals FM4 lacks, left out)", dropped) : "");
+            }
         }
 
         // FM4's cockpit camera hangs on CarPartPositions PartId 9, the steering wheel point, which FM3
@@ -1208,8 +1284,20 @@ namespace ForzaStudio
         // car ported before finds its string again by name (IDS_...).
         private void PortStrings()
         {
+            this.PortStrings("Data_Car", "Id", this.carId, "DisplayName", "ModelShort");
+            if (this.newMake.HasValue)
+            {
+                this.PortStrings("List_CarMake", "ID", this.newMake.Value, "DisplayName", "Profile");
+            }
+        }
+
+        // The strings of one row (table.keyColumn = id) into <table>.str of every FM4 language; a
+        // language the source lacks gets the source's EN text (FM3 has no BR, GB, NL).
+        private void PortStrings(string table, string keyColumn, long id, params string[] columns)
+        {
             string targetTables = Path.Combine(Path.Combine(this.TargetRoot, "Media"), "StringTables");
             string sourceTables = Path.Combine(Path.Combine(this.SourceRoot, "Media"), "StringTables");
+            string strName = table + ".str";
             List<string> zips = new List<string>();
             Dictionary<string, StrFile> sourceFiles = new Dictionary<string, StrFile>(StringComparer.OrdinalIgnoreCase);
             Dictionary<string, StrFile> targetFiles = new Dictionary<string, StrFile>(StringComparer.OrdinalIgnoreCase);
@@ -1221,9 +1309,9 @@ namespace ForzaStudio
                     sourceZip = Path.Combine(sourceTables, "EN.zip");
                 }
                 ForzaZip sourceArchive = new ForzaZip(sourceZip);
-                ForzaZip.Entry sourceEntry = sourceArchive.Find("Data_Car.str");
+                ForzaZip.Entry sourceEntry = sourceArchive.Find(strName);
                 ForzaZip archive = this.OpenChanged(targetZip);
-                ForzaZip.Entry entry = archive.Find("Data_Car.str");
+                ForzaZip.Entry entry = archive.Find(strName);
                 if (sourceEntry == null || entry == null)
                 {
                     continue;
@@ -1234,15 +1322,16 @@ namespace ForzaStudio
             }
 
             int keys = 0;
-            foreach (string column in new string[] { "DisplayName", "ModelShort" })
+            string rowWhere = SqliteDatabase.Quote(keyColumn) + " = ?";
+            foreach (string column in columns)
             {
-                object value = this.source.Scalar("SELECT " + column + " FROM Data_Car WHERE Id = ?", this.carId);
-                uint id;
-                if (!(value is string) || !((string) value).StartsWith("_&") || !uint.TryParse(((string) value).Substring(2), NumberStyles.None, CultureInfo.InvariantCulture, out id))
+                object value = this.source.Scalar("SELECT " + column + " FROM " + table + " WHERE " + rowWhere, id);
+                uint stringId;
+                if (!(value is string) || !((string) value).StartsWith("_&") || !uint.TryParse(((string) value).Substring(2), NumberStyles.None, CultureInfo.InvariantCulture, out stringId))
                 {
                     continue;
                 }
-                int key = (int) (id & 0xFFFF);
+                int key = (int) (stringId & 0xFFFF);
                 string name = null;
                 foreach (string zip in zips)
                 {
@@ -1256,9 +1345,14 @@ namespace ForzaStudio
                 int newKey = this.StringKey(targetFiles, key, name);
                 if (newKey != key)
                 {
-                    uint newId = (id & 0xFFFF0000u) | (uint) newKey;
-                    this.target.Execute("UPDATE Data_Car SET " + SqliteDatabase.Quote(column) + " = ? WHERE Id = ?", "_&" + newId.ToString(CultureInfo.InvariantCulture), this.carId);
-                    this.Line("  {0}: string key {1:X4} is another car's in FM4, {2:X4} used (_&{3})", column, key, newKey, newId);
+                    string newValue = "_&" + ((stringId & 0xFFFF0000u) | (uint) newKey).ToString(CultureInfo.InvariantCulture);
+                    this.target.Execute("UPDATE " + table + " SET " + SqliteDatabase.Quote(column) + " = ? WHERE " + rowWhere, newValue, id);
+                    if (table == "List_CarMake" && column == "DisplayName")
+                    {
+                        // Data_Car.MakeName is the make's own string.
+                        this.target.Execute("UPDATE Data_Car SET MakeName = ? WHERE MakeID = ?", newValue, id);
+                    }
+                    this.Line("  {0}.{1}: string key {2:X4} is another row's in FM4, {3:X4} used ({4})", table, column, key, newKey, newValue);
                 }
                 foreach (string zip in zips)
                 {
@@ -1273,9 +1367,9 @@ namespace ForzaStudio
             foreach (string zip in zips)
             {
                 ForzaZip archive = this.OpenChanged(zip);
-                archive.Replace(archive.Find("Data_Car.str"), targetFiles[zip].ToBytes());
+                archive.Replace(archive.Find(strName), targetFiles[zip].ToBytes());
             }
-            this.Line("strings: {0} keys in Data_Car.str of {1} languages", keys, zips.Count);
+            this.Line("strings: {0} keys in {1} of {2} languages", keys, strName, zips.Count);
         }
 
         private static StrFile.Entry Find(StrFile file, int key)
@@ -1333,7 +1427,7 @@ namespace ForzaStudio
                     return candidate;
                 }
             }
-            throw new InvalidOperationException("Data_Car.str has no free string key.");
+            throw new InvalidOperationException("The string table has no free string key.");
         }
 
         #endregion
