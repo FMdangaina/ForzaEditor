@@ -26,6 +26,7 @@ namespace ForzaStudio
     // Forza Motorsport 3 as the source (2026-10-16, measured on the 315 cars FM3 and FM4 share, same ids):
     //   model     CarbinModel.ConvertMotorsport3ToMotorsport4 (header, sections, 40/16/44-byte vertices);
     //             brakes are caliperlf.carbin in FM3, caliperlf_lod0.carbin in FM4;
+    //   textures  colour textures marked gamma, as FM4 does (ConvertMotorsport3Texture);
     //   database  FM4 kept FM3's ids (cars, engines, wheels but two); what FM3 lacks is filled as FM4 did
     //             on the shared cars (FillMotorsport4Columns), torque curves get FM4 ids and the
     //             zero-throttle curve becomes ZeroThrottleTorqueScale (ConvertMotorsport3TorqueCurves);
@@ -1431,6 +1432,10 @@ namespace ForzaStudio
                     shaderSettings = data;   // needs the materials of every model
                     continue;
                 }
+                else if (name.EndsWith(".xds") && this.motorsport3)
+                {
+                    data = ConvertMotorsport3Texture(data, name);
+                }
                 car.Add(name, data);
             }
             if (shaderSettings != null)
@@ -1517,6 +1522,29 @@ namespace ForzaStudio
                 report.AppendFormat("  brake {0}: material {1} is not used by any FM4 brake", name, string.Join(", ", unknown.ToArray())).AppendLine();
             }
             return model.ToBytes();
+        }
+
+        // An FM3 texture in FM4 form. FM3 stores every texture as linear (fetch dword 0 low byte 0x02)
+        // in plain DXT1/DXT5 (0x52/0x54); FM4 marks the colour textures gamma (0xFE: sign x/y/z = 3) in the
+        // AS_16 formats (0x73/0x75) and leaves only the normal maps linear (4224 FM3, 11775 FM4 car and
+        // wheel textures, 2026-10-16). The pixels are the same: on the Supra (in both games) the
+        // re-encoded FM4 blocks decode to FM3's values. Left linear, FM4 skips the gamma decode and the
+        // car looks washed out (BMW X5 in game). FM3's DXT1 normal maps (FM4: DXN) are kept as they are.
+        public static byte[] ConvertMotorsport3Texture(byte[] data, string name)
+        {
+            string file = Path.GetFileNameWithoutExtension(name).ToLowerInvariant();
+            if (data.Length < XdsTexture.HeaderSize || file.Contains("_nrm") || file.Contains("normal"))
+            {
+                return data;
+            }
+            byte[] result = (byte[]) data.Clone();
+            result[0x1F] = (byte) ((result[0x1F] & 0x03) | 0xFC);   // fetch 0: sign x, y, z = gamma
+            int format = result[0x23] & 0x3F;
+            if (format == 0x12 || format == 0x14)
+            {
+                result[0x23] = (byte) ((result[0x23] & 0xC0) | (format + 0x21));   // DXT1/DXT4_5 -> their AS_16 forms
+            }
+            return result;
         }
 
         // A source model (read with the FM3 opt-in) in FM4 form: FM3 through its own converter, FH (and
@@ -1985,6 +2013,10 @@ namespace ForzaStudio
                         CarbinModel model = new CarbinModel(data, true);
                         ConvertToMotorsport4(model);
                         data = model.ToBytes();
+                    }
+                    else if (name.EndsWith(".xds") && this.motorsport3)
+                    {
+                        data = ConvertMotorsport3Texture(data, name);
                     }
                     wheel.Add(name, data);
                 }

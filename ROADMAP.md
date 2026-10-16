@@ -220,9 +220,26 @@ each other's names (still to be confirmed in game).
         FM3-only cars of DVD1 (2026-10-16); the FH port gives the same files as before
   - [ ] 3d In-game test of an FM3-only car ported with the tool. First car: BMW_X5_09 (user,
         2026-10-16), two problems:
-    - [ ] 3d.1 Textures and shaders too bright: look into the textures; compare the Supra's .xds
+    - [x] 3d.1 (closed 2026-10-16) Textures and shaders too bright: look into the textures; compare the Supra's .xds
           files in FM3 and FM4 (xds only: FM4 re-exported them, same size and format, other pixels;
-          header word +0x1C differs, 0x...02 in FM3 vs 0x...FE in FM4)
+          header word +0x1C differs, 0x...02 in FM3 vs 0x...FE in FM4).
+          **Cause found 2026-10-16:** every FM3 texture (4224) is marked linear (fetch 0 = 0x02) in
+          plain DXT1/DXT5 (0x52/0x54); FM4 marks every colour texture gamma (0xFE) in the AS_16
+          formats (0x73/0x75), normal maps stay linear (11775 car and wheel textures). Pixels are the
+          same (Supra: FM4's re-encoded blocks decode to FM3's values), so FM4 skipped the gamma
+          decode. Fix: `CarPort.ConvertMotorsport3Texture` (car and wheel zips); the Supra's 10
+          colour textures get FM4's header byte for byte. Installed on the DEV X5 (car + wheel zips)
+          with `fixtex` (fm4dev\FM3_FM4\tools)
+      - [x] In game: X5 colours as dark as FM4 cars (user, 2026-10-16)
+      - [x] Dark patches (side skirt, around the antenna, under spoiler wingb): **the X5 has them
+            in FM3 too (user, 2026-10-16): FM3's own vertex bake, not a port bug.** Neutral tails
+            remove them (but flatten the car); FM3 level + vector along the normal does not. DEV X5
+            back to the texture-fixed version. Converter ruled out: X5 converted vs its own FM3 values (`selfcheck`)
+            gives the same UVs (body, roof, skirts, wingb: 0 error), normals and tails. Suspect the
+            vertex tail (baked ambient light): on the Supra FM4 re-baked it on trunk, skirts,
+            bumperFrameR, headlights, always brighter (`tailcmp`); but the X5's FM3 bake is not
+            darker than an FM4 car's (`darktail`). Bisection ready: `fm4dev\FM3_FM4\tailtest\BMW_X5_09.zip`
+            = DEV X5 with the exterior tails replaced by the neutral formula of imported vertices
     - [x] 3d.2 (closed by the user 2026-10-16) Interior camera settings wrong: the cockpit view sits at position 0,0,0 (exterior
           cameras fine). **Cause found 2026-10-16:** FM4's cockpit camera hangs on
           `CarPartPositions` PartId 9, the steering wheel point; FM4/FH1/FH2 have it for every car,
