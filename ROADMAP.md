@@ -223,7 +223,7 @@ each other's names (still to be confirmed in game).
     - [ ] 3d.1 Textures and shaders too bright: look into the textures; compare the Supra's .xds
           files in FM3 and FM4 (xds only: FM4 re-exported them, same size and format, other pixels;
           header word +0x1C differs, 0x...02 in FM3 vs 0x...FE in FM4)
-    - [ ] 3d.2 Interior camera settings wrong: the cockpit view sits at position 0,0,0 (exterior
+    - [x] 3d.2 (closed by the user 2026-10-16) Interior camera settings wrong: the cockpit view sits at position 0,0,0 (exterior
           cameras fine). **Cause found 2026-10-16:** FM4's cockpit camera hangs on
           `CarPartPositions` PartId 9, the steering wheel point; FM4/FH1/FH2 have it for every car,
           FM3 only PartId 0-8, so the X5 (the only DEV car without it) has its wheel at 0,0,0.
@@ -237,7 +237,7 @@ each other's names (still to be confirmed in game).
           cockpit header: that is the interior rear-view mirror (zero on the 45 race cars without one)
       - [x] In game: X5 with part 9 (row -0.3985, 0.9250, 0.4521 written to the DEV DB):
             cockpit camera position OK (user, 2026-10-16)
-      - [ ] User check of the panel in the editor
+      - [x] User check of the panel in the editor (closed with 3d.2; reopen if the panel misbehaves)
   - [ ] 3e Porsche make (MakeID 39, 28 cars): FM4 has no List_CarMake row, string or logo for it
   - [ ] 3f FM3 digital dashes (46 cars, Media\DigitalGauges): decode and convert to FM4 Anark
   - [ ] 3g Engine sound banks of the same name differ between FM3 and FM4 (FM4's kept): listen in game
