@@ -17,7 +17,29 @@ reference car. Started 2026-10-16. (Topic 3 is done; its open points 3.6d, 3.8, 
 
 ## Next (in order)
 
-1. _to decide_
+Fastest first. The research list with its background is `docs/todo_research.md`.
+
+Quick (hours to a day):
+
+1. 7: OBJ wheel import, LOD 0 and LODs 1+ split between the two carbins (bug from Discord)
+2. 12.1: Remove Console Modding and `xdevkit.dll`
+3. 13.3: Viewer camera with the game's FOV and the viewport's aspect ratio
+4. 12.3: Settings window
+
+Medium (a few days):
+
+5. 11: Wheel morph targets (why the E30 rim does not scale and the S60 one does)
+6. 14.1: FH1/FH2 traffic models
+7. 12.4: Conversion tool as MDI
+8. 15.1: Format documentation (grows with each topic)
+
+Long (research first, size unknown):
+
+9. 13.1: Game materials and shaders (hardcoded or shader files)
+10. 12.2: Recent .NET, keeping XNA as the renderer
+11. 14.2: FM2 models
+
+Always open: 15.2 Discord feedback, added here as items when reported.
 
 ---
 
@@ -166,6 +188,9 @@ each other's names (still to be confirmed in game).
 - [ ] In-game test of a whole model rebuilt from OBJ, and of edited parts
 - [ ] Effect of the cleared glass A/B arrays on rebuilt parts
 - [ ] In-game test of Merge Into
+- [ ] OBJ import into a wheel zip: an OBJ holding LOD 0 and LODs 1+ stops with "LOD 0 and LODs 1+ live
+      in different files" (`CarbinModel.cs`); split it between the wheel's two carbins instead
+      (reported by @delete.diskord, FM3 wheel exported to OBJ with Forza Studio)
 
 ## 8. Automatic LODs ⬜
 
@@ -211,9 +236,47 @@ each other's names (still to be confirmed in game).
 
 - [x] Music and radio for FM2, FM3, FM4, FH1, FH2
 
+## 11. Wheels: morph targets and resizing ⬜
+
+Background and Jew's notes: `docs/todo_research.md`, C1.
+
+- [ ] 11.1 Compare a rim that does not scale (BMW E30) with one that does (S60): `Morph_LOD0`, shader,
+      `IsStock`, texture size
+- [ ] 11.2 Write down the rule, then add morph targets to wheels that lack them (ported wheels too;
+      linked to the tyre width point of topic 1)
+
+## 12. Cleanup and platform ⬜
+
+- [ ] 12.1 Remove Console Modding (`ConsoleModding`, `ConsoleFunctions`, `ConsoleMethod`) and the
+      `xdevkit.dll` reference
+- [ ] 12.2 Recent .NET Framework: today `v2.0` with XNA, x86. The renderer stays XNA, so the newest
+      .NET that XNA allows; check what else breaks (SQLite, HexBox)
+- [ ] 12.3 Settings window (game folders, Xenia, DEV folder, viewer options)
+- [ ] 12.4 Conversion tool as MDI (child windows inside the main window)
+
+## 13. 3D viewer and game materials ⬜
+
+- [ ] 13.1 Game materials: hardcoded in the executable or shader files somewhere (DVD, zips,
+      `shadersettings`)
+- [ ] 13.2 If the FM shaders are found: real-time preview of the in-game look in the viewer; carbin
+      viewer with the real materials
+- [ ] 13.3 Viewer camera with the game's FOV and the viewport's aspect ratio
+- New renderer: almost impossible, the viewer stays on XNA (see Later)
+
+## 14. Other model formats ⬜
+
+- [ ] 14.1 FH1/FH2 traffic models: open them and describe the format
+- [ ] 14.2 FM2 models (today FM2 is export only)
+
+## 15. Documentation and community ⬜
+
+- [ ] 15.1 Format documentation in `docs/` (carbin, xds, Anark, gamedb, DLC...)
+- [ ] 15.2 Discord feedback: reports become items in the right topic
+- [ ] 15.3 README update (FM3/FH1, port tool)
+
 ## Later
 
 - FM2 model writer (FM2 is out of scope for now)
 - .gr2 animation editor
 - Cars built from scratch (a full wizard, also as a DLC package)
-- README update (FM3/FH1, port tool)
+- New renderer in place of XNA (a dream; almost impossible for now)
