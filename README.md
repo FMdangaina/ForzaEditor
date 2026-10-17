@@ -1,15 +1,17 @@
 # ForzaEditor
 
-Complete utility for Xbox 360 era Forza games modding: Forza Motorsport 4 and Forza Horizon 2
-(Forza Motorsport 2: archives, textures, model viewing and music; model editing to come).
+Complete utility for Xbox 360 era Forza games modding: Forza Motorsport 4 first, with Forza
+Horizon 1 and 2 and Forza Motorsport 3 as sources (Forza Motorsport 2: archives, textures, model
+viewing and export, music).
 
 Edits the game's zip archives directly: `.carbin` car models (OBJ export/import,
 part transplant and duplication), `.xds` textures (import, export, creation from
-images), livery masks and the gamedb, with the game's music and FH2 radio in the status bar.
+images), livery masks, the gamedb, a read-only view of the digital dashes and the cockpit camera,
+with the game's music and radio in the status bar.
 
-Ports cars from Forza Horizon and Forza Horizon 2 to FM4, either into the game's files or as a
-**DLC package** for Xenia that leaves the game untouched: see
-[docs/DLC_PACKAGES.md](docs/DLC_PACKAGES.md).
+Ports cars from Forza Horizon, Forza Horizon 2 and Forza Motorsport 3 to FM4, either into the
+game's files or as a **DLC package** that leaves the game untouched, for Xenia or a modded
+Xbox 360: see [docs/DLC_PACKAGES.md](docs/DLC_PACKAGES.md).
 
 User manual: [docs/MANUAL.md](docs/MANUAL.md). Quick start for the beta zip:
 [docs/INSTRUCTIONS.txt](docs/INSTRUCTIONS.txt).

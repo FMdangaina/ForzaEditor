@@ -34,7 +34,7 @@ files: you open a game folder or one of its `.zip` archives, change what you nee
 | Forza Motorsport 4 | Everything: models, textures, XML, database, dash view, music. Target of car ports. |
 | Forza Horizon 2 | Models, textures, XML, database, music. Source for car ports. |
 | Forza Horizon (1) | Textures, XML, database, music. Source for car ports. |
-| Forza Motorsport 3 | Models can be viewed (not edited), textures, database, music. |
+| Forza Motorsport 3 | Models can be viewed (not edited), textures, database, music. Source for car ports. |
 | Forza Motorsport 2 | Archives, textures, model viewing and export, music. Models cannot be imported back. |
 
 The game is detected from its `default.xex`. You need the game **extracted** to a folder, the one
@@ -201,8 +201,9 @@ The port tool adds the steering wheel point by itself when the source car has no
 - The garage, photo mode, livery and upgrade cameras of `Media\UICarTargetCameraPresets.xml`
   (position, direction and FOV as the game stores them; a preset made for this car is used instead
   of the general one).
-- The race chase, hood and bumper cameras are not there yet: the game builds them from the car's
-  box and offsets in a way not decoded so far.
+- The race chase, hood and bumper cameras are not offered: the game builds them from the car's
+  box, the `CameraOverrides` offsets and the global settings in `Media\Camera\CameraSettings.ini`
+  and `CameraPhysics.xml` (plain text files, editable as such).
 
 ### Editing parts (EDIT PART panel)
 
@@ -394,8 +395,9 @@ Motorsport 3 car into FM4. A port includes:
 - the engine sound;
 - the thumbnail.
 
-From Forza Motorsport 3, the digital dash is not converted yet: a car with a digital dash goes
-without it. The Porsches need a make FM4 lacks: the review asks for one.
+From Forza Motorsport 3, the digital dash (kept by FM3 in `Media\DigitalGauges`) goes into the car
+zip with its textures, as FM4 keeps it. The Porsches need a make FM4 lacks: the port adds it (name, logo, profile and livery
+decals).
 
 ### Setting up
 
@@ -492,8 +494,8 @@ The controls:
 
 **Not available yet**
 
-- **No Xbox 360 console package.** Packs are for Xenia only.
-- **FM2 and FM3 models:** FM2 can be exported only, FM3 can be viewed only.
+- **FM2 and FM3 models:** FM2 can be exported only; FM3 can be viewed, and converted only by the
+  port tool.
 - **Dash editing:** the view is read-only.
 - **Automatic LODs.**
 - **Profile saves** are signed and encrypted, so they cannot be edited in the main window.
@@ -505,7 +507,6 @@ All in the **Tools** menu.
 | Command | What it does |
 |---|---|
 | **Save Modding...** | Edits credits, level and XP in a Forza profile or CON package. |
-| **Console Modding...** | Live tricks on a connected Xbox 360 development kit. |
 | **Hex View...** | A hex editor. |
 | **Pay Respects (F)** | The original Forza Studio 4.6 window, kept as a tribute. |
 

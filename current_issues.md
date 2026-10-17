@@ -1,78 +1,39 @@
 # Current issues
 
-Problems seen in game that are not explained yet. When the cause is found, the issue moves to its
-ROADMAP item (or becomes one) and is removed from here.
+Problems seen in game that are not explained or not checked yet. When the cause is found and
+fixed, the issue moves to its ROADMAP item and is removed from here.
 
-## 1. Strange ambient occlusion on some car parts
+## 1. FH1/FH2 ports do not deform in a crash (open, ROADMAP 1)
 
-- Seen: 2026-10-16, in game (DEV), after the cockpit camera check of BMW_X5_09 ported from FM3.
-- What it looks like: some car parts look like they have the wrong ambient occlusion (dark or
-  light patches that don't match the shape). Screenshot: still to add.
-- Which cars and parts: still to note (only the FM3 port, or other ports too? Exterior, cockpit or
-  both?).
-- Leads to check:
-  - FM4 vertex bytes 24..31 (the "tail", 4 × S16). FM3 has the same 4 values; FM4 has them equal
-    on the interior and slightly rebaked on the exterior. If this is baked occlusion, the FM3
-    values could be wrong for FM4 on some parts.
-  - Parts where the converter has no FM3 tail and generates one with the ReplaceGeometry formula
-    (brakes, `t0 = 0.50 + 0.33*clamp((n.Y+1)/1.25)`): that is a guess, not baked AO.
-  - Tangent frame rebuilt from the normal and the FM3 frame Z axis.
-  - Maybe related to ROADMAP 9 3d.1 (textures and shaders too bright).
+- Seen 2026-10-17 in DEV: FH1/FH2 ports keep their shape after a crash; FM3 ports deform like FM4
+  cars. Deformable flag: OK on the FH body parts after the port.
+- Still to note: which cars, and whether they were ported before or after commit 80f5104 (FM4
+  damage values in `carattribs.xml` for soft source cars).
+- Per-vertex damage words, TOY_SupraRZ_98 in four games (`fm4dev\Deform\dmgcmp.exe`, outputs
+  `fm3.txt`, `fh1.txt`, `fh2.txt`, `pairs_fh2.tsv`):
+  - FM3 = FM4 on 93% of matched vertices.
+  - FH1 = FH2, **a different format from FM4**: three signed fields 11:11:10, a short model-space
+    vector (median length 43). FM4's word, same split, is a near-unit direction at full scale
+    (median length 614); |FM4 y| follows |FH vector| (corr 0.81). Not decoded yet.
+  - Likely cause: FM4 reads FH's short vectors as its own format.
+- Next, one of: decode the FM4 word and convert FH words in CarPort; or take each vertex's word
+  from the nearest vertex of the same car in FM4/FM3, else from a similar FM4 car.
 
-## 2. FM3 ports: no drag tires (fixed 2026-10-16, in-game check pending)
+## 2. FM3 ports: drag tyres (fixed 2026-10-16, in-game check pending, ROADMAP 9)
 
-- Fix: `CarPort.DragTires()` adds FM4's drag row to every ported car without compound 9 (FH1 and
-  FH2 also give drag tires to no car). X5 row inserted in DEV (backup
-  `bin\Debug\bak\2026-10-16_drag_bak_DEV_gamedb.slt`). When checked in game: move to ROADMAP and
-  remove from here.
+- FM3's `List_TireCompound` stops at 8; FM4 adds 9 (`9_DragTire`). `CarPort.DragTires()` adds
+  FM4's Level 4 row (`TireCompoundID 9, Price 10000`) to every ported car without compound 9.
+- X5 row inserted in DEV (backup `bin\Debug\bak\2026-10-16_drag_bak_DEV_gamedb.slt`).
+- To close: check in game that the X5 offers the Drag compound.
 
-- Seen: 2026-10-16, BMW_X5_09 ported from FM3: the Drag tire compound is missing from the
-  upgrades.
-- Cause: FM3's `List_TireCompound` stops at 8 (`8_RacingSlick`); FM4 adds 9 (`9_DragTire`). The
-  port copies FM3's `List_UpgradeTireCompound` rows as they are, so the car gets Levels 0-3 only.
-- FM4: 502 of 503 cars have a Level 4 row, always `TireCompoundID 9, Price 10000,
-  ManufacturerID 0` (Id = car * 1000 + 4).
-- Fix: in `CarPort` (`motorsport3` only), add that Level 4 row when the car has no compound 9.
-  For the X5 in DEV: insert `(1079004, 1079, 4, 0, 9, 0, 10000, 0.0, 1.0, 1.0)`.
+## 3. The tyre looks the same with every compound (on hold)
 
-## 3. The tire looks the same with every compound (not a port bug, on hold)
+- Not a port bug: FM4's own cars do the same in Xenia. The user checks on a real Xbox 360 later;
+  if the tyre changes there, look at what picks `Media\wheels\TireA/B/C.zip` (`List_Wheels`,
+  `WheelLayouts`, `Combo_TireBrandCompound`).
 
-- Seen: 2026-10-16, BMW_X5_09 ported from FM3, upgrade screen: Stock, Sport and Race compound
-  show the same tire model and texture.
-- **Not a port bug (user, 2026-10-16):** the same happens on FM4's own cars and on FH1, FH2 and
-  FM3 ports. Probably Xenia. Next: the user checks on real hardware (Xbox 360) later; if the tire
-  changes there, come back to the leads below.
-- Known so far: the car's wheel zip holds only the rim carbin (`wheels\BMW_X5_09.zip`, as the
-  FM4 X5M's). FM4 and FM3 both have shared tire models in `Media\wheels\TireA/B/C.zip` (plus a few
-  car-specific `Tire[ABC]<car>.zip` and `_SLOD`), and FM4 drag wheels (`*_Drag.zip`).
-- To check first: does an FM4 car (e.g. BMW_X5M_11) change its tire look between compounds in
-  the same screen? If not, this is the game's normal behaviour, not a port bug.
-- If it does: find what picks TireA/B/C (compound, tire width, rim size?) in the DB
-  (`List_Wheels`, `WheelLayouts`, `Combo_TireBrandCompound`) and compare the X5's rows with the
-  X5M's.
+## 4. Strange ambient occlusion on some parts (probably closed)
 
-## 4. FH1/FH2 ports do not deform in a crash
-
-- Seen: 2026-10-17, in game (DEV). Cars ported from FH1 and FH2 keep their shape after a crash;
-  FM3 ports deform a lot, as FM4 cars do.
-- To note: which cars, and whether the port was made before or after commit 80f5104 (FM4 damage
-  values in `carattribs.xml` for soft source cars). Before 80f5104, FH cars kept the "soft" FH
-  preset (PartDropGlobalScalar 0.15, scrape off, low DamageScalars), which could explain part of
-  it.
-- Deformable flag: OK (user, 2026-10-17), the FH body parts have it after the port.
-- **Per-vertex damage words, TOY_SupraRZ_98 in all four games (2026-10-17, tool
-  `fm4dev\Deform\dmgcmp.exe`, outputs `fm3.txt`, `fh1.txt`, `fh2.txt`, `pairs_fh2.tsv`):**
-  - FM3 = FM4: 29655 of 31848 matched vertices (93%) have the same word.
-  - FH1 = FH2 (identical output), but **a different format from FM4**: 3 of 31098 matched
-    vertices have FM4's word. Deformable flags agree on every part.
-  - FH word: three signed fields 11:11:10 (x bits 0-10, y 11-21, z 22-31), a small model-space
-    vector (median length 43, max ~110), e.g. skirt `(-23, 0, 0)`, hood `(0, 32, 0)`.
-  - FM4 word, same split: a near-unit direction at full scale (x ±1023, z ±511, median length
-    614), e.g. the same skirt vertex `(1022, -23, 2)`. |FM4 y| follows |FH vector| (corr 0.81),
-    |FM4 z| follows |FH z| (0.82). Not decoded yet.
-  - Likely cause: FM4 reads FH's short vectors as its own format, so the deformation is about 20
-    times too small or in the wrong direction.
-- Next, one of:
-  - decode the FM4 word (pairs in `pairs_fh2.tsv`) and convert FH words in CarPort;
-  - or take each vertex's word from the nearest vertex of the same car in FM4/FM3 when it exists,
-    else from a similar FM4 car (as the OBJ import does, validated in game).
+- Seen 2026-10-16 on BMW_X5_09 ported from FM3. Most likely the X5's dark patches, which the
+  user saw in FM3 too (FM3's own vertex bake, ROADMAP 9 3d.1). Remove this entry unless it shows
+  up on another port; then note the car, the parts and a screenshot.

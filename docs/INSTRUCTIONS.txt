@@ -4,7 +4,8 @@ ForzaEditor - BETA
 ForzaEditor is a modding tool for the Xbox 360 Forza games (FM4, FH1, FH2;
 FM2 and FM3 partly). It edits the game files in place: car models (.carbin),
 textures (.xds), XML files and the game database. It also ports cars from
-Forza Horizon 1 and 2 to Forza Motorsport 4, as a DLC package for Xenia.
+Forza Horizon 1 and 2 and Forza Motorsport 3 to Forza Motorsport 4, as a DLC
+package for Xenia or a modded (RGH/JTAG) Xbox 360.
 
 THIS IS AN EARLY BETA. Expect bugs. Work on a COPY of your game folder,
 never on your only copy.
@@ -56,9 +57,10 @@ Car port trials go to %TEMP%\ForzaStudio\CarPort (they can be deleted).
 
 4. PORT A CAR FROM FORZA HORIZON TO FM4 (DLC FOR XENIA)
 -------------------------------------------------------
-Tools > Port Car From Forza Horizon...
+Tools > Port Car From Another Forza...
 
-1. Set the Forza Horizon (1 or 2) folder and the Forza Motorsport 4 folder,
+1. Set the source folder (Forza Horizon 1 or 2, or Forza Motorsport 3) and the
+   Forza Motorsport 4 folder,
    then press Load Cars.
 2. Select a car, choose its FM4 donor (a star = closest match),
    press Add Selected Car. Repeat for every car you want.
@@ -88,8 +90,10 @@ Use an FM4 folder where these cars were never installed with
 - Tools > Hex View only works after a model was opened in
   Tools > Pay Respects (the classic Forza Studio window).
 - FM2 models can be exported but not imported back.
-- FM3 models can be viewed but not edited.
-- No package for a real Xbox 360 yet (Xenia only).
+- FM3 models can be viewed but not edited (the port tool converts them).
+- FM3 digital dashes are converted (checked on one car): please report what you see.
+- For a real Xbox 360, the window's Build for Xbox 360... writes the package;
+  copying it to the console (FTP) is up to you.
 
 
 6. REPORTING A BUG
