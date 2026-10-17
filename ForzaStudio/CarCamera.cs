@@ -181,6 +181,19 @@ namespace ForzaStudio
         // The median of part 9 minus the rim centre along Z on the 313 FM4 cars.
         private const float MeanZBias = 0.02f;
 
+        // Sets the steering wheel point rebuilt from the model and centres the eye on it: FM4's
+        // CamCockpitOffsetX is 0 on 495 of 503 cars, while FM3's offsets (-0.04..0.04 on more than half
+        // of its cars) were measured from FM3's own reference, which has no part 9; kept as they are,
+        // they put the eye about 2 cm beside the wheel (ROADMAP 9 3h). True when the offset changed.
+        public bool SetSteeringWheelFromModel(Vector3 point)
+        {
+            this.SteeringWheel = point;
+            this.HasSteeringWheel = true;
+            bool changed = this.CockpitOffset.X != 0f;
+            this.CockpitOffset.X = 0f;
+            return changed;
+        }
+
         private static float ReadFloat(byte[] data, int offset)
         {
             byte[] value = { data[offset + 3], data[offset + 2], data[offset + 1], data[offset] };

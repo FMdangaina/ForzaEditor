@@ -454,8 +454,13 @@ namespace ForzaStudio
                 return;
             }
             CarCamera camera = CarCamera.Load(this.target, this.MediaName);
-            camera.SteeringWheel = point;
+            float oldX = camera.CockpitOffset.X;
+            bool centred = camera.SetSteeringWheelFromModel(point);
             this.Line("  cockpit camera: no CarPartPositions part 9 (steering wheel point), rebuilt from the cockpit model's steering_wheel");
+            if (centred)
+            {
+                this.Line("  cockpit camera: CamCockpitOffsetX {0} -> 0 (FM4 centres the eye on the steering wheel)", oldX.ToString("0.###", CultureInfo.InvariantCulture));
+            }
             foreach (string line in camera.Save(this.target))
             {
                 this.Line("    {0}", line);

@@ -294,12 +294,12 @@ namespace ForzaStudio
                     }
                     else
                     {
-                        this.camState.SteeringWheel = point;
-                        this.camState.HasSteeringWheel = true;
+                        bool centred = this.camState.SetSteeringWheelFromModel(point);
                         this.camPending = true;
                         this.FillCameraControls();
-                        this.SetStatus(string.Format(CultureInfo.InvariantCulture, "{0}steering wheel point from {1}: {2:0.000}, {3:0.000}, {4:0.000} (Save to Database writes it)",
-                            userAsked ? "" : "CarPartPositions part 9 is missing (the game puts the cockpit view at 0,0,0); ", cockpit.Name, point.X, point.Y, point.Z));
+                        this.SetStatus(string.Format(CultureInfo.InvariantCulture, "{0}steering wheel point from {1}: {2:0.000}, {3:0.000}, {4:0.000}{5} (Save to Database writes it)",
+                            userAsked ? "" : "CarPartPositions part 9 is missing (the game puts the cockpit view at 0,0,0); ", cockpit.Name, point.X, point.Y, point.Z,
+                            centred ? ", eye centred on the wheel (offset x 0)" : ""));
                     }
                 }
                 catch (Exception exception)
