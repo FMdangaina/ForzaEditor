@@ -181,6 +181,9 @@ The toolbar has these controls (**Model > Export Checked Parts to OBJ...** write
 black in game. Select it and press **Rename Material...** in the Part tab (or right-click it), then pick an FM4 material from the list. You
 can rename it in every part and in every model file of the car (main, lod0, cockpit).
 
+> **To do:** the list now has ★ recommended materials, the common FM4 ones and ~ unusual ones, with a
+> "shader N" score (ROADMAP 4.1). The instructions and the documentation for it are still to be written.
+
 ### Cockpit camera (CAMERA tab)
 
 The model view's side panel has three tabs: **Part**, **Texture** and **Camera** (Camera only for car models).
@@ -434,7 +437,8 @@ The game's own files are not touched. The cars live in a package you can remove 
 4. Check the **Review** column. Select a car in the pack to see its review in the **Review** tab,
    and pick a fix for each line, or leave it as is. The usual lines are:
    - a value pointing at data FM4 lacks;
-   - a material FM4 renders black.
+   - a material FM4 renders black (the choices start with the ★ recommended ones; instructions still
+     to be written, ROADMAP 4.1).
 
    If you change fixes, run **Trial Pack** again.
 5. Set **Xenia's folder** (the one with `xenia_canary.exe`).

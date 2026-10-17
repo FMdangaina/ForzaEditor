@@ -15,8 +15,8 @@ Status: ✅ done · 🔧 in progress · ⏸ paused · ⬜ not started
 
 ## Now
 
-**3.9: Port → FM4 from a FH1 or FM3 car DLC package** (very important; back as Now 2026-10-17 after the
-12.5 UI work, user's choice). Details in topic 3.
+**4.1: Recommended and unusual FM4 materials in Rename Material and the port review** (user, 2026-10-18:
+"fondamentale"; 3.9 paused meanwhile, it comes back as Now after this). Details in topic 4.
 
 ## Next (in order)
 
@@ -75,7 +75,7 @@ Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 - [ ] 3.6d Several Forza Studio packs at once: each pack's string tables built on top of the other
       installed packs' (today only the highest priority pack shows its car names)
 - [ ] 3.8 Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (the user's side)
-- [ ] 3.9 **Very important**, **Now** (resumed 2026-10-17). Port → FM4 from a FH1 or FM3 car DLC (FH2 on 360 has no DLC) (STFS `CON`/`LIVE` or its
+- [ ] 3.9 **Very important**, paused 2026-10-18 for 4.1 (Now again after it). Port → FM4 from a FH1 or FM3 car DLC (FH2 on 360 has no DLC) (STFS `CON`/`LIVE` or its
       extracted folder): base game for shared data, the package's `<offer>000_merge.slt`, string
       tables, car/wheel zips and `_pri_N` folders, audio on top. DLC cars appear in the car list
       and go into an FM4 pack. Material: `fm4dev\Forza Horizon 1 DLC` (20 official FH1 packages)
@@ -91,14 +91,40 @@ Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
   - [x] Sound with the engine upgraded: FM3 engine tunings completed to the FM4 layout
         (`CarPort.CompleteEngineTuning`, review "sound" choice); X5 checked in game 2026-10-17
   - [ ] FM3 DLC: no material yet
+  - Next steps to resume 3.9 (written 2026-10-17, the 3.9 chat drifted to sound/traffic work), in order:
+    - [ ] a. Before touching `CarPort.cs`: commit (or set aside) the uncommitted traffic close-up work
+          (14.1) so the two topics do not mix
+    - [ ] b. DLC reader on the **extracted folder** first (`fm4dev\FH1DLC\extracted`): `.puboffer`,
+          `zipmount.xml`, `<offer>_pri_65.zip` (LZX, ForzaZip), loose `_pri_N` folders,
+          `StringTables_pri_*.zip`, `cameras_pri_N.zip`, `<n>_merge.slt`. One layered view (pack on top)
+          that CarPort reads like a source game root
+    - [ ] c. Source game detected from the pack itself (title id / merge table set), not from a base game
+    - [ ] d. CarPort standalone: every read that today needs the base source game (gamedb, the tuning
+          zips opened unconditionally, CopyReferences, make rows, base wheels, thumbnail, shared HT/fsb)
+          comes from the pack; what the pack lacks comes from FM4 or the review
+    - [ ] e. PI fixed line per source game (FH1 constants above) instead of base-game PI pairs
+    - [ ] f. Swap engine review choice (the item above)
+    - [ ] g. Port window: open a DLC (folder) as source, list its cars; offers 1100/1200 have the same 11
+          cars (show once); truncated packages (offers 2100, 2500) refused with a message; the 12 cars
+          already in FM4 marked
+    - [ ] h. Trial on all 46 new FH1 DLC cars with a harness (like the 73/73 FH2 one), then build one pack
+    - [ ] i. In-game check by the user: one complete car, one without swaps, one with partial sound
+    - [ ] j. Open the STFS package directly (`CON`/`LIVE`), not only the extracted folder
 - [x] 3.1-3.3 Real DLC studied; merge DB `<offer>000_merge.slt` built from a port on a clean DB copy
 - [x] 3.4-3.5 Xenia package folder with header; works in game with the base game untouched
 - [x] 3.6 Port window DLC pack panel (n cars, trial, build into Xenia); multi-car pack checked in game
 - [x] 3.6e/f Port window restyled; FM4 material list measured again on the original cars
 - [x] 3.7 STFS package for a real Xbox 360 (RGH/JTAG, `StfsPackage.cs`), works on the console
 
-## 4. Materials FM4 renders black ✅ done
+## 4. Materials FM4 renders black 🔧
 
+- [ ] 4.1 **Now**: the material choices come from the car shaders of FM4/FH1/FH2/FM3 (`MaterialSuggestions.cs`,
+      data from `fm4dev\Shaders\tools\similarity`): ★ recommended (port table, name rule, most similar FM4
+      shaders with a 0-100 score), the common FM4 materials, ~ unusual ones (FM4 shaders few or no FM4 cars
+      use). Built and committed; left:
+  - [ ] check in the editor and in game (the "by name" rules and the shader scores are not tested in game;
+        `lights_amber`, the port table's target for indicators, is not in FM4's in-race shader library)
+  - [ ] instructions and documentation still to do (`docs/MANUAL.md` sections 5 and 11 only say so)
 - [x] Port report lists them, model view marks them red, Rename Material… (checked by the user)
 - [x] No fixed FH → FM4 table for now (automatic mapping: see Maybe later)
 
@@ -228,8 +254,9 @@ Background and Jew's notes: `docs/todo_research.md`, C1.
         the steering wheel, other points from the donor (`CarPort.CockpitRig`); hands
         (`DriverHandsOffset`) from the wheel too
   - [x] Driver seat with the driver baked in replaced by the other seat mirrored; camera part 9 and
-        hood from the wheel; donor brakes scaled (traffic cars only); `<part>_LODn` names renamed to
-        the LOD they are drawn at
+        hood from the wheel; donor brakes scaled (traffic cars only); material names kept as in the
+        source (no invented `_LOD0` names)
+  - [ ] Traffic cars shown in yellow in the port list (placeholder close-up files)
   - [ ] Interior very dark; exterior FH material names still black (fixed by hand)
   - [ ] Same rebuild for FM1/FM2 cars later (FM2 is export only today)
 - [ ] 14.2 FM2 models (today FM2 is export only)
@@ -267,8 +294,8 @@ cameras moved to Maybe later.
   and a crossfade between the samples around the chosen RPM. Today: FM4's bank when the names match
 - Dash editor (topic 5): simpler edit panel (5.4; the user: "to simplify, fine for now")
 - FM2 model writer (FM2 is out of scope for now)
-- Automatic FH → FM4 material mapping instead of the manual fix (topic 4). @BlackBirdOsaka
-  (Discord) is writing down the materials they replace: a starting point
+- Automatic FH → FM4 material mapping instead of the manual fix (topic 4; 4.1 gives the suggestions,
+  the choice stays the user's). @BlackBirdOsaka (Discord) is writing down the materials they replace: a starting point
 - .gr2 animation editor
 - Cars built from scratch (a full wizard, also as a DLC package)
 - New renderer in place of XNA (a dream; almost impossible for now)

@@ -18,6 +18,7 @@ namespace ForzaStudio
         public static readonly Color Red = Color.FromArgb(226, 38, 30);
         public static readonly Color RedDark = Color.FromArgb(120, 24, 20);
         public static readonly Color Selection = Color.FromArgb(150, 28, 22);
+        public static readonly Color Yellow = Color.FromArgb(240, 200, 60);
 
         public static readonly Font Regular = new Font("Segoe UI", 9f);
         public static readonly Font Bold = new Font("Segoe UI Semibold", 9f);

@@ -14,6 +14,22 @@ work and the status are in `ROADMAP.md` only.
 - **Renderer:** a new one is almost impossible, the viewer stays on XNA (ROADMAP "Maybe later").
 - **Game materials:** hardcoded in the executable, or shader files somewhere (DVD, zips,
   `shadersettings`)? If the FM shaders are found, use or imitate them for a real-time preview.
+  - **Found (2026-10-17, details in `fm4dev\Shaders\FINDINGS.md`):** `Media\Shaders\Cars\*.fxobj`,
+    compiled Xbox 360 effects. 5 big libraries (`shaders_v16`, `_16car`, `_slod`, `_splitscreen`,
+    `_ui`) + ~148 single-material files listed in `CustomCarShaders.xml`. A carbin material name is a
+    technique name (`cockpit_` prefix in the cockpit). An unknown name falls back to the `missing`
+    technique, which is why FH lights render black in FM4.
+  - FM4 library: 196 techniques, FH1: 254. The single files are the same set in both games. FH1-only
+    (57): one technique per light type (fullbeam, hidhead, xenonhead, drl*, indicator_*, fog*,
+    lights_gls_*...), numberplate/numplate, traffic body/window, shadow masks. FH1 lights take
+    their colour from per-car `shadersettings.xml` parameters (`FullbeamColor`, `DRLWhiteColor`...);
+    FM4 has only generic head_light/tail_light/reverse_light/lights_*.
+  - FH1 shaders need engine inputs FM4 lacks (dynamic lights, cascaded shadows, two-tone paint):
+    copying them into FM4 is not realistic. The viewer can only imitate them from the parameters.
+  - **Similarity (2026-10-18):** technique -> vertex/pixel shader decoded for all four games; every
+    FH1/FH2/FM3 material scored against FM4's (shared shader constants and size, 0-100). FH lights are
+    closest to FM4 `reflector` / `tail_light` (70-75), FM3 same-name materials 59-89. Used by ROADMAP
+    4.1 for the recommended materials. Documentation of the format and of the score still to do.
 - **Viewer camera:** the game's FOVs are vertical degrees, in `Media\Camera\CameraSettings.ini`
   (race cameras) and `Media\UICarTargetCameraPresets.xml` (garage, photo mode).
 

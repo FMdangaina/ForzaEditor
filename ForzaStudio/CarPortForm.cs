@@ -56,6 +56,8 @@ namespace ForzaStudio
         private readonly ListView cars;
         private readonly ComboBox donors;
         private readonly CheckBox arcade;
+        private readonly ComboBox makes;    // "the source's" + FM4's makes
+        private readonly ComboBox sounds;   // "the source's" + FM4's cars
         private readonly ToolStripStatusLabel details;
         private readonly TextBox report;
         private readonly Panel reviewPanel;
@@ -101,6 +103,7 @@ namespace ForzaStudio
             public string Fm4Class;
             public Status State;
             public string Note;
+            public bool Traffic;        // placeholder close-up models (FH traffic cars), shown in yellow
         }
 
         private class DonorChoice
@@ -208,7 +211,7 @@ namespace ForzaStudio
 
             Panel options = new Panel();
             options.Dock = DockStyle.Bottom;
-            options.Height = 92;
+            options.Height = 124;
             Label donorLabel = new Label();
             donorLabel.Text = "FM4 template car, for what the source car lacks (★ = most similar: make, layout, drive, year, weight, PI):";
             donorLabel.Location = new Point(8, 8);
@@ -225,11 +228,35 @@ namespace ForzaStudio
             this.arcade.Checked = true;
             this.arcade.Location = new Point(484, 30);
             this.arcade.AutoSize = true;
-            this.trial = ActionButton(options, "Trial Run", 8, 62, 100);
+            Label makeLabel = new Label();
+            makeLabel.Text = "Make:";
+            makeLabel.Location = new Point(8, 63);
+            makeLabel.AutoSize = true;
+            this.makes = new ComboBox();
+            this.makes.DropDownStyle = ComboBoxStyle.DropDownList;
+            this.makes.Location = new Point(52, 60);
+            this.makes.Width = 180;
+            this.makes.MaxDropDownItems = 24;
+            new ToolTip().SetToolTip(this.makes, "The FM4 make the car goes under (CarPort.MakeId); the source's own make by default");
+            Label soundLabel = new Label();
+            soundLabel.Text = "Engine sound:";
+            soundLabel.Location = new Point(244, 63);
+            soundLabel.AutoSize = true;
+            this.sounds = new ComboBox();
+            this.sounds.DropDownStyle = ComboBoxStyle.DropDownList;
+            this.sounds.Location = new Point(332, 60);
+            this.sounds.Width = 260;
+            this.sounds.MaxDropDownItems = 24;
+            new ToolTip().SetToolTip(this.sounds, "The FM4 car whose whole engine sound setup the car gets (CarPort.SoundFrom); the source's own sound by default");
+            options.Controls.Add(makeLabel);
+            options.Controls.Add(this.makes);
+            options.Controls.Add(soundLabel);
+            options.Controls.Add(this.sounds);
+            this.trial = ActionButton(options, "Trial Run", 8, 94, 100);
             this.trial.Click += delegate { this.Port(false); };
-            this.install = ActionButton(options, "Install In FM4...", 114, 62, 120);
+            this.install = ActionButton(options, "Install In FM4...", 114, 94, 120);
             this.install.Click += delegate { this.Port(true); };
-            this.openTrial = ActionButton(options, "Open Trial Folder", 240, 62, 130);
+            this.openTrial = ActionButton(options, "Open Trial Folder", 240, 94, 130);
             this.openTrial.Click += delegate
             {
                 if (this.trialFolder != null && Directory.Exists(this.trialFolder))
@@ -579,7 +606,8 @@ namespace ForzaStudio
                 }
                 Rectangle text = new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 6, e.Bounds.Height);
                 bool dim = e.Item.ForeColor == ForzaTheme.TextDim;
-                Color fore = selected ? Color.White : ((e.ColumnIndex == 0 || dim) ? ForzaTheme.TextDim : ForzaTheme.Text);
+                Car shown = e.Item.Tag as Car;
+                Color fore = selected ? Color.White : ((e.ColumnIndex == 0 || dim) ? ForzaTheme.TextDim : (shown != null && shown.Traffic) ? ForzaTheme.Yellow : ForzaTheme.Text);
                 TextRenderer.DrawText(e.Graphics, value, ForzaTheme.Regular, text, fore, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
             };
         }
@@ -1281,9 +1309,22 @@ namespace ForzaStudio
                 List<Car> motorsport;
                 ReadCars(source, target, out horizon, out motorsport);
                 Dictionary<string, Color> colors = ClassColors(target);
+                List<CarPort.Choice> makeList = Makes(target);
                 return delegate
                 {
                     this.classColors = colors;
+                    this.makes.Items.Clear();
+                    this.makes.Items.AddRange(makeList.ToArray());
+                    this.makes.SelectedIndex = 0;
+                    List<Car> soundCars = new List<Car>(motorsport);
+                    soundCars.Sort(delegate(Car a, Car b) { return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase); });
+                    this.sounds.Items.Clear();
+                    this.sounds.Items.Add(new CarPort.Choice { Value = null, Label = "the source's" });
+                    foreach (Car fm4 in soundCars)
+                    {
+                        this.sounds.Items.Add(new CarPort.Choice { Value = fm4.MediaName, Label = fm4.Name + "  (" + fm4.MediaName + ")" });
+                    }
+                    this.sounds.SelectedIndex = 0;
                     this.sourceTag = GameInfo.Tag(sourceGame);
                     this.cars.Columns[4].Text = "PI " + this.sourceTag;
                     this.fm4Cars = motorsport;
@@ -1320,6 +1361,31 @@ namespace ForzaStudio
                     this.details.Text = string.Format("{0} {1} cars, {2} not in FM4. Choose a car.", horizon.Count, this.sourceTag, portable);
                 };
             });
+        }
+
+        // "the source's" and FM4's makes (List_CarMake), by name, for the make choice.
+        private static List<CarPort.Choice> Makes(string target)
+        {
+            List<CarPort.Choice> makes = new List<CarPort.Choice>();
+            StringTable names = Names(target);
+            try
+            {
+                using (SqliteDatabase db = SqliteDatabase.FromBytes(File.ReadAllBytes(Path.Combine(Path.Combine(Path.Combine(target, "Media"), "db"), "gamedb.slt"))))
+                {
+                    foreach (object[] row in db.Query("SELECT ID, ManufacturerCode, DisplayName FROM List_CarMake").Rows)
+                    {
+                        string name = (names != null) ? names.Lookup("List_CarMake", "DisplayName", row[2] as string) : null;
+                        string code = Convert.ToString(row[1], CultureInfo.InvariantCulture);
+                        makes.Add(new CarPort.Choice { Value = Convert.ToInt64(row[0]), Label = string.IsNullOrEmpty(name) ? code : name + "  (" + code + ")" });
+                    }
+                }
+            }
+            catch (Exception)
+            {
+            }
+            makes.Sort(delegate(CarPort.Choice a, CarPort.Choice b) { return string.Compare(a.Label, b.Label, StringComparison.OrdinalIgnoreCase); });
+            makes.Insert(0, new CarPort.Choice { Value = null, Label = "the source's" });
+            return makes;
         }
 
         // FM4's class colors (CarClasses.ClassColor by badge letter), for the class badges.
@@ -1363,7 +1429,18 @@ namespace ForzaStudio
                     car.Fm4Class = CarPort.ClassName(to, CarPort.ClassFor(to, car.Fm4Pi, car.Id));
                     Car same;
                     Car other;
-                    if (!File.Exists(Path.Combine(sourceCars, car.MediaName + ".zip")))
+                    string zip = Path.Combine(sourceCars, car.MediaName + ".zip");
+                    if (File.Exists(zip))
+                    {
+                        try
+                        {
+                            car.Traffic = CarPort.HasPlaceholderCloseUp(zip, car.MediaName);
+                        }
+                        catch (Exception)
+                        {
+                        }
+                    }
+                    if (!File.Exists(zip))
                     {
                         car.State = Status.NoFiles;
                         car.Note = "no car zip in the source folder";
@@ -1488,6 +1565,15 @@ namespace ForzaStudio
         {
             Car car = this.SelectedCar;
             this.donors.Items.Clear();
+            // Make and sound are per car: back to the source's for every new choice.
+            if (this.makes.Items.Count > 0)
+            {
+                this.makes.SelectedIndex = 0;
+            }
+            if (this.sounds.Items.Count > 0)
+            {
+                this.sounds.SelectedIndex = 0;
+            }
             if (car == null || !string.Equals(car.MediaName, this.reviewCar, StringComparison.OrdinalIgnoreCase))
             {
                 this.reviewPanel.Visible = false;   // the fixes stay kept for that car
@@ -1563,6 +1649,16 @@ namespace ForzaStudio
             port.MediaName = car.MediaName;
             port.DonorMediaName = donor.Car.MediaName;
             port.Arcade = this.arcade.Checked;
+            CarPort.Choice make = this.makes.SelectedItem as CarPort.Choice;
+            if (make != null && make.Value != null)
+            {
+                port.MakeId = (long) make.Value;
+            }
+            CarPort.Choice sound = this.sounds.SelectedItem as CarPort.Choice;
+            if (sound != null && sound.Value != null)
+            {
+                port.SoundFrom = (string) sound.Value;
+            }
             Dictionary<string, object> chosen;
             if (this.fixes.TryGetValue(car.MediaName, out chosen))
             {

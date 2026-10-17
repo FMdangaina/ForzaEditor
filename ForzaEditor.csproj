@@ -149,6 +149,7 @@
     <Compile Include="ForzaStudio\StrFile.cs" />
     <Compile Include="ForzaStudio\CarPort.cs" />
     <Compile Include="ForzaStudio\CarCamera.cs" />
+    <Compile Include="ForzaStudio\MaterialSuggestions.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Camera.cs">
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>

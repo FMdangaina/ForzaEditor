@@ -43,6 +43,8 @@ namespace ForzaStudio
         public string MediaName;        // the car, e.g. MCL_P1_13
         public string DonorMediaName;   // an FM4 car close to it, e.g. MCL_MP412C_11 (brakes, templates)
         public bool Arcade = true;      // Data_Car.IsArcade
+        public long? MakeId;            // an FM4 make (List_CarMake.ID) to put the car under instead of the source's
+        public string SoundFrom;        // an FM4 car whose engine sound setup to use instead of the source's
         public string OutputRoot;       // trial run: files written here (same layout) instead of TargetRoot;
                                         // a file already there (an earlier car of the same DLC pack) is
                                         // read instead of the target's, so the cars of a pack chain
@@ -374,6 +376,22 @@ namespace ForzaStudio
             if (make == null || !from.ContainsKey("List_CarMake") || !to.ContainsKey("List_CarMake"))
             {
                 return;
+            }
+            if (this.MakeId.HasValue && Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_CarMake WHERE ID = ?", this.MakeId.Value)) > 0)
+            {
+                this.target.Execute("UPDATE Data_Car SET MakeID = ? WHERE Id = ?", this.MakeId.Value, this.carId);
+                this.Line("make {0} ({1}) -> FM4 make {2} ({3}), the user's choice", make, this.source.Scalar("SELECT ManufacturerCode FROM List_CarMake WHERE ID = ?", make), this.MakeId.Value, this.target.Scalar("SELECT ManufacturerCode FROM List_CarMake WHERE ID = ?", this.MakeId.Value));
+                // Other rows of the car pointing at the old make (List_UpgradeDrivetrain.ManufacturerId)
+                // follow it in the review step, unless the user fixed them otherwise.
+                foreach (GameDbSchema.Relation relation in GameDbSchema.Into("List_CarMake"))
+                {
+                    string key = relation.Table + "." + relation.Column + "=" + Convert.ToString(make, CultureInfo.InvariantCulture);
+                    if (!this.Fixes.ContainsKey(key))
+                    {
+                        this.Fixes[key] = this.MakeId.Value;
+                    }
+                }
+                make = this.MakeId.Value;
             }
             if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_CarMake WHERE ID = ?", make)) > 0)
             {
@@ -775,11 +793,12 @@ namespace ForzaStudio
                 issue.Where = string.Join(" ", material.Value.ToArray());
                 issue.Value = material.Key;
                 issue.Problem = string.Format("material {0} is used by no FM4 car (renders black)", material.Key);
-                foreach (string name in Fm4Materials(2))
+                // ★ recommended first, then the common FM4 materials, then ~ the unusual ones
+                foreach (MaterialSuggestions.Entry entry in MaterialSuggestions.For(material.Key, this.MediaName + ".carbin", 2))
                 {
                     Choice c = new Choice();
-                    c.Value = name;
-                    c.Label = name;
+                    c.Value = entry.Name;
+                    c.Label = entry.ToString();
                     issue.Choices.Add(c);
                 }
                 issue.Suggested = SuggestMaterial(material.Key, this.MediaName + ".carbin");
@@ -1640,6 +1659,29 @@ namespace ForzaStudio
             }
         }
 
+        // A quick test for the car list, from the zip directory only: a _lod0 or _cockpit file missing or
+        // smaller than a tenth of the main file. Close-up files of real cars are 40% of it and up (FM4 313,
+        // FH1, FH2); placeholders 3% at most (18 FH1 and 14 FH2 cars). The port itself decides by vertices.
+        public static bool HasPlaceholderCloseUp(string zipPath, string mediaName)
+        {
+            string prefix = mediaName.ToLowerInvariant();
+            ForzaZip car = new ForzaZip(zipPath);
+            ForzaZip.Entry main = car.Find(prefix + ".carbin");
+            if (main == null)
+            {
+                return false;
+            }
+            foreach (string kind in new string[] { "_lod0", "_cockpit" })
+            {
+                ForzaZip.Entry close = car.Find(prefix + kind + ".carbin");
+                if (close == null || close.UncompressedSize < main.UncompressedSize / 10)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // FM4 draws a car up close from its _lod0 (exterior) and _cockpit (interior) files. FH traffic models
         // (GMC_YukonXL_01, FOR_Transit_11, TOY_Camry_07... 19 FH1/FH2 cars) have only placeholders there,
         // 10-17 parts of 17 vertices, and a few have no file at all (FOR_Explorer_10): the car vanishes
@@ -1729,7 +1771,7 @@ namespace ForzaStudio
                     RenameLod0Tire(section);
                     foreach (CarbinModel.SubSection sub in section.SubSections)
                     {
-                        sub.Name = LodVariant(Lod0Name(sub.Name), name);
+                        sub.Name = LodVariant(sub.Name, name);
                         if (!materials.Contains(sub.Name))
                         {
                             materials.Add(sub.Name);
@@ -2990,15 +3032,6 @@ namespace ForzaStudio
             this.Line("  carattribs DriverHandsOffset {0}, {1}, {2} is not at the steering wheel (x {3:F6}): now {4:F6}, {5:F6}, {6:F6} (wheel origin + FM4's median offset)", match.Groups[1].Value, match.Groups[2].Value, match.Groups[3].Value, wheel.Bounds[0], hands.X, hands.Y, hands.Z);
         }
 
-        // Forza names per-LOD materials <part>_LOD<n> after the level they are drawn at (FM4: bumperFa_LOD1,
-        // taillightL_LOD5, wingz_LOD0..wingz_LOD5); a LOD 1 one copied into a LOD 0 model gets _LOD0
-        // (user's rule, 2026-10-17). Other names are kept.
-        private static string Lod0Name(string material)
-        {
-            Match match = Regex.Match(material, @"^(.+)_LOD\d+$", RegexOptions.IgnoreCase);
-            return match.Success ? match.Groups[1].Value + "_LOD0" : material;
-        }
-
         // FH traffic models carry a low-poly driver merged into the driver's seat: seatL has 594-926 LOD 1
         // indices against seatR's 70-161 (GMC_YukonXL_01, TOY_Camry_07, AUD_A4Avant_04, FOR_Explorer_10).
         // The seat with more than three times its twin's indices is that one; null when there is none.
@@ -3207,13 +3240,6 @@ namespace ForzaStudio
                 {
                     built += section.Lod0.Count;
                     outerRim |= Lod0TireToOuterRim(section);
-                    foreach (CarbinModel.SubSection sub in section.SubSections)
-                    {
-                        if (sub.Lod == 0)
-                        {
-                            sub.Name = Lod0Name(sub.Name);
-                        }
-                    }
                 }
                 string tire = TireHeader(model);
                 wheel.Replace(entry, model.ToBytes());
@@ -3262,8 +3288,21 @@ namespace ForzaStudio
             List<string> checkedHarmonics = new List<string>();   // in FM4 with all their sound banks
             ForzaZip engineTuning = this.OpenChanged(Path.Combine(Path.Combine(targetAudio, "Engines"), "enginetuning.zip"));
             string donorEngine = this.target.Scalar("SELECT e.MediaName FROM Data_Engine e JOIN List_UpgradeEngine u ON u.EngineID = e.EngineID WHERE u.Ordinal = ? AND u.Level = 0", this.donorId) as string;
+            string chosenEngine = (this.SoundFrom != null) ? this.target.Scalar("SELECT e.MediaName FROM Data_Engine e JOIN List_UpgradeEngine u ON u.EngineID = e.EngineID JOIN Data_Car c ON c.Id = u.Ordinal WHERE c.MediaName = ? COLLATE NOCASE AND u.Level = 0", this.SoundFrom) as string : null;
+            ForzaZip.Entry chosenTuning = (chosenEngine != null) ? engineTuning.Find(chosenEngine + "_ET.xml") : null;
+            if (this.SoundFrom != null && chosenTuning == null)
+            {
+                this.Line("WARNING engine sound: {0} has no FM4 engine tuning; the source's sound is kept", this.SoundFrom);
+            }
             foreach (string media in this.engineMedia)
             {
+                if (chosenTuning != null)
+                {
+                    // The user's choice: that FM4 car's whole sound setup (its banks are FM4's).
+                    this.Put(engineTuning, media + "_ET.xml", engineTuning.Read(chosenTuning));
+                    this.Line("engine sound {0}: {1}'s FM4 setup {2}_ET.xml, the user's choice", media, this.SoundFrom, chosenEngine);
+                    continue;
+                }
                 ForzaZip.Entry entry = sourceTuning.Find(media + "_ET.xml");
                 byte[] data = (entry != null) ? sourceTuning.Read(entry) : null;
                 List<string> missing = new List<string>();

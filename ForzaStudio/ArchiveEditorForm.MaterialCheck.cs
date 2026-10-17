@@ -128,20 +128,33 @@ namespace ForzaStudio
                 return;
             }
             Panel content = new Panel();
-            content.Size = new Size(380, 150);
+            content.Size = new Size(440, 168);
             Label label = new Label();
             label.Text = string.Format("Rename the material {0} of {1} to:", material, section);
             label.AutoSize = true;
             label.Location = new Point(0, 4);
+            // ★ recommended (port table, name, most similar shaders), then the common FM4 materials, then
+            // ~ the unusual ones (an FM4 shader no or few FM4 cars use: for something different on purpose).
+            List<MaterialSuggestions.Entry> choices = MaterialSuggestions.For(material, this.currentEntry.Name, this.modelType);
             ComboBox name = new ComboBox();
             name.DropDownStyle = ComboBoxStyle.DropDown;
-            name.Width = 260;
+            name.Width = 420;
+            name.MaxDropDownItems = 20;
             name.Location = new Point(0, 26);
-            name.Items.AddRange(CarPort.Fm4Materials(this.modelType));
+            AutoCompleteStringCollection names = new AutoCompleteStringCollection();
+            foreach (MaterialSuggestions.Entry choice in choices)
+            {
+                name.Items.Add(choice);
+                names.Add(choice.Name);
+            }
             name.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-            name.AutoCompleteSource = AutoCompleteSource.ListItems;
-            string suggestion = CarPort.SuggestMaterial(material, this.currentEntry.Name);
-            name.Text = suggestion ?? "";
+            name.AutoCompleteSource = AutoCompleteSource.CustomSource;
+            name.AutoCompleteCustomSource = names;
+            bool recommended = choices.Count > 0 && choices[0].Group == MaterialSuggestions.Group.Recommended;
+            if (recommended)
+            {
+                name.SelectedIndex = 0;
+            }
             CheckBox everyPart = new CheckBox();
             everyPart.Text = "In every part with this material";
             everyPart.Checked = true;
@@ -153,7 +166,7 @@ namespace ForzaStudio
             everyFile.AutoSize = true;
             everyFile.Location = new Point(0, 84);
             Label note = new Label();
-            note.Text = (suggestion != null) ? "Suggested by the FH2 -> FM4 material table." : "The list holds the materials FM4 cars use.";
+            note.Text = "★ recommended   ~ unusual: an FM4 shader few or no FM4 cars use\n\"shader N\": how close the FM4 shader is to the source game's (0-100).";
             note.ForeColor = SystemColors.GrayText;
             note.AutoSize = true;
             note.Location = new Point(0, 114);
@@ -162,7 +175,7 @@ namespace ForzaStudio
             {
                 return;
             }
-            string newName = name.Text.Trim();
+            string newName = MaterialSuggestions.NameOf((name.SelectedItem != null && name.Text == name.SelectedItem.ToString()) ? name.SelectedItem : name.Text);
             if (newName.Length == 0 || newName.IndexOfAny(new char[] { ' ', '/', '\\', '<', '>' }) >= 0 || newName == material)
             {
                 return;
