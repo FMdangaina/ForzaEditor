@@ -13,13 +13,11 @@ namespace ForzaStudio
     {
         private void AddPartImportControls(FlowLayoutPanel side)
         {
-            side.Controls.Add(SideLabel("Parts from other cars / editors"));
-            side.Controls.Add(PartButton("Import Part From Car...", delegate { this.ImportPartFromCar(); }));
-            side.Controls.Add(PartButton("Export Part to OBJ...", delegate { this.ExportPartObj(); }));
-            side.Controls.Add(PartButton("Import OBJ Into Part...", delegate { this.ImportObjIntoPart(); }));
-            side.Controls.Add(SideLabel("Whole model (OBJ work folder)"));
-            side.Controls.Add(PartButton("Export Model To Folder...", delegate { this.ExportModelFolder(); }));
-            side.Controls.Add(PartButton("Import Model From Folder...", delegate { this.ImportModelFolder(); }));
+            side.Controls.Add(SideHeading("Import / export part", false));
+            side.Controls.Add(SideWideButton("Copy Part From Another Car...", delegate { this.ImportPartFromCar(); }));
+            side.Controls.Add(SideButtonRow(PartButton("Export OBJ...", delegate { this.ExportPartObj(); }), PartButton("Import OBJ...", delegate { this.ImportObjIntoPart(); })));
+            side.Controls.Add(SideHeading("Whole model (OBJ folder)", false));
+            side.Controls.Add(SideButtonRow(PartButton("Export...", delegate { this.ExportModelFolder(); }), PartButton("Import...", delegate { this.ImportModelFolder(); })));
         }
 
         // The part OBJ export/import works on: the one in edit, else the part selected in the tree (OBJ
@@ -142,7 +140,7 @@ namespace ForzaStudio
                 }
                 try
                 {
-                    int triangles = ObjMesh.Export(model, part, dialog.FileName, "ForzaEditor: " + part + " from " + source.Name);
+                    int triangles = ObjMesh.Export(model, part, dialog.FileName, "Forza Studio: " + part + " from " + source.Name);
                     this.SetStatus(string.Format("{0}: {1:N0} triangles exported from {2} to {3}", part, triangles, source.Name, dialog.FileName));
                 }
                 catch (Exception exception)

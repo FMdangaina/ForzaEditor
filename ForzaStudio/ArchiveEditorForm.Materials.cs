@@ -29,24 +29,30 @@ namespace ForzaStudio
         private Dictionary<ForzaMesh, string> meshTextures = new Dictionary<ForzaMesh, string>();
         private Dictionary<string, Bitmap> previewCache = new Dictionary<string, Bitmap>(StringComparer.OrdinalIgnoreCase);
 
+        // Model view side panel: game-style tabs PART / TEXTURE / CAMERA, each a column of controls
+        // SideWidth wide. CAMERA is shown only for car models (SetCameraTabVisible).
+        private const int SideWidth = 236;
+        private TabControl tabSide;
+        private TabPage tabSideCamera;
+
         private Panel BuildMeshInfoPanel()
         {
-            FlowLayoutPanel side = new FlowLayoutPanel();
-            side.Dock = DockStyle.Right;
-            side.Width = 268;
-            side.FlowDirection = FlowDirection.TopDown;
-            side.WrapContents = false;
-            side.AutoScroll = true;
-            side.Padding = new Padding(8);
+            Panel host = new Panel();
+            host.Dock = DockStyle.Right;
+            host.Width = 280;
+            this.tabSide = new TabControl();
+            FlowLayoutPanel part = this.AddSideTab("Part");
+            FlowLayoutPanel textures = this.AddSideTab("Texture");
+            FlowLayoutPanel camera = this.AddSideTab("Camera");
+            this.tabSideCamera = this.tabSide.TabPages[2];
+            host.Controls.Add(TabHost(this.tabSide, null));
 
-            this.lblMeshInfo = new Label();
-            this.lblMeshInfo.AutoSize = false;
-            this.lblMeshInfo.Size = new Size(220, 175);
-            this.lblMeshInfo.Text = "Select a part in the tree.";
+            this.lblMeshInfo = SideNote("Select a part in the tree.");
+            this.lblMeshInfo.ForeColor = this.ForeColor;
 
             this.cmbMeshTexture = new ComboBox();
             this.cmbMeshTexture.DropDownStyle = ComboBoxStyle.DropDownList;
-            this.cmbMeshTexture.Width = 220;
+            this.cmbMeshTexture.Width = SideWidth;
             this.cmbMeshTexture.SelectedIndexChanged += delegate
             {
                 if (!this.updatingMeshPanel && this.cmbMeshTexture.SelectedIndex >= 0)
@@ -56,14 +62,11 @@ namespace ForzaStudio
                 }
             };
 
-            Button browse = new Button();
-            browse.Text = "Texture From Folder...";
-            browse.Size = new Size(220, 28);
-            browse.Click += delegate { this.AssignTextureFromFile(); };
+            Button browse = SideWideButton("Texture From File...", delegate { this.AssignTextureFromFile(); });
 
             this.cmbMeshUV = new ComboBox();
             this.cmbMeshUV.DropDownStyle = ComboBoxStyle.DropDownList;
-            this.cmbMeshUV.Width = 220;
+            this.cmbMeshUV.Width = SideWidth;
             this.cmbMeshUV.Items.AddRange(new object[] { "UV1", "UV2" });
             this.cmbMeshUV.SelectedIndex = 0;
             this.cmbMeshUV.SelectedIndexChanged += delegate
@@ -77,35 +80,123 @@ namespace ForzaStudio
             this.chkSameMaterial = new CheckBox();
             this.chkSameMaterial.Text = "Apply to all parts with this material";
             this.chkSameMaterial.Checked = true;
-            this.chkSameMaterial.Size = new Size(220, 36);
+            this.chkSameMaterial.Size = new Size(SideWidth, 22);
 
             this.chkAlphaMask = new CheckBox();
             this.chkAlphaMask.Text = "Alpha as decal mask over base color";
             this.chkAlphaMask.Checked = true;
-            this.chkAlphaMask.Size = new Size(220, 36);
+            this.chkAlphaMask.Size = new Size(SideWidth, 22);
             this.chkAlphaMask.CheckedChanged += delegate
             {
                 this.ClearPreviewCache();
                 this.ApplyTextures();
             };
 
-            side.Controls.Add(this.lblMeshInfo);
-            this.AddCameraControls(side);
-            this.AddPartEditControls(side);
-            side.Controls.Add(SideLabel("PREVIEW TEXTURE"));
-            side.Controls.Add(this.cmbMeshTexture);
-            side.Controls.Add(browse);
-            side.Controls.Add(SideLabel("UV set"));
-            side.Controls.Add(this.cmbMeshUV);
-            side.Controls.Add(this.chkSameMaterial);
-            side.Controls.Add(this.chkAlphaMask);
-            Label note = SideLabel("The .carbin names the material of each part, not its texture file: pick the .xds to preview. Assignments are remembered per material.");
-            note.Size = new Size(220, 90);
-            note.ForeColor = SystemColors.GrayText;
-            side.Controls.Add(note);
+            part.Controls.Add(SideHeading("Selected", true));
+            part.Controls.Add(this.lblMeshInfo);
+            this.AddPartEditControls(part);
+
+            textures.Controls.Add(SideHeading("Preview texture", true));
+            textures.Controls.Add(this.cmbMeshTexture);
+            textures.Controls.Add(browse);
+            textures.Controls.Add(SideCaption("UV set"));
+            textures.Controls.Add(this.cmbMeshUV);
+            textures.Controls.Add(this.chkSameMaterial);
+            textures.Controls.Add(this.chkAlphaMask);
+            textures.Controls.Add(SideNote("The model names each part's material, not its texture file: pick the texture to preview. Choices are remembered per material and only change the preview."));
+
+            // Kept in the tabs until a model loads, so the theme reaches it (LoadCockpitCamera hides it).
+            this.AddCameraControls(camera);
 
             this.tvModel.AfterSelect += delegate { this.UpdateMeshPanel(); };
-            return side;
+            return host;
+        }
+
+        private FlowLayoutPanel AddSideTab(string title)
+        {
+            FlowLayoutPanel column = new FlowLayoutPanel();
+            column.FlowDirection = FlowDirection.TopDown;
+            column.WrapContents = false;
+            column.AutoScroll = true;
+            column.Padding = new Padding(10, 4, 0, 10);
+            this.AddTab(this.tabSide, title, column);
+            return column;
+        }
+
+        private void SetCameraTabVisible(bool visible)
+        {
+            bool shown = this.tabSide.TabPages.Contains(this.tabSideCamera);
+            if (visible && !shown)
+            {
+                this.tabSide.TabPages.Add(this.tabSideCamera);
+            }
+            else if (!visible && shown)
+            {
+                this.tabSide.TabPages.Remove(this.tabSideCamera);
+            }
+            this.tabSide.Parent.Invalidate(true);
+        }
+
+        // Side panel pieces: a red section heading, a small caption over a control, a grey note that
+        // grows with its text, a full-width button and a row of equal buttons.
+        private static Label SideHeading(string text, bool first)
+        {
+            Label label = new Label();
+            label.Text = text.ToUpperInvariant();
+            label.AutoSize = false;
+            label.Size = new Size(SideWidth, 22);
+            label.TextAlign = ContentAlignment.BottomLeft;
+            label.Font = new Font(ForzaTheme.Regular, FontStyle.Bold);
+            label.ForeColor = ForzaTheme.Red;
+            label.Margin = new Padding(0, first ? 4 : 16, 0, 4);
+            return label;
+        }
+
+        private static Label SideCaption(string text)
+        {
+            Label label = new Label();
+            label.Text = text;
+            label.AutoSize = false;
+            label.Size = new Size(SideWidth, 20);
+            label.TextAlign = ContentAlignment.BottomLeft;
+            label.Margin = new Padding(0, 4, 0, 1);
+            return label;
+        }
+
+        private static Label SideNote(string text)
+        {
+            Label label = new Label();
+            label.Text = text;
+            label.AutoSize = true;
+            label.MaximumSize = new Size(SideWidth, 0);
+            label.ForeColor = SystemColors.GrayText;
+            label.Margin = new Padding(0, 4, 0, 4);
+            return label;
+        }
+
+        private static Button SideWideButton(string text, EventHandler click)
+        {
+            Button button = new Button();
+            button.Text = text;
+            button.Size = new Size(SideWidth, 28);
+            button.Margin = new Padding(0, 3, 0, 3);
+            button.Click += click;
+            return button;
+        }
+
+        private static FlowLayoutPanel SideButtonRow(params Button[] buttons)
+        {
+            FlowLayoutPanel row = new FlowLayoutPanel();
+            row.Size = new Size(SideWidth + 4, 34);
+            row.Margin = new Padding(0);
+            int width = (SideWidth - 4 * (buttons.Length - 1)) / buttons.Length;
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                buttons[i].Size = new Size(width, 28);
+                buttons[i].Margin = new Padding(0, 3, i < buttons.Length - 1 ? 4 : 0, 3);
+                row.Controls.Add(buttons[i]);
+            }
+            return row;
         }
 
         private List<ForzaMesh> SelectedMeshes
@@ -204,8 +295,15 @@ namespace ForzaStudio
                 {
                     List<string> names = new List<string>(materials.Keys);
                     names.Sort();
+                    int total = names.Count;
+                    if (names.Count > 12)
+                    {
+                        int more = names.Count - 12;
+                        names.RemoveRange(12, more);
+                        names.Add(string.Format("and {0} more", more));
+                    }
                     this.lblMeshInfo.Text = string.Format("{0}\n{1} parts, {2:N0} vertices, {3:N0} faces\n{6}\n\nMaterials ({4}):\n{5}",
-                        this.tvModel.SelectedNode.Text, meshes.Count, vertices, faces, names.Count, string.Join(", ", names.ToArray()), this.DescribeDamage(node));
+                        this.tvModel.SelectedNode.Text, meshes.Count, vertices, faces, total, string.Join(", ", names.ToArray()), this.DescribeDamage(node));
                 }
                 string entry = (texture != null && texture.StartsWith(ArchivePrefix)) ? texture.Substring(ArchivePrefix.Length) : null;
                 int index = (texture == null) ? 0 : ((entry != null) ? this.cmbMeshTexture.Items.IndexOf(entry) : -1);

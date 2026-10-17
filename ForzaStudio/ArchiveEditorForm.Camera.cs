@@ -29,60 +29,35 @@ namespace ForzaStudio
 
         private void AddCameraControls(FlowLayoutPanel side)
         {
-            Label title = SideLabel("COCKPIT CAMERA");
-            title.Font = new Font(title.Font, FontStyle.Bold);
-            title.ForeColor = ForzaTheme.Red;
-            this.lblCamCar = new Label();
-            this.lblCamCar.AutoSize = false;
-            this.lblCamCar.Size = new Size(220, 48);
-            this.lblCamCar.Text = "Open a car model.";
+            this.lblCamCar = SideNote("Open a car model.");
+            this.lblCamCar.ForeColor = this.ForeColor;
 
-            side.Controls.Add(title);
+            side.Controls.Add(SideHeading("Cockpit camera", true));
             side.Controls.Add(this.lblCamCar);
-            side.Controls.Add(AxisHeader("Steering wheel (part 9, m)"));
+            side.Controls.Add(SideCaption("Steering wheel position (m)"));
             side.Controls.Add(this.CameraNumberRow(out this.numCamWheel));
-            side.Controls.Add(AxisHeader("Eye offset from the wheel (m)"));
+            side.Controls.Add(SideCaption("Eye offset from the wheel (m)"));
             side.Controls.Add(this.CameraNumberRow(out this.numCamOffset));
-            this.lblCamEye = new Label();
-            this.lblCamEye.AutoSize = false;
-            this.lblCamEye.Size = new Size(220, 48);
-            this.lblCamEye.ForeColor = SystemColors.GrayText;
+            this.lblCamEye = SideNote("");
             side.Controls.Add(this.lblCamEye);
 
             this.chkCamShow = new CheckBox();
             this.chkCamShow.Text = "Show in the view";
             this.chkCamShow.Checked = true;
-            this.chkCamShow.Size = new Size(220, 22);
+            this.chkCamShow.Size = new Size(SideWidth, 22);
             this.chkCamShow.CheckedChanged += delegate { this.UpdateCameraOverlay(); };
             side.Controls.Add(this.chkCamShow);
 
-            this.btnCamFromModel = new Button();
-            this.btnCamFromModel.Text = "Wheel From Cockpit Model";
-            this.btnCamFromModel.Size = new Size(220, 28);
-            this.btnCamFromModel.Click += delegate { this.CameraFromModel(true); };
+            this.btnCamFromModel = SideWideButton("Wheel From Cockpit Model", delegate { this.CameraFromModel(true); });
+            this.btnCamView = SideWideButton("View From Camera", delegate { this.ViewFromCockpitCamera(); });
+            this.btnCamSave = SideWideButton("Save to Game Database Now", delegate { this.SaveCockpitCamera(); });
             side.Controls.Add(this.btnCamFromModel);
+            side.Controls.Add(this.btnCamView);
+            side.Controls.Add(SideHeading("Save", false));
+            side.Controls.Add(this.btnCamSave);
+            side.Controls.Add(SideNote("Writes gamedb.slt at once (a backup is made first), not with File > Save."));
 
-            FlowLayoutPanel buttons = new FlowLayoutPanel();
-            buttons.Size = new Size(230, 32);
-            buttons.Margin = new Padding(0);
-            this.btnCamView = new Button();
-            this.btnCamView.Text = "View From Camera";
-            this.btnCamView.Size = new Size(108, 28);
-            this.btnCamView.Margin = new Padding(0, 0, 4, 0);
-            this.btnCamView.Click += delegate { this.ViewFromCockpitCamera(); };
-            this.btnCamSave = new Button();
-            this.btnCamSave.Text = "Save to Database";
-            this.btnCamSave.Size = new Size(108, 28);
-            this.btnCamSave.Margin = new Padding(0);
-            this.btnCamSave.Click += delegate { this.SaveCockpitCamera(); };
-            buttons.Controls.Add(this.btnCamView);
-            buttons.Controls.Add(this.btnCamSave);
-            side.Controls.Add(buttons);
-
-            Label note = SideLabel("Database axes: Z points forward. An offset of 0, 0, 0 means the game's default, 0, 0.21, -0.51 (CameraSettings.ini). Yellow: wheel point, cyan: eye and its view (FOV 62).");
-            note.Size = new Size(220, 76);
-            note.ForeColor = SystemColors.GrayText;
-            side.Controls.Add(note);
+            side.Controls.Add(SideNote("Yellow cross: steering wheel. Cyan: the eye and what it sees (FOV 62). An offset of 0, 0, 0 is the game's default (0, 0.21, -0.51). Z points forward."));
             this.EnableCameraEdit(false);
         }
 
@@ -155,7 +130,9 @@ namespace ForzaStudio
             this.EnableCameraEdit(false);
             string name = (this.currentEntry != null) ? this.currentEntry.Name : "";
             string lower = name.ToLowerInvariant();
-            if (!lower.EndsWith(".carbin") || lower.Contains("_caliper") || lower.Contains("_rotor"))
+            bool car = lower.EndsWith(".carbin") && !lower.Contains("_caliper") && !lower.Contains("_rotor");
+            this.SetCameraTabVisible(car);
+            if (!car)
             {
                 this.lblCamCar.Text = "Open a car model (.carbin).";
                 this.UpdateCameraOverlay();
@@ -297,7 +274,7 @@ namespace ForzaStudio
                         bool centred = this.camState.SetSteeringWheelFromModel(point);
                         this.camPending = true;
                         this.FillCameraControls();
-                        this.SetStatus(string.Format(CultureInfo.InvariantCulture, "{0}steering wheel point from {1}: {2:0.000}, {3:0.000}, {4:0.000}{5} (Save to Database writes it)",
+                        this.SetStatus(string.Format(CultureInfo.InvariantCulture, "{0}steering wheel point from {1}: {2:0.000}, {3:0.000}, {4:0.000}{5} (Save to Game Database Now writes it)",
                             userAsked ? "" : "CarPartPositions part 9 is missing (the game puts the cockpit view at 0,0,0); ", cockpit.Name, point.X, point.Y, point.Z,
                             centred ? ", eye centred on the wheel (offset x 0)" : ""));
                     }
@@ -475,10 +452,6 @@ namespace ForzaStudio
                 string text = string.Format(CultureInfo.InvariantCulture, "{0} (FOV {1:0.#}){2}", preset.Name.Replace('_', ' '), preset.Fov, preset.Ordinal >= 0 ? " - this car's own" : "");
                 button.DropDownItems.Add(new ToolStripMenuItem(text, null, delegate { this.GoToPreset(picked); }));
             }
-            button.DropDownItems.Add(new ToolStripSeparator());
-            ToolStripMenuItem race = new ToolStripMenuItem("Chase, hood, bumper: not decoded yet");
-            race.Enabled = false;
-            button.DropDownItems.Add(race);
         }
 
         private sealed class CameraPreset

@@ -202,7 +202,7 @@ namespace ForzaStudio
                     this.Line("added {0}", this.Relative(file.Key));
                 }
                 // The report travels with the car (FM4 ignores files in a car zip it does not ask for).
-                string log = string.Format(CultureInfo.InvariantCulture, "ForzaEditor car port, {0}\r\nsource {1} ({2})\r\ntarget {3}\r\n{4}\r\n",
+                string log = string.Format(CultureInfo.InvariantCulture, "Forza Studio car port, {0}\r\nsource {1} ({2})\r\ntarget {3}\r\n{4}\r\n",
                     DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture), this.SourceRoot, this.game, this.TargetRoot,
                     (this.OutputRoot != null) ? "trial run into " + this.OutputRoot : "installed into the game") + "\r\n" + this.Report.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n");
                 this.Put(this.carZip, "port_log.txt", Encoding.UTF8.GetBytes(log));

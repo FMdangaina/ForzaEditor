@@ -38,9 +38,12 @@
         private Panel pnlInfo;
         private Label lblInfo;
 
+        // The name shown in titles and dialogs (the exe stays ForzaEditor.exe).
+        public const string AppName = "Forza Studio";
+
         public ArchiveEditorForm()
         {
-            this.Text = "ForzaEditor";
+            this.Text = AppName;
             this.Size = new Size(1280, 800);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.WindowState = FormWindowState.Maximized;
@@ -192,9 +195,6 @@
             file.DropDownItems.Add(new ToolStripMenuItem("E&xit", null, delegate { this.Close(); }));
 
             ToolStripMenuItem tools = new ToolStripMenuItem("&Tools");
-            tools.DropDownItems.Add(new ToolStripMenuItem("&Hex View...", null, delegate { new HexView().Show(); }));
-            tools.DropDownItems.Add(new ToolStripMenuItem("&Save Modding...", null, delegate { new SaveModding().Show(); }));
-            tools.DropDownItems.Add(new ToolStripSeparator());
             tools.DropDownItems.Add(new ToolStripMenuItem("&Port Car From Another Forza...", null, delegate { new CarPortForm().Show(this); }));
             tools.DropDownItems.Add(new ToolStripSeparator());
             // The original Forza Studio 4.6 window, kept as a tribute: Alt+T, F.
@@ -568,7 +568,7 @@
             {
                 return true;
             }
-            DialogResult result = MessageBox.Show(this, "Save changes to " + this.SourceName + "?","ForzaEditor", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+            DialogResult result = MessageBox.Show(this, "Save changes to " + this.SourceName + "?", AppName, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
             if (result == DialogResult.Cancel)
             {
                 return false;
@@ -988,7 +988,7 @@
         private void ShowInfo(ForzaZip.Entry entry, string error)
         {
             string hint = (this.zip.IsFolder && IsArchive(entry.Name))
-                ? "Double-click the archive in the tree to open it (File > Back to Folder returns here)."
+                ? "Double-click the archive in the tree to open it (Back returns here)."
                 : "Right click the file in the tree to extract or replace it.";
             this.lblInfo.Text = string.Format("{0}\n\n{1:N0} bytes{2}\n\n{3}",
                 entry.Name, entry.UncompressedSize, (error != null) ? ("\n\nCannot open this file:\n" + error) : "", hint);
@@ -1022,7 +1022,7 @@
             this.mnuSaveAs.Enabled = open && !this.zip.IsFolder;
             this.mnuClose.Enabled = open;
             this.UpdateBackMenu();
-            this.Text = open ? string.Format("{0}{1}{2} - ForzaEditor", this.zip.IsFolder ? this.zip.FilePath.TrimEnd('\\') : Path.GetFileName(this.zip.FilePath), this.zip.IsFolder ? "\\" : "", this.zip.IsModified ? " *" : "") : "ForzaEditor";
+            this.Text = open ? string.Format("{0}{1}{2} - {3}", this.zip.IsFolder ? this.zip.FilePath.TrimEnd('\\') : Path.GetFileName(this.zip.FilePath), this.zip.IsFolder ? "\\" : "", this.zip.IsModified ? " *" : "", AppName) : AppName;
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)

@@ -1,6 +1,6 @@
-# ForzaEditor user manual (beta)
+# Forza Studio user manual (beta)
 
-ForzaEditor is a modding tool for the Xbox 360 Forza games. It works directly on the game's
+Forza Studio is a modding tool for the Xbox 360 Forza games. It works directly on the game's
 files: you open a game folder or one of its `.zip` archives, change what you need, and save.
 
 > **Beta.** Some features are not fully tested in game yet (see
@@ -18,11 +18,11 @@ files: you open a game folder or one of its `.zip` archives, change what you nee
 8. [Text and XML files](#8-text-and-xml-files)
 9. [Game database (gamedb.slt)](#9-game-database-gamedbslt)
 10. [Digital dash (.fbf)](#10-digital-dash-fbf)
-11. [Porting cars from Forza Horizon to FM4](#11-porting-cars-from-forza-horizon-to-fm4)
+11. [Porting cars from Forza Horizon or Forza Motorsport 3 to FM4](#11-porting-cars-from-forza-horizon-or-forza-motorsport-3-to-fm4)
 12. [Music](#12-music)
 13. [Known limitations](#13-known-limitations)
 14. [Other tools](#14-other-tools)
-15. [Files ForzaEditor writes](#15-files-forzaeditor-writes)
+15. [Files Forza Studio writes](#15-files-forza-studio-writes)
 16. [Credits and license](#16-credits-and-license)
 
 ---
@@ -55,7 +55,7 @@ that holds `default.xex` and `Media`.
 
 **Steps**
 
-1. Unzip the whole ForzaEditor folder somewhere you can write to, such as the Desktop. Avoid
+1. Unzip the whole Forza Studio folder somewhere you can write to, such as the Desktop. Avoid
    *Program Files*.
 2. Copy `xcompress.dll` next to the exe.
 3. Run `ForzaEditor.exe`.
@@ -98,7 +98,7 @@ followed.
 | `.xml`, `.ini`, `.cfg`, `.txt` | Text editor |
 | `.html`, `.htm`, `.rdf` | Read-only text |
 | `gamedb.slt` | Game database |
-| `.fbf`, `.bgf`, `.bsg` | Digital dash (read-only) |
+| `.fbf`, `.bgf`, `.bsg` | Digital dash (view and edit) |
 | anything else | Name and size. Right-click it to extract or replace it. |
 
 ### The tree
@@ -175,14 +175,16 @@ The toolbar has these controls:
 black in game. Right-click it > **Rename material...** and pick an FM4 material from the list. You
 can rename it in every part and in every model file of the car (main, lod0, cockpit).
 
-### Cockpit camera (COCKPIT CAMERA panel)
+### Cockpit camera (CAMERA tab)
 
-Open a car model from the game folder (FM4): the panel reads the car's cockpit camera from
+The model view's side panel has three tabs: **Part**, **Texture** and **Camera** (Camera only for car models).
+
+Open a car model from the game folder (FM4): the Camera tab reads the car's cockpit camera from
 `GAME:\Media\db\gamedb.slt`. Values are in the database's axes, where Z points forward.
 
-- **Steering wheel (part 9)**: the `CarPartPositions` row PartId 9. The game hangs the cockpit
+- **Steering wheel position**: the `CarPartPositions` row PartId 9. The game hangs the cockpit
   camera on this point. Without it, the cockpit view sits at 0,0,0 (cars ported from FM3 lack it).
-  When it is missing, the panel rebuilds it at once from the cockpit model and shows it in red as
+  When it is missing, the tab rebuilds it at once from the cockpit model and shows it in red as
   not saved.
 - **Eye offset from the wheel**: `CameraOverrides` CamCockpitOffset X/Y/Z. 0, 0, 0 means the game's
   default (0, 0.21, -0.51, from `Media\Camera\CameraSettings.ini`).
@@ -192,14 +194,14 @@ Open a car model from the game folder (FM4): the panel reads the car's cockpit c
   offset X to 0, so the eye sits right behind the wheel (FM3 cars often carry a side offset of about
   2 cm; FM4 cars have 0).
 - **View From Camera** puts the viewer at the eye, looking forward, with the cockpit FOV.
-- **Save to Database** writes both rows into `gamedb.slt` (missing rows are added) after a backup in
-  the `bak` folder. Close the game first.
+- **Save to Game Database Now** writes both rows into `gamedb.slt` (missing rows are added) after a
+  backup in the `bak` folder. It writes at once, not with File > Save. Close the game first.
 
 The port tool adds the steering wheel point by itself when the source car has none.
 
 **Go to Camera** (model toolbar) moves the viewer to a game camera:
 
-- **Cockpit**: the eye of the panel above, FOV 62°.
+- **Cockpit**: the eye of the Camera tab, FOV 62°.
 - The garage, photo mode, livery and upgrade cameras of `Media\UICarTargetCameraPresets.xml`
   (position, direction and FOV as the game stores them; a preset made for this car is used instead
   of the general one).
@@ -207,39 +209,39 @@ The port tool adds the steering wheel point by itself when the source car has no
   box, the `CameraOverrides` offsets and the global settings in `Media\Camera\CameraSettings.ini`
   and `CameraPhysics.xml` (plain text files, editable as such).
 
-### Editing parts (EDIT PART panel)
+### Editing parts (PART tab)
 
 Part editing works on FM4 car models and on Forza Horizon 2 models. Select a part in the tree, or
 one of its materials to edit only that material.
 
-- **Move** (metres), **Rotate** (degrees), **Scale** (%). Tick **Uniform scale** to scale all axes
+- **Move** (metres), **Rotate** (degrees), **Scale** (%). Tick **Same scale on all axes** to scale them
   together.
 - **Pivot**: the part's center, the model origin, or a custom point.
-- **Apply to every model file of the car (main, lod0, cockpit)** keeps the three files in step.
+- **Also in the car's other model files (main, lod0, cockpit)** keeps the three files in step.
   Leave it on unless you know why you want otherwise.
 - The change is previewed live in red. **Apply** keeps it, **Reset** clears it.
-- **Focus** centres the camera on the part. **Show only this part** hides the rest.
-- **Merge Into Selected Part...** joins this part into another. Materials with the same name are
+- **Focus On Part** centres the camera on the part. **Show only this part** hides the rest.
+- **Merge...** joins this part into the one picked in **Merge this part into**. Materials with the same name are
   joined, and the source part is removed.
-- **Duplicate Selected Part...** copies a part under a new name. A free variant letter is
+- **Duplicate...** copies a part under a new name. A free variant letter is
   suggested, e.g. `bumperRa` → `bumperRb`.
-- **Delete Selected Part / Material...** removes it. The **Del** key does the same.
+- **Delete...** removes the selected part or material. The **Del** key does the same.
 
-### Parts from other cars and from 3D programs
+### Parts from other cars and from 3D programs (PART tab)
 
-- **Import Part From Car...** copies a part from another car's zip, with all its LODs and damage
+- **Copy Part From Another Car...** copies a part from another car's zip, with all its LODs and damage
   data:
   - add it as a new part, or replace one of this car's parts;
   - optionally place it at the replaced part's center;
   - optionally use this car's texture regions for its materials.
-- **Export Part to OBJ...** and **Import OBJ Into Part...**:
+- **Export OBJ...** and **Import OBJ...** (one part):
   - import an OBJ to replace a part, or to add a new part based on a template;
   - choose which car material each OBJ material becomes;
   - optionally fit the UVs into this car's material regions.
 
 ### Whole model as an OBJ work folder
 
-**File > Export Model To Folder...** writes the whole car to a folder:
+**File > Export Model To Folder...** (or **Export...** under *Whole model* in the Part tab) writes the whole car to a folder:
 
 - one folder per model file, e.g. `toy_supra_98`, `toy_supra_98_lod0`;
 - inside it, `lod0`, `lod1`, …;
@@ -258,10 +260,10 @@ Forza Motorsport 2 models can be exported but not imported back.
 
 ### Texture preview
 
-The **PREVIEW TEXTURE** panel shows a texture on the selected material. It changes only what you
+The **Texture** tab shows a texture on the selected material. It changes only what you
 see: the model file is not touched.
 
-- Pick an `.xds` from the car's zip, or **Texture From Folder...** for one on disk.
+- Pick an `.xds` from the car's zip, or **Texture From File...** for one on disk.
 - Choose the UV set.
 - The choice is remembered per material in `materials.txt`.
 
@@ -383,7 +385,10 @@ Select a dash file (`.fbf`, `.bgf` or `.bsg`) to see the car's digital dash:
 On the preview, the wheel zooms, a drag pans, a click selects an element and a double-click fits
 the dash to the view. **Outlines** shows the element borders.
 
-This view is **read-only** for now.
+Select an element to edit it in the panel: position, rotation, scale, pivot, opacity, colour, text,
+font and texture. Each value is changed where the dash already keeps it, so nothing is added to the
+files; a value the element does not have is greyed out. Edits are pending until **File > Save**
+writes the car's zip.
 
 ## 11. Porting cars from Forza Horizon or Forza Motorsport 3 to FM4
 
@@ -437,7 +442,7 @@ The other buttons:
 
 **Important**
 
-- **Put all your cars in one pack.** With two ForzaEditor packs installed, only one shows its car
+- **Put all your cars in one pack.** With two Forza Studio packs installed, only one shows its car
   names.
 - Use an FM4 folder where these cars were **never installed with Install In FM4**. The game loads
   the old installed copy instead of the pack's. Build DLC Package warns you about this.
@@ -468,7 +473,7 @@ Technical details of the package format are in [DLC_PACKAGES.md](DLC_PACKAGES.md
 
 ## 12. Music
 
-When you open a game folder, ForzaEditor plays that game's music in the status bar:
+When you open a game folder, Forza Studio plays that game's music in the status bar:
 
 - the FM soundtracks and playlists;
 - the Forza Horizon radio stations.
@@ -491,14 +496,12 @@ The controls:
 **Known problems**
 
 - Tyres may look too narrow on ported cars with unusually wide wheels.
-- Only one ForzaEditor DLC pack at a time shows its car names.
-- Tools > Hex View works only after a model was opened in Tools > Pay Respects.
+- Only one Forza Studio DLC pack at a time shows its car names.
 
 **Not available yet**
 
 - **FM2 and FM3 models:** FM2 can be exported only; FM3 can be viewed, and converted only by the
   port tool.
-- **Dash editing:** the view is read-only.
 - **Automatic LODs.**
 - **Profile saves** are signed and encrypted, so they cannot be edited in the main window.
 
@@ -508,13 +511,12 @@ All in the **Tools** menu.
 
 | Command | What it does |
 |---|---|
-| **Save Modding...** | Edits credits, level and XP in a Forza profile or CON package. |
-| **Hex View...** | A hex editor. |
+| **Port Car From Another Forza...** | See [Porting cars](#11-porting-cars-from-forza-horizon-or-forza-motorsport-3-to-fm4). |
 | **Pay Respects (F)** | The original Forza Studio 4.6 window, kept as a tribute. |
 
-## 15. Files ForzaEditor writes
+## 15. Files Forza Studio writes
 
-ForzaEditor writes only these files:
+Forza Studio writes only these files:
 
 | Where | What |
 |---|---|
@@ -527,7 +529,7 @@ ForzaEditor writes only these files:
 
 ## 16. Credits and license
 
-- ForzaEditor is maintained by **FMdangaina**.
+- Forza Studio is maintained by **FMdangaina**.
 - It is derived from **Forza Studio 4.6** by Mike Davis, with an earlier edit by **JYSB59**.
 - The DLC package format was worked out with help from **Jew (@mr.abortion)** and
   **XTD (@xtd_ac)** on Discord.
@@ -535,8 +537,8 @@ ForzaEditor writes only these files:
   see `vgmstream\COPYING`).
 - `texconv.exe` is from Microsoft **DirectXTex** (MIT). `xds.dll` comes from Forza Studio 4.6.
 
-ForzaEditor is free software under the **GNU General Public License v3.0**. Forza Studio 4.6 code
+Forza Studio is free software under the **GNU General Public License v3.0**. Forza Studio 4.6 code
 is MIT-licensed; see `THIRD-PARTY-NOTICES.md`.
 
-Forza is a trademark of Microsoft. ForzaEditor is not affiliated with Microsoft, Turn 10 Studios or
+Forza is a trademark of Microsoft. Forza Studio is not affiliated with Microsoft, Turn 10 Studios or
 Playground Games. No game data is included: use it only with games you own.

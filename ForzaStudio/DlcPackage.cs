@@ -112,7 +112,7 @@ namespace ForzaStudio
             {
                 CopyForConsole(packageFolder, stage, report);
                 string id = StfsPackage.Write(stage, temp, uint.Parse(TitleId, NumberStyles.HexNumber, CultureInfo.InvariantCulture), 2, name,
-                    "ForzaEditor DLC pack", "Forza Motorsport 4", thumbnail);
+                    "Forza Studio DLC pack", "Forza Motorsport 4", thumbnail);
                 string folder = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.Combine(output, "Content"), "0000000000000000"), TitleId), "00000002"), string.Empty);
                 Directory.CreateDirectory(folder);
                 string file = Path.Combine(folder, id);

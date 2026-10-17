@@ -1,6 +1,6 @@
 # Ported cars as FM4 DLC packages
 
-ForzaEditor can put cars ported from Forza Horizon or Forza Horizon 2 into a **DLC package** for
+Forza Studio can put cars ported from Forza Horizon or Forza Horizon 2 into a **DLC package** for
 Forza Motorsport 4. The game's own files are left alone. The package is a folder that Xenia
 loads like real downloadable content: install it, remove it, or rebuild it whenever you like.
 
@@ -51,7 +51,7 @@ The pack, its name, its offer number and Xenia's folder are kept in `settings.tx
 ### Things to know
 
 - **Put all your cars in one pack.** A package's string tables replace the game's whole tables
-  (see below), so of two ForzaEditor packs installed together only one shows its car names.
+  (see below), so of two Forza Studio packs installed together only one shows its car names.
 - Xenia must be closed while a package is built or removed.
 - The FM4 folder you port to is also the base of the package: its database and string tables are
   what the package adds to. Use an FM4 without earlier installs of the same cars.
@@ -118,7 +118,7 @@ content\0000000000000000\4D530910\Headers\00000002\<offer id>.header
     without a mapping are simply available.
 - **String tables.** A package's `<LANG>/<Table>.str` is the whole table: it replaces the
   game's. The official EN `Data_Car.str` holds the game's 1006 keys, with the same hashes, plus
-  the pack's 186. ForzaEditor writes:
+  the pack's 186. Forza Studio writes:
   - each table the port changed (`Data_Car`) as the clean game's table plus the port's strings;
   - `ContentOffers` with the pack's name under two free keys.
 
@@ -146,7 +146,7 @@ content\0000000000000000\4D530910\Headers\00000002\<offer id>.header
 ## The Xbox 360 package
 
 A real console reads content only from an **STFS package file**, never from a folder.
-ForzaEditor writes it with `StfsPackage.cs`, a C# port of Jew's `stfs_write.py`. Its output is
+Forza Studio writes it with `StfsPackage.cs`, a C# port of Jew's `stfs_write.py`. Its output is
 byte-identical to that writer's on a 1-car and a 5-car pack. The header fields copy the FH1 car
 package XTD built with the Xbox 360 authoring tool, which a console loads:
 
@@ -204,7 +204,7 @@ In `fm4dev\DEV_DLC\tools`, outside the repository. They are one-file C# harnesse
 
 ## Not done yet
 
-- Several ForzaEditor packs at once: build each pack's string tables on top of the other
+- Several Forza Studio packs at once: build each pack's string tables on top of the other
   installed packs' tables.
 - Sending the package to the console from the window (FTP).
 

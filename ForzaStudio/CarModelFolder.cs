@@ -96,7 +96,7 @@ namespace ForzaStudio
                 }
             }
             StringBuilder manifest = new StringBuilder();
-            manifest.AppendLine("# ForzaEditor model folder of " + carbinName + ", exported from " + source);
+            manifest.AppendLine("# Forza Studio model folder of " + carbinName + ", exported from " + source);
             manifest.AppendLine("# lodN\\<part>.obj = the part at that LOD, one group per material (usemtl = car material).");
             manifest.AppendLine("# Edit, add or delete OBJs, then Import Model From Folder: only changed OBJs are rebuilt.");
             manifest.AppendLine("# A new OBJ name adds a part; deleting a part's OBJ drops it at that LOD. Do not edit the lines below.");
@@ -127,7 +127,7 @@ namespace ForzaStudio
                     string directory = Path.Combine(folder, "lod" + lod.ToString(CultureInfo.InvariantCulture));
                     Directory.CreateDirectory(directory);
                     string path = Path.Combine(directory, section.Name + ".obj");
-                    ObjMesh.ExportLod(section, lod, path, "ForzaEditor: " + section.Name + " from " + carbinName, MaterialsName);
+                    ObjMesh.ExportLod(section, lod, path, "Forza Studio: " + section.Name + " from " + carbinName, MaterialsName);
                     manifest.AppendLine("obj " + Hash(path) + " " + Relative(lod, section.Name));
                     count++;
                 }
@@ -176,7 +176,7 @@ namespace ForzaStudio
             }
             CultureInfo inv = CultureInfo.InvariantCulture;
             StringBuilder manifest = new StringBuilder();
-            manifest.AppendLine("# ForzaEditor model folder of " + carbinName + " (Forza Motorsport 2), exported from " + source);
+            manifest.AppendLine("# Forza Studio model folder of " + carbinName + " (Forza Motorsport 2), exported from " + source);
             manifest.AppendLine("# lodN\\<part>.obj = the part at that LOD, one group per material (usemtl = car material).");
             manifest.AppendLine("# FM2 models can be exported; importing them back is not available yet.");
             manifest.AppendLine("file " + carbinName);
@@ -214,7 +214,7 @@ namespace ForzaStudio
                         string path = Path.Combine(directory, section.Name + ".obj");
                         using (StreamWriter obj = new StreamWriter(path, false, new UTF8Encoding(false)))
                         {
-                            obj.WriteLine("# ForzaEditor: " + section.Name + " from " + carbinName);
+                            obj.WriteLine("# Forza Studio: " + section.Name + " from " + carbinName);
                             obj.WriteLine("# part " + section.Name + ", LOD " + lod.Key + "; units: meters, model space; one group per material (usemtl = car material)");
                             obj.WriteLine("mtllib " + MaterialsName);
                             int baseIndex = 1;

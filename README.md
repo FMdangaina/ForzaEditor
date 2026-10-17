@@ -1,4 +1,6 @@
-# ForzaEditor
+# Forza Studio
+
+(Repository and exe name: ForzaEditor.)
 
 Complete utility for Xbox 360 era Forza games modding: Forza Motorsport 4 first, with Forza
 Horizon 1 and 2 and Forza Motorsport 3 as sources (Forza Motorsport 2: archives, textures, model
@@ -6,7 +8,7 @@ viewing and export, music).
 
 Edits the game's zip archives directly: `.carbin` car models (OBJ export/import,
 part transplant and duplication), `.xds` textures (import, export, creation from
-images), livery masks, the gamedb, a read-only view of the digital dashes and the cockpit camera,
+images), livery masks, the gamedb, the digital dashes and the cockpit camera,
 with the game's music and radio in the status bar.
 
 Ports cars from Forza Horizon, Forza Horizon 2 and Forza Motorsport 3 to FM4, either into the

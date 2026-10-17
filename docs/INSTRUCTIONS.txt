@@ -1,7 +1,7 @@
-ForzaEditor - BETA
+Forza Studio - BETA
 ==================
 
-ForzaEditor is a modding tool for the Xbox 360 Forza games (FM4, FH1, FH2;
+Forza Studio is a modding tool for the Xbox 360 Forza games (FM4, FH1, FH2;
 FM2 and FM3 partly). It edits the game files in place: car models (.carbin),
 textures (.xds), XML files and the game database. It also ports cars from
 Forza Horizon 1 and 2 and Forza Motorsport 3 to Forza Motorsport 4, as a DLC
@@ -36,7 +36,7 @@ Keep the files together: do not move ForzaEditor.exe out of its folder.
    not Program Files).
 2. Run ForzaEditor.exe.
 
-ForzaEditor writes only inside its own folder:
+Forza Studio writes only inside its own folder:
 - settings.txt   your folders and options
 - materials.txt  texture previews chosen per material
 - bak\           a copy of every file before it is overwritten
@@ -72,7 +72,7 @@ Tools > Port Car From Another Forza...
 6. CLOSE XENIA, then press Build DLC Package.
 7. Start FM4 in Xenia: the cars are listed under their makes, like any other car.
 
-Put all your cars in ONE pack: with two ForzaEditor packs installed,
+Put all your cars in ONE pack: with two Forza Studio packs installed,
 only one of them shows its car names.
 
 Use an FM4 folder where these cars were never installed with
@@ -109,7 +109,7 @@ Send reports to: <WHERE TO REPORT>
 
 7. CREDITS AND LICENSE
 ----------------------
-ForzaEditor by FMdangaina.
+Forza Studio by FMdangaina.
 Derived from Forza Studio 4.6 by Mike Davis, with an earlier edit by JYSB59.
 DLC package format worked out with help from Jew (@mr.abortion) and
 XTD (@xtd_ac) on Discord.
@@ -117,7 +117,7 @@ Music playback by vgmstream (https://github.com/vgmstream/vgmstream),
 see vgmstream\COPYING. xds.dll comes from Forza Studio 4.6.
 texconv.exe is from Microsoft DirectXTex (MIT).
 
-ForzaEditor is free software under the GNU GPL v3.0 (see LICENSE).
+Forza Studio is free software under the GNU GPL v3.0 (see LICENSE).
 Forza is a trademark of Microsoft. This tool is not affiliated with
 Microsoft, Turn 10 or Playground Games. No game data is included:
 use it only with games you own.

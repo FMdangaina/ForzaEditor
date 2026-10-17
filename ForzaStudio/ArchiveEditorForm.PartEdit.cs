@@ -32,33 +32,29 @@ namespace ForzaStudio
         private Vector3 editCenter;
         private Vector3 editHalfSize;
 
+        private const string PickPartText = "Pick a part (not a LOD) in the tree to change it.";
+
         private void AddPartEditControls(FlowLayoutPanel side)
         {
-            Label title = SideLabel("EDIT PART");
-            title.Font = new Font(title.Font, FontStyle.Bold);
-            title.ForeColor = ForzaTheme.Red;
-            this.lblEditPart = new Label();
-            this.lblEditPart.AutoSize = false;
-            this.lblEditPart.Size = new Size(220, 34);
-            this.lblEditPart.Text = "Select a part (section) in the tree.";
+            this.lblEditPart = SideNote(PickPartText);
 
-            side.Controls.Add(title);
+            side.Controls.Add(SideHeading("Move, rotate, scale", false));
             side.Controls.Add(this.lblEditPart);
-            side.Controls.Add(AxisHeader("Move (m)"));
+            side.Controls.Add(SideCaption("Move (m)"));
             side.Controls.Add(this.NumberRow(out this.numMove, -20, 20, 3, 0.005m, 0));
-            side.Controls.Add(AxisHeader("Rotate (deg)"));
+            side.Controls.Add(SideCaption("Rotate (deg)"));
             side.Controls.Add(this.NumberRow(out this.numRotate, -360, 360, 1, 1, 0));
-            side.Controls.Add(AxisHeader("Scale (%)"));
+            side.Controls.Add(SideCaption("Scale (%)"));
             side.Controls.Add(this.NumberRow(out this.numScale, 1, 1000, 1, 1, 100));
             this.chkUniformScale = new CheckBox();
-            this.chkUniformScale.Text = "Uniform scale";
-            this.chkUniformScale.Size = new Size(220, 22);
+            this.chkUniformScale.Text = "Same scale on all axes";
+            this.chkUniformScale.Size = new Size(SideWidth, 22);
             side.Controls.Add(this.chkUniformScale);
 
-            side.Controls.Add(SideLabel("Pivot"));
+            side.Controls.Add(SideCaption("Pivot"));
             this.cmbPivot = new ComboBox();
             this.cmbPivot.DropDownStyle = ComboBoxStyle.DropDownList;
-            this.cmbPivot.Width = 220;
+            this.cmbPivot.Width = SideWidth;
             this.cmbPivot.Items.AddRange(new object[] { "Part center", "Model origin (0, 0, 0)", "Custom point" });
             this.cmbPivot.SelectedIndex = 0;
             this.cmbPivot.SelectedIndexChanged += delegate
@@ -77,65 +73,45 @@ namespace ForzaStudio
             }
 
             this.chkAllModelFiles = new CheckBox();
-            this.chkAllModelFiles.Text = "Apply to every model file of the car (main, lod0, cockpit)";
+            this.chkAllModelFiles.Text = "Also in the car's other model files (main, lod0, cockpit)";
             this.chkAllModelFiles.Checked = true;
-            this.chkAllModelFiles.Size = new Size(220, 36);
+            this.chkAllModelFiles.Size = new Size(SideWidth, 36);
             side.Controls.Add(this.chkAllModelFiles);
 
-            FlowLayoutPanel buttons = new FlowLayoutPanel();
-            buttons.Size = new Size(230, 32);
-            buttons.Margin = new Padding(0);
             this.btnApplyEdit = new Button();
             this.btnApplyEdit.Text = "Apply";
-            this.btnApplyEdit.Size = new Size(72, 28);
-            this.btnApplyEdit.Margin = new Padding(0, 0, 4, 0);
             this.btnApplyEdit.Click += delegate { this.ApplyPartEdit(); };
             Button reset = new Button();
             reset.Text = "Reset";
-            reset.Size = new Size(72, 28);
-            reset.Margin = new Padding(0, 0, 4, 0);
             reset.Click += delegate { this.ResetPartEdit(); };
-            this.btnFocusPart = new Button();
-            this.btnFocusPart.Text = "Focus";
-            this.btnFocusPart.Size = new Size(72, 28);
-            this.btnFocusPart.Margin = new Padding(0);
-            this.btnFocusPart.Click += delegate { this.FocusPart(); };
-            buttons.Controls.Add(this.btnApplyEdit);
-            buttons.Controls.Add(reset);
-            buttons.Controls.Add(this.btnFocusPart);
-            side.Controls.Add(buttons);
+            side.Controls.Add(SideButtonRow(this.btnApplyEdit, reset));
+
+            side.Controls.Add(SideHeading("View", false));
+            this.btnFocusPart = SideWideButton("Focus On Part", delegate { this.FocusPart(); });
+            side.Controls.Add(this.btnFocusPart);
             this.chkSoloPart = new CheckBox();
             this.chkSoloPart.Text = "Show only this part";
-            this.chkSoloPart.Size = new Size(220, 22);
+            this.chkSoloPart.Size = new Size(SideWidth, 22);
             this.chkSoloPart.CheckedChanged += delegate { this.UpdatePartPreview(); };
             side.Controls.Add(this.chkSoloPart);
 
-            side.Controls.Add(SideLabel("Merge this part into"));
+            side.Controls.Add(SideHeading("Part", false));
+            this.btnDuplicatePart = new Button();
+            this.btnDuplicatePart.Text = "Duplicate...";
+            this.btnDuplicatePart.Click += delegate { this.DuplicateSelectedPart(); };
+            this.btnDeletePart = new Button();
+            this.btnDeletePart.Text = "Delete...";
+            this.btnDeletePart.Click += delegate { this.DeleteSelectedNode(); };
+            side.Controls.Add(SideButtonRow(this.btnDuplicatePart, this.btnDeletePart));
+
+            side.Controls.Add(SideCaption("Merge this part into"));
             this.cmbMergeTarget = new ComboBox();
             this.cmbMergeTarget.DropDownStyle = ComboBoxStyle.DropDownList;
-            this.cmbMergeTarget.Width = 220;
+            this.cmbMergeTarget.Width = SideWidth;
             side.Controls.Add(this.cmbMergeTarget);
-            this.btnMergeInto = new Button();
-            this.btnMergeInto.Text = "Merge Into Selected Part...";
-            this.btnMergeInto.Size = new Size(220, 28);
-            this.btnMergeInto.Click += delegate { this.MergeSelectedPart(); };
+            this.btnMergeInto = SideWideButton("Merge...", delegate { this.MergeSelectedPart(); });
             side.Controls.Add(this.btnMergeInto);
-
-            Label note = SideLabel("Same-name materials are joined (e.g. black + black), the others are moved; the source part is removed.");
-            note.Size = new Size(220, 48);
-            note.ForeColor = SystemColors.GrayText;
-            side.Controls.Add(note);
-
-            this.btnDeletePart = new Button();
-            this.btnDeletePart.Text = "Delete Selected Part / Material...";
-            this.btnDeletePart.Size = new Size(220, 28);
-            this.btnDeletePart.Click += delegate { this.DeleteSelectedNode(); };
-            side.Controls.Add(this.btnDeletePart);
-            this.btnDuplicatePart = new Button();
-            this.btnDuplicatePart.Text = "Duplicate Selected Part...";
-            this.btnDuplicatePart.Size = new Size(220, 28);
-            this.btnDuplicatePart.Click += delegate { this.DuplicateSelectedPart(); };
-            side.Controls.Add(this.btnDuplicatePart);
+            side.Controls.Add(SideNote("Materials with the same name are joined, the others are moved; the merged part is removed."));
             this.AddPartImportControls(side);
 
             this.tvModel.AfterSelect += delegate { this.OnPartSelected(); };
@@ -496,7 +472,7 @@ namespace ForzaStudio
             this.cmbMergeTarget.Items.Clear();
             if (section == null)
             {
-                this.lblEditPart.Text = "Select a part (section) in the tree.";
+                this.lblEditPart.Text = PickPartText;
                 this.EnablePartEdit(false);
                 return;
             }

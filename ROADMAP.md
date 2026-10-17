@@ -1,4 +1,4 @@
-# ForzaEditor roadmap
+# Forza Studio roadmap
 
 How we work:
 
@@ -72,7 +72,7 @@ A separate DLC package instead of writing into the game's files. Credits: **Jew 
 (`fm4dlc` toolchain) and **XTD (@xtd_ac)** (Xenia folder DLC, XLAST package, console tests).
 Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 
-- [ ] 3.6d Several ForzaEditor packs at once: each pack's string tables built on top of the other
+- [ ] 3.6d Several Forza Studio packs at once: each pack's string tables built on top of the other
       installed packs' (today only the highest priority pack shows its car names)
 - [ ] 3.8 Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (the user's side)
 - [ ] 3.9 **Very important** (paused 2026-10-17 for topic 12). Port FH → FM4 from a FH1/FH2 car DLC (STFS `CON`/`LIVE` or its
@@ -170,8 +170,20 @@ Background and Jew's notes: `docs/todo_research.md`, C1.
 
 Now (2026-10-17). Order: UI first (visible, low risk), the .NET change last (it touches everything).
 
-- [ ] 12.5 Friendlier, simpler UI: list of what is confusing today (menus, panels, wording), agreed with
-      the user, then fixed in small steps, each checked by the user
+- [ ] 12.5 Friendlier, simpler UI. List agreed with the user 2026-10-17; name back to **Forza Studio**
+      (exe and repo stay ForzaEditor), the Pay Respects window stays as it is. Steps, each checked by
+      the user:
+  - [x] a. Dead items out: Tools > Hex View (crashed) and Save Modding (did nothing), the unused
+        XboxTool form, "Chase, hood, bumper: not decoded yet"; name Forza Studio in title, dialogs,
+        About, docs (checked by the user 2026-10-17)
+  - [ ] b. Menus without duplicates: Model and Texture menus, File only for open/save; one Back; one
+        set of export names
+  - [x] c. Model view side panel as tabs PART / TEXTURE / CAMERA (Camera only for car models), labels
+        sized to their text, buttons in even rows, Save to Game Database Now (checked by the user
+        2026-10-17; asked first by the user, before b)
+  - [ ] d. Plain wording (technical name in the tooltip), one spelling, port tool title covers FM3,
+        database text language follows the UI; say clearly that Save to Database writes at once
+  - [ ] e. Right-click-only actions (Rename Material, Extract/Replace/Revert, Go to / Used by) visible
 - [ ] 12.3 Settings window (game folders, Xenia, DEV folder, viewer options)
 - [ ] 12.4 Conversion tool as MDI (child windows inside the main window)
 - [ ] 12.2 Recent .NET Framework (today `v2.0` with XNA, x86): newest one XNA allows; check SQLite, HexBox

@@ -258,7 +258,7 @@ namespace ForzaStudio
             this.packName.Location = new Point(58, 37);
             this.packName.Width = 300;
             this.packName.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            this.packName.Text = AppSettings.Get("CarPort.PackName", "ForzaEditor pack");
+            this.packName.Text = AppSettings.Get("CarPort.PackName", "Forza Studio pack");
             this.packName.TextChanged += delegate { AppSettings.Set("CarPort.PackName", this.packName.Text); this.UpdateButtons(); };
             this.packOfferLabel = new Label();
             this.packOfferLabel.Location = new Point(8, 64);

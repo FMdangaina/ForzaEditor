@@ -67,7 +67,7 @@ namespace ForzaStudio
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(294, 28);
             this.label1.TabIndex = 2;
-            this.label1.Text = "ForzaEditor";
+            this.label1.Text = "Forza Studio";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // label3
@@ -136,7 +136,7 @@ namespace ForzaStudio
             this.ShowIcon = false;
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "AboutForm";
+            this.Text = "About Forza Studio";
             this.MouseDown += new System.Windows.Forms.MouseEventHandler(this.AboutForm_MouseDown);
             this.MouseMove += new System.Windows.Forms.MouseEventHandler(this.AboutForm_MouseMove);
             this.MouseUp += new System.Windows.Forms.MouseEventHandler(this.AboutForm_MouseUp);
