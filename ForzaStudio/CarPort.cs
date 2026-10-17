@@ -96,6 +96,7 @@ namespace ForzaStudio
         private readonly Dictionary<string, ForzaZip> changedZips = new Dictionary<string, ForzaZip>(StringComparer.OrdinalIgnoreCase);
         private readonly List<string> newZips = new List<string>();
         private readonly List<string> checkedBanks = new List<string>();   // sound banks FM4 already has (compared once)
+        private List<Choice> tuningChoices;   // complete FM4 engine tunings for the review (EngineTuningChoices)
         private ForzaZip carZip;        // the converted car, saved last with port_log.txt in it
         private string carZipPath;
         private readonly Dictionary<string, string> newFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // loose target file -> source file
@@ -2562,17 +2563,26 @@ namespace ForzaStudio
                 }
                 if (data == null || missing.Count > 0)
                 {
-                    ForzaZip.Entry fallback = (donorEngine != null) ? engineTuning.Find(donorEngine + "_ET.xml") : null;
+                    // The source's sound is incomplete: a whole FM4 engine sound setup is used instead,
+                    // the one the user picked in the review (Fixes "soundfull:<engine>"), else the
+                    // donor's, and the review asks which car's to use (decided 2026-10-17).
+                    string lacks = (missing.Count > 0) ? string.Join(", ", missing.ToArray()) : "its tuning";
+                    string fullKey = "soundfull:" + media;
+                    object fix;
+                    bool picked = this.Fixes.TryGetValue(fullKey, out fix) && fix is string && engineTuning.Find((string) fix + "_ET.xml") != null;
+                    string setup = picked ? (string) fix : donorEngine;
+                    ForzaZip.Entry fallback = (setup != null) ? engineTuning.Find(setup + "_ET.xml") : null;
                     if (fallback == null)
                     {
                         this.Line("engine sound {0}: no tuning", media);
                         continue;
                     }
                     data = engineTuning.Read(fallback);
-                    this.donorContent.Add(string.Format("engine sound {0}: the donor's tuning {1}_ET.xml ({2} lacks {3})", media, donorEngine, this.game, (missing.Count > 0) ? string.Join(", ", missing.ToArray()) : "its tuning"));
-                    this.Line("engine sound {0}: the donor's ({1}; " + this.game + " lacks {2})", media, donorEngine, (missing.Count > 0) ? string.Join(", ", missing.ToArray()) : "the " + this.game + " tuning");
-                    // The donor's tunings are FM4's, but their banks may be missing from this FM4 too: they
-                    // come from the source game like the car's own.
+                    this.donorContent.Add(string.Format("engine sound {0}: {1} tuning {2}_ET.xml ({3} lacks {4})", media, picked ? "the picked" : "the donor's", setup, this.game, lacks));
+                    this.Line("engine sound {0}: {1} ({2}; " + this.game + " lacks {3})", media, picked ? "the picked FM4 setup" : "the donor's", setup, lacks);
+                    // FM4's tunings, but their banks may be missing from this FM4 too: they come from the
+                    // source game like the car's own. One still missing leaves a level silent.
+                    List<string> silent = new List<string>();
                     foreach (Match reference in Regex.Matches(Encoding.UTF8.GetString(data), "\"([^\"]+_HT\\.xml)\"", RegexOptions.IgnoreCase))
                     {
                         string name = reference.Groups[1].Value;
@@ -2581,9 +2591,23 @@ namespace ForzaStudio
                             checkedHarmonics.Add(name);
                             if (this.ImportHarmonic(harmonic, sourceHarmonic, harmonicPath, name, sourceBanks, targetBanks) < 0)
                             {
-                                this.Line("  WARNING donor harmonic tuning {0}: a sound bank is in neither game", name);
+                                silent.Add(name);
+                                this.Line("  WARNING harmonic tuning {0} of {1}: a sound bank is in neither game", name, setup);
                             }
                         }
+                    }
+                    if (!picked || silent.Count > 0)
+                    {
+                        Issue issue = new Issue();
+                        issue.Key = fullKey;
+                        issue.Kind = "sound";
+                        issue.Where = media + "_ET.xml";
+                        issue.Value = setup;
+                        issue.Problem = string.Format("{0} lacks {1}: engine sound of {2}{3}; pick the FM4 car whose full sound setup to use", this.game, lacks, setup, (silent.Count > 0) ? " (but it misses " + string.Join(", ", silent.ToArray()) + ": silent at some levels)" : "");
+                        issue.Choices.AddRange(this.EngineTuningChoices(engineTuning));
+                        issue.Suggested = setup;
+                        this.Issues.Add(issue);
+                        this.Line("  REVIEW {0}", issue.Problem);
                     }
                 }
                 else
@@ -2621,7 +2645,7 @@ namespace ForzaStudio
             }
             string key = "sound:" + media;
             object fix;
-            bool picked = this.Fixes.TryGetValue(key, out fix) && fix is string;
+            bool picked = this.Fixes.TryGetValue(key, out fix) && fix is string && engineTuning.Find((string) fix + "_ET.xml") != null;
             string layoutName = picked ? (string) fix : donorEngine;
             ForzaZip.Entry layoutEntry = (layoutName != null) ? engineTuning.Find(layoutName + "_ET.xml") : null;
             string layout = (layoutEntry != null) ? Encoding.UTF8.GetString(engineTuning.Read(layoutEntry)) : null;
@@ -2686,27 +2710,40 @@ namespace ForzaStudio
                 issue.Where = media + "_ET.xml";
                 issue.Value = layoutName;
                 issue.Problem = string.Format("{0} engine tuning lacks FM4's DSP blocks (silent when upgraded): taken from {1}; pick the FM4 car whose sound setup to use", this.game, layoutName);
-                List<string> tunings = new List<string>();
-                foreach (ForzaZip.Entry e in engineTuning.Entries)
-                {
-                    if (e.Name.EndsWith("_ET.xml", StringComparison.OrdinalIgnoreCase))
-                    {
-                        tunings.Add(e.Name.Substring(0, e.Name.Length - 7));
-                    }
-                }
-                tunings.Sort(StringComparer.OrdinalIgnoreCase);
-                foreach (string name in tunings)
-                {
-                    Choice c = new Choice();
-                    c.Value = name;
-                    c.Label = name;
-                    issue.Choices.Add(c);
-                }
+                issue.Choices.AddRange(this.EngineTuningChoices(engineTuning));
                 issue.Suggested = layoutName;
                 this.Issues.Add(issue);
                 this.Line("  REVIEW {0}", issue.Problem);
             }
             return Encoding.UTF8.GetBytes(result);
+        }
+
+        // The FM4 engine tunings a review "sound" issue offers: complete FM4 ones only (with DSPScalar),
+        // so an earlier port's uncompleted FM3 tuning is not offered. Read once per run.
+        private List<Choice> EngineTuningChoices(ForzaZip engineTuning)
+        {
+            if (this.tuningChoices == null)
+            {
+                this.tuningChoices = new List<Choice>();
+                List<string> names = new List<string>();
+                foreach (ForzaZip.Entry e in engineTuning.Entries)
+                {
+                    if (e.Name.EndsWith("_ET.xml", StringComparison.OrdinalIgnoreCase)
+                        && Encoding.UTF8.GetString(engineTuning.Read(e)).IndexOf("<DSPScalar", StringComparison.Ordinal) >= 0)
+                    {
+                        names.Add(e.Name.Substring(0, e.Name.Length - 7));
+                    }
+                }
+                names.Sort(StringComparer.OrdinalIgnoreCase);
+                foreach (string name in names)
+                {
+                    Choice c = new Choice();
+                    c.Value = name;
+                    c.Label = name;
+                    this.tuningChoices.Add(c);
+                }
+            }
+            return this.tuningChoices;
         }
 
         // <element .../> of the source with the layout's attributes it lacks appended; num_cylinders
@@ -2763,6 +2800,12 @@ namespace ForzaStudio
             Dictionary<string, string> copies = new Dictionary<string, string>();
             foreach (Match bank in banks)
             {
+                // NA.fsb is the "no sound on this channel" placeholder of NA_EngAmb/Int/Exh_HT.xml: no game
+                // has the file and FM4's own cars use it (2 FM4, 51 FH1 tunings), so it is never missing.
+                if (string.Equals(bank.Groups[1].Value, "NA.fsb", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
                 string target = Path.Combine(targetBanks, bank.Groups[1].Value.ToLowerInvariant());
                 if (this.newFiles.ContainsKey(target) || copies.ContainsKey(target) || this.checkedBanks.Contains(target))
                 {

@@ -32,7 +32,10 @@ fixed, the issue moves to its ROADMAP item and is removed from here.
   if the tyre changes there, look at what picks `Media\wheels\TireA/B/C.zip` (`List_Wheels`,
   `WheelLayouts`, `Combo_TireBrandCompound`).
 
-## 5. FM3 port with a fully upgraded engine: no engine sound (open, ROADMAP 3.9 / 9)
+## 5. FM3 port with a fully upgraded engine: no engine sound (fixed, checked in game; ROADMAP 3.9)
+
+- 2026-10-17: the user confirms the X5 has sound fully upgraded. Remove this entry at the next
+  cleanup; the rule is in `CarPort.CompleteEngineTuning`.
 
 - Seen 2026-10-17 by the user: BMW_X5_09 (FM3 port), every upgrade at the top level, zero sound.
 - Not the cause: the harmonic tunings. CarPort already takes every level (L0-L3), and FM3 and FM4

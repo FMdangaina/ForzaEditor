@@ -83,11 +83,13 @@ Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
       2026-10-17 (`fm4dev\FH1DLC`): 46 new FH1 DLC cars, 16 complete, 16 lose engine swaps, 14 part of
       the stock sound. Decisions (user, 2026-10-17):
   - [ ] Swap engine not in the pack nor FM4: ask the user which swap to put instead
-  - [ ] Engine sound incomplete: ask the user which car's full sound setup to use
+  - [x] Engine sound incomplete (all ports): tunings and banks come from the source game first; only
+        what it lacks makes the review ask which FM4 car's full sound setup to use (`soundfull:`),
+        donor's by default. `NA.fsb` is a "no sound" placeholder, never missing. Checked in a trial
+        (Yukon XL from FH1); the DLC reader will use the same path
   - [ ] PI: fixed line per source game (FH1: FM4 = 1.189 PI - 0.363, error 0.0145)
-  - [ ] Sound with the engine upgraded: FM3 engine tunings completed to the FM4 layout
-        (`CarPort.CompleteEngineTuning`, review "sound" choice); in-game check of a new port pending
-        (`current_issues.md` 5)
+  - [x] Sound with the engine upgraded: FM3 engine tunings completed to the FM4 layout
+        (`CarPort.CompleteEngineTuning`, review "sound" choice); X5 checked in game 2026-10-17
   - [ ] FM3 DLC: no material yet
 - [x] 3.1-3.3 Real DLC studied; merge DB `<offer>000_merge.slt` built from a port on a clean DB copy
 - [x] 3.4-3.5 Xenia package folder with header; works in game with the base game untouched
