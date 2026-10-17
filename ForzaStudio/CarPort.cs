@@ -431,11 +431,13 @@ namespace ForzaStudio
         }
 
         // FM4's cockpit camera hangs on CarPartPositions PartId 9, the steering wheel point, which FM3
-        // lacks (PartId 0-8): without it the cockpit view sits at 0,0,0. It is rebuilt from the
-        // converted cockpit model's steering_wheel section (CarCamera).
+        // lacks (PartId 0-8) and 13 FH1 traffic cars have as 0,0,0: either way the cockpit view sits at
+        // 0,0,0. It is rebuilt from the converted cockpit model's steering_wheel section (CarCamera),
+        // and a hood camera left at the origin is placed from it (CarCamera.SetHoodFromSteeringWheel).
         private void SteeringWheelPosition()
         {
-            if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM CarPartPositions WHERE Ordinal = ? AND PartId = ?", this.carId, CarCamera.SteeringWheelPart)) > 0)
+            CarCamera current = CarCamera.Load(this.target, this.MediaName);
+            if (current != null && current.HasSteeringWheel && current.SteeringWheel != Microsoft.Xna.Framework.Vector3.Zero)
             {
                 return;
             }
@@ -457,7 +459,7 @@ namespace ForzaStudio
             CarCamera camera = CarCamera.Load(this.target, this.MediaName);
             float oldX = camera.CockpitOffset.X;
             bool centred = camera.SetSteeringWheelFromModel(point);
-            this.Line("  cockpit camera: no CarPartPositions part 9 (steering wheel point), rebuilt from the cockpit model's steering_wheel");
+            this.Line("  cockpit camera: CarPartPositions part 9 (steering wheel point) {0}, rebuilt from the cockpit model's steering_wheel", camera.HasSteeringWheel ? "is 0,0,0" : "missing");
             if (centred)
             {
                 this.Line("  cockpit camera: CamCockpitOffsetX {0} -> 0 (FM4 centres the eye on the steering wheel)", oldX.ToString("0.###", CultureInfo.InvariantCulture));
@@ -465,6 +467,11 @@ namespace ForzaStudio
             foreach (string line in camera.Save(this.target))
             {
                 this.Line("    {0}", line);
+            }
+            string hood = camera.SetHoodFromSteeringWheel(this.target);
+            if (hood != null)
+            {
+                this.Line("    {0}", hood);
             }
         }
 
@@ -1560,6 +1567,10 @@ namespace ForzaStudio
                 }
                 car.Add(name, data);
             }
+            this.RebuildCloseUpModels(car, donor, prefix, donorPrefix, materials);
+            this.ReplacePlaceholderBrakes(car, donor, prefix, donorPrefix);
+            this.CockpitRig(car, donor, prefix, donorPrefix);
+            this.DriverHandsFromSteeringWheel(car, prefix);
             if (shaderSettings != null)
             {
                 car.Add("shadersettings.xml", ConvertShaderSettings(Encoding.UTF8.GetString(shaderSettings), materials, this.Report));
@@ -1579,6 +1590,265 @@ namespace ForzaStudio
             this.carZip = car;
             this.carZipPath = path;
             this.Line("car zip: {0} entries + port_log.txt, {1} models converted -> {2}", car.Entries.Count, models, this.Relative(path));
+        }
+
+        // FH traffic cars' brakes are placeholders (GMC_YukonXL_01: one section of 17 vertices per file,
+        // material rotorLF_LOD0...) and their main model has no brake part either: nothing behind the rim
+        // (checked by the user 2026-10-17). Source data being absent, such a file becomes the donor's
+        // brake, scaled around the wheel centre (FM4 brakes are modelled there: rotor origin 0,0,0) by
+        // the ratio of the cars' rim diameters, front or rear (decided by the user 2026-10-17, for cars
+        // without brakes of their own only).
+        private const int PlaceholderBrakeVertices = 50;
+
+        private void ReplacePlaceholderBrakes(ForzaZip car, ForzaZip donor, string prefix, string donorPrefix)
+        {
+            foreach (ForzaZip.Entry entry in new List<ForzaZip.Entry>(car.Entries))
+            {
+                string name = entry.Name.ToLowerInvariant();
+                if (!name.EndsWith(".carbin") || (!name.Contains("_caliper") && !name.Contains("_rotor")) || !name.StartsWith(prefix))
+                {
+                    continue;
+                }
+                int vertices = 0;
+                foreach (CarbinModel.Section section in new CarbinModel(car.Read(entry)).Sections)
+                {
+                    vertices += section.Lod.Count + section.Lod0.Count;
+                }
+                if (vertices >= PlaceholderBrakeVertices)
+                {
+                    continue;
+                }
+                ForzaZip.Entry template = donor.Find(donorPrefix + name.Substring(prefix.Length));
+                if (template == null)
+                {
+                    this.Line("  brake {0}: a placeholder of {1} vertices, and the donor has no such file; left as is", name, vertices);
+                    continue;
+                }
+                bool front = name.Contains("lf_") || name.Contains("rf_");
+                string column = front ? "FrontWheelDiameterIN" : "RearWheelDiameterIN";
+                double own = Convert.ToDouble(this.target.Scalar("SELECT " + column + " FROM Data_Car WHERE Id = ?", this.carId), CultureInfo.InvariantCulture);
+                double theirs = Convert.ToDouble(this.target.Scalar("SELECT " + column + " FROM Data_Car WHERE Id = ?", this.donorId), CultureInfo.InvariantCulture);
+                float scale = (own > 0 && theirs > 0) ? (float) (own / theirs) : 1f;
+                CarbinModel brake = new CarbinModel(donor.Read(template));
+                foreach (CarbinModel.Section section in brake.Sections)
+                {
+                    brake.TransformSection(section.Name, Microsoft.Xna.Framework.Matrix.CreateScale(scale));
+                }
+                car.Replace(entry, brake.ToBytes());
+                this.donorContent.Add(string.Format(CultureInfo.InvariantCulture, "brake {0}: the donor's {1} scaled {2:0.###} (rims {3}\" / {4}\"), the source's is a placeholder", name, template.Name, scale, own, theirs));
+                this.Line("  brake {0}: a placeholder of {1} vertices, now the donor's {2} scaled {3:0.###} ({4}\" rim, donor {5}\")", name, vertices, template.Name, scale, own, theirs);
+            }
+        }
+
+        // FM4 draws a car up close from its _lod0 (exterior) and _cockpit (interior) files. FH traffic models
+        // (GMC_YukonXL_01, FOR_Transit_11, TOY_Camry_07... 19 FH1/FH2 cars) have only placeholders there,
+        // 10-17 parts of 17 vertices, and a few have no file at all (FOR_Explorer_10): the car vanishes
+        // up close. A close-up file with less than 2% of the main file's vertices (real ones have 5% and
+        // up; FM4's lod0 holds more than the main file) is rebuilt from the main file's LOD 1 by FM4's rule
+        // (313 cars): the cockpit parts (CockpitPart) go to _cockpit, the rest to _lod0. The cockpit also
+        // gets the body, so the cockpit view always shows the car (decided by the user 2026-10-17; such
+        // cars often have no hood part). The header is the source's own close-up file's, else the donor's.
+        // The seat with the traffic driver merged in (DriverSeat) is replaced by the other one mirrored:
+        // FM4 draws its own driver.
+        private void RebuildCloseUpModels(ForzaZip car, ForzaZip donor, string prefix, string donorPrefix, List<string> materials)
+        {
+            ForzaZip.Entry mainEntry = car.Find(prefix + ".carbin");
+            if (mainEntry == null)
+            {
+                return;
+            }
+            CarbinModel main = new CarbinModel(car.Read(mainEntry));
+            bool rebuilt = false;
+            bool lod0Rebuilt = false;
+            bool cockpitRebuilt = false;
+            string driverSeat = DriverSeat(main);
+            CarbinModel source = main;
+            if (driverSeat != null)
+            {
+                // The driver's seat becomes the other seat mirrored across the body's center plane
+                // (decided by the user 2026-10-17).
+                string twin = (driverSeat == "seatL") ? "seatR" : "seatL";
+                CarbinModel.Section body = main.Find("body");
+                source = new CarbinModel(main.ToBytes());
+                source.RemoveSection(driverSeat);
+                source.DuplicateSection(twin, driverSeat);
+                source.MirrorSection(driverSeat, (body != null) ? body.Bounds[0] : 0);
+            }
+            int mainVertices = 0;
+            foreach (CarbinModel.Section section in main.Sections)
+            {
+                mainVertices += section.Lod.Count;
+            }
+            foreach (string kind in new string[] { "_lod0", "_cockpit" })
+            {
+                string name = prefix + kind + ".carbin";
+                ForzaZip.Entry own = car.Find(name);
+                byte[] head = null;
+                int vertices = 0;
+                if (own != null)
+                {
+                    CarbinModel model = new CarbinModel(car.Read(own));
+                    head = model.Head;
+                    foreach (CarbinModel.Section section in model.Sections)
+                    {
+                        vertices += section.Lod0.Count;
+                    }
+                }
+                if (own != null && vertices >= mainVertices * 0.02)
+                {
+                    continue;
+                }
+                if (head == null)
+                {
+                    ForzaZip.Entry template = donor.Find(donorPrefix + kind + ".carbin");
+                    if (template == null)
+                    {
+                        this.Line("  {0}: {1}, and the donor has no such file for the header; left as is", name, (own == null) ? "missing" : "a placeholder");
+                        continue;
+                    }
+                    head = new CarbinModel(donor.Read(template)).Head;
+                    this.donorFormat.Add(name + ": header of the donor's " + template.Name);
+                }
+                bool cockpit = kind == "_cockpit";
+                CarbinModel built;
+                try
+                {
+                    built = source.CloseUpFromLod1(head, delegate(string part) { return CockpitPart(part) == cockpit || (cockpit && part == "body"); });
+                }
+                catch (InvalidDataException ex)
+                {
+                    this.Line("  {0}: not rebuilt from LOD 1 ({1})", name, ex.Message);
+                    continue;
+                }
+                List<string> parts = new List<string>();
+                int built0 = 0;
+                foreach (CarbinModel.Section section in built.Sections)
+                {
+                    parts.Add(section.Name);
+                    built0 += section.Lod0.Count;
+                    RenameLod0Tire(section);
+                    foreach (CarbinModel.SubSection sub in section.SubSections)
+                    {
+                        sub.Name = LodVariant(Lod0Name(sub.Name), name);
+                        if (!materials.Contains(sub.Name))
+                        {
+                            materials.Add(sub.Name);
+                        }
+                    }
+                }
+                byte[] data = built.ToBytes();
+                if (own != null)
+                {
+                    car.Replace(own, data);
+                }
+                else
+                {
+                    car.Add(name, data);
+                }
+                this.Line("  {0}: {1} (main file {2}), rebuilt from LOD 1: {3} parts, {4} vertices ({5})", name, (own == null) ? "missing" : "a placeholder of " + vertices + " vertices", mainVertices, parts.Count, built0, string.Join(" ", parts.ToArray()));
+                rebuilt = true;
+                lod0Rebuilt |= !cockpit;
+                cockpitRebuilt |= cockpit;
+            }
+            if (!rebuilt)
+            {
+                return;
+            }
+            if (driverSeat != null)
+            {
+                this.Line("  {0}: the traffic driver is part of it (FM4 draws its own); in the close-up models it is the other seat mirrored", driverSeat);
+            }
+            // The close-up models sample the _lod0 textures (every FM4 car, 313, has all four); FH traffic cars'
+            // are laid out for the placeholders (GMC_YukonXL_01: white wheel arches, another car's hood
+            // decal) or missing (lights). The rebuilt models are LOD 1 geometry, mapped on the LOD 1 textures.
+            if (lod0Rebuilt)
+            {
+                foreach (string texture in new string[] { "nodamage", "damage", "lights", "damagelights" })
+                {
+                    ForzaZip.Entry plain = car.Find(texture + ".xds");
+                    if (plain == null)
+                    {
+                        continue;
+                    }
+                    ForzaZip.Entry close = car.Find(texture + "_lod0.xds");
+                    if (close != null)
+                    {
+                        car.Replace(close, car.Read(plain));
+                    }
+                    else
+                    {
+                        car.Add(texture + "_lod0.xds", car.Read(plain));
+                    }
+                    this.Line("  {0}_lod0.xds: {1}, now a copy of {0}.xds", texture, (close != null) ? "the placeholder's" : "missing");
+                }
+            }
+            // The rebuilt cockpit's interior parts are LOD 1 geometry too, mapped on nodamage.xds, while the
+            // cockpit samples interior_lod0.xds (decided by the user 2026-10-17: make it a copy of nodamage).
+            ForzaZip.Entry nodamage = car.Find("nodamage.xds");
+            if (cockpitRebuilt && nodamage != null)
+            {
+                ForzaZip.Entry interior = car.Find("interior_lod0.xds");
+                if (interior != null)
+                {
+                    car.Replace(interior, car.Read(nodamage));
+                }
+                else
+                {
+                    car.Add("interior_lod0.xds", car.Read(nodamage));
+                }
+                this.Line("  interior_lod0.xds: {0}, now a copy of nodamage.xds", (interior != null) ? "the placeholder's" : "missing");
+            }
+            // The placeholders' materials (body_LOD0, hooda_LOD0...) are gone with them: out of the review
+            // and of the shader settings.
+            List<string> used = new List<string>();
+            foreach (ForzaZip.Entry entry in car.Entries)
+            {
+                string entryName = entry.Name.ToLowerInvariant();
+                if (entryName.EndsWith(".carbin") && !entryName.Contains("_caliper") && !entryName.Contains("_rotor"))
+                {
+                    foreach (CarbinModel.Section section in new CarbinModel(car.Read(entry)).Sections)
+                    {
+                        foreach (CarbinModel.SubSection sub in section.SubSections)
+                        {
+                            if (!used.Contains(sub.Name))
+                            {
+                                used.Add(sub.Name);
+                            }
+                        }
+                    }
+                }
+            }
+            foreach (string material in new List<string>(this.unknownMaterials.Keys))
+            {
+                if (!used.Contains(material))
+                {
+                    this.unknownMaterials.Remove(material);
+                }
+            }
+            materials.RemoveAll(delegate(string material) { return !used.Contains(material); });
+        }
+
+        // FM4's cockpit parts (_cockpit file, never in _lod0; measured on the 313 cars of the game):
+        // interior, steering wheel, mirrors, hood, seats, windscreen and front side windows (glass or
+        // lexan), the side mirror glass, the A pillars, the roll cage and the gauge needles.
+        private static bool CockpitPart(string name)
+        {
+            string part = Regex.Replace(name, "[0-9]+$", "");
+            foreach (string prefix in new string[] { "interior", "steering_wheel", "mirror", "hood", "seat", "a_pillar", "cage", "tach_", "speed_", "fuel_" })
+            {
+                if (part.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            foreach (string glass in new string[] { "glassF", "glassLF", "glassRF", "glassLM", "glassRM", "lexanF", "lexanLF", "lexanRF" })
+            {
+                if (string.Equals(part, glass, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         // Anark digital dash layout (.fbf), FH2 version 0x3F0 -> FM4 0x3EF. A text layer is
@@ -2497,6 +2767,7 @@ namespace ForzaStudio
                     }
                     wheel.Add(name, data);
                 }
+                this.RebuildWheelLod0(wheel, media);
                 ForzaZip.Entry version = donor.Find("versiondata.xml");
                 if (version != null && wheel.Find("versiondata.xml") == null)
                 {
@@ -2506,6 +2777,465 @@ namespace ForzaStudio
                 this.donorFormat.Add("wheel " + media + " zip: entry headers and zipmanifest.xml line of the donor wheel " + donorWheelMedia);
                 this.SaveNew(wheel, path);
                 this.Line("wheel zip: {0} ({1} entries)", this.Relative(path), wheel.Entries.Count);
+            }
+        }
+
+        // In LOD 0 the tire technique draws the separate FM4 tire (Media\wheels\tirea: tread and sidewall
+        // textures), so a LOD 1 tire copied there renders solid black (GMC_YukonXL_01, checked by the user
+        // 2026-10-17). It becomes inner_rim, a LOD 0 rim material (every FM4 wheel) sampling wheel_lod0.xds,
+        // which is a copy of the wheel.xds its UVs map.
+        private static void RenameLod0Tire(CarbinModel.Section section)
+        {
+            foreach (CarbinModel.SubSection sub in section.SubSections)
+            {
+                if (sub.Lod == 0 && sub.Name == "tire")
+                {
+                    sub.Name = "inner_rim";
+                }
+            }
+        }
+
+        // The _cockpit.carbin header holds the driver rig, big-endian floats in model axes (decoded on the 313
+        // FM4 cockpits, 2026-10-17):
+        //   0x1C8..0x218  three left/right pairs of hand grips (vec4 each, w 0): on the rim circle 20 degrees
+        //                 above the centre, at 1.0, 0.824 and 0.913 of the wheel's half width (x within 1 cm)
+        //   0x228         the steering wheel pivot: the steering_wheel origin (x exact, y/z within 1-4 cm)
+        //   0x238         the wheel axis: the normal of the wheel's plane, pointing back (0.8 degrees median)
+        //   0x248, 0x258  two points (0x258 on the centre console: the shifter, mirrored with the wheel side)
+        //   0x270..0x2FF  four records point / direction / value (eye-level points looking forward)
+        // FH traffic cockpits (placeholders) have zeros there: the wheel then turns about the car's origin and
+        // swings into the windscreen, and the hands meet in one point (GMC_YukonXL_01; the Syclone's whole
+        // cockpit file turned in place, its wheel section alone did not; checked by the user 2026-10-17).
+        // When the pivot is 0,0,0: pivot, axis and grips come from the steering_wheel geometry, the other
+        // records from the donor's cockpit relative to its wheel (x mirrored when the wheels sit on opposite
+        // sides).
+        private const int RigGrips = 0x1C8;
+        private const int RigPivot = 0x228;
+        private const int RigAxis = 0x238;
+        private const int RigRest = 0x248;
+        private const int RigEnd = 0x300;
+        private static readonly float[] GripRadii = { 1.0f, 0.824f, 0.913f };
+        private const double GripAngle = 20.0 * Math.PI / 180.0;
+
+        private void CockpitRig(ForzaZip car, ForzaZip donor, string prefix, string donorPrefix)
+        {
+            ForzaZip.Entry entry = car.Find(prefix + "_cockpit.carbin");
+            if (entry == null)
+            {
+                return;
+            }
+            CarbinModel cockpit = new CarbinModel(car.Read(entry));
+            CarbinModel.Section wheel = cockpit.Find("steering_wheel");
+            if (wheel == null || cockpit.Head.Length < RigEnd || RigVector(cockpit.Head, RigPivot) != Microsoft.Xna.Framework.Vector3.Zero)
+            {
+                return;
+            }
+            Microsoft.Xna.Framework.Vector3 pivot = new Microsoft.Xna.Framework.Vector3(wheel.Bounds[0], wheel.Bounds[1], wheel.Bounds[2]);
+            Microsoft.Xna.Framework.Vector3 axis = WheelNormal(wheel);
+            Microsoft.Xna.Framework.Vector3 up = Microsoft.Xna.Framework.Vector3.Normalize(Microsoft.Xna.Framework.Vector3.Cross(axis, Microsoft.Xna.Framework.Vector3.UnitX));
+            if (up.Y < 0)
+            {
+                up = -up;
+            }
+            float half = wheel.Bounds[6];
+            for (int g = 0; g < GripRadii.Length; g++)
+            {
+                float across = (float) (GripRadii[g] * half * Math.Cos(GripAngle));
+                float above = (float) (GripRadii[g] * half * Math.Sin(GripAngle));
+                WriteRigVector(cockpit.Head, RigGrips + (g * 32), pivot + (across * Microsoft.Xna.Framework.Vector3.UnitX) + (above * up));
+                WriteRigVector(cockpit.Head, RigGrips + (g * 32) + 16, pivot - (across * Microsoft.Xna.Framework.Vector3.UnitX) + (above * up));
+            }
+            WriteRigVector(cockpit.Head, RigPivot, pivot);
+            WriteRigVector(cockpit.Head, RigAxis, axis);
+            string rest = "left as they were (the donor has none)";
+            ForzaZip.Entry template = donor.Find(donorPrefix + "_cockpit.carbin");
+            CarbinModel donorCockpit = (template != null) ? new CarbinModel(donor.Read(template)) : null;
+            CarbinModel.Section donorWheel = (donorCockpit != null) ? donorCockpit.Find("steering_wheel") : null;
+            if (donorWheel != null && donorCockpit.Head.Length >= RigEnd && RigVector(donorCockpit.Head, RigPivot) != Microsoft.Xna.Framework.Vector3.Zero)
+            {
+                Microsoft.Xna.Framework.Vector3 donorPivot = RigVector(donorCockpit.Head, RigPivot);
+                bool mirror = Math.Sign(donorPivot.X) != Math.Sign(pivot.X);
+                Buffer.BlockCopy(donorCockpit.Head, RigRest, cockpit.Head, RigRest, RigEnd - RigRest);
+                // Points: 0x248, 0x258, then the four records (point, direction, value) from 0x270, 36 bytes apart.
+                List<int> points = new List<int> { 0x248, 0x258 };
+                List<int> directions = new List<int>();
+                for (int r = 0; r < 4; r++)
+                {
+                    points.Add(0x270 + (r * 36));
+                    directions.Add(0x270 + (r * 36) + 16);
+                }
+                foreach (int offset in points)
+                {
+                    Microsoft.Xna.Framework.Vector3 p = RigVector(cockpit.Head, offset);
+                    if (p == Microsoft.Xna.Framework.Vector3.Zero)
+                    {
+                        continue;
+                    }
+                    Microsoft.Xna.Framework.Vector3 relative = p - donorPivot;
+                    relative.X = mirror ? -relative.X : relative.X;
+                    WriteRigVector(cockpit.Head, offset, pivot + relative);
+                }
+                foreach (int offset in directions)
+                {
+                    Microsoft.Xna.Framework.Vector3 d = RigVector(cockpit.Head, offset);
+                    d.X = mirror ? -d.X : d.X;
+                    WriteRigVector(cockpit.Head, offset, d);
+                }
+                rest = "the donor's, moved with the wheel" + (mirror ? " and mirrored" : "");
+                this.donorContent.Add(entry.Name + ": cockpit rig points but the wheel and grips (shifter, eye-level records), the donor's moved to the wheel");
+            }
+            car.Replace(entry, cockpit.ToBytes());
+            this.Line("  {0}: driver rig in the header was empty (wheel pivot 0,0,0): pivot {1:F4}, {2:F4}, {3:F4}, axis {4:F4}, {5:F4}, {6:F4}, hand grips from the wheel; other points {7}", entry.Name, pivot.X, pivot.Y, pivot.Z, axis.X, axis.Y, axis.Z, rest);
+        }
+
+        // The normal of the wheel's plane (smallest axis of its vertex spread), pointing back (+z).
+        private static Microsoft.Xna.Framework.Vector3 WheelNormal(CarbinModel.Section wheel)
+        {
+            CarbinModel.VertexBuffer buffer = (wheel.Lod0.Count > 0) ? wheel.Lod0 : wheel.Lod;
+            double[] p = CarbinModel.Positions(wheel, buffer);
+            int count = buffer.Count;
+            double[] mean = new double[3];
+            for (int i = 0; i < count; i++)
+            {
+                for (int k = 0; k < 3; k++)
+                {
+                    mean[k] += p[(i * 3) + k] / count;
+                }
+            }
+            double[,] spread = new double[3, 3];
+            for (int i = 0; i < count; i++)
+            {
+                for (int j = 0; j < 3; j++)
+                {
+                    for (int k = 0; k < 3; k++)
+                    {
+                        spread[j, k] += (p[(i * 3) + j] - mean[j]) * (p[(i * 3) + k] - mean[k]);
+                    }
+                }
+            }
+            // Power iteration on (trace I - spread): its largest axis is the spread's smallest.
+            double trace = spread[0, 0] + spread[1, 1] + spread[2, 2];
+            double[] v = { 0, 0.3, 1 };
+            for (int iteration = 0; iteration < 200; iteration++)
+            {
+                double[] w = new double[3];
+                for (int j = 0; j < 3; j++)
+                {
+                    w[j] = trace * v[j];
+                    for (int k = 0; k < 3; k++)
+                    {
+                        w[j] -= spread[j, k] * v[k];
+                    }
+                }
+                double length = Math.Sqrt((w[0] * w[0]) + (w[1] * w[1]) + (w[2] * w[2]));
+                if (length < 1e-12)
+                {
+                    break;
+                }
+                v = new double[] { w[0] / length, w[1] / length, w[2] / length };
+            }
+            Microsoft.Xna.Framework.Vector3 normal = new Microsoft.Xna.Framework.Vector3((float) v[0], (float) v[1], (float) v[2]);
+            return (normal.Z < 0) ? -normal : normal;
+        }
+
+        private static Microsoft.Xna.Framework.Vector3 RigVector(byte[] head, int offset)
+        {
+            return new Microsoft.Xna.Framework.Vector3(ReadHeadFloat(head, offset), ReadHeadFloat(head, offset + 4), ReadHeadFloat(head, offset + 8));
+        }
+
+        private static void WriteRigVector(byte[] head, int offset, Microsoft.Xna.Framework.Vector3 value)
+        {
+            float[] parts = { value.X, value.Y, value.Z };
+            for (int i = 0; i < 3; i++)
+            {
+                byte[] bytes = BitConverter.GetBytes(parts[i]);
+                for (int k = 0; k < 4; k++)
+                {
+                    head[offset + (i * 4) + k] = bytes[3 - k];
+                }
+            }
+        }
+
+        // CarAttribs DriverHandsOffset places the driver's hands: on 289 of 307 FM4 cars it is the _cockpit
+        // steering_wheel origin (model axes) plus (0, -0.403, 0.425) (x within 5 mm; y -0.418..-0.391,
+        // z 0.404..0.454 for 80%). FH traffic cars have values unrelated to their wheel (GMC_YukonXL_01:
+        // 0.083, -0.420, 0.394 for a wheel at x -0.428): no hands in view; with the offset rebuilt they
+        // showed at the wheel (user, 2026-10-17; the wheel's own turning comes from CockpitRig). When x is
+        // more than 3 cm off the wheel, the offset is rebuilt from the wheel.
+        private static readonly Microsoft.Xna.Framework.Vector3 HandsFromWheel = new Microsoft.Xna.Framework.Vector3(0f, -0.403f, 0.425f);
+
+        private void DriverHandsFromSteeringWheel(ForzaZip car, string prefix)
+        {
+            ForzaZip.Entry attributes = car.Find("carattribs.xml");
+            ForzaZip.Entry cockpit = car.Find(prefix + "_cockpit.carbin");
+            if (attributes == null || cockpit == null)
+            {
+                return;
+            }
+            CarbinModel.Section wheel = new CarbinModel(car.Read(cockpit)).Find("steering_wheel");
+            if (wheel == null)
+            {
+                return;
+            }
+            string text = Encoding.UTF8.GetString(car.Read(attributes));
+            Match match = Regex.Match(text, "<DriverHandsOffset value\\.x=\"([^\"]*)\" value\\.y=\"([^\"]*)\" value\\.z=\"([^\"]*)\"");
+            float x;
+            if (!match.Success || !float.TryParse(match.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out x) || Math.Abs(x - wheel.Bounds[0]) <= 0.03f)
+            {
+                return;
+            }
+            Microsoft.Xna.Framework.Vector3 hands = new Microsoft.Xna.Framework.Vector3(wheel.Bounds[0], wheel.Bounds[1], wheel.Bounds[2]) + HandsFromWheel;
+            string values = string.Format(CultureInfo.InvariantCulture, "<DriverHandsOffset value.x=\"{0:F6}\" value.y=\"{1:F6}\" value.z=\"{2:F6}\"", hands.X, hands.Y, hands.Z);
+            car.Replace(attributes, Encoding.UTF8.GetBytes(text.Substring(0, match.Index) + values + text.Substring(match.Index + match.Length)));
+            this.Line("  carattribs DriverHandsOffset {0}, {1}, {2} is not at the steering wheel (x {3:F6}): now {4:F6}, {5:F6}, {6:F6} (wheel origin + FM4's median offset)", match.Groups[1].Value, match.Groups[2].Value, match.Groups[3].Value, wheel.Bounds[0], hands.X, hands.Y, hands.Z);
+        }
+
+        // Forza names per-LOD materials <part>_LOD<n> after the level they are drawn at (FM4: bumperFa_LOD1,
+        // taillightL_LOD5, wingz_LOD0..wingz_LOD5); a LOD 1 one copied into a LOD 0 model gets _LOD0
+        // (user's rule, 2026-10-17). Other names are kept.
+        private static string Lod0Name(string material)
+        {
+            Match match = Regex.Match(material, @"^(.+)_LOD\d+$", RegexOptions.IgnoreCase);
+            return match.Success ? match.Groups[1].Value + "_LOD0" : material;
+        }
+
+        // FH traffic models carry a low-poly driver merged into the driver's seat: seatL has 594-926 LOD 1
+        // indices against seatR's 70-161 (GMC_YukonXL_01, TOY_Camry_07, AUD_A4Avant_04, FOR_Explorer_10).
+        // The seat with more than three times its twin's indices is that one; null when there is none.
+        private static string DriverSeat(CarbinModel main)
+        {
+            int left = 0;
+            int right = 0;
+            foreach (CarbinModel.Section section in main.Sections)
+            {
+                foreach (CarbinModel.SubSection sub in section.SubSections)
+                {
+                    if (sub.Lod != 1)
+                    {
+                        continue;
+                    }
+                    if (section.Name == "seatL")
+                    {
+                        left += sub.Indices.Count;
+                    }
+                    else if (section.Name == "seatR")
+                    {
+                        right += sub.Indices.Count;
+                    }
+                }
+            }
+            if (left > 0 && right > 0 && left > right * 3)
+            {
+                return "seatL";
+            }
+            if (left > 0 && right > 0 && right > left * 3)
+            {
+                return "seatR";
+            }
+            return null;
+        }
+
+        // In LOD 0 every FM4 wheel (424 of 424) has outer_rim, the rim barrel the tire sits on: a ring at the
+        // rim radius spanning the tire width. FM4 draws its own tire (Media\wheels\tirea/TireB/TireC, sized
+        // from Data_Car) in LOD 0, and an FH traffic rim rebuilt from LOD 1 has no outer_rim and got none
+        // (bare rims, GMC_YukonXL_01, checked by the user 2026-10-17); the LOD 1 tire copied instead drew
+        // solid black as "tire" and wrong as "inner_rim". The copied tire becomes outer_rim with zero-area
+        // triangles (strip a a a b b b ...) over its inner ring vertices: nothing visible, the ring's extent
+        // kept. Whether outer_rim is what the game looks for is a guess being tested.
+        private static bool Lod0TireToOuterRim(CarbinModel.Section section)
+        {
+            bool changed = false;
+            double[] positions = CarbinModel.Positions(section, section.Lod0);
+            foreach (CarbinModel.SubSection sub in section.SubSections)
+            {
+                if (sub.Lod != 0 || sub.Name != "tire")
+                {
+                    continue;
+                }
+                double inner = double.MaxValue;
+                List<int> used = new List<int>();
+                foreach (int index in sub.Indices)
+                {
+                    if (index >= 0 && index < section.Lod0.Count && !used.Contains(index))
+                    {
+                        used.Add(index);
+                        inner = Math.Min(inner, Radius(positions, index));
+                    }
+                }
+                List<int> ring = new List<int>();
+                foreach (int index in used)
+                {
+                    if (Radius(positions, index) <= inner + 0.01)
+                    {
+                        ring.Add(index);
+                        ring.Add(index);
+                        ring.Add(index);
+                    }
+                }
+                sub.Name = "outer_rim";
+                sub.Indices = ring;
+                changed = true;
+            }
+            return changed;
+        }
+
+        // A wheel carbin (type 3) holds 12 big-endian floats at 0x18 that fit FM4's separate tire to the
+        // rim, all extents of the geometry along the axis (x) or from it (r), on 6 FM4 wheels checked
+        // (2026-10-17, exact to the mm):
+        //   0, 4  LOD 0 wheel_black x min   1  LOD 1 inner_rim x min   2  LOD 0 inner_rim x max
+        //   3     LOD 1 inner_rim x max     5  LOD 1 tire x min        6  LOD 0 wheel_black x max
+        //   7     LOD 1 tire x max          8  LOD 0 inner_rim r max   9  LOD 1 inner_rim r max
+        //   10    LOD 0 wheel_black r max   11 LOD 1 tire r max
+        // FH traffic wheels, whose LOD 0 is a placeholder, have +-3.4e38 (an empty min/max) in 0, 2, 4, 6
+        // and 10 and junk in 8: FM4 then draws no tire (GMC_YukonXL_01, bare rims in game 2026-10-17).
+        // When any value is that, all 12 are rebuilt from LOD 1: wheel_black (the bead seat ring, 2-3 mm
+        // wide) is taken from the tire's outer edge, the LOD 0 rim as the LOD 1 one. Returns the values
+        // written, or null.
+        private const int TireHeaderOffset = 0x18;
+        private const float BeadSeatWidth = 0.003f;
+
+        private static string TireHeader(CarbinModel wheel)
+        {
+            if (wheel.Type != 3 || wheel.Head.Length < TireHeaderOffset + 48)
+            {
+                return null;
+            }
+            bool empty = false;
+            for (int i = 0; i < 12; i++)
+            {
+                empty |= Math.Abs(ReadHeadFloat(wheel.Head, TireHeaderOffset + (i * 4))) > 1e30f;
+            }
+            float[] tire = LodExtents(wheel, "tire");
+            float[] rim = LodExtents(wheel, "inner_rim");
+            if (!empty || tire == null || rim == null)
+            {
+                return null;
+            }
+            float[] values =
+            {
+                tire[0], rim[0], rim[1], rim[1],
+                tire[0], tire[0], tire[0] + BeadSeatWidth, tire[1],
+                rim[2], rim[2], rim[2], tire[2],
+            };
+            for (int i = 0; i < 12; i++)
+            {
+                byte[] bytes = BitConverter.GetBytes(values[i]);
+                for (int k = 0; k < 4; k++)
+                {
+                    wheel.Head[TireHeaderOffset + (i * 4) + k] = bytes[3 - k];
+                }
+            }
+            return string.Join(" ", Array.ConvertAll(values, v => v.ToString("F4", CultureInfo.InvariantCulture)));
+        }
+
+        // x min, x max and r max of a material's LOD 1 triangles; null when there are none.
+        private static float[] LodExtents(CarbinModel wheel, string material)
+        {
+            float[] extents = null;
+            foreach (CarbinModel.Section section in wheel.Sections)
+            {
+                double[] positions = null;
+                foreach (CarbinModel.SubSection sub in section.SubSections)
+                {
+                    if (sub.Lod != 1 || sub.Name != material)
+                    {
+                        continue;
+                    }
+                    positions = positions ?? CarbinModel.Positions(section, section.Lod);
+                    foreach (int index in sub.Indices)
+                    {
+                        if (index < 0 || index >= section.Lod.Count)
+                        {
+                            continue;
+                        }
+                        float x = (float) positions[index * 3];
+                        float r = (float) Radius(positions, index);
+                        if (extents == null)
+                        {
+                            extents = new float[] { x, x, r };
+                        }
+                        extents[0] = Math.Min(extents[0], x);
+                        extents[1] = Math.Max(extents[1], x);
+                        extents[2] = Math.Max(extents[2], r);
+                    }
+                }
+            }
+            return extents;
+        }
+
+        private static float ReadHeadFloat(byte[] data, int offset)
+        {
+            byte[] value = { data[offset + 3], data[offset + 2], data[offset + 1], data[offset] };
+            return BitConverter.ToSingle(value, 0);
+        }
+
+        // Distance from the wheel axis (X).
+        private static double Radius(double[] positions, int index)
+        {
+            double y = positions[(index * 3) + 1];
+            double z = positions[(index * 3) + 2];
+            return Math.Sqrt((y * y) + (z * z));
+        }
+
+        // FH traffic cars' wheels have a LOD 0 of one triangle (18 FH1 wheels; FM4: none of 442), drawn up
+        // close as a small white triangle with no wheel. As for the car's close-up models
+        // (RebuildCloseUpModels), LOD 0 is rebuilt from LOD 1 and wheel_lod0.xds becomes a copy of
+        // wheel.xds, the texture the LOD 1 UVs map; the tire becomes outer_rim (Lod0TireToOuterRim).
+        private void RebuildWheelLod0(ForzaZip wheel, string media)
+        {
+            foreach (ForzaZip.Entry entry in new List<ForzaZip.Entry>(wheel.Entries))
+            {
+                if (!entry.Name.ToLowerInvariant().EndsWith(".carbin"))
+                {
+                    continue;
+                }
+                CarbinModel model = new CarbinModel(wheel.Read(entry));
+                int lod = 0;
+                int lod0 = 0;
+                foreach (CarbinModel.Section section in model.Sections)
+                {
+                    lod += section.Lod.Count;
+                    lod0 += section.Lod0.Count;
+                }
+                if (lod0 >= lod * 0.02 || !model.Lod0FromLod1(delegate(string material) { return true; }))
+                {
+                    continue;
+                }
+                int built = 0;
+                bool outerRim = false;
+                foreach (CarbinModel.Section section in model.Sections)
+                {
+                    built += section.Lod0.Count;
+                    outerRim |= Lod0TireToOuterRim(section);
+                    foreach (CarbinModel.SubSection sub in section.SubSections)
+                    {
+                        if (sub.Lod == 0)
+                        {
+                            sub.Name = Lod0Name(sub.Name);
+                        }
+                    }
+                }
+                string tire = TireHeader(model);
+                wheel.Replace(entry, model.ToBytes());
+                this.Line("    wheel {0} {1}: LOD 0 a placeholder of {2} vertices, rebuilt from LOD 1: {3} vertices{4}", media, entry.Name, lod0, built, outerRim ? ", tire -> outer_rim (FM4 tire)" : "");
+                if (tire != null)
+                {
+                    this.Line("    wheel {0} {1}: tire fit in the header rebuilt from LOD 1: {2}", media, entry.Name, tire);
+                }
+                ForzaZip.Entry plain = wheel.Find("wheel.xds");
+                ForzaZip.Entry close = wheel.Find("wheel_lod0.xds");
+                if (plain != null)
+                {
+                    if (close != null)
+                    {
+                        wheel.Replace(close, wheel.Read(plain));
+                    }
+                    else
+                    {
+                        wheel.Add("wheel_lod0.xds", wheel.Read(plain));
+                    }
+                    this.Line("    wheel {0} wheel_lod0.xds: a copy of wheel.xds", media);
+                }
             }
         }
 

@@ -216,6 +216,22 @@ Background and Jew's notes: `docs/todo_research.md`, C1.
 ## 14. Other model formats ⬜
 
 - [ ] 14.1 FH1/FH2 traffic models: open them and describe the format
+  - [x] Close-up models: traffic cars (Yukon XL, Transit, Camry... 19 FH1/FH2 cars) have only
+        placeholder `_lod0`/`_cockpit` files (17-vertex parts), a few none. The port rebuilds them from
+        the main file's LOD 1 by FM4's part rule (`CarPort.RebuildCloseUpModels`,
+        `CarbinModel.CloseUpFromLod1`); the cockpit gets the body too. Yukon checked in game by the
+        user (2026-10-17): tires, cockpit view, brakes, steering wheel all work
+  - [x] Wheel LOD0 from LOD 1; the wheel head's 12 tire-fit floats (0x18, ±3.4e38 in FH traffic
+        wheels, so no tire was drawn) rebuilt from the LOD 1 extents (`CarPort.TireHeader`)
+  - [x] Cockpit driver rig in the `_cockpit.carbin` head (0x1C8-0x2FF: hand grips, wheel pivot and
+        axis, shifter...; zero in FH placeholders, so the wheel orbited the car origin): rebuilt from
+        the steering wheel, other points from the donor (`CarPort.CockpitRig`); hands
+        (`DriverHandsOffset`) from the wheel too
+  - [x] Driver seat with the driver baked in replaced by the other seat mirrored; camera part 9 and
+        hood from the wheel; donor brakes scaled (traffic cars only); `<part>_LODn` names renamed to
+        the LOD they are drawn at
+  - [ ] Interior very dark; exterior FH material names still black (fixed by hand)
+  - [ ] Same rebuild for FM1/FM2 cars later (FM2 is export only today)
 - [ ] 14.2 FM2 models (today FM2 is export only)
 
 ## 15. Documentation and community 🔧

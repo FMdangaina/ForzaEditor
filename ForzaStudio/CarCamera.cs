@@ -181,6 +181,27 @@ namespace ForzaStudio
         // The median of part 9 minus the rim centre along Z on the 313 FM4 cars.
         private const float MeanZBias = 0.02f;
 
+        // The hood camera sits at the car's origin plus CameraOverrides.CamHoodHeightOffset/ZOffset
+        // (Media\Camera\CameraSettings.ini HoodCam offsets are 0): a car without them (FH1 traffic cars
+        // have no CameraOverrides row) looks out from the floor between the wheels (GMC_YukonXL_01,
+        // checked by the user 2026-10-17). On the 501 FM4 cars with a hood offset it is close to the
+        // steering wheel point: height = point y - 0.195 (median; 80% within -0.243..-0.139), z = point
+        // z - 0.049 (80% within -0.220..0.147). Sets it when both are 0; returns what was written, or null.
+        public const float HoodHeightFromWheel = -0.195f;
+        public const float HoodZFromWheel = -0.049f;
+
+        public string SetHoodFromSteeringWheel(SqliteDatabase db)
+        {
+            SqliteDatabase.Result hood = db.Query("SELECT CamHoodHeightOffset, CamHoodZOffset FROM CameraOverrides WHERE CarId = ?", this.CarId);
+            if (!this.HasSteeringWheel || hood.Rows.Count == 0 || ToFloat(hood.Rows[0][0]) != 0f || ToFloat(hood.Rows[0][1]) != 0f)
+            {
+                return null;
+            }
+            double height = Round(this.SteeringWheel.Y + HoodHeightFromWheel), z = Round(this.SteeringWheel.Z + HoodZFromWheel);
+            db.Execute("UPDATE CameraOverrides SET CamHoodHeightOffset = ?, CamHoodZOffset = ? WHERE CarId = ?", height, z, this.CarId);
+            return string.Format(CultureInfo.InvariantCulture, "CameraOverrides {0} hood camera = height {1}, z {2} (from the steering wheel point)", this.CarId, height, z);
+        }
+
         // Sets the steering wheel point rebuilt from the model and centres the eye on it: FM4's
         // CamCockpitOffsetX is 0 on 495 of 503 cars, while FM3's offsets (-0.04..0.04 on more than half
         // of its cars) were measured from FM3's own reference, which has no part 9; kept as they are,

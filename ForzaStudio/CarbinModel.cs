@@ -1338,6 +1338,200 @@ namespace ForzaStudio
             return removed.Count;
         }
 
+        // A close-up model file (_lod0 or _cockpit kind) made from this main model's LOD 1, for source cars
+        // whose own close-up file is a placeholder (FH traffic models: 10-17 parts of 17 vertices) or
+        // missing. FM4 layout (BMW_X5M_11, FER_F40_87): one LOD, 0, whose two draw lists match the main
+        // file's LOD 1 lists (list 0 and list N of [pass A LOD 1..N, pass B LOD 1..N]); vertices in the
+        // Lod0 buffer with their damage words in DamageLod0, the Lod buffer empty; 32-bit indices; the
+        // section fields as in the main file but the geometry ones (bounds, centroid). The header differs
+        // between main and close-up files (record count), so it comes from a file of that kind ('head').
+        // Only the sections 'keep' accepts and that have LOD 1 subsections go in.
+        public CarbinModel CloseUpFromLod1(byte[] head, Predicate<string> keep)
+        {
+            CarbinModel model = new CarbinModel(this.ToBytes());
+            int lods = model.DrawLists.Count / 2;
+            if (lods < 1)
+            {
+                throw new InvalidDataException("The model has no draw lists.");
+            }
+            foreach (Section section in new List<Section>(model.Sections))
+            {
+                bool lod1 = false;
+                foreach (SubSection sub in section.SubSections)
+                {
+                    lod1 |= sub.Lod == 1;
+                }
+                if (!lod1 || !keep(section.Name))
+                {
+                    model.RemoveSection(section.Name);
+                }
+            }
+            if (model.Sections.Count == 0)
+            {
+                throw new InvalidDataException("No part to put in the close-up model.");
+            }
+
+            Dictionary<uint, uint> renumber = new Dictionary<uint, uint>();
+            for (int s = 0; s < model.Sections.Count; s++)
+            {
+                Section section = model.Sections[s];
+                List<SubSection> kept = new List<SubSection>();
+                for (int k = 0; k < section.SubSections.Count; k++)
+                {
+                    SubSection sub = section.SubSections[k];
+                    if (sub.Lod != 1)
+                    {
+                        continue;
+                    }
+                    renumber[(uint) ((s << 16) | k)] = (uint) ((s << 16) | kept.Count);
+                    sub.Lod = 0;
+                    ConvertIndices(sub, 4);
+                    kept.Add(sub);
+                }
+                section.SubSections = kept;
+                VertexBuffer buffer = section.Lod0;
+                section.Lod0 = section.Lod;
+                section.Lod = buffer;
+                Table damage = section.DamageLod0;
+                section.DamageLod0 = section.DamageLod;
+                section.DamageLod = damage;
+            }
+            List<uint[]> lists = new List<uint[]>();
+            foreach (uint[] old in new uint[][] { model.DrawLists[0], model.DrawLists[lods] })
+            {
+                List<uint> list = new List<uint>();
+                foreach (uint entry in old)
+                {
+                    uint moved;
+                    if (renumber.TryGetValue(entry, out moved))
+                    {
+                        list.Add(moved);
+                    }
+                }
+                lists.Add(list.ToArray());
+            }
+            model.DrawLists = lists;
+            model.Head = (byte[]) head.Clone();
+
+            // Vertices only the LODs 2-5 used go; bounds and centroid follow the kept geometry.
+            foreach (Section section in model.Sections)
+            {
+                double[] lod0 = Compact(section, section.Lod0, section.DamageLod0, true, Positions(section, section.Lod0));
+                Reencode(section, new double[0], lod0);
+                CheckIndexRange(section);
+            }
+            model.CheckDrawLists();
+            return model;
+        }
+
+        // For a model holding every LOD in one file (wheels, type 3): LOD 0 rebuilt from LOD 1, for FH traffic
+        // wheels whose LOD 0 is a 3-vertex placeholder. The Lod0 buffer becomes a copy of the Lod buffer
+        // with its damage words, the LOD 0 subsections copies of the LOD 1 ones that 'keep' accepts (by
+        // material; FM4 wheels draw no tire in LOD 0, 441 of 442) and the LOD 0 draw lists (list 0 of
+        // each pass) the LOD 1 lists' entries moved to the copies. False when there is no LOD 1.
+        public bool Lod0FromLod1(Predicate<string> keep)
+        {
+            int perPass = this.DrawLists.Count / 2;
+            if (perPass < 2)
+            {
+                return false;
+            }
+            Dictionary<uint, uint> renumber = new Dictionary<uint, uint>();
+            Dictionary<uint, uint> copies = new Dictionary<uint, uint>();
+            List<int> untouched = new List<int>();
+            bool any = false;
+            for (int s = 0; s < this.Sections.Count; s++)
+            {
+                Section section = this.Sections[s];
+                List<SubSection> subs = new List<SubSection>();
+                List<int> lod1 = new List<int>();
+                for (int k = 0; k < section.SubSections.Count; k++)
+                {
+                    SubSection sub = section.SubSections[k];
+                    if (sub.Lod == 0)
+                    {
+                        continue;
+                    }
+                    renumber[(uint) ((s << 16) | k)] = (uint) ((s << 16) | subs.Count);
+                    subs.Add(sub);
+                    if (sub.Lod == 1 && keep(sub.Name))
+                    {
+                        lod1.Add(k);
+                    }
+                }
+                if (lod1.Count == 0)
+                {
+                    // Left as it is, its own LOD 0 included.
+                    for (int k = 0; k < section.SubSections.Count; k++)
+                    {
+                        renumber[(uint) ((s << 16) | k)] = (uint) ((s << 16) | k);
+                    }
+                    untouched.Add(s);
+                    continue;
+                }
+                foreach (int k in lod1)
+                {
+                    SubSection copy = section.SubSections[k].Copy();
+                    copy.Lod = 0;
+                    ConvertIndices(copy, 4);
+                    copies[(uint) ((s << 16) | k)] = (uint) ((s << 16) | subs.Count);
+                    subs.Add(copy);
+                }
+                section.SubSections = subs;
+                section.Lod0 = new VertexBuffer { Count = section.Lod.Count, Stride = section.Lod.Stride, Extra = (byte[]) section.Lod.Extra.Clone(), Data = (byte[]) section.Lod.Data.Clone() };
+                section.DamageLod0 = new Table { Count = section.DamageLod.Count, Stride = section.DamageLod.Stride, Extra = (byte[]) section.DamageLod.Extra.Clone(), Data = (byte[]) section.DamageLod.Data.Clone() };
+                any = true;
+            }
+            if (!any)
+            {
+                return false;
+            }
+            for (int l = 0; l < this.DrawLists.Count; l++)
+            {
+                List<uint> list = new List<uint>();
+                if (l % perPass == 0)
+                {
+                    // The kept LOD 0 of untouched sections, then the copies in LOD 1 order.
+                    foreach (uint entry in this.DrawLists[l])
+                    {
+                        if (untouched.Contains((int) (entry >> 16)))
+                        {
+                            list.Add(entry);
+                        }
+                    }
+                    foreach (uint entry in this.DrawLists[l + 1])
+                    {
+                        uint copy;
+                        if (copies.TryGetValue(entry, out copy))
+                        {
+                            list.Add(copy);
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (uint entry in this.DrawLists[l])
+                    {
+                        list.Add(renumber[entry]);
+                    }
+                }
+                this.DrawLists[l] = list.ToArray();
+            }
+            for (int s = 0; s < this.Sections.Count; s++)
+            {
+                if (untouched.Contains(s))
+                {
+                    continue;
+                }
+                Section section = this.Sections[s];
+                double[] lod0 = Compact(section, section.Lod0, section.DamageLod0, true, Positions(section, section.Lod0));
+                Reencode(section, Positions(section, section.Lod), lod0);
+                CheckIndexRange(section);
+            }
+            this.CheckDrawLists();
+            return true;
+        }
+
         // Removes a whole section; later sections shift down by one in the draw lists.
         public void RemoveSection(string name)
         {
@@ -1402,9 +1596,10 @@ namespace ForzaStudio
             {
                 return positions;
             }
-            bool hasDamage = damage.Count == buffer.Count && damage.Stride == 4;
+            // Damage entries: 4 bytes per vertex on car models, 16 on wheels.
+            bool hasDamage = damage.Count == buffer.Count && damage.Stride > 0;
             byte[] data = new byte[count * buffer.Stride];
-            byte[] words = new byte[count * 4];
+            byte[] words = new byte[count * damage.Stride];
             double[] kept = new double[count * 3];
             for (int i = 0; i < buffer.Count; i++)
             {
@@ -1415,7 +1610,7 @@ namespace ForzaStudio
                 Buffer.BlockCopy(buffer.Data, i * buffer.Stride, data, map[i] * buffer.Stride, buffer.Stride);
                 if (hasDamage)
                 {
-                    Buffer.BlockCopy(damage.Data, i * 4, words, map[i] * 4, 4);
+                    Buffer.BlockCopy(damage.Data, i * damage.Stride, words, map[i] * damage.Stride, damage.Stride);
                 }
                 kept[map[i] * 3] = positions[i * 3];
                 kept[(map[i] * 3) + 1] = positions[(i * 3) + 1];
@@ -2455,6 +2650,86 @@ namespace ForzaStudio
                 all[b] = positions;
             }
             Reencode(section, all[0], all[1]);
+        }
+
+        // Mirrors a whole section across the plane x = 'plane' (left part made from the right one):
+        // positions, tangent frames (MirrorFrame) and the strips' winding, so the faces still point out.
+        public void MirrorSection(string name, double plane)
+        {
+            Section section = this.Find(name);
+            if (section == null)
+            {
+                return;
+            }
+            double[][] all = new double[2][];
+            VertexBuffer[] buffers = { section.Lod, section.Lod0 };
+            for (int b = 0; b < 2; b++)
+            {
+                VertexBuffer buffer = buffers[b];
+                double[] positions = Positions(section, buffer);
+                for (int i = 0; i < buffer.Count; i++)
+                {
+                    positions[i * 3] = (2 * plane) - positions[i * 3];
+                    MirrorFrame(buffer.Data, (i * buffer.Stride) + 16);
+                }
+                all[b] = positions;
+            }
+            Reencode(section, all[0], all[1]);
+            // A strip's triangles alternate winding (StripTriangles): repeating each strip's first index
+            // makes its first triangle degenerate and shifts every other one to the opposite winding.
+            foreach (SubSection sub in section.SubSections)
+            {
+                List<int> flipped = new List<int>();
+                bool start = true;
+                foreach (int index in sub.Indices)
+                {
+                    if (IsRestart(sub, index))
+                    {
+                        start = true;
+                        flipped.Add(index);
+                        continue;
+                    }
+                    if (start)
+                    {
+                        flipped.Add(index);
+                        start = false;
+                    }
+                    flipped.Add(index);
+                }
+                sub.Indices = flipped;
+            }
+        }
+
+        // Tangent frame at 'offset' mirrored in X: the normal (X axis image) and the Y axis image are
+        // mirrored, the Z axis image mirrored and negated so the frame stays a rotation; the sign of w
+        // (the handedness, see TransformFrame) flips, so the bitangent the shader rebuilds is the mirror.
+        private static void MirrorFrame(byte[] data, int offset)
+        {
+            Microsoft.Xna.Framework.Quaternion q = new Microsoft.Xna.Framework.Quaternion(
+                S16(data, offset) / 32767f, S16(data, offset + 2) / 32767f, S16(data, offset + 4) / 32767f, S16(data, offset + 6) / 32767f);
+            if (q.LengthSquared() < 1e-6f)
+            {
+                return;
+            }
+            bool negativeW = q.W < 0;
+            q.Normalize();
+            Microsoft.Xna.Framework.Vector3 x = Microsoft.Xna.Framework.Vector3.Transform(Microsoft.Xna.Framework.Vector3.UnitX, q);
+            Microsoft.Xna.Framework.Vector3 y = Microsoft.Xna.Framework.Vector3.Transform(Microsoft.Xna.Framework.Vector3.UnitY, q);
+            Microsoft.Xna.Framework.Vector3 z = Microsoft.Xna.Framework.Vector3.Transform(Microsoft.Xna.Framework.Vector3.UnitZ, q);
+            Microsoft.Xna.Framework.Matrix m = Microsoft.Xna.Framework.Matrix.Identity;
+            m.M11 = -x.X; m.M12 = x.Y; m.M13 = x.Z;
+            m.M21 = -y.X; m.M22 = y.Y; m.M23 = y.Z;
+            m.M31 = z.X; m.M32 = -z.Y; m.M33 = -z.Z;
+            q = Microsoft.Xna.Framework.Quaternion.CreateFromRotationMatrix(m);
+            q.Normalize();
+            if ((q.W < 0) == negativeW)
+            {
+                q = Microsoft.Xna.Framework.Quaternion.Negate(q);
+            }
+            WriteS16(data, offset, Clamp((int) Math.Round(q.X * 32767)));
+            WriteS16(data, offset + 2, Clamp((int) Math.Round(q.Y * 32767)));
+            WriteS16(data, offset + 4, Clamp((int) Math.Round(q.Z * 32767)));
+            WriteS16(data, offset + 6, Clamp((int) Math.Round(q.W * 32767)));
         }
 
         #endregion
