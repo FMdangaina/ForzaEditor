@@ -32,7 +32,10 @@ namespace ForzaStudio
     //             on the shared cars (FillMotorsport4Columns), torque curves get FM4 ids and the
     //             zero-throttle curve becomes ZeroThrottleTorqueScale (ConvertMotorsport3TorqueCurves);
     //   make      Porsche (MakeID 39), which FM4 lacks, added with its names and livery decals (PortMake);
-    //   dash      FM3's digital gauges (Media\DigitalGauges, format not decoded) are not converted.
+    //   dash      FM3 keeps the digital dash outside the car: Data_Car.GaugeID -> List_DigitalGauges ->
+    //             Media\DigitalGauges\<name>.zip, textures in Media\UI\Textures.zip ui4\dashboards. FM4 has
+    //             GaugeID -1 on every car and reads digitalgauge\dash_<car>.* from the car zip; the port
+    //             puts the dash there (ConvertMotorsport3Dash) and sets GaugeID -1 (AddMotorsport3Dash).
     public class CarPort
     {
         public string SourceRoot;       // FH2 (or FH) game folder (with media)
@@ -86,6 +89,7 @@ namespace ForzaStudio
         private long carId;
         private long donorId;
         private long? newMake;          // a make the port added to List_CarMake (PortMake)
+        private string motorsport3Dash; // List_DigitalGauges.MediaName of an FM3 car's dash, or null
         private readonly List<string> engineMedia = new List<string>();
         private readonly List<long> wheelIds = new List<long>();
         private readonly List<long> originalWheels = new List<long>();   // wheels FM4 already had before the port
@@ -648,9 +652,15 @@ namespace ForzaStudio
             {
                 gauge = this.source.Scalar("SELECT GaugeID FROM Data_Car WHERE Id = ?", this.carId);
             }
-            if (gauge != null && Convert.ToInt64(gauge) > 0)
+            if (gauge != null && !(gauge is DBNull) && Convert.ToInt64(gauge) != -1)
             {
-                this.Line("  WARNING digital dash: FM3 gauge {0} (Media\\DigitalGauges) is not converted, the car goes without it", gauge);
+                // FM4 does not use GaugeID (-1 on all 503 cars); the dash goes into the car zip.
+                this.target.Execute("UPDATE Data_Car SET GaugeID = -1 WHERE Id = ?", this.carId);
+                if (Convert.ToInt64(gauge) > 0 && this.source.Scalar("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'List_DigitalGauges'") != null)
+                {
+                    this.motorsport3Dash = Convert.ToString(this.source.Scalar("SELECT MediaName FROM List_DigitalGauges WHERE GaugeID = ?", gauge), CultureInfo.InvariantCulture);
+                }
+                this.Line("  digital dash: FM3 gauge {0} ({1}); Data_Car.GaugeID = -1 as on every FM4 car", gauge, string.IsNullOrEmpty(this.motorsport3Dash) ? "not in List_DigitalGauges" : this.motorsport3Dash);
             }
         }
 
@@ -1548,6 +1558,10 @@ namespace ForzaStudio
             {
                 car.Add("shadersettings.xml", ConvertShaderSettings(Encoding.UTF8.GetString(shaderSettings), materials, this.Report));
             }
+            if (this.motorsport3 && !string.IsNullOrEmpty(this.motorsport3Dash))
+            {
+                this.AddMotorsport3Dash(car);
+            }
             ForzaZip.Entry version = donor.Find("versiondata.xml");
             if (version != null && car.Find("versiondata.xml") == null)
             {
@@ -1593,6 +1607,122 @@ namespace ForzaStudio
                 record.TextTail = tail;
                 record.Text = "";
                 layers++;
+            }
+            return fbf.Write();
+        }
+
+        // The FM3 car's digital dash into the car zip, as FM4 keeps it: digitalgauge/dash_<car>.fbf/.bgf/.bsg
+        // and the textures it shows as digitalgauge/<name>.xds (from FM3's Media\UI\Textures.zip, colour
+        // textures to FM4's gamma form). A gauge zip can hold more than one dash (Dash_AUD_8_R10_06 has 3):
+        // the one named after the car, else after the zip, else the only one.
+        private void AddMotorsport3Dash(ForzaZip car)
+        {
+            string zipPath = Path.Combine(Path.Combine(Path.Combine(this.SourceRoot, "Media"), "DigitalGauges"), this.motorsport3Dash + ".zip");
+            if (!File.Exists(zipPath))
+            {
+                this.Line("  WARNING digital dash: {0} not found, the car goes without it", this.Relative(zipPath));
+                return;
+            }
+            ForzaZip gauges = new ForzaZip(zipPath);
+            List<string> stems = new List<string>();
+            foreach (ForzaZip.Entry entry in gauges.Entries)
+            {
+                if (entry.Name.EndsWith(".fbf", StringComparison.OrdinalIgnoreCase))
+                {
+                    stems.Add(entry.Name.Substring(0, entry.Name.Length - 4));
+                }
+            }
+            string stem = null;
+            foreach (string wanted in new string[] { "dash_" + this.MediaName, this.motorsport3Dash })
+            {
+                foreach (string candidate in stems)
+                {
+                    if (stem == null && string.Equals(Path.GetFileName(candidate), wanted, StringComparison.OrdinalIgnoreCase))
+                    {
+                        stem = candidate;
+                    }
+                }
+            }
+            if (stem == null && stems.Count == 1)
+            {
+                stem = stems[0];
+            }
+            ForzaZip.Entry bgf = (stem != null) ? gauges.Find(stem + ".bgf") : null;
+            ForzaZip.Entry bsg = (stem != null) ? gauges.Find(stem + ".bsg") : null;
+            if (bgf == null || bsg == null)
+            {
+                this.Line("  WARNING digital dash: no complete dash in {0} ({1} .fbf files), the car goes without it", Path.GetFileName(zipPath), stems.Count);
+                return;
+            }
+            string texturesPath = Path.Combine(Path.Combine(Path.Combine(this.SourceRoot, "Media"), "UI"), "Textures.zip");
+            ForzaZip textures = File.Exists(texturesPath) ? new ForzaZip(texturesPath) : null;
+            Dictionary<string, byte[]> images = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+            List<string> missing = new List<string>();
+            byte[] fbf = ConvertMotorsport3Dash(gauges.Read(gauges.Find(stem + ".fbf")), this.MediaName, delegate(string path)
+            {
+                // GAME:\MEDIA\UI\TEXTURES\<rest>.TGA -> Textures.zip <rest>.xds
+                const string ui = @"GAME:\MEDIA\UI\TEXTURES\";
+                if (!path.StartsWith(ui, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+                string rest = path.Substring(ui.Length).Replace('\\', '/');
+                string name = Path.GetFileNameWithoutExtension(rest);
+                if (images.ContainsKey(name))
+                {
+                    return true;
+                }
+                ForzaZip.Entry texture = (textures != null) ? textures.Find(Path.ChangeExtension(rest, ".xds")) : null;
+                if (texture == null)
+                {
+                    missing.Add(path);
+                    return false;
+                }
+                images[name] = ConvertMotorsport3Texture(textures.Read(texture), texture.Name);
+                return true;
+            });
+            string prefix = "digitalgauge/dash_" + this.MediaName.ToLowerInvariant();
+            car.Add(prefix + ".fbf", fbf);
+            car.Add(prefix + ".bgf", gauges.Read(bgf));
+            car.Add(prefix + ".bsg", gauges.Read(bsg));
+            foreach (KeyValuePair<string, byte[]> image in images)
+            {
+                car.Add("digitalgauge/" + image.Key.ToLowerInvariant() + ".xds", image.Value);
+            }
+            this.Line("  digital dash: {0}/{1} -> {2}.fbf/.bgf/.bsg, {3} textures from Media\\UI\\Textures.zip", Path.GetFileName(zipPath), Path.GetFileName(stem), prefix, images.Count);
+            if (missing.Count > 0)
+            {
+                this.Line("  WARNING digital dash: {0} images not found, left pointing at FM3's path: {1}", missing.Count, string.Join(", ", missing.ToArray()));
+            }
+        }
+
+        // FM3 dash scene (.fbf 0x3EE) -> FM4 (0x3EF): text tails get FM4's 34th byte (0 on every FM4
+        // file), the default text is emptied as in FM4's files (the .bgf holds it), and every image the
+        // takeTexture callback accepts points at the car's own digitalgauge folder,
+        // GAME:\MEDIA\CARS\<CAR>\DIGITALGAUGE\<NAME>.TGA. .bgf and .bsg are the same format in both
+        // games. Checked on the 59 dashes both games have: everything else in the records as FM4's
+        // (they differ only where FM4 re-authored the dash or moved its textures).
+        public static byte[] ConvertMotorsport3Dash(byte[] data, string mediaName, Predicate<string> takeTexture)
+        {
+            AnarkFbf fbf = AnarkFbf.Read(data);
+            if (!fbf.IsFM3)
+            {
+                return data;
+            }
+            fbf.Version = AnarkFbf.VersionFM4;
+            foreach (AnarkFbf.Record record in fbf.Records)
+            {
+                if (record.Type == AnarkFbf.RecordType.Text)
+                {
+                    byte[] tail = new byte[34];
+                    Array.Copy(record.TextTail, 0, tail, 0, 33);
+                    record.TextTail = tail;
+                    record.Text = "";
+                }
+                else if (record.Type == AnarkFbf.RecordType.Image && takeTexture != null && takeTexture(record.Path))
+                {
+                    record.Path = @"GAME:\MEDIA\CARS\" + mediaName.ToUpperInvariant() + @"\DIGITALGAUGE\" + Path.GetFileNameWithoutExtension(record.Path.Replace('\\', '/')).ToUpperInvariant() + ".TGA";
+                }
             }
             return fbf.Write();
         }

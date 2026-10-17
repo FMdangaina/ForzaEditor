@@ -6,7 +6,7 @@ using System.Text;
 namespace ForzaStudio
 {
     // Anark digital dash scene (.fbf, DigitalGauge\Dash_<car>.fbf). Big-endian.
-    //   u32 version (FM4 0x3EF, FH2/FH1 0x3F0), u32 record count,
+    //   u32 version (FM3 0x3EE, FM4 0x3EF, FH2/FH1 0x3F0), u32 record count,
     //   records: u32 type, u32 id, u32 length + name, then a body that depends on the type,
     //   then the mesh table: u32 mesh count, u32 total A, u32 data bytes, the vertex buffer descriptors,
     //   the index buffer descriptors, and the data (vertices and u16 indices of every mesh).
@@ -15,6 +15,7 @@ namespace ForzaStudio
     // Bytes not understood yet are kept as they are, so a file is written back byte for byte.
     public class AnarkFbf
     {
+        public const uint VersionFM3 = 0x3EE;
         public const uint VersionFM4 = 0x3EF;
         public const uint VersionFH2 = 0x3F0;
 
@@ -38,7 +39,7 @@ namespace ForzaStudio
             public byte[] Body;          // fixed-size bodies (camera, layer, model, material, light)
 
             // Text: 6 bytes, u16 length + default text, u32 length + tag (mostly empty, "NLOC" seen), 10 bytes,
-            //   u16 length + font, 34 bytes (FH2: 38).
+            //   u16 length + font, 34 bytes (FH2: 38, FM3: 33, all 154 FM3 dashes; FM4's byte 33 is 0 on every file).
             public byte[] TextHead;
             public string Text;
             public string TextTag;
@@ -87,6 +88,7 @@ namespace ForzaStudio
         public byte[] MeshData;          // vertices and indices of every mesh, at the descriptors' offsets
 
         public bool IsFH2 { get { return this.Version == VersionFH2; } }
+        public bool IsFM3 { get { return this.Version == VersionFM3; } }
 
         private static int BodySize(RecordType type)
         {
@@ -107,7 +109,7 @@ namespace ForzaStudio
             AnarkFbf fbf = new AnarkFbf();
             Reader r = new Reader(data);
             fbf.Version = r.U32();
-            if (fbf.Version != VersionFM4 && fbf.Version != VersionFH2)
+            if (fbf.Version != VersionFM3 && fbf.Version != VersionFM4 && fbf.Version != VersionFH2)
             {
                 throw new InvalidDataException(string.Format("not an Anark .fbf (version 0x{0:X})", fbf.Version));
             }
@@ -128,7 +130,7 @@ namespace ForzaStudio
                         rec.TextTag = r.String32();
                         rec.TextMiddle = r.Bytes(10);
                         rec.Font = r.String16();
-                        rec.TextTail = r.Bytes(fbf.IsFH2 ? 38 : 34);
+                        rec.TextTail = r.Bytes(fbf.IsFH2 ? 38 : fbf.IsFM3 ? 33 : 34);
                         break;
                     case RecordType.Image:
                         rec.Owner = r.U32();
