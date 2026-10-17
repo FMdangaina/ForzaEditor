@@ -32,6 +32,33 @@ fixed, the issue moves to its ROADMAP item and is removed from here.
   if the tyre changes there, look at what picks `Media\wheels\TireA/B/C.zip` (`List_Wheels`,
   `WheelLayouts`, `Combo_TireBrandCompound`).
 
+## 5. FM3 port with a fully upgraded engine: no engine sound (open, ROADMAP 3.9 / 9)
+
+- Seen 2026-10-17 by the user: BMW_X5_09 (FM3 port), every upgrade at the top level, zero sound.
+- Not the cause: the harmonic tunings. CarPort already takes every level (L0-L3), and FM3 and FM4
+  harmonic tunings have the same elements.
+- **Likely cause: FM3's engine tuning is an older, shorter format, and CarPort copies it as is**
+  (DEV's `BMW_X5_09_ET.xml` = FM3's, same md5). Field census on all files
+  (`fm4dev\FM3_FM4\tools\etfields.py`, 490 FM3 vs 501 FM4):
+  - FM3 lacks blocks every FM4 file has: `HarmonicTunings` (EmissionGroup0-2 DSP), `FocusPEQ`,
+    `Distortion`, `Compressor`, `ShiftVolumeScalar`, `HeavyBraking`, `TrashDSP`,
+    `ExhaustReflection`, and `DSPScalar` (PEQ/TrashBand maxima, `DSPMaxScalar`, `TrashVolCompMin`).
+  - FM3 also lacks the `EngineSettings` attributes `num_cylinders`, `blowoffL1-3Level/Choice` and
+    `opencockpit`, and `VolumeAdjustments.ElectricMotorVolume`.
+  - `DSPScalar` looks like the DSP scaled by upgrade level: no effect when stock, and undefined
+    values when fully upgraded.
+- 160 of FM3's 491 engine tunings exist only in FM3: every FM3-only car is exposed.
+- Test installed in DEV 2026-10-17 (waiting for the user): the X5's FM3 tuning plus the missing
+  FM4 attributes and blocks from BMW_X5M_11, `num_cylinders` 8 (`tools\etpatch.py`,
+  `tools\zipput.exe`, `tools\putzip.exe`). Backup `bin\Debug\bak\2026-10-17_04-41-02_bak_DEV_*`.
+- **Confirmed in game 2026-10-17**: with the patched tuning the fully upgraded X5 has sound.
+- Fixed in code: `CarPort.CompleteEngineTuning` completes a source tuning that lacks FM4's DSP
+  blocks. FM3 values are kept; the missing attributes and blocks come from the donor's engine, or
+  from the FM4 tuning the user picks in the review ("sound" issue). num_cylinders comes from the
+  engine's `List_Cylinders.Number`. The trial on the X5 writes the same tuning as the one tested in
+  game (only line endings differ, CRLF as in FM3).
+- To close: an in-game check of a car ported with the new code.
+
 ## 4. Strange ambient occlusion on some parts (probably closed)
 
 - Seen 2026-10-16 on BMW_X5_09 ported from FM3. Most likely the X5's dark patches, which the

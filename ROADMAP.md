@@ -15,7 +15,7 @@ Status: ✅ done · 🔧 in progress · ⏸ paused · ⬜ not started
 
 ## Now
 
-**3.9: Port FH → FM4 from a FH1/FH2 car DLC package** (very important; back as Now 2026-10-17 after the
+**3.9: Port → FM4 from a FH1 or FM3 car DLC package** (very important; back as Now 2026-10-17 after the
 12.5 UI work, user's choice). Details in topic 3.
 
 ## Next (in order)
@@ -75,10 +75,20 @@ Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 - [ ] 3.6d Several Forza Studio packs at once: each pack's string tables built on top of the other
       installed packs' (today only the highest priority pack shows its car names)
 - [ ] 3.8 Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (the user's side)
-- [ ] 3.9 **Very important**, **Now** (resumed 2026-10-17). Port FH → FM4 from a FH1/FH2 car DLC (STFS `CON`/`LIVE` or its
+- [ ] 3.9 **Very important**, **Now** (resumed 2026-10-17). Port → FM4 from a FH1 or FM3 car DLC (FH2 on 360 has no DLC) (STFS `CON`/`LIVE` or its
       extracted folder): base game for shared data, the package's `<offer>000_merge.slt`, string
       tables, car/wheel zips and `_pri_N` folders, audio on top. DLC cars appear in the car list
       and go into an FM4 pack. Material: `fm4dev\Forza Horizon 1 DLC` (20 official FH1 packages)
+      **Standalone**: only the DLC package + FM4, never the base source game. Census and measure done
+      2026-10-17 (`fm4dev\FH1DLC`): 46 new FH1 DLC cars, 16 complete, 16 lose engine swaps, 14 part of
+      the stock sound. Decisions (user, 2026-10-17):
+  - [ ] Swap engine not in the pack nor FM4: ask the user which swap to put instead
+  - [ ] Engine sound incomplete: ask the user which car's full sound setup to use
+  - [ ] PI: fixed line per source game (FH1: FM4 = 1.189 PI - 0.363, error 0.0145)
+  - [ ] Sound with the engine upgraded: FM3 engine tunings completed to the FM4 layout
+        (`CarPort.CompleteEngineTuning`, review "sound" choice); in-game check of a new port pending
+        (`current_issues.md` 5)
+  - [ ] FM3 DLC: no material yet
 - [x] 3.1-3.3 Real DLC studied; merge DB `<offer>000_merge.slt` built from a port on a clean DB copy
 - [x] 3.4-3.5 Xenia package folder with header; works in game with the base game untouched
 - [x] 3.6 Port window DLC pack panel (n cars, trial, build into Xenia); multi-car pack checked in game

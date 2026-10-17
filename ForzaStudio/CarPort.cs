@@ -2589,6 +2589,7 @@ namespace ForzaStudio
                 else
                 {
                     this.Line("engine sound {0}: " + this.game + " tuning, its harmonic tunings are all in FM4{1}", media, (imported.Count > 0) ? " (" + imported.Count + " brought from " + this.game + ")" : "");
+                    data = this.CompleteEngineTuning(media, data, engineTuning, donorEngine);
                 }
                 this.Put(engineTuning, media + "_ET.xml", data);
             }
@@ -2601,6 +2602,141 @@ namespace ForzaStudio
                 this.Put(carModels, this.MediaName + "_CMT.xml", sourceModels.Read(modelTuning));
                 this.Line("car model tuning {0}_CMT.xml added", this.MediaName);
             }
+        }
+
+        // FM3's engine tuning is an older, shorter layout (all 490 FM3 files against FM4's 501): it lacks
+        // the DSP blocks every FM4 tuning has (HarmonicTunings EmissionGroup0-2, FocusPEQ, Distortion,
+        // Compressor, ShiftVolumeScalar, HeavyBraking, TrashDSP, ExhaustReflection, DSPScalar) and the
+        // EngineSettings attributes num_cylinders, blowoffL1-3Level/Choice and opencockpit. FM4 plays it
+        // at stock but the engine goes silent fully upgraded (BMW_X5_09 from FM3, 2026-10-17; sound back
+        // in game with BMW_X5M_11's blocks added). The source values stay as they are; only what is
+        // missing comes from an FM4 tuning: the user's pick in the review (Fixes "sound:<engine>") or the
+        // donor's engine. num_cylinders is the engine's own List_Cylinders.Number.
+        private byte[] CompleteEngineTuning(string media, byte[] data, ForzaZip engineTuning, string donorEngine)
+        {
+            string text = Encoding.UTF8.GetString(data);
+            if (text.IndexOf("<DSPScalar", StringComparison.Ordinal) >= 0)
+            {
+                return data;
+            }
+            string key = "sound:" + media;
+            object fix;
+            bool picked = this.Fixes.TryGetValue(key, out fix) && fix is string;
+            string layoutName = picked ? (string) fix : donorEngine;
+            ForzaZip.Entry layoutEntry = (layoutName != null) ? engineTuning.Find(layoutName + "_ET.xml") : null;
+            string layout = (layoutEntry != null) ? Encoding.UTF8.GetString(engineTuning.Read(layoutEntry)) : null;
+            if (layout == null || layout.IndexOf("<DSPScalar", StringComparison.Ordinal) < 0)
+            {
+                this.Line("  WARNING engine sound {0}: {1} tuning lacks FM4's DSP blocks and {2}_ET.xml is no complete FM4 tuning; left as is (silent when upgraded)", media, this.game, layoutName);
+                return data;
+            }
+
+            object cylinders = this.target.Scalar("SELECT c.Number FROM Data_Engine e JOIN List_Cylinders c ON c.CylinderID = e.CylinderID WHERE e.MediaName = ? COLLATE NOCASE", media);
+            text = AddMissingAttributes(text, layout, "EngineSettings", (cylinders != null) ? Convert.ToString(cylinders, CultureInfo.InvariantCulture) : null);
+            text = AddMissingAttributes(text, layout, "VolumeAdjustments", null);
+
+            // FM4's top-level blocks (children of <Engine>, two-space indent) the source lacks, in FM4's order.
+            int open = layout.IndexOf("<Engine>", StringComparison.Ordinal);
+            int close = layout.LastIndexOf("</Engine>", StringComparison.Ordinal);
+            int end = text.LastIndexOf("</Engine>", StringComparison.Ordinal);
+            if (open < 0 || close < open || end < 0)
+            {
+                this.Line("  WARNING engine sound {0}: no <Engine> element, tuning left as is", media);
+                return data;
+            }
+            string body = layout.Substring(open + 8, close - open - 8);
+            MatchCollection blocks = Regex.Matches(body, "\n  <(\\w+)\\b");
+            List<string> present = new List<string>();
+            foreach (Match m in Regex.Matches(text, "\n  <(\\w+)\\b"))
+            {
+                present.Add(m.Groups[1].Value);
+            }
+            StringBuilder added = new StringBuilder();
+            List<string> names = new List<string>();
+            for (int i = 0; i < blocks.Count; i++)
+            {
+                string name = blocks[i].Groups[1].Value;
+                if (present.Contains(name))
+                {
+                    continue;
+                }
+                int stop = (i + 1 < blocks.Count) ? blocks[i + 1].Index : body.Length;
+                added.Append(body.Substring(blocks[i].Index, stop - blocks[i].Index).TrimEnd('\r', '\n'));
+                names.Add(name);
+            }
+            string newline = text.Contains("\r\n") ? "\r\n" : "\n";
+            string result = text.Substring(0, end).TrimEnd('\r', '\n') + added.ToString().Replace("\r\n", "\n").Replace("\n", newline) + newline + text.Substring(end);
+            try
+            {
+                new XmlDocument().LoadXml(result.TrimStart('\uFEFF'));
+            }
+            catch (XmlException ex)
+            {
+                this.Line("  WARNING engine sound {0}: completed tuning is not valid XML ({1}), left as is", media, ex.Message);
+                return data;
+            }
+            this.Line("  engine sound {0}: {1} tuning completed to the FM4 layout from {2}_ET.xml ({3}; num_cylinders {4})", media, this.game, layoutName, string.Join(", ", names.ToArray()), cylinders ?? "from the layout");
+            this.donorFormat.Add(string.Format("engine sound {0}: FM4 DSP blocks from {1}_ET.xml ({2} values kept)", media, layoutName, this.game));
+
+            if (!picked)
+            {
+                Issue issue = new Issue();
+                issue.Key = key;
+                issue.Kind = "sound";
+                issue.Where = media + "_ET.xml";
+                issue.Value = layoutName;
+                issue.Problem = string.Format("{0} engine tuning lacks FM4's DSP blocks (silent when upgraded): taken from {1}; pick the FM4 car whose sound setup to use", this.game, layoutName);
+                List<string> tunings = new List<string>();
+                foreach (ForzaZip.Entry e in engineTuning.Entries)
+                {
+                    if (e.Name.EndsWith("_ET.xml", StringComparison.OrdinalIgnoreCase))
+                    {
+                        tunings.Add(e.Name.Substring(0, e.Name.Length - 7));
+                    }
+                }
+                tunings.Sort(StringComparer.OrdinalIgnoreCase);
+                foreach (string name in tunings)
+                {
+                    Choice c = new Choice();
+                    c.Value = name;
+                    c.Label = name;
+                    issue.Choices.Add(c);
+                }
+                issue.Suggested = layoutName;
+                this.Issues.Add(issue);
+                this.Line("  REVIEW {0}", issue.Problem);
+            }
+            return Encoding.UTF8.GetBytes(result);
+        }
+
+        // <element .../> of the source with the layout's attributes it lacks appended; num_cylinders
+        // replaced by the given count when there is one.
+        private static string AddMissingAttributes(string text, string layout, string element, string cylinders)
+        {
+            Regex pattern = new Regex("<" + element + "\\b([^>]*?)/>");
+            Match own = pattern.Match(text);
+            Match model = pattern.Match(layout);
+            if (!own.Success || !model.Success)
+            {
+                return text;
+            }
+            List<string> have = new List<string>();
+            foreach (Match a in Regex.Matches(own.Groups[1].Value, "(\\w+)=\""))
+            {
+                have.Add(a.Groups[1].Value);
+            }
+            StringBuilder extra = new StringBuilder();
+            foreach (Match a in Regex.Matches(model.Groups[1].Value, "(\\w+)=\"([^\"]*)\""))
+            {
+                string name = a.Groups[1].Value;
+                if (have.Contains(name))
+                {
+                    continue;
+                }
+                string value = (name == "num_cylinders" && cylinders != null) ? cylinders : a.Groups[2].Value;
+                extra.Append(" " + name + "=\"" + value + "\"");
+            }
+            return text.Substring(0, own.Index) + "<" + element + own.Groups[1].Value.TrimEnd() + extra + "/>" + text.Substring(own.Index + own.Length);
         }
 
         // A harmonic tuning the engine tuning names, made complete in FM4: the tuning itself from the
