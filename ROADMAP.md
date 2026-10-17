@@ -15,7 +15,8 @@ Status: ✅ done · 🔧 in progress · ⏸ paused · ⬜ not started
 
 ## Now
 
-**9 3g: FM3 vs FM4 engine sound banks of the same name**: listen in game which one is right.
+**12: Cleanup and platform, with a friendlier and simpler UI** (user's choice 2026-10-17: "cerca di
+renderla più amichevole e semplice"). Steps in topic 12.
 
 ## Next (in order)
 
@@ -23,23 +24,21 @@ Fastest first.
 
 Quick (hours to a day):
 
-1. 7: OBJ wheel import, LOD 0 and LODs 1+ split between the two carbins (bug from Discord)
-2. 13.3: user check of the viewer camera (game FOV, aspect ratio; code done)
-3. 12.3: Settings window
+1. 9 3h: FM3 cockpit camera x offset to 0 (code done, user check open)
+2. 9 3i: backfire flames missing on FM3 ports (study first: where FM4 places the flame)
+3. 7: OBJ wheel import, LOD 0 and LODs 1+ split between the two carbins (bug from Discord)
 
 Medium (a few days):
 
 4. 11: Wheel morph targets (why the E30 rim does not scale and the S60 one does)
 5. 14.1: FH1/FH2 traffic models
-6. 12.4: Conversion tool as MDI
-7. 15.1: Format documentation (grows with each topic)
+6. 15.1: Format documentation (grows with each topic)
 
 Long (research first, size unknown):
 
-8. 3.9: Port FH → FM4 from a DLC package file (**very important**)
-9. 13.1: Game materials and shaders (hardcoded or shader files)
-10. 12.2: Recent .NET, keeping XNA as the renderer
-11. 14.2: FM2 models
+7. 3.9: Port FH → FM4 from a FH1/FH2 car DLC package (**very important**; was Now, paused 2026-10-17 for 12)
+8. 13.1: Game materials and shaders (hardcoded or shader files)
+9. 14.2: FM2 models
 
 Always open: 15.2 Discord feedback, added here as items when reported.
 
@@ -77,7 +76,7 @@ Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 - [ ] 3.6d Several ForzaEditor packs at once: each pack's string tables built on top of the other
       installed packs' (today only the highest priority pack shows its car names)
 - [ ] 3.8 Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (the user's side)
-- [ ] 3.9 **Very important.** Port FH → FM4 from a FH1/FH2 car DLC (STFS `CON`/`LIVE` or its
+- [ ] 3.9 **Very important** (paused 2026-10-17 for topic 12). Port FH → FM4 from a FH1/FH2 car DLC (STFS `CON`/`LIVE` or its
       extracted folder): base game for shared data, the package's `<offer>000_merge.slt`, string
       tables, car/wheel zips and `_pri_N` folders, audio on top. DLC cars appear in the car list
       and go into an FM4 pack. Material: `fm4dev\Forza Horizon 1 DLC` (20 official FH1 packages)
@@ -94,12 +93,16 @@ Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 
 ## 5. Digital dash (Anark) editor 🔧
 
-- [ ] Edit in place: position, scale, colour, text, texture, then a test in game
+- [ ] Edit in place: position, scale, colour, text, texture, then a test in game (works, to commit)
+  - [x] 5.1 Edit model (`AnarkDash`): a value is written where it lives (graph property, else .bsg base or
+        .fbf record), nothing is added (the .bgf header counts strings and properties); 585 dashes, 0 failures
+  - [x] 5.2 Edit panel above the property list in the Dash view, live preview, edits are pending entries
+        saved with File > Save (save path checked by `fm4dev\anark\tools\dashsave.exe`); UI accepted by the user
+  - [x] 5.3 Test in game (DEV): text colour change works (2026-10-17)
 - [ ] Slides (pages shown one at a time)
 - [ ] Behaviour parameter names
 - [x] .fbf / .bgf / .bsg parsed (431/431 byte-identical), read-only Dash view
-- [x] FM3 dashes (0x3EE) read too: 154/154 byte-identical in all 3 formats; FM3 → FM4 conversion
-      works in game (with 9 3f, RS6 checked 2026-10-17)
+- [x] FM3 dashes (0x3EE) read too: 154/154 byte-identical in all 3 formats (with 9 3f)
 
 ## 6. Game database editor ✅ working
 
@@ -122,7 +125,18 @@ Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 
 ## 9. Forza Motorsport 3 → FM4 🔧
 
-- [ ] **3g** Engine sound banks of the same name differ between FM3 and FM4 (FM4's kept): listen in game (Now)
+- [ ] **3h** Automatic cockpit camera on FM3 cars: x should be 0.00 from the steering wheel, it was
+      about 0.020 (user, 2026-10-17). Cause: the port kept FM3's `CamCockpitOffsetX` (non-zero on more
+      than half of FM3's cars, measured from FM3's own reference), FM4's is 0 on 495/503 cars; the wheel
+      point itself is right (section origin = box centre on all 311 FM3 / 313 FM4 wheels). Fix: port and
+      the panel's rebuild set offset x to 0 (`CarCamera.SetSteeringWheelFromModel`). User check open
+- [ ] **3i** No backfire flames on FM3 ports in FM4 (user, 2026-10-17). Sound side is the same in both
+      games (`BackfireLevels` from exhaust + cam upgrade, identical audio configs); the flame is FM4 only
+      (`Media\Effects\Backfire.xml`, `Flame.tga`, `FireDistortion.tga`). To find: where FM4 places the
+      flame (exhaust point in the carbin, DB or fixed) and what FM3 cars lack. Compare an FM4 car with
+      flames and the same car from FM3. Notes in memory `backfire-findings`
+- [x] 3g Engine sound banks of the same name: rule for now (user, 2026-10-17): FM4's bank when the
+      names match, the source game's when FM4 lacks it. Listening tool moved to Maybe later
 - [x] 3f FM3 digital dashes, checked in game 2026-10-17 (AUD_1_RS6_03 in DEV):
       FM3 dashes are Anark too (.fbf 0x3EE: text tail 33 bytes instead of 34; .bgf/.bsg as FM4's), kept
       outside the car (`Data_Car.GaugeID` -> `List_DigitalGauges` -> `Media\DigitalGauges\<name>.zip`,
@@ -155,19 +169,22 @@ Background and Jew's notes: `docs/todo_research.md`, C1.
 - [ ] 11.2 Write down the rule, then add morph targets to wheels that lack them (linked to the tyre
       width point of topic 1)
 
-## 12. Cleanup and platform 🔧
+## 12. Cleanup, platform and a friendlier UI 🔧
 
-- [ ] 12.2 Recent .NET Framework (today `v2.0` with XNA, x86): newest one XNA allows; check SQLite, HexBox
+Now (2026-10-17). Order: UI first (visible, low risk), the .NET change last (it touches everything).
+
+- [ ] 12.5 Friendlier, simpler UI: list of what is confusing today (menus, panels, wording), agreed with
+      the user, then fixed in small steps, each checked by the user
 - [ ] 12.3 Settings window (game folders, Xenia, DEV folder, viewer options)
 - [ ] 12.4 Conversion tool as MDI (child windows inside the main window)
+- [ ] 12.2 Recent .NET Framework (today `v2.0` with XNA, x86): newest one XNA allows; check SQLite, HexBox
 - [x] 12.1 Console Modding and the `xdevkit.dll` reference removed
 
 ## 13. 3D viewer and game materials 🔧
 
 - [ ] 13.1 Game materials: hardcoded in the executable or shader files somewhere
 - [ ] 13.2 If the FM shaders are found: in-game look in the viewer, carbin viewer with real materials
-- [ ] 13.3 User check in the editor of the viewer camera (code done: vertical FOVs as the game's,
-      default 45°, race camera FOV list, aspect ratio, near clip 1 cm)
+- [x] 13.3 Viewer camera and cockpit camera editor checked by the user (2026-10-17)
 - [ ] 13.4 User check of Go to Camera (cockpit + the 27 presets of `UICarTargetCameraPresets.xml`)
 
 ## 14. Other model formats ⬜
@@ -201,6 +218,12 @@ cameras moved to Maybe later.
     `HomeSpaceCams.xml`, `ColorSelectCams.xml`, per track `preracecams.xml` / `tracksegcams.xml`.
   - Thumbnails: `Media\ThumbnailCamSettings.xml` (2 defaults + 24 per-car cameras).
   - A hood camera panel was written and dropped (not committed).
+- **Engine sound listening tool** (from 9 3g): during a port, when the source game and FM4 have an
+  engine sound bank of the same name, play both at a chosen RPM (slider, e.g. idle to redline) and on/off
+  throttle, side by side, then pick which one goes into the car. Needs: the .fsb/.xma sample decoder
+  (the music player has XMA), the engine's RPM-to-sample mapping from the bank or the harmonic tunings,
+  and a crossfade between the samples around the chosen RPM. Today: FM4's bank when the names match
+- Dash editor (topic 5): simpler edit panel (5.4; the user: "to simplify, fine for now")
 - FM2 model writer (FM2 is out of scope for now)
 - Automatic FH → FM4 material mapping instead of the manual fix (topic 4). @BlackBirdOsaka
   (Discord) is writing down the materials they replace: a starting point
