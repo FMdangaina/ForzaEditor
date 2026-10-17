@@ -15,8 +15,8 @@ Status: ✅ done · 🔧 in progress · ⏸ paused · ⬜ not started
 
 ## Now
 
-**12: Cleanup and platform, with a friendlier and simpler UI** (user's choice 2026-10-17: "cerca di
-renderla più amichevole e semplice"). Steps in topic 12.
+**3.9: Port FH → FM4 from a FH1/FH2 car DLC package** (very important; back as Now 2026-10-17 after the
+12.5 UI work, user's choice). Details in topic 3.
 
 ## Next (in order)
 
@@ -35,8 +35,8 @@ Medium (a few days):
 
 Long (research first, size unknown):
 
-6. 3.9: Port FH → FM4 from a FH1/FH2 car DLC package (**very important**; was Now, paused 2026-10-17 for 12)
-7. 13.1: Game materials and shaders (hardcoded or shader files)
+6. 13.1: Game materials and shaders (hardcoded or shader files)
+7. 12: Settings window, MDI conversion tool, newer .NET (12.3, 12.4, 12.2)
 8. 14.2: FM2 models
 
 Always open: 15.2 Discord feedback, added here as items when reported.
@@ -75,7 +75,7 @@ Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 - [ ] 3.6d Several Forza Studio packs at once: each pack's string tables built on top of the other
       installed packs' (today only the highest priority pack shows its car names)
 - [ ] 3.8 Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (the user's side)
-- [ ] 3.9 **Very important** (paused 2026-10-17 for topic 12). Port FH → FM4 from a FH1/FH2 car DLC (STFS `CON`/`LIVE` or its
+- [ ] 3.9 **Very important**, **Now** (resumed 2026-10-17). Port FH → FM4 from a FH1/FH2 car DLC (STFS `CON`/`LIVE` or its
       extracted folder): base game for shared data, the package's `<offer>000_merge.slt`, string
       tables, car/wheel zips and `_pri_N` folders, audio on top. DLC cars appear in the car list
       and go into an FM4 pack. Material: `fm4dev\Forza Horizon 1 DLC` (20 official FH1 packages)
@@ -166,29 +166,29 @@ Background and Jew's notes: `docs/todo_research.md`, C1.
 - [ ] 11.2 Write down the rule, then add morph targets to wheels that lack them (linked to the tyre
       width point of topic 1)
 
-## 12. Cleanup, platform and a friendlier UI 🔧
+## 12. Cleanup, platform and a friendlier UI ⏸
 
-Now (2026-10-17). Order: UI first (visible, low risk), the .NET change last (it touches everything).
+12.5 done 2026-10-17, then paused for 3.9. Order of the rest: 12.3, 12.4, the .NET change last (it touches everything).
 
-- [ ] 12.5 Friendlier, simpler UI. List agreed with the user 2026-10-17; name back to **Forza Studio**
+- [x] 12.5 Friendlier, simpler UI, checked by the user 2026-10-17 (f141093, 9d08e0c). List agreed with the user 2026-10-17; name back to **Forza Studio**
       (exe and repo stay ForzaEditor), the Pay Respects window stays as it is. Steps, each checked by
       the user:
   - [x] a. Dead items out: Tools > Hex View (crashed) and Save Modding (did nothing), the unused
         XboxTool form, "Chase, hood, bumper: not decoded yet"; name Forza Studio in title, dialogs,
         About, docs (checked by the user 2026-10-17)
-  - [ ] b. Menus without duplicates: File (open/save) / Archive / Model / Texture; one Back (bar +
+  - [x] b. Menus without duplicates: File (open/save) / Archive / Model / Texture; one Back (bar +
         Ctrl+B / Alt+Left); export names "Export Checked Parts to OBJ", "Export/Import Model to/from
-        OBJ Folder"; model folder commands only in the Model menu (done in code, user check open)
+        OBJ Folder"; model folder commands only in the Model menu (checked by the user)
   - [x] c. Model view side panel as tabs PART / TEXTURE / CAMERA (Camera only for car models), labels
         sized to their text, buttons in even rows, Save to Game Database Now (checked by the user
         2026-10-17; asked first by the user, before b)
-  - [ ] d. Plain wording: port tool title "Port a car to FM4", "FM4 template car", "Also in arcade
+  - [x] d. Plain wording: port tool title "Port a car to FM4", "FM4 template car", "Also in arcade
         mode" (IsArcade in the tooltip); database "Open Linked File", "Filter:" (SQL in the tooltip),
         text language EN by default; dash captions capitalised, "color" only; camera tab messages
-        without table names (done in code, user check open)
-  - [ ] e. Right-click-only actions visible: Archive menu (Open Selected Archive, also Enter;
+        without table names (checked by the user)
+  - [x] e. Right-click-only actions visible: Archive menu (Open Selected Archive, also Enter;
         Extract/Replace/Revert), Rename Material button in the Part tab, red material warning is a
-        link, "Go to / Used by" button in the database tables (done in code, user check open)
+        link, "Go to / Used by" button in the database tables (checked by the user)
 - [ ] 12.3 Settings window (game folders, Xenia, DEV folder, viewer options)
 - [ ] 12.4 Conversion tool as MDI (child windows inside the main window)
 - [ ] 12.2 Recent .NET Framework (today `v2.0` with XNA, x86): newest one XNA allows; check SQLite, HexBox
