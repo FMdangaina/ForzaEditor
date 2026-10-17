@@ -76,14 +76,22 @@ ForzaEditor.exe <archive.zip | folder | file> [entry to select]
 
 ## 3. The main window
 
-The menu bar holds **File**, **Tools**, **Help** and **◀ Back**. The left side shows the tree of
+The menu bar holds:
+
+- **File**: open, save, close.
+- **Archive**: add, extract, replace and revert files of the open folder or archive.
+- **Model**: OBJ export and import of the model shown.
+- **Texture**: new textures, image export and import of the texture shown.
+- **Tools**, **Help** and **◀ Back**.
+
+ The left side shows the tree of
 the open folder or archive. The right side shows the selected file.
 
 ### Opening things
 
 | Command | Shortcut | What it opens |
 |---|---|---|
-| File > Open Folder... | Ctrl+Shift+O | A game folder, or any folder inside it. The tree loads as you expand it. **Double-click a `.zip`** in the tree to open it. |
+| File > Open Folder... | Ctrl+Shift+O | A game folder, or any folder inside it. The tree loads as you expand it. **Double-click a `.zip`** in the tree (or Enter, or Archive > Open Selected Archive) to open it. |
 | File > Open Archive... | Ctrl+O | One `.zip`, a `gamedb.slt` or a single `.xds`. |
 
 Opening a `gamedb.slt` directly opens the folder it is in, so links to other game files can be
@@ -99,23 +107,21 @@ followed.
 | `.html`, `.htm`, `.rdf` | Read-only text |
 | `gamedb.slt` | Game database |
 | `.fbf`, `.bgf`, `.bsg` | Digital dash (view and edit) |
-| anything else | Name and size. Right-click it to extract or replace it. |
+| anything else | Name and size. Archive > Extract or Replace Selected File. |
 
-### The tree
+### The tree and the Archive menu
 
-Right-click a file for these commands:
+The **Archive** menu works on the file selected in the tree (the same commands are on its right-click menu):
 
-- **Extract...** saves the file to disk.
-- **Replace With File...** puts any file from disk in its place.
-- **Revert Changes** undoes the pending change. On a file you added it reads **Remove Added File**.
-- **Add File Here...** adds a file in this folder (see [section 7](#7-adding-files-and-new-textures)).
+- **Open Selected Archive** opens a `.zip` selected in a game folder (also double-click or Enter).
+- **Replace Selected File...** puts any file from disk in its place.
+- **Revert Selected File** undoes the pending change. On a file you added it reads **Remove Added File**.
+- **Add File...** adds a file (see [section 7](#7-adding-files-and-new-textures)); on the right-click menu it is **Add File Here...**.
+- **Extract All...** writes the whole archive to a folder.
 
 The tree marks pending changes: an edited file is **bold** with `*`, and an added file has `+`.
 
-Two more commands are in the File menu:
-
-- **Extract All...** writes the whole archive to a folder.
-- **Close** closes the open folder or archive.
+**File > Close** closes the open folder or archive.
 
 ### Going back
 
@@ -132,7 +138,7 @@ Many actions jump to another file:
 
 - **Edits are kept in memory** until **File > Save** (Ctrl+S). The window title shows `*` while
   there are unsaved changes. Closing or opening something else asks whether to save.
-- **Revert Changes** on a file in the tree undoes everything not yet saved on it.
+- **Archive > Revert Selected File** undoes everything not yet saved on it.
 - **Every save makes a backup first.** The version being overwritten is copied to `bak\` next to
   the exe, named `yyyy-MM-dd_HH-mm-ss_bak_<file>`. To undo a save, copy the backup back.
 - **Save As...** writes an archive under a new name. It works for zips only.
@@ -149,16 +155,16 @@ Select a `.carbin` to see the model.
 
 The model tree on the left lists **LOD > part > material**. Check a node to show it in the view.
 
-The toolbar has these controls:
+The toolbar has these controls (**Model > Export Checked Parts to OBJ...** writes the checked parts as one OBJ):
 
 - **Wireframe**.
 - **Camera speed**: slow, normal or fast.
 - **FOV**: the field of view of one of the game's cameras: photo mode (45°, the default), bumper
   (53°), chase (54°), cockpit (62°) or hood (66°). Next to it, the current FOV. The wheel changes it
   between 0.5° and 90°, as the game's free camera does.
-- **Export Checked to OBJ...** writes the checked parts as one OBJ.
+- **Go to Camera**: see [Cockpit camera](#cockpit-camera-camera-tab).
 - The vertex and face count.
-- A red warning, **"N material(s) not in FM4"**, when the model has any. Click it to jump to the
+- A red warning, **"N material(s) not in FM4"**, when the model has any. Click it (*click to fix*) to select the
   first one.
 
 **Camera**
@@ -172,7 +178,7 @@ The toolbar has these controls:
 | Arrow keys | Look |
 
 **Red materials.** A material that no FM4 car uses is drawn red in the tree, and it may render
-black in game. Right-click it > **Rename material...** and pick an FM4 material from the list. You
+black in game. Select it and press **Rename Material...** in the Part tab (or right-click it), then pick an FM4 material from the list. You
 can rename it in every part and in every model file of the car (main, lod0, cockpit).
 
 ### Cockpit camera (CAMERA tab)
@@ -241,13 +247,13 @@ one of its materials to edit only that material.
 
 ### Whole model as an OBJ work folder
 
-**File > Export Model To Folder...** (or **Export...** under *Whole model* in the Part tab) writes the whole car to a folder:
+**Model > Export Model to OBJ Folder...** writes the whole car to a folder:
 
 - one folder per model file, e.g. `toy_supra_98`, `toy_supra_98_lod0`;
 - inside it, `lod0`, `lod1`, …;
 - one OBJ per part in each LOD folder.
 
-Edit the OBJs in Blender or any 3D program, then **File > Import Model From Folder...**. Import
+Edit the OBJs in Blender or any 3D program, then **Model > Import Model from OBJ Folder...**. Import
 works like this:
 
 - only the OBJs you changed are rebuilt;
@@ -277,6 +283,8 @@ Select an `.xds` to view it.
 - **Mip level** chooses which mip to show.
 - **Channels**: RGB + Alpha, RGB only, or Alpha only.
 
+Both commands below are in the side panel and in the **Texture** menu.
+
 **Export Image...** saves a PNG, or a 32-bit TGA.
 
 **Import Image...** replaces the texture:
@@ -288,7 +296,7 @@ Select an `.xds` to view it.
 
 ## 7. Adding files and new textures
 
-**File > Add File...** (Ctrl+Shift+A), or right-click > **Add File Here...**, adds a file to the
+**Archive > Add File...** (Ctrl+Shift+A), or right-click > **Add File Here...**, adds a file to the
 archive. Choose:
 
 - the folder in the archive;
@@ -304,7 +312,7 @@ is. For textures you also choose:
 | Gamma color | On for color maps. Off for normal maps and masks. |
 | Mip levels | The full chain, or none. |
 
-**File > New XDS From Image...** makes a standalone `.xds` file with the same options.
+**Texture > New Texture from Image...** makes a standalone `.xds` file with the same options.
 
 ## 8. Text and XML files
 
@@ -330,7 +338,7 @@ written with **File > Save**, with a backup.
 The section buttons are **Cars | Wheels | Tracks | Events | Tables**.
 
 - **Search** filters the list on every column.
-- **Text** chooses the language used for names.
+- **Text** chooses the language used for names (English the first time; your choice is remembered).
 
 **Cars.** The header shows the thumbnail and the make logo, with two buttons:
 
@@ -360,15 +368,15 @@ The tabs:
 **Tables.** Any table as a raw grid:
 
 - **Duplicate Row** and **Delete Row**.
-- A **Filter** that takes an SQL WHERE clause, e.g. `MediaName LIKE '%supra%'`.
+- A **Filter** that takes an SQL WHERE condition, e.g. `MediaName LIKE '%supra%'`.
 - Id cells are drop-downs, color cells have a picker, and `GAME:\` paths open with a double-click.
 
 ### Tools
 
-- **Right-click a field** for these commands:
+- **Right-click a field**, or **Go to / Used by** in a table's toolbar, for these commands:
   - **Go to** the row it points at;
   - **Used by** lists the rows pointing here;
-  - **Open GAME:\ File**.
+  - **Open Linked File** (a `GAME:\` path; also in the top toolbar).
 - **Check References** lists ids that point at missing rows. Double-click a line to jump to the
   rows.
 - **Changes** counts your edits, and its drop-down lists the last ones.
@@ -385,7 +393,7 @@ Select a dash file (`.fbf`, `.bgf` or `.bsg`) to see the car's digital dash:
 On the preview, the wheel zooms, a drag pans, a click selects an element and a double-click fits
 the dash to the view. **Outlines** shows the element borders.
 
-Select an element to edit it in the panel: position, rotation, scale, pivot, opacity, colour, text,
+Select an element to edit it in the panel: position, rotation, scale, pivot, opacity, color, text,
 font and texture. Each value is changed where the dash already keeps it, so nothing is added to the
 files; a value the element does not have is greyed out. Edits are pending until **File > Save**
 writes the car's zip.
@@ -413,7 +421,7 @@ decals).
 2. The list shows every car with its PI and class in both games.
    - **Only cars FM4 lacks** hides the cars FM4 already has.
    - Dimmed rows cannot be ported. The **In FM4** column says why.
-3. Select a car and choose its **FM4 donor**: the FM4 car used as a template for the data FM4
+3. Select a car and choose its **FM4 template car** (the donor): the FM4 car used as a template for the data FM4
    needs. The ★ cars are the closest matches.
 
 ### Way 1: DLC package for Xenia (recommended)

@@ -139,7 +139,7 @@ namespace ForzaStudio
             ToolStripLabel studio = new ToolStripLabel("STUDIO");
             studio.Font = new Font("Segoe UI Light", 11f, FontStyle.Italic);
             studio.Margin = new Padding(0, 1, 18, 2);
-            ToolStripLabel title = new ToolStripLabel("PORT CAR FROM FORZA HORIZON");
+            ToolStripLabel title = new ToolStripLabel("PORT A CAR TO FORZA MOTORSPORT 4");
             title.Font = ForzaTheme.Bold;
             title.ForeColor = ForzaTheme.TextDim;
             header.Items.Add(forza);
@@ -210,7 +210,7 @@ namespace ForzaStudio
             options.Dock = DockStyle.Bottom;
             options.Height = 92;
             Label donorLabel = new Label();
-            donorLabel.Text = "FM4 donor (templates; ★ = closest make, layout, drive, year, weight, PI):";
+            donorLabel.Text = "FM4 template car, for what the source car lacks (★ = most similar: make, layout, drive, year, weight, PI):";
             donorLabel.Location = new Point(8, 8);
             donorLabel.AutoSize = true;
             this.donors = new ComboBox();
@@ -220,7 +220,8 @@ namespace ForzaStudio
             this.donors.MaxDropDownItems = 24;
             this.donors.SelectedIndexChanged += delegate { this.UpdateButtons(); };
             this.arcade = new CheckBox();
-            this.arcade.Text = "In arcade (Data_Car.IsArcade)";
+            this.arcade.Text = "Also in arcade mode";
+            new ToolTip().SetToolTip(this.arcade, "Sets Data_Car.IsArcade, so the car shows in the arcade car list too");
             this.arcade.Checked = true;
             this.arcade.Location = new Point(484, 30);
             this.arcade.AutoSize = true;
@@ -876,7 +877,7 @@ namespace ForzaStudio
         // An empty pack with a new offer (the old package stays in Xenia until removed).
         private void NewPack()
         {
-            if (MessageBox.Show(this, "Start a new pack? The car list is emptied and the next build gets a new offer number.\n\nA package already built stays in Xenia (Remove From Xenia takes it away first).",
+            if (MessageBox.Show(this, "Start a new pack? The car list is emptied and the next build gets a new offer number.\n\nA package already built stays in Xenia (Remove Pack takes it away first).",
                 this.Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
             {
                 return;

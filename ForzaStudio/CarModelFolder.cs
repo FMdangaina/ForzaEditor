@@ -98,7 +98,7 @@ namespace ForzaStudio
             StringBuilder manifest = new StringBuilder();
             manifest.AppendLine("# Forza Studio model folder of " + carbinName + ", exported from " + source);
             manifest.AppendLine("# lodN\\<part>.obj = the part at that LOD, one group per material (usemtl = car material).");
-            manifest.AppendLine("# Edit, add or delete OBJs, then Import Model From Folder: only changed OBJs are rebuilt.");
+            manifest.AppendLine("# Edit, add or delete OBJs, then Model > Import Model from OBJ Folder: only changed OBJs are rebuilt.");
             manifest.AppendLine("# A new OBJ name adds a part; deleting a part's OBJ drops it at that LOD. Do not edit the lines below.");
             manifest.AppendLine("file " + carbinName);
             Dictionary<uint, List<string>> materials = new Dictionary<uint, List<string>>();

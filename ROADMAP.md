@@ -176,14 +176,19 @@ Now (2026-10-17). Order: UI first (visible, low risk), the .NET change last (it 
   - [x] a. Dead items out: Tools > Hex View (crashed) and Save Modding (did nothing), the unused
         XboxTool form, "Chase, hood, bumper: not decoded yet"; name Forza Studio in title, dialogs,
         About, docs (checked by the user 2026-10-17)
-  - [ ] b. Menus without duplicates: Model and Texture menus, File only for open/save; one Back; one
-        set of export names
+  - [ ] b. Menus without duplicates: File (open/save) / Archive / Model / Texture; one Back (bar +
+        Ctrl+B / Alt+Left); export names "Export Checked Parts to OBJ", "Export/Import Model to/from
+        OBJ Folder"; model folder commands only in the Model menu (done in code, user check open)
   - [x] c. Model view side panel as tabs PART / TEXTURE / CAMERA (Camera only for car models), labels
         sized to their text, buttons in even rows, Save to Game Database Now (checked by the user
         2026-10-17; asked first by the user, before b)
-  - [ ] d. Plain wording (technical name in the tooltip), one spelling, port tool title covers FM3,
-        database text language follows the UI; say clearly that Save to Database writes at once
-  - [ ] e. Right-click-only actions (Rename Material, Extract/Replace/Revert, Go to / Used by) visible
+  - [ ] d. Plain wording: port tool title "Port a car to FM4", "FM4 template car", "Also in arcade
+        mode" (IsArcade in the tooltip); database "Open Linked File", "Filter:" (SQL in the tooltip),
+        text language EN by default; dash captions capitalised, "color" only; camera tab messages
+        without table names (done in code, user check open)
+  - [ ] e. Right-click-only actions visible: Archive menu (Open Selected Archive, also Enter;
+        Extract/Replace/Revert), Rename Material button in the Part tab, red material warning is a
+        link, "Go to / Used by" button in the database tables (done in code, user check open)
 - [ ] 12.3 Settings window (game folders, Xenia, DEV folder, viewer options)
 - [ ] 12.4 Conversion tool as MDI (child windows inside the main window)
 - [ ] 12.2 Recent .NET Framework (today `v2.0` with XNA, x86): newest one XNA allows; check SQLite, HexBox

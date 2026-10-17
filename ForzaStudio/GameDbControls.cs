@@ -256,7 +256,7 @@ namespace ForzaStudio
                 this.ActivateGamePath(e.RowIndex, e.ColumnIndex);
             };
             ContextMenuStrip menu = new ContextMenuStrip();
-            ToolStripMenuItem open = new ToolStripMenuItem("Open GAME:\\ File", null, delegate
+            ToolStripMenuItem open = new ToolStripMenuItem("Open Linked File", null, delegate
             {
                 if (this.grid.CurrentCell != null)
                 {
@@ -329,13 +329,24 @@ namespace ForzaStudio
             bar.Items.Add(new ToolStripSeparator());
             bar.Items.Add(new ToolStripButton("Duplicate Row", null, delegate { this.DuplicateRow(); }));
             bar.Items.Add(new ToolStripButton("Delete Row", null, delegate { this.DeleteRow(); }));
+            // The right-click menu of the selected cell, from the toolbar.
+            ToolStripButton links = new ToolStripButton("Go to / Used by ▾");
+            links.ToolTipText = "The row the selected id points at, and the rows of other tables that point at this row (also on right-click)";
+            links.Click += delegate
+            {
+                if (this.grid.CurrentCell != null)
+                {
+                    menu.Show(bar, new Point(links.Bounds.Left, links.Bounds.Bottom));
+                }
+            };
+            bar.Items.Add(links);
             if (showFilter)
             {
                 bar.Items.Add(new ToolStripSeparator());
-                bar.Items.Add(new ToolStripLabel("Filter (SQL WHERE):"));
+                bar.Items.Add(new ToolStripLabel("Filter:"));
                 this.txtFilter = new ToolStripTextBox();
                 this.txtFilter.Width = 260;
-                this.txtFilter.ToolTipText = "For example: MediaName LIKE '%supra%'   (Enter to apply)";
+                this.txtFilter.ToolTipText = "An SQL WHERE condition, for example: MediaName LIKE '%supra%'   (Enter to apply, empty for all rows)";
                 this.txtFilter.KeyDown += delegate(object sender, KeyEventArgs e)
                 {
                     if (e.KeyCode == Keys.Enter)
@@ -677,7 +688,7 @@ namespace ForzaStudio
                 {
                     lines.Add("   " + user);
                 }
-                question += "\n\nThese rows still point at it and would be left dangling:\n" + string.Join("\n", lines.ToArray()) + "\n\nRight-click > Used by shows them.";
+                question += "\n\nThese rows still point at it and would be left dangling:\n" + string.Join("\n", lines.ToArray()) + "\n\nGo to / Used by (toolbar or right-click) shows them.";
             }
             if (MessageBox.Show(this, question, "Delete Row", MessageBoxButtons.YesNo, (users.Count > 0) ? MessageBoxIcon.Warning : MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
             {

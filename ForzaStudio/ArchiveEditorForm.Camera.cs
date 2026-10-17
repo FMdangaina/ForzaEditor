@@ -145,7 +145,7 @@ namespace ForzaStudio
                 byte[] data = this.ReadGameDbFile(out path);
                 if (data == null)
                 {
-                    this.lblCamCar.Text = "GAME:\\Media\\db\\gamedb.slt not found: open the car from the game folder.";
+                    this.lblCamCar.Text = "Game database not found: open the car from the game folder (the one with Media\\db\\gamedb.slt).";
                     this.UpdateCameraOverlay();
                     return;
                 }
@@ -153,7 +153,7 @@ namespace ForzaStudio
                 {
                     if (db.Scalar("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'CarPartPositions'") == null)
                     {
-                        this.lblCamCar.Text = "This game's database has no CarPartPositions table.";
+                        this.lblCamCar.Text = "This game's database has no cockpit camera data.";
                         this.UpdateCameraOverlay();
                         return;
                     }
@@ -161,7 +161,7 @@ namespace ForzaStudio
                 }
                 if (this.camState == null)
                 {
-                    this.lblCamCar.Text = media + ": not in gamedb.slt (a DLC car keeps its rows in the package).";
+                    this.lblCamCar.Text = media + " is not in the game database (a DLC car keeps its data in its package).";
                     this.UpdateCameraOverlay();
                     return;
                 }
@@ -232,8 +232,8 @@ namespace ForzaStudio
             this.lblCamCar.Text = string.Format("{0} (id {1})\n{2}", c.MediaName, c.CarId, state);
             this.lblCamCar.ForeColor = this.camPending ? ForzaTheme.Red : this.ForeColor;
             Vector3 eye = c.Eye;
-            this.lblCamEye.Text = string.Format(CultureInfo.InvariantCulture, "Eye: {0:0.000}, {1:0.000}, {2:0.000}{3}\nCameraOverrides row: {4}",
-                eye.X, eye.Y, eye.Z, c.UsesDefaultOffset ? " (default offset)" : "", c.HasOverrides ? "yes" : "missing, added on save");
+            this.lblCamEye.Text = string.Format(CultureInfo.InvariantCulture, "Eye position: {0:0.000}, {1:0.000}, {2:0.000}{3}{4}",
+                eye.X, eye.Y, eye.Z, c.UsesDefaultOffset ? " (game default offset)" : "", c.HasOverrides ? "" : "\nThe car has no camera offset row yet: saving adds it.");
         }
 
         // The steering wheel point from the car's _cockpit.carbin (next to the open model).

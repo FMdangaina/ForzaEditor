@@ -89,7 +89,7 @@ namespace ForzaStudio
             this.btnDbChanges.Alignment = ToolStripItemAlignment.Right;
             bar.Items.Add(this.btnDbChanges);
             bar.Items.Add(new ToolStripSeparator());
-            this.btnDbOpenPath = new ToolStripButton("Open GAME:\\ File", null, delegate { this.OpenGamePath(this.focusedGamePath); });
+            this.btnDbOpenPath = new ToolStripButton("Open Linked File", null, delegate { this.OpenGamePath(this.focusedGamePath); });
             this.btnDbOpenPath.Enabled = false;
             bar.Items.Add(this.btnDbOpenPath);
             ToolStripButton check = new ToolStripButton("Check References", null, delegate { this.CheckDbReferences(); });
@@ -97,7 +97,7 @@ namespace ForzaStudio
             bar.Items.Add(check);
             this.lblDbLanguage = new ToolStripLabel("Text:");
             bar.Items.Add(this.lblDbLanguage);
-            this.cmbDbLanguage = new ToolStripDropDownButton("IT");
+            this.cmbDbLanguage = new ToolStripDropDownButton("EN");
             this.cmbDbLanguage.Font = ForzaTheme.Bold;
             this.cmbDbLanguage.ToolTipText = "Language of the game's text (GAME:\\Media\\StringTables)";
             bar.Items.Add(this.cmbDbLanguage);
@@ -235,7 +235,7 @@ namespace ForzaStudio
             grid.ToolbarVisible = false;
             grid.HelpVisible = true;
             ContextMenuStrip menu = new ContextMenuStrip();
-            ToolStripMenuItem open = new ToolStripMenuItem("Open GAME:\\ File", null, delegate { this.OpenGamePath(SelectedGridValue(grid)); });
+            ToolStripMenuItem open = new ToolStripMenuItem("Open Linked File", null, delegate { this.OpenGamePath(SelectedGridValue(grid)); });
             menu.Items.Add(open);
             menu.Opening += delegate(object sender, CancelEventArgs e)
             {
@@ -566,7 +566,7 @@ namespace ForzaStudio
             string chosen = null;
             if (languages.Count > 0)
             {
-                int index = languages.IndexOf(AppSettings.Get("Language", "IT").ToUpperInvariant());
+                int index = languages.IndexOf(AppSettings.Get("Language", "EN").ToUpperInvariant());
                 if (index < 0)
                 {
                     index = Math.Max(0, languages.IndexOf("EN"));

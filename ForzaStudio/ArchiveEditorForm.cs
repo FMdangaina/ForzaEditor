@@ -26,7 +26,6 @@
         private ToolStripMenuItem mnuSave;
         private ToolStripMenuItem mnuSaveAs;
         private ToolStripMenuItem mnuClose;
-        private ToolStripMenuItem mnuReopenFolder;
         private StatusStrip status;
         private ToolStripStatusLabel lblStatus;
         private SplitContainer split;
@@ -77,10 +76,18 @@
             this.tvArchive.BeforeExpand += delegate(object sender, TreeViewCancelEventArgs e) { this.LoadFolderNode(e.Node); };
             this.tvArchive.NodeMouseDoubleClick += delegate(object sender, TreeNodeMouseClickEventArgs e)
             {
-                ForzaZip.Entry entry = e.Node.Tag as ForzaZip.Entry;
-                if (this.zip != null && this.zip.IsFolder && entry != null && IsArchive(entry.Name))
+                if (e.Node == this.tvArchive.SelectedNode)
                 {
-                    this.NavigateFrom(delegate { this.OpenArchive(entry.FullPath); });
+                    this.OpenSelectedArchive();
+                }
+            };
+            this.tvArchive.KeyDown += delegate(object sender, KeyEventArgs e)
+            {
+                if (e.KeyCode == Keys.Enter && this.CanOpenSelectedArchive)
+                {
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                    this.OpenSelectedArchive();
                 }
             };
             this.tvArchive.NodeMouseClick += delegate(object sender, TreeNodeMouseClickEventArgs e)
@@ -174,9 +181,6 @@
             ToolStripMenuItem file = new ToolStripMenuItem("&File");
             file.DropDownItems.Add(new ToolStripMenuItem("&Open Archive...", null, delegate { this.OpenArchiveDialog(); }, Keys.Control | Keys.O));
             file.DropDownItems.Add(new ToolStripMenuItem("Open &Folder...", null, delegate { this.OpenFolderDialog(); }, Keys.Control | Keys.Shift | Keys.O));
-            this.mnuReopenFolder = new ToolStripMenuItem("&Back", null, delegate { this.GoBack(); }, Keys.Control | Keys.B);
-            this.mnuReopenFolder.ShortcutKeyDisplayString = "Ctrl+B, Alt+Left";
-            file.DropDownItems.Add(this.mnuReopenFolder);
             file.DropDownItems.Add(new ToolStripSeparator());
             this.mnuSave = new ToolStripMenuItem("&Save", null, delegate { this.SaveArchive(false); }, Keys.Control | Keys.S);
             this.mnuSaveAs = new ToolStripMenuItem("Save &As...", null, delegate { this.SaveArchive(true); });
@@ -185,14 +189,57 @@
             file.DropDownItems.Add(this.mnuSaveAs);
             file.DropDownItems.Add(this.mnuClose);
             file.DropDownItems.Add(new ToolStripSeparator());
-            file.DropDownItems.Add(new ToolStripMenuItem("A&dd File...", null, delegate { this.AddFileToArchive(); }, Keys.Control | Keys.Shift | Keys.A));
-            file.DropDownItems.Add(new ToolStripMenuItem("Extract &All...", null, delegate { this.ExtractAll(); }));
-            file.DropDownItems.Add(new ToolStripMenuItem("Export &Model To Folder...", null, delegate { this.ExportModelFolder(); }));
-            file.DropDownItems.Add(new ToolStripMenuItem("Import Model From Fo&lder...", null, delegate { this.ImportModelFolder(); }));
-            file.DropDownItems.Add(new ToolStripSeparator());
-            file.DropDownItems.Add(new ToolStripMenuItem("&New XDS From Image...", null, delegate { this.NewXdsFromImage(); }));
-            file.DropDownItems.Add(new ToolStripSeparator());
             file.DropDownItems.Add(new ToolStripMenuItem("E&xit", null, delegate { this.Close(); }));
+
+            // The archive tree's file commands, also on its right-click menu.
+            ToolStripMenuItem archive = new ToolStripMenuItem("&Archive");
+            ToolStripMenuItem openSelected = new ToolStripMenuItem("&Open Selected Archive", null, delegate { this.OpenSelectedArchive(); });
+            archive.DropDownItems.Add(openSelected);
+            archive.DropDownItems.Add(new ToolStripSeparator());
+            ToolStripMenuItem addFile = new ToolStripMenuItem("&Add File...", null, delegate { this.AddFileToArchive(); }, Keys.Control | Keys.Shift | Keys.A);
+            archive.DropDownItems.Add(addFile);
+            ToolStripMenuItem extract = new ToolStripMenuItem("&Extract Selected File...", null, delegate { this.ExtractSelected(); });
+            ToolStripMenuItem replace = new ToolStripMenuItem("&Replace Selected File...", null, delegate { this.ReplaceSelected(); });
+            ToolStripMenuItem revert = new ToolStripMenuItem("Re&vert Selected File", null, delegate { this.RevertSelected(); });
+            archive.DropDownItems.Add(extract);
+            archive.DropDownItems.Add(replace);
+            archive.DropDownItems.Add(revert);
+            archive.DropDownItems.Add(new ToolStripSeparator());
+            ToolStripMenuItem extractAll = new ToolStripMenuItem("Extract A&ll...", null, delegate { this.ExtractAll(); });
+            archive.DropDownItems.Add(extractAll);
+            archive.DropDownOpening += delegate
+            {
+                ForzaZip.Entry entry = (this.zip != null) ? this.SelectedEntry : null;
+                openSelected.Enabled = this.CanOpenSelectedArchive;
+                addFile.Enabled = this.zip != null;
+                extract.Enabled = entry != null;
+                replace.Enabled = entry != null;
+                revert.Enabled = entry != null && entry.IsModified;
+                revert.Text = (entry != null && entry.IsAdded) ? "Remo&ve Added File" : "Re&vert Selected File";
+                extractAll.Enabled = this.zip != null;
+            };
+
+            ToolStripMenuItem model = new ToolStripMenuItem("&Model");
+            ToolStripMenuItem exportChecked = new ToolStripMenuItem("Export &Checked Parts to OBJ...", null, delegate { this.ExportObj(); });
+            model.DropDownItems.Add(exportChecked);
+            model.DropDownItems.Add(new ToolStripSeparator());
+            model.DropDownItems.Add(new ToolStripMenuItem("&Export Model to OBJ Folder...", null, delegate { this.ExportModelFolder(); }));
+            model.DropDownItems.Add(new ToolStripMenuItem("&Import Model from OBJ Folder...", null, delegate { this.ImportModelFolder(); }));
+            model.DropDownOpening += delegate { exportChecked.Enabled = this.pnlModel.Visible && this.scene != null; };
+
+            ToolStripMenuItem texture = new ToolStripMenuItem("Te&xture");
+            texture.DropDownItems.Add(new ToolStripMenuItem("&New Texture from Image...", null, delegate { this.NewXdsFromImage(); }));
+            texture.DropDownItems.Add(new ToolStripSeparator());
+            ToolStripMenuItem exportImage = new ToolStripMenuItem("&Export Image...", null, delegate { this.ExportTexturePng(); });
+            ToolStripMenuItem importImage = new ToolStripMenuItem("&Import Image...", null, delegate { this.ImportTextureImage(); });
+            texture.DropDownItems.Add(exportImage);
+            texture.DropDownItems.Add(importImage);
+            texture.DropDownOpening += delegate
+            {
+                bool shown = this.pnlTexture.Visible && (this.texture != null || this.tga != null);
+                exportImage.Enabled = shown;
+                importImage.Enabled = shown;
+            };
 
             ToolStripMenuItem tools = new ToolStripMenuItem("&Tools");
             tools.DropDownItems.Add(new ToolStripMenuItem("&Port Car From Another Forza...", null, delegate { new CarPortForm().Show(this); }));
@@ -204,6 +251,9 @@
             help.DropDownItems.Add(new ToolStripMenuItem("&About...", null, delegate { new AboutForm().ShowDialog(this); }));
 
             this.menu.Items.Add(file);
+            this.menu.Items.Add(archive);
+            this.menu.Items.Add(model);
+            this.menu.Items.Add(texture);
             this.menu.Items.Add(tools);
             this.menu.Items.Add(help);
             this.mnuBackBar = new ToolStripMenuItem("◀ Back", null, delegate { this.GoBack(); });
@@ -214,9 +264,9 @@
         private void BuildArchiveMenu()
         {
             this.ctxArchive = new ContextMenuStrip();
-            ToolStripMenuItem extract = new ToolStripMenuItem("Extract...", null, delegate { this.ExtractSelected(); });
-            ToolStripMenuItem replace = new ToolStripMenuItem("Replace With File...", null, delegate { this.ReplaceSelected(); });
-            ToolStripMenuItem revert = new ToolStripMenuItem("Revert Changes", null, delegate { this.RevertSelected(); });
+            ToolStripMenuItem extract = new ToolStripMenuItem("Extract File...", null, delegate { this.ExtractSelected(); });
+            ToolStripMenuItem replace = new ToolStripMenuItem("Replace File...", null, delegate { this.ReplaceSelected(); });
+            ToolStripMenuItem revert = new ToolStripMenuItem("Revert File", null, delegate { this.RevertSelected(); });
             ToolStripMenuItem add = new ToolStripMenuItem("Add File Here...", null, delegate { this.AddFileToArchive(); });
             this.ctxArchive.Items.Add(extract);
             this.ctxArchive.Items.Add(replace);
@@ -234,7 +284,7 @@
                 extract.Enabled = entry != null;
                 replace.Enabled = entry != null;
                 revert.Enabled = entry != null && entry.IsModified;
-                revert.Text = (entry != null && entry.IsAdded) ? "Remove Added File" : "Revert Changes";
+                revert.Text = (entry != null && entry.IsAdded) ? "Remove Added File" : "Revert File";
             };
             this.tvArchive.ContextMenuStrip = this.ctxArchive;
         }
@@ -246,6 +296,25 @@
         private ForzaZip.Entry SelectedEntry
         {
             get { return (this.tvArchive.SelectedNode == null) ? null : (this.tvArchive.SelectedNode.Tag as ForzaZip.Entry); }
+        }
+
+        // A .zip selected in a game folder (double-click, Enter or Archive > Open Selected Archive).
+        private bool CanOpenSelectedArchive
+        {
+            get
+            {
+                ForzaZip.Entry entry = this.SelectedEntry;
+                return this.zip != null && this.zip.IsFolder && entry != null && IsArchive(entry.Name);
+            }
+        }
+
+        private void OpenSelectedArchive()
+        {
+            if (this.CanOpenSelectedArchive)
+            {
+                ForzaZip.Entry entry = this.SelectedEntry;
+                this.NavigateFrom(delegate { this.OpenArchive(entry.FullPath); });
+            }
         }
 
         public void OpenArchive(string path)
@@ -988,7 +1057,7 @@
         private void ShowInfo(ForzaZip.Entry entry, string error)
         {
             string hint = (this.zip.IsFolder && IsArchive(entry.Name))
-                ? "Double-click the archive in the tree to open it (Back returns here)."
+                ? "Double-click the archive in the tree, or press Enter, to open it (Back returns here)."
                 : "Right click the file in the tree to extract or replace it.";
             this.lblInfo.Text = string.Format("{0}\n\n{1:N0} bytes{2}\n\n{3}",
                 entry.Name, entry.UncompressedSize, (error != null) ? ("\n\nCannot open this file:\n" + error) : "", hint);

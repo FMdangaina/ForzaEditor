@@ -26,6 +26,7 @@ namespace ForzaStudio
         private CheckBox chkSoloPart;
         private Button btnDeletePart;
         private Button btnDuplicatePart;
+        private Button btnRenameMaterial;   // enabled when a material (mesh node) is selected
         private bool fillingPartEdit;
         private string editSection;
         private string editMaterial;   // null: the whole part
@@ -103,6 +104,8 @@ namespace ForzaStudio
             this.btnDeletePart.Text = "Delete...";
             this.btnDeletePart.Click += delegate { this.DeleteSelectedNode(); };
             side.Controls.Add(SideButtonRow(this.btnDuplicatePart, this.btnDeletePart));
+            this.btnRenameMaterial = SideWideButton("Rename Material...", delegate { this.RenameSelectedMaterial(); });
+            side.Controls.Add(this.btnRenameMaterial);
 
             side.Controls.Add(SideCaption("Merge this part into"));
             this.cmbMergeTarget = new ComboBox();
@@ -124,39 +127,33 @@ namespace ForzaStudio
         {
             ContextMenuStrip menu = new ContextMenuStrip();
             ToolStripMenuItem delete = new ToolStripMenuItem("Delete...", null, delegate { this.DeleteSelectedNode(); });
-            ToolStripMenuItem focus = new ToolStripMenuItem("Focus", null, delegate { this.FocusPart(); });
+            ToolStripMenuItem focus = new ToolStripMenuItem("Focus On Part", null, delegate { this.FocusPart(); });
             ToolStripMenuItem duplicate = new ToolStripMenuItem("Duplicate Part...", null, delegate { this.DuplicateSelectedPart(); });
             ToolStripMenuItem rename = new ToolStripMenuItem("Rename Material...", null, delegate { this.RenameSelectedMaterial(); });
             ToolStripSeparator partSeparator = new ToolStripSeparator();
-            ToolStripSeparator modelSeparator = new ToolStripSeparator();
             menu.Items.Add(focus);
             menu.Items.Add(duplicate);
             menu.Items.Add(rename);
             menu.Items.Add(partSeparator);
             menu.Items.Add(delete);
-            menu.Items.Add(modelSeparator);
-            menu.Items.Add(new ToolStripMenuItem("Export Model To Folder...", null, delegate { this.ExportModelFolder(); }));
-            menu.Items.Add(new ToolStripMenuItem("Import Model From Folder...", null, delegate { this.ImportModelFolder(); }));
             menu.Opening += delegate(object sender, System.ComponentModel.CancelEventArgs e)
             {
                 string section;
                 string material;
-                bool part = this.DeletableNode(out section, out material);
-                foreach (ToolStripItem item in new ToolStripItem[] { focus, duplicate, partSeparator, delete, modelSeparator })
+                if (!this.DeletableNode(out section, out material))
                 {
-                    item.Visible = part;
+                    // Only parts and their materials have commands (LOD and model nodes have none).
+                    e.Cancel = true;
+                    return;
                 }
-                rename.Visible = part && material != null;
+                rename.Visible = material != null;
                 if (rename.Visible)
                 {
-                    rename.Text = string.Format("Rename material \"{0}\"...", material);
+                    rename.Text = string.Format("Rename Material \"{0}\"...", material);
                     rename.ForeColor = this.IsUnknownMaterial(material) ? ForzaTheme.Red : delete.ForeColor;
                 }
-                if (part)
-                {
-                    delete.Text =(material != null) ? string.Format("Delete material \"{0}\" from {1}...", material, section) : string.Format("Delete part \"{0}\"...", section);
-                    duplicate.Text = string.Format("Duplicate part \"{0}\"...", section);
-                }
+                delete.Text = (material != null) ? string.Format("Delete Material \"{0}\" from {1}...", material, section) : string.Format("Delete Part \"{0}\"...", section);
+                duplicate.Text = string.Format("Duplicate Part \"{0}\"...", section);
             };
             this.tvModel.ContextMenuStrip = menu;
             this.tvModel.NodeMouseClick += delegate(object sender, TreeNodeMouseClickEventArgs e)
@@ -205,7 +202,7 @@ namespace ForzaStudio
             string question = (material != null)
                 ? string.Format("Delete the material \"{0}\" of {1}, in all LODs of {2}?\n\nIts triangles and the vertices only they use are removed. If it is the last material of {1}, the whole part goes.", material, section, scope)
                 : string.Format("Delete the part \"{0}\" with all its materials, in {1}?", section, scope);
-            question += "\nThe change stays pending until you save (Revert undoes it).";
+            question += "\nThe change stays pending until you save (Archive > Revert Selected File undoes it).";
             if (MessageBox.Show(this, question, "Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
             {
                 return;
@@ -298,7 +295,7 @@ namespace ForzaStudio
                 return;
             }
             bool replace = this.PartExists(newName);
-            if (replace && MessageBox.Show(this, string.Format("This car already has a part named {0}.\n\nReplace it with a copy of {1}? (Pending until you save; Revert undoes it.)", newName, section),
+            if (replace && MessageBox.Show(this, string.Format("This car already has a part named {0}.\n\nReplace it with a copy of {1}? (Pending until you save; Archive > Revert Selected File undoes it.)", newName, section),
                 "Duplicate", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
             {
                 return;
@@ -421,6 +418,7 @@ namespace ForzaStudio
             this.btnFocusPart.Enabled = enabled;
             this.btnDeletePart.Enabled = enabled;
             this.btnDuplicatePart.Enabled = enabled;
+            this.btnRenameMaterial.Enabled = enabled && this.SelectedMaterialName != null;
             this.cmbMergeTarget.Enabled = enabled;
             this.btnMergeInto.Enabled = enabled && this.cmbMergeTarget.Items.Count > 0;
         }
@@ -773,7 +771,7 @@ namespace ForzaStudio
             {
                 return;
             }
-            string question = string.Format("Merge \"{0}\" into \"{1}\"?\n\nMaterials with the same name are joined, the others are moved into {1}, and {0} is removed from {2}.\nThe change stays pending until you save (Revert undoes it).",
+            string question = string.Format("Merge \"{0}\" into \"{1}\"?\n\nMaterials with the same name are joined, the others are moved into {1}, and {0} is removed from {2}.\nThe change stays pending until you save (Archive > Revert Selected File undoes it).",
                 source, target, this.chkAllModelFiles.Checked ? "every model file of the car" : "this file");
             if (MessageBox.Show(this, question, "Merge Parts", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             {

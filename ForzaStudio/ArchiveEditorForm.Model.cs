@@ -84,8 +84,6 @@ namespace ForzaStudio
             toolbar.Items.Add(this.cmbCameraFov);
             toolbar.Items.Add(this.lblCameraFov);
             toolbar.Items.Add(this.BuildGoToCameraButton());
-            toolbar.Items.Add(new ToolStripSeparator());
-            toolbar.Items.Add(new ToolStripButton("Export Checked to OBJ...", null, delegate { this.ExportObj(); }));
             this.lblModelInfo = new ToolStripLabel();
             this.lblModelInfo.Alignment = ToolStripItemAlignment.Right;
             toolbar.Items.Add(this.lblModelInfo);

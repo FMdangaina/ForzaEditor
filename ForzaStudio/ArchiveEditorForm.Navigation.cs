@@ -154,7 +154,6 @@ namespace ForzaStudio
         private void UpdateBackMenu()
         {
             bool canGoBack = this.bookmarks.Count > 0 || (this.lastFolder != null && (this.zip == null || !this.zip.IsFolder));
-            this.mnuReopenFolder.Enabled = canGoBack;
             this.mnuBackBar.Enabled = canGoBack;
             string target = (this.bookmarks.Count > 0) ? this.bookmarks[this.bookmarks.Count - 1].ToString() : (canGoBack ? Path.GetFileName(this.lastFolder.TrimEnd('\\')) + "\\" : null);
             this.mnuBackBar.Text = (target != null) ? "◀ Back to " + target : "◀ Back";
@@ -163,7 +162,7 @@ namespace ForzaStudio
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
-            if (keyData == (Keys.Alt | Keys.Left))
+            if (keyData == (Keys.Alt | Keys.Left) || keyData == (Keys.Control | Keys.B))
             {
                 this.GoBack();
                 return true;

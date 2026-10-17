@@ -19,7 +19,12 @@ namespace ForzaStudio
             this.lblMaterialWarning = new ToolStripLabel();
             this.lblMaterialWarning.ForeColor = ForzaTheme.Red;
             this.lblMaterialWarning.Visible = false;
-            this.lblMaterialWarning.IsLink = false;
+            // A link: a click selects the first one, ready for Rename Material.
+            this.lblMaterialWarning.IsLink = true;
+            this.lblMaterialWarning.LinkColor = ForzaTheme.Red;
+            this.lblMaterialWarning.ActiveLinkColor = ForzaTheme.Red;
+            this.lblMaterialWarning.VisitedLinkColor = ForzaTheme.Red;
+            this.lblMaterialWarning.LinkBehavior = LinkBehavior.HoverUnderline;
             this.lblMaterialWarning.Click += delegate { this.SelectUnknownMaterial(); };
             return this.lblMaterialWarning;
         }
@@ -48,9 +53,9 @@ namespace ForzaStudio
             this.MarkUnknownMaterials(root.Nodes);
             if (this.unknownMaterials.Count > 0)
             {
-                this.lblMaterialWarning.Text = string.Format("{0} material{1} not in FM4", this.unknownMaterials.Count, (this.unknownMaterials.Count == 1) ? "" : "s");
+                this.lblMaterialWarning.Text = string.Format("{0} material{1} not in FM4: click to fix", this.unknownMaterials.Count, (this.unknownMaterials.Count == 1) ? "" : "s");
                 this.lblMaterialWarning.ToolTipText = "No FM4 car uses " + string.Join(", ", this.unknownMaterials.ToArray())
-                    + ": they may render black in game.\nRed in the tree; right-click one > Rename material. Click here to go to the first.";
+                    + ": they may render black in game.\nRed in the tree. Click here to select the first one, then Rename Material in the Part tab.";
                 this.lblMaterialWarning.Visible = true;
             }
         }

@@ -97,7 +97,7 @@ namespace ForzaStudio
                         : CarModelFolder.Export(new CarbinModel(data), CarbinName(entry), folder, this.SourceName);
                     made.Add(Path.GetFileName(folder));
                 }
-                this.SetStatus(string.Format("{0:N0} OBJs exported to {1}: {2} (edit them, then Import Model From Folder)", count, parent, string.Join(", ", made.ToArray())));
+                this.SetStatus(string.Format("{0:N0} OBJs exported to {1}: {2} (edit them, then Model > Import Model from OBJ Folder)", count, parent, string.Join(", ", made.ToArray())));
             }
             catch (Exception exception)
             {
@@ -171,7 +171,7 @@ namespace ForzaStudio
                 folders = ModelFoldersIn(dialog.SelectedPath, files);
                 if (folders.Count == 0)
                 {
-                    MessageBox.Show(this, "No model folder of this car in " + dialog.SelectedPath + ".\n\nExpected: " + string.Join(", ", expected.ToArray()) + " (made by Export Model To Folder).",
+                    MessageBox.Show(this, "No model folder of this car in " + dialog.SelectedPath + ".\n\nExpected: " + string.Join(", ", expected.ToArray()) + " (made by Model > Export Model to OBJ Folder).",
                         "Import Model", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }

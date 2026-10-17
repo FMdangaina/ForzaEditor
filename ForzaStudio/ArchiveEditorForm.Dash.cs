@@ -134,15 +134,15 @@ namespace ForzaStudio
             // name, caption, factor, step, minimum, maximum
             object[][] transforms = new object[][]
             {
-                new object[] { "position.x", "position x", 1f, 1m, -100000m, 100000m },
-                new object[] { "position.y", "position y", 1f, 1m, -100000m, 100000m },
-                new object[] { "position.z", "position z", 1f, 1m, -100000m, 100000m },
-                new object[] { "rotation.z", "rotation (deg)", (float) (180 / Math.PI), 1m, -100000m, 100000m },
-                new object[] { "scale.x", "scale x", 1f, 0.01m, -10000m, 10000m },
-                new object[] { "scale.y", "scale y", 1f, 0.01m, -10000m, 10000m },
-                new object[] { "pivot.x", "pivot x", 1f, 1m, -100000m, 100000m },
-                new object[] { "pivot.y", "pivot y", 1f, 1m, -100000m, 100000m },
-                new object[] { "opacity", "opacity", 1f, 1m, 0m, 100m },
+                new object[] { "position.x", "Position X", 1f, 1m, -100000m, 100000m },
+                new object[] { "position.y", "Position Y", 1f, 1m, -100000m, 100000m },
+                new object[] { "position.z", "Position Z", 1f, 1m, -100000m, 100000m },
+                new object[] { "rotation.z", "Rotation (deg)", (float) (180 / Math.PI), 1m, -100000m, 100000m },
+                new object[] { "scale.x", "Scale X", 1f, 0.01m, -10000m, 10000m },
+                new object[] { "scale.y", "Scale Y", 1f, 0.01m, -10000m, 10000m },
+                new object[] { "pivot.x", "Pivot X", 1f, 1m, -100000m, 100000m },
+                new object[] { "pivot.y", "Pivot Y", 1f, 1m, -100000m, 100000m },
+                new object[] { "opacity", "Opacity", 1f, 1m, 0m, 100m },
             };
             foreach (object[] t in transforms)
             {
@@ -161,11 +161,11 @@ namespace ForzaStudio
             Button color = new Button();
             color.FlatStyle = FlatStyle.Flat;
             color.TextAlign = ContentAlignment.MiddleLeft;
-            this.dashColorRow = this.AddDashEditRow("colour", color);
+            this.dashColorRow = this.AddDashEditRow("Color", color);
             color.Click += delegate { this.DashPickColor(color); };
 
             TextBox text = new TextBox();
-            this.dashTextRow = this.AddDashEditRow("text", text);
+            this.dashTextRow = this.AddDashEditRow("Text", text);
             text.TextChanged += delegate
             {
                 AnarkDash.Node node = this.dashEditNode;
@@ -177,7 +177,7 @@ namespace ForzaStudio
 
             ComboBox font = new ComboBox();
             font.DropDownStyle = ComboBoxStyle.DropDown;
-            this.dashFontRow = this.AddDashEditRow("font", font);
+            this.dashFontRow = this.AddDashEditRow("Font", font);
             this.HookDashCombo(font, delegate(string value)
             {
                 AnarkDash.Node node = this.dashEditNode;
@@ -189,7 +189,7 @@ namespace ForzaStudio
 
             ComboBox texture = new ComboBox();
             texture.DropDownStyle = ComboBoxStyle.DropDown;
-            this.dashTextureRow = this.AddDashEditRow("texture", texture);
+            this.dashTextureRow = this.AddDashEditRow("Texture", texture);
             this.HookDashCombo(texture, delegate(string value)
             {
                 AnarkDash.Node node = this.dashEditNode;
@@ -611,7 +611,7 @@ namespace ForzaStudio
                     button.ForeColor = (color.GetBrightness() > 0.5f) ? Color.Black : Color.White;
                     button.Text = GameColor.Hex(color);
                 }
-                this.DashEdited(done, "colour");
+                this.DashEdited(done, "color");
             });
         }
 
