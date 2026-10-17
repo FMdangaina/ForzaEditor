@@ -86,6 +86,7 @@ namespace ForzaStudio
         private bool skipThumbnail;     // Textures.zip locked by the running emulator
         private string game = "FH2";    // the source game in the report: FH (Forza Horizon writes the same files), FH2 or FM3
         private bool motorsport3;       // the source is Forza Motorsport 3
+        private bool traffic;           // an FH traffic car: its close-up models were placeholders (RebuildCloseUpModels)
         private SqliteDatabase source;
         private SqliteDatabase target;
         private long carId;
@@ -455,7 +456,7 @@ namespace ForzaStudio
         private void SteeringWheelPosition()
         {
             CarCamera current = CarCamera.Load(this.target, this.MediaName);
-            if (current != null && current.HasSteeringWheel && current.SteeringWheel != Microsoft.Xna.Framework.Vector3.Zero)
+            if (!this.traffic && current != null && current.HasSteeringWheel && current.SteeringWheel != Microsoft.Xna.Framework.Vector3.Zero)
             {
                 return;
             }
@@ -486,11 +487,70 @@ namespace ForzaStudio
             {
                 this.Line("    {0}", line);
             }
+            if (this.traffic)
+            {
+                this.TrafficCameras(camera);
+            }
             string hood = camera.SetHoodFromSteeringWheel(this.target);
             if (hood != null)
             {
                 this.Line("    {0}", hood);
             }
+        }
+
+        // FH traffic cars (close-up files rebuilt) were never driven in their game and their camera data
+        // is not usable (BUS_TOUR_12: hood camera in the middle of the bus, follow offsets of +3 m, part 9
+        // 0,0,0, parts 2-3 at 0,0.1,0 and on the roof centre): it is all generated (decided by the user
+        // 2026-10-18). CameraOverrides: every column 0 as on FM4 cars (follow offsets 0 on 502 of 503
+        // cars), the hood from the steering wheel point (SetHoodFromSteeringWheel). CarPartPositions,
+        // measured on the 313 FM4 cars against the main model's body section box (database axes, Z
+        // forward): parts 0/1 (front lights) x = -/+0.675 of the box's max x, y = box min y + 0.489,
+        // z = front end - 0.216; parts 2/3 (rear lights) the same x, y = min y + 0.635, z = rear end
+        // + 0.143; part 4 = part 9 + (0, -0.057, 0.015). Parts 5-8, the wheels, stay the source's.
+        private void TrafficCameras(CarCamera camera)
+        {
+            List<string> columns = new List<string>();
+            foreach (object[] column in this.target.Query("PRAGMA table_info(CameraOverrides)").Rows)
+            {
+                string name = (string) column[1];
+                if (name != "CarId")
+                {
+                    columns.Add(SqliteDatabase.Quote(name) + " = 0");
+                }
+            }
+            this.target.Execute("UPDATE CameraOverrides SET " + string.Join(", ", columns.ToArray()) + " WHERE CarId = ?", this.carId);
+            camera.CockpitOffset = Microsoft.Xna.Framework.Vector3.Zero;
+            this.Line("  traffic car: camera data generated, the source's is not used");
+            this.Line("    CameraOverrides {0}: all offsets 0 (FM4's default cameras)", this.carId);
+
+            CarbinModel.Section body = new CarbinModel(this.carZip.Read(this.carZip.Find(this.MediaName.ToLowerInvariant() + ".carbin"))).Find("body");
+            if (body == null)
+            {
+                this.Line("    CarPartPositions 0-3 kept: the main model has no body section");
+            }
+            else
+            {
+                float[] b = body.Bounds;
+                float maxX = Math.Max(Math.Abs(b[0] + b[3]), Math.Abs(b[0] + b[6]));
+                float minY = b[1] + b[4];
+                float front = -(b[2] + b[5]), rear = -(b[2] + b[8]);   // model Z backward
+                float x = 0.675f * maxX;
+                this.SetPart(0, -x, minY + 0.489f, front - 0.216f, "front light L");
+                this.SetPart(1, x, minY + 0.489f, front - 0.216f, "front light R");
+                this.SetPart(2, -x, minY + 0.635f, rear + 0.143f, "rear light L");
+                this.SetPart(3, x, minY + 0.635f, rear + 0.143f, "rear light R");
+            }
+            this.SetPart(4, camera.SteeringWheel.X, camera.SteeringWheel.Y - 0.057f, camera.SteeringWheel.Z + 0.015f, "next to the steering wheel");
+        }
+
+        private void SetPart(long part, float x, float y, float z, string what)
+        {
+            double px = Math.Round((double) x, 6), py = Math.Round((double) y, 6), pz = Math.Round((double) z, 6);
+            if (this.target.Execute("UPDATE CarPartPositions SET PartPosX = ?, PartPosY = ?, PartPosZ = ? WHERE Ordinal = ? AND PartId = ?", px, py, pz, this.carId, part) == 0)
+            {
+                this.target.Execute("INSERT INTO CarPartPositions (ID, Ordinal, PartId, PartPosX, PartPosY, PartPosZ) VALUES (?, ?, ?, ?, ?, ?)", (this.carId * 1000) + part, this.carId, part, px, py, pz);
+            }
+            this.Line(string.Format(CultureInfo.InvariantCulture, "    CarPartPositions {0} part {1} ({2}) = {3}, {4}, {5}", this.carId, part, what, px, py, pz));
         }
 
         // FM3 torque curves -> FM4 (measured on the 941 camshaft rows of the engines both games have):
@@ -1546,7 +1606,13 @@ namespace ForzaStudio
                         // Brakes (type 1): converted; the donor's, renamed, if that fails.
                         try
                         {
-                            data = ConvertBrake(data, Path.GetFileName(name), this.Report);
+                            // Its warnings only for a brake that stays: a placeholder becomes the donor's (ReplacePlaceholderBrakes).
+                            StringBuilder warnings = new StringBuilder();
+                            data = ConvertBrake(data, Path.GetFileName(name), warnings);
+                            if (!IsPlaceholderBrake(data) || donor.Find(donorPrefix + name.Substring(prefix.Length)) == null)
+                            {
+                                this.Report.Append(warnings.ToString());
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -1619,6 +1685,21 @@ namespace ForzaStudio
         // without brakes of their own only).
         private const int PlaceholderBrakeVertices = 50;
 
+        private static int BrakeVertices(byte[] data)
+        {
+            int vertices = 0;
+            foreach (CarbinModel.Section section in new CarbinModel(data).Sections)
+            {
+                vertices += section.Lod.Count + section.Lod0.Count;
+            }
+            return vertices;
+        }
+
+        private static bool IsPlaceholderBrake(byte[] data)
+        {
+            return BrakeVertices(data) < PlaceholderBrakeVertices;
+        }
+
         private void ReplacePlaceholderBrakes(ForzaZip car, ForzaZip donor, string prefix, string donorPrefix)
         {
             foreach (ForzaZip.Entry entry in new List<ForzaZip.Entry>(car.Entries))
@@ -1628,11 +1709,7 @@ namespace ForzaStudio
                 {
                     continue;
                 }
-                int vertices = 0;
-                foreach (CarbinModel.Section section in new CarbinModel(car.Read(entry)).Sections)
-                {
-                    vertices += section.Lod.Count + section.Lod0.Count;
-                }
+                int vertices = BrakeVertices(car.Read(entry));
                 if (vertices >= PlaceholderBrakeVertices)
                 {
                     continue;
@@ -1796,6 +1873,7 @@ namespace ForzaStudio
             {
                 return;
             }
+            this.traffic = true;
             if (driverSeat != null)
             {
                 this.Line("  {0}: the traffic driver is part of it (FM4 draws its own); in the close-up models it is the other seat mirrored", driverSeat);
