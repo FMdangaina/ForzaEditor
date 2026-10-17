@@ -210,30 +210,17 @@ namespace ForzaStudio
                 item.Corners = new PointF[] { node.Transform(minX, minY), node.Transform(maxX, minY), node.Transform(maxX, maxY), node.Transform(minX, maxY) };
                 float opacity = node.Opacity;
                 Color color = Color.White;
-                foreach (Node child in node.Children)
+                Node material = MaterialOf(node);
+                if (material != null)
                 {
-                    if (child.Record == null || child.Record.Type != AnarkFbf.RecordType.Material)
+                    float[] rgb = this.MaterialDiffuse(material);
+                    opacity *= material.Element.GetFloat("opacity", 100) / 100;
+                    color = Color.FromArgb(255, Clamp(rgb[0] / 255), Clamp(rgb[1] / 255), Clamp(rgb[2] / 255));
+                    Node image = ImageOf(material);
+                    if (image != null)
                     {
-                        continue;
+                        item.Texture = image.Record.Path;
                     }
-                    // .fbf material: float diffuse r, g, b, a (0..1); the graph may override diffuse (0..255) and opacity
-                    byte[] m = child.Record.Body;
-                    float r = AnarkFbf.ReadFloat(m, 0), g = AnarkFbf.ReadFloat(m, 4), bl = AnarkFbf.ReadFloat(m, 8);
-                    AnarkBgf.Element me = child.Element;
-                    r = me.GetFloat("diffuse.r", r * 255) / 255;
-                    g = me.GetFloat("diffuse.g", g * 255) / 255;
-                    bl = me.GetFloat("diffuse.b", bl * 255) / 255;
-                    opacity *= me.GetFloat("opacity", 100) / 100;
-                    color = Color.FromArgb(255, Clamp(r), Clamp(g), Clamp(bl));
-                    foreach (Node image in child.Children)
-                    {
-                        if (image.Record != null && image.Record.Type == AnarkFbf.RecordType.Image)
-                        {
-                            item.Texture = image.Record.Path;
-                            break;
-                        }
-                    }
-                    break;
                 }
                 item.Color = Color.FromArgb(Clamp(opacity), color);
                 return item;
@@ -264,6 +251,315 @@ namespace ForzaStudio
         {
             int v = (int) Math.Round(unit * 255);
             return (v < 0) ? 0 : (v > 255) ? 255 : v;
+        }
+
+        // The material under a model, and the image under a material.
+        public static Node MaterialOf(Node model)
+        {
+            foreach (Node child in model.Children)
+            {
+                if (child.Record != null && child.Record.Type == AnarkFbf.RecordType.Material)
+                {
+                    return child;
+                }
+            }
+            return null;
+        }
+
+        public static Node ImageOf(Node material)
+        {
+            foreach (Node child in material.Children)
+            {
+                if (child.Record != null && child.Record.Type == AnarkFbf.RecordType.Image)
+                {
+                    return child;
+                }
+            }
+            return null;
+        }
+
+        // .fbf material: float diffuse r, g, b, a (0..1); the graph may override diffuse (0..255). Returns 0..255.
+        private float[] MaterialDiffuse(Node material)
+        {
+            byte[] m = material.Record.Body;
+            float[] rgb = new float[3];
+            for (int k = 0; k < 3; k++)
+            {
+                rgb[k] = material.Element.GetFloat(DiffuseNames[k], AnarkFbf.ReadFloat(m, k * 4) * 255);
+            }
+            return rgb;
+        }
+
+        // ---- Editing ----
+        // Only values already in the files change: no property, string or record is added, so every count in the
+        // .bgf header (strings at 0x3C, properties at 0x2C/0x78, components 0x28/0x74, behaviours 0x30/0x7C) and the
+        // order of the graph properties, which the slides and animations may count on, stay as they are.
+        // A value is written where the game reads it: the graph property when the element has one, else the base
+        // (.bsg node, .fbf material/text/image record). Every .bgf string belongs to one property only (all 431 files),
+        // so a text or font is changed in place.
+
+        public const string SourceGraph = "bgf", SourceBase = "bsg", SourceScene = "fbf";
+
+        private static readonly string[] DiffuseNames = new string[] { "diffuse.r", "diffuse.g", "diffuse.b" };
+        private static readonly string[] TextColorNames = new string[] { "textcolor.r", "textcolor.g", "textcolor.b" };
+
+        public bool FbfChanged, BgfChanged, BsgChanged;
+
+        public bool Changed { get { return this.FbfChanged || this.BgfChanged || this.BsgChanged; } }
+
+        // Index in AnarkBsg.Node.Values of a transform property, or -1.
+        private static int BaseIndex(string name)
+        {
+            if (name == "opacity")
+            {
+                return AnarkBsg.Node.Opacity;
+            }
+            int dot = name.IndexOf('.');
+            if (dot < 0 || dot != name.Length - 2)
+            {
+                return -1;
+            }
+            int axis = name[dot + 1] - 'x';
+            if (axis < 0 || axis > 2)
+            {
+                return -1;
+            }
+            switch (name.Substring(0, dot))
+            {
+                case "position": return AnarkBsg.Node.Position + axis;
+                case "rotation": return AnarkBsg.Node.Rotation + axis;
+                case "scale": return AnarkBsg.Node.Scale + axis;
+                case "pivot": return AnarkBsg.Node.Pivot + axis;
+            }
+            return -1;
+        }
+
+        private static bool IsSpatial(Node node)
+        {
+            AnarkBgf.ElementType t = node.Element.Type;
+            return t == AnarkBgf.ElementType.Node || t == AnarkBgf.ElementType.Text || t == AnarkBgf.ElementType.Component;
+        }
+
+        // Where a transform property (position/rotation/scale/pivot .x/.y/.z, opacity) of a node lives: SourceGraph,
+        // SourceBase, or null when it cannot be edited without adding a property.
+        public string TransformSource(Node node, string name)
+        {
+            if (!IsSpatial(node) || BaseIndex(name) < 0)
+            {
+                return null;
+            }
+            AnarkBgf.Property p = node.Element.Find(name);
+            if (p != null)
+            {
+                return (p.Kind == AnarkBgf.ValueKind.Float) ? SourceGraph : null;
+            }
+            return (node.Base != null) ? SourceBase : null;
+        }
+
+        // Value as the dash shows it: graph units (radians, opacity 0..100).
+        public float GetTransform(Node node, string name)
+        {
+            int k = BaseIndex(name);
+            if (k < 0)
+            {
+                throw new ArgumentException("not a transform property: " + name);
+            }
+            float[] v = (node.Base != null) ? node.Base.Values : DefaultValues;
+            float fallback = (k == AnarkBsg.Node.Opacity) ? v[k] * 100 : v[k];
+            return node.Element.GetFloat(name, fallback);
+        }
+
+        public bool SetTransform(Node node, string name, float value)
+        {
+            string source = this.TransformSource(node, name);
+            if (source == SourceGraph)
+            {
+                node.Element.Find(name).Float = value;
+                this.BgfChanged = true;
+            }
+            else if (source == SourceBase)
+            {
+                int k = BaseIndex(name);
+                node.Base.Values[k] = (k == AnarkBsg.Node.Opacity) ? value / 100 : value;
+                this.BsgChanged = true;
+            }
+            else
+            {
+                return false;
+            }
+            this.Update();
+            return true;
+        }
+
+        // Colour of a text (graph textcolor) or of a model (its material: graph diffuse, else the .fbf material).
+        public string ColorSource(Node node)
+        {
+            if (node.Record == null)
+            {
+                return null;
+            }
+            if (node.Record.Type == AnarkFbf.RecordType.Text)
+            {
+                foreach (string name in TextColorNames)
+                {
+                    AnarkBgf.Property p = node.Element.Find(name);
+                    if (p == null || p.Kind != AnarkBgf.ValueKind.Float)
+                    {
+                        return null;
+                    }
+                }
+                return SourceGraph;
+            }
+            if (node.Record.Type == AnarkFbf.RecordType.Model)
+            {
+                Node material = MaterialOf(node);
+                if (material == null)
+                {
+                    return null;
+                }
+                bool graph = false, scene = false;
+                foreach (string name in DiffuseNames)
+                {
+                    AnarkBgf.Property p = material.Element.Find(name);
+                    if (p != null && p.Kind != AnarkBgf.ValueKind.Float)
+                    {
+                        return null;
+                    }
+                    graph |= p != null;
+                    scene |= p == null;
+                }
+                return (graph && scene) ? SourceGraph + "+" + SourceScene : graph ? SourceGraph : SourceScene;
+            }
+            return null;
+        }
+
+        public Color GetColor(Node node)
+        {
+            if (node.Record != null && node.Record.Type == AnarkFbf.RecordType.Text)
+            {
+                AnarkBgf.Element e = node.Element;
+                return Color.FromArgb(Clamp(e.GetFloat("textcolor.r", 255) / 255), Clamp(e.GetFloat("textcolor.g", 255) / 255), Clamp(e.GetFloat("textcolor.b", 255) / 255));
+            }
+            Node material = (node.Record != null && node.Record.Type == AnarkFbf.RecordType.Model) ? MaterialOf(node) : null;
+            if (material == null)
+            {
+                return Color.White;
+            }
+            float[] rgb = this.MaterialDiffuse(material);
+            return Color.FromArgb(Clamp(rgb[0] / 255), Clamp(rgb[1] / 255), Clamp(rgb[2] / 255));
+        }
+
+        public bool SetColor(Node node, Color color)
+        {
+            if (this.ColorSource(node) == null)
+            {
+                return false;
+            }
+            float[] rgb = new float[] { color.R, color.G, color.B };
+            if (node.Record.Type == AnarkFbf.RecordType.Text)
+            {
+                for (int k = 0; k < 3; k++)
+                {
+                    node.Element.Find(TextColorNames[k]).Float = rgb[k];
+                }
+                this.BgfChanged = true;
+            }
+            else
+            {
+                Node material = MaterialOf(node);
+                for (int k = 0; k < 3; k++)
+                {
+                    AnarkBgf.Property p = material.Element.Find(DiffuseNames[k]);
+                    if (p != null)
+                    {
+                        p.Float = rgb[k];
+                        this.BgfChanged = true;
+                    }
+                    else
+                    {
+                        AnarkFbf.WriteFloat(material.Record.Body, k * 4, rgb[k] / 255);
+                        this.FbfChanged = true;
+                    }
+                }
+            }
+            this.Update();
+            return true;
+        }
+
+        // Text and font of a text node: the graph strings (every text element has them).
+        public bool SetText(Node node, string text)
+        {
+            return this.SetString(node, "textstring", text);
+        }
+
+        public bool SetFont(Node node, string font)
+        {
+            return this.SetString(node, "font", font);
+        }
+
+        private bool SetString(Node node, string name, string value)
+        {
+            if (node.Record == null || node.Record.Type != AnarkFbf.RecordType.Text || value == null || !IsLatin1(value))
+            {
+                return false;
+            }
+            AnarkBgf.Property p = node.Element.Find(name);
+            if (p == null || p.Kind != AnarkBgf.ValueKind.String || p.Value >= this.Bgf.Strings.Count)
+            {
+                return false;
+            }
+            this.Bgf.Strings[(int) p.Value] = value;
+            this.BgfChanged = true;
+            this.Update();
+            return true;
+        }
+
+        private static bool IsLatin1(string s)
+        {
+            foreach (char c in s)
+            {
+                if (c > 0xFF)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Texture of a model: the GAME:\ path in the .fbf image record under its material.
+        public Node TextureNode(Node node)
+        {
+            if (node.Record == null)
+            {
+                return null;
+            }
+            if (node.Record.Type == AnarkFbf.RecordType.Image)
+            {
+                return node;
+            }
+            if (node.Record.Type == AnarkFbf.RecordType.Model)
+            {
+                Node material = MaterialOf(node);
+                return (material != null) ? ImageOf(material) : null;
+            }
+            if (node.Record.Type == AnarkFbf.RecordType.Material)
+            {
+                return ImageOf(node);
+            }
+            return null;
+        }
+
+        public bool SetTexture(Node node, string gamePath)
+        {
+            Node image = this.TextureNode(node);
+            if (image == null || string.IsNullOrEmpty(gamePath) || !IsLatin1(gamePath))
+            {
+                return false;
+            }
+            image.Record.Path = gamePath;
+            this.FbfChanged = true;
+            this.Update();
+            return true;
         }
 
         // The image file of a GAME:\MEDIA\CARS\<car>\DIGITALGAUGE\<name>.TGA path inside a car zip: digitalgauge/<name>.xds
