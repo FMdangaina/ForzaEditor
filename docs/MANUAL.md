@@ -188,7 +188,9 @@ Open a car model from the game folder (FM4): the panel reads the car's cockpit c
   default (0, 0.21, -0.51, from `Media\Camera\CameraSettings.ini`).
 - The view shows the wheel point (yellow cross), the eye (cyan cross) and what it sees (FOV 62°).
 - **Wheel From Cockpit Model** computes the wheel point from the `steering_wheel` part of the car's
-  `_cockpit.carbin` (within about 1 cm of the game's own points on FM4 cars).
+  `_cockpit.carbin` (within about 1 cm of the game's own points on FM4 cars). It also sets the eye
+  offset X to 0, so the eye sits right behind the wheel (FM3 cars often carry a side offset of about
+  2 cm; FM4 cars have 0).
 - **View From Camera** puts the viewer at the eye, looking forward, with the cockpit FOV.
 - **Save to Database** writes both rows into `gamedb.slt` (missing rows are added) after a backup in
   the `bak` folder. Close the game first.

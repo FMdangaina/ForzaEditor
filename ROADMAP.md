@@ -24,21 +24,20 @@ Fastest first.
 
 Quick (hours to a day):
 
-1. 9 3h: FM3 cockpit camera x offset to 0 (code done, user check open)
-2. 9 3i: backfire flames missing on FM3 ports (study first: where FM4 places the flame)
-3. 7: OBJ wheel import, LOD 0 and LODs 1+ split between the two carbins (bug from Discord)
+1. 9 3i: backfire flames missing on FM3 ports (study first: where FM4 places the flame)
+2. 7: OBJ wheel import, LOD 0 and LODs 1+ split between the two carbins (bug from Discord)
 
 Medium (a few days):
 
-4. 11: Wheel morph targets (why the E30 rim does not scale and the S60 one does)
-5. 14.1: FH1/FH2 traffic models
-6. 15.1: Format documentation (grows with each topic)
+3. 11: Wheel morph targets (why the E30 rim does not scale and the S60 one does)
+4. 14.1: FH1/FH2 traffic models
+5. 15.1: Format documentation (grows with each topic)
 
 Long (research first, size unknown):
 
-7. 3.9: Port FH → FM4 from a FH1/FH2 car DLC package (**very important**; was Now, paused 2026-10-17 for 12)
-8. 13.1: Game materials and shaders (hardcoded or shader files)
-9. 14.2: FM2 models
+6. 3.9: Port FH → FM4 from a FH1/FH2 car DLC package (**very important**; was Now, paused 2026-10-17 for 12)
+7. 13.1: Game materials and shaders (hardcoded or shader files)
+8. 14.2: FM2 models
 
 Always open: 15.2 Discord feedback, added here as items when reported.
 
@@ -125,16 +124,14 @@ Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 
 ## 9. Forza Motorsport 3 → FM4 🔧
 
-- [ ] **3h** Automatic cockpit camera on FM3 cars: x should be 0.00 from the steering wheel, it was
-      about 0.020 (user, 2026-10-17). Cause: the port kept FM3's `CamCockpitOffsetX` (non-zero on more
-      than half of FM3's cars, measured from FM3's own reference), FM4's is 0 on 495/503 cars; the wheel
-      point itself is right (section origin = box centre on all 311 FM3 / 313 FM4 wheels). Fix: port and
-      the panel's rebuild set offset x to 0 (`CarCamera.SetSteeringWheelFromModel`). User check open
 - [ ] **3i** No backfire flames on FM3 ports in FM4 (user, 2026-10-17). Sound side is the same in both
       games (`BackfireLevels` from exhaust + cam upgrade, identical audio configs); the flame is FM4 only
       (`Media\Effects\Backfire.xml`, `Flame.tga`, `FireDistortion.tga`). To find: where FM4 places the
       flame (exhaust point in the carbin, DB or fixed) and what FM3 cars lack. Compare an FM4 car with
       flames and the same car from FM3. Notes in memory `backfire-findings`
+- [x] 3h Automatic cockpit camera on FM3 cars centred on the steering wheel, checked by the user
+      2026-10-17: the port kept FM3's `CamCockpitOffsetX` (about 0.020; FM4's is 0 on 495/503 cars);
+      port and the panel's rebuild now set offset x to 0 (`CarCamera.SetSteeringWheelFromModel`)
 - [x] 3g Engine sound banks of the same name: rule for now (user, 2026-10-17): FM4's bank when the
       names match, the source game's when FM4 lacks it. Listening tool moved to Maybe later
 - [x] 3f FM3 digital dashes, checked in game 2026-10-17 (AUD_1_RS6_03 in DEV):
