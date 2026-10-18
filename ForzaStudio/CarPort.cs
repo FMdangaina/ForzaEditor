@@ -124,7 +124,57 @@ namespace ForzaStudio
             map["z_gauge_emissive_alpha"] = "badge";
             map["gauge_emissive_alpha"] = "badge";
             map["deprecated"] = null;
+
+            // The FH1 / FH2 materials of all their cars that FM4 has no shader for, each with the FM4
+            // material the compatibility list (MaterialSuggestions: what the name says the part is, the
+            // shader similarity, the material FM4 uses on that part) agrees on. Measured on the 175 FH1, 216
+            // FH2 and FM3 cars, 2026-10-18 (decided by the user: compatible ones automatic, the others in
+            // the review with the best choice preselected).
+            // Lights, by what the name says (lights_amber: FM4's custom shader, as indicator_left above).
+            foreach (string name in new string[] { "oldhead", "fullbeam", "hidhead", "fogwhite", "drlinlwhite", "drlinrwhite", "drlwhiteswitch", "drlwhiteoff" })
+            {
+                map[name] = "head_light";
+            }
+            foreach (string name in new string[] { "fogred", "linred", "rinred", "lindtailside", "rindtailside", "lindtailsideunique", "rindtailsideunique", "brinl", "brinr", "drlred", "drlinlred", "drlinrred" })
+            {
+                map[name] = "tail_light";
+            }
+            foreach (string name in new string[] { "slorange", "slinlorange", "slinrorange", "drlorange", "drlinrorange", "drlbrakeorange", "sidelightorange" })
+            {
+                map[name] = "lights_amber";
+            }
+            map["brkreverse"] = "reverse_light";
+            // Any name with "gls" in it is light glass (MapMaterial; user's rule 2026-10-18).
+            // The number plate lamp (in the light sections): the most similar shader, reflector (74).
+            map["numplate"] = "reflector";
+            // The plate itself, a quad in bumperFrameR / bumperFrameF: FM4 draws those sections with
+            // bumper_frame (325 and 331 cars).
+            map["numberplate"] = "bumper_frame";
+            // The gauge range marks of FH cockpits are named after their section; FM4's are gauge_needle (238 cars).
+            foreach (string gauge in new string[] { "tach", "speed", "fuel" })
+            {
+                foreach (string mark in new string[] { "_min", "_mid", "_max" })
+                {
+                    map[gauge + mark] = "gauge_needle";
+                }
+            }
             return map;
+        }
+
+        // MaterialMap, plus the name rules a list can't hold: any FH name with "gls" in it
+        // (lights_gls_tail_light, ...) is the glass over a light, lights_glass.
+        private static bool MapMaterial(string name, out string to)
+        {
+            if (MaterialMap.TryGetValue(name, out to))
+            {
+                return true;
+            }
+            if (name.IndexOf("gls", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                to = "lights_glass";
+                return true;
+            }
+            return false;
         }
 
         // Every parameter name the FM4 cars' ShaderSettings.xml use (all 315 cars read). FH2 adds
@@ -852,7 +902,18 @@ namespace ForzaStudio
                 issue.Kind = "material";
                 issue.Where = string.Join(" ", material.Value.ToArray());
                 issue.Value = material.Key;
-                issue.Problem = string.Format("material {0} is used by no FM4 car (renders black)", material.Key);
+                // Not in the port table: no compatible FM4 material (KO). The best choice is preselected:
+                // the name rule, the most similar shader, else what FM4 uses most on that part.
+                string basis;
+                string best = MaterialSuggestions.BestFor(material.Key, this.MediaName + ".carbin", material.Value, out basis);
+                issue.Problem = string.Format("KO: material {0} has no compatible FM4 material (renders black){1}", material.Key, (best != null) ? string.Format("; best choice {0} ({1})", best, basis) : "");
+                if (best != null && MaterialSuggestions.For(material.Key, this.MediaName + ".carbin", 2).FindIndex(delegate(MaterialSuggestions.Entry e) { return e.Name == best; }) < 0)
+                {
+                    Choice c = new Choice();
+                    c.Value = best;
+                    c.Label = "★ " + best + "   (" + basis + ")";
+                    issue.Choices.Add(c);
+                }
                 // ★ recommended first, then the common FM4 materials, then ~ the unusual ones
                 foreach (MaterialSuggestions.Entry entry in MaterialSuggestions.For(material.Key, this.MediaName + ".carbin", 2))
                 {
@@ -861,8 +922,9 @@ namespace ForzaStudio
                     c.Label = entry.ToString();
                     issue.Choices.Add(c);
                 }
-                issue.Suggested = SuggestMaterial(material.Key, this.MediaName + ".carbin");
+                issue.Suggested = best;
                 this.Issues.Add(issue);
+                this.Line("  REVIEW KO {0} ({1}): best choice {2}", material.Key, issue.Where, (best != null) ? best + " (" + basis + ")" : "none");
             }
             if (this.unknownMaterials.Count > 0)
             {
@@ -1654,6 +1716,7 @@ namespace ForzaStudio
             }
             this.RebuildCloseUpModels(car, donor, prefix, donorPrefix, materials);
             this.ReplacePlaceholderBrakes(car, donor, prefix, donorPrefix);
+            this.ReplacePlaceholderCollision(car, donor, prefix);
             this.CockpitRig(car, donor, prefix, donorPrefix);
             this.DriverHandsFromSteeringWheel(car, prefix);
             if (shaderSettings != null)
@@ -1675,6 +1738,172 @@ namespace ForzaStudio
             this.carZip = car;
             this.carZipPath = path;
             this.Line("car zip: {0} entries + port_log.txt, {1} models converted -> {2}", car.Entries.Count, models, this.Relative(path));
+        }
+
+        // The collision (physics/maxdata.xml: a bevelled box and spheres; Flags 2 = body, 1 = contact
+        // points of r 0.05). 44 FH1 and 2 FH2 cars have a placeholder there: 4 spheres of r 0.375, Flags
+        // 3, low at the wheel corners (GMC_YukonXL_01, BUS_TOUR_12), and a box that may not fit the
+        // model (GMC_YukonXL_01: 26 cm short of the front bumper): in FM4 a guardrail went through the
+        // Yukon (user 2026-10-18). FM4 cars have 26-39 spheres (190 of 313: 20 + 12). On a traffic car
+        // such a collision is rebuilt. The box from the main model's body section by FM4's rule (313 cars, medians): x =
+        // body x - 0.018, top = body top - 0.010, front = body front + 0.096, rear = body rear - 0.046,
+        // floor = the ground (wheel centre y - tyre radius, +0.006), bevels 0.611 / 0.744 of the width
+        // (front / rear) and 0.819 / 0.805 of the length. The spheres are the donor's, moved from its
+        // box into this one axis by axis, radii scaled by the smaller of the x and y ratios, so they stick out
+        // of the box as much as the donor's do (the source has
+        // nothing; decided for traffic cars' brakes by the user 2026-10-17).
+        private const int PlaceholderSpheres = 10;
+
+        private void ReplacePlaceholderCollision(ForzaZip car, ForzaZip donor, string prefix)
+        {
+            ForzaZip.Entry entry = car.Find("physics/maxdata.xml");
+            ForzaZip.Entry template = donor.Find("physics/maxdata.xml");
+            ForzaZip.Entry main = car.Find(prefix + ".carbin");
+            if (entry == null || template == null || main == null)
+            {
+                return;
+            }
+            XmlDocument own = new XmlDocument();
+            own.LoadXml(Encoding.UTF8.GetString(car.Read(entry)).Trim('﻿', ' ', '\r', '\n', '\t'));
+            XmlElement spheres = (XmlElement) own.SelectSingleNode("/MAXData/Collision/CollSpheres");
+            XmlElement box = (XmlElement) own.SelectSingleNode("/MAXData/Collision/BoundingBox");
+            if (spheres == null || box == null || spheres.ChildNodes.Count >= PlaceholderSpheres)
+            {
+                return;
+            }
+            if (!this.traffic)
+            {
+                // Driveable FH1 cars have it too (AUD_R8GT_11, MER_S65AMG_12, NIS_GTR_12... 26 of the 44),
+                // ported and working: left as it is (decided by the user 2026-10-18, traffic cars only).
+                this.Line("  collision: a placeholder of {0} spheres in the source; kept (only traffic cars get it rebuilt)", spheres.ChildNodes.Count);
+                return;
+            }
+            CarbinModel.Section body = new CarbinModel(car.Read(main)).Find("body");
+            if (body == null)
+            {
+                this.Line("  collision: a placeholder of {0} spheres, but the main model has no body section; left as is", spheres.ChildNodes.Count);
+                return;
+            }
+            float[] b = body.Bounds;
+            double wheelY = Convert.ToDouble(this.target.Scalar("SELECT PartPosY FROM CarPartPositions WHERE Ordinal = ? AND PartId = 5", this.carId) ?? 0.0, CultureInfo.InvariantCulture);
+            object[] tyre = this.target.Query("SELECT FrontTireWidthMM, FrontTireAspect, FrontWheelDiameterIN FROM Data_Car WHERE Id = ?", this.carId).Rows[0];
+            double radius = (Convert.ToDouble(tyre[2], CultureInfo.InvariantCulture) * 0.0254 / 2) + (Convert.ToDouble(tyre[0], CultureInfo.InvariantCulture) * Convert.ToDouble(tyre[1], CultureInfo.InvariantCulture) / 100000.0);
+            double maxX = Math.Max(Math.Abs(b[0] + b[3]), Math.Abs(b[0] + b[6])) - 0.018;
+            double minY = wheelY - radius + 0.006;
+            double maxY = b[1] + b[7] - 0.010;
+            double maxZ = -(b[2] + b[5]) + 0.096;    // model Z backward
+            double minZ = -(b[2] + b[8]) - 0.046;
+            double width = 2 * maxX, length = maxZ - minZ;
+
+            XmlDocument theirs = new XmlDocument();
+            theirs.LoadXml(Encoding.UTF8.GetString(donor.Read(template)).Trim('﻿', ' ', '\r', '\n', '\t'));
+            XmlElement donorBox = (XmlElement) theirs.SelectSingleNode("/MAXData/Collision/BoundingBox");
+            XmlElement donorSpheres = (XmlElement) theirs.SelectSingleNode("/MAXData/Collision/CollSpheres");
+            double dMinX = Attribute(donorBox, "MinX"), dMaxX = Attribute(donorBox, "MaxX"), dMinY = Attribute(donorBox, "MinY"), dMaxY = Attribute(donorBox, "MaxY"), dMinZ = Attribute(donorBox, "MinZ"), dMaxZ = Attribute(donorBox, "MaxZ");
+            double sx = width / (dMaxX - dMinX), sy = (maxY - minY) / (dMaxY - dMinY), sz = length / (dMaxZ - dMinZ);
+
+            SetAttribute(box, "MinX", -maxX);
+            SetAttribute(box, "MaxX", maxX);
+            SetAttribute(box, "MinY", minY);
+            SetAttribute(box, "MaxY", maxY);
+            SetAttribute(box, "MinZ", minZ);
+            SetAttribute(box, "MaxZ", maxZ);
+            SetAttribute(box, "BevelFrontX", width * 0.611);
+            SetAttribute(box, "BevelFrontZ", length * 0.819);
+            SetAttribute(box, "BevelRearX", width * 0.744);
+            SetAttribute(box, "BevelRearZ", length * 0.805);
+            int placeholder = spheres.ChildNodes.Count;
+            spheres.RemoveAll();
+            foreach (XmlAttribute attribute in donorSpheres.Attributes)
+            {
+                spheres.SetAttribute(attribute.Name, attribute.Value);
+            }
+            foreach (XmlNode node in donorSpheres.ChildNodes)
+            {
+                XmlElement sphere = node as XmlElement;
+                if (sphere == null)
+                {
+                    continue;
+                }
+                XmlElement copy = (XmlElement) own.ImportNode(sphere, true);
+                SetAttribute(copy, "PosX", (Attribute(sphere, "PosX") - ((dMinX + dMaxX) / 2)) * sx);
+                SetAttribute(copy, "PosY", minY + ((Attribute(sphere, "PosY") - dMinY) * sy));
+                SetAttribute(copy, "PosZ", minZ + ((Attribute(sphere, "PosZ") - dMinZ) * sz));
+                SetAttribute(copy, "Radius", Attribute(sphere, "Radius") * Math.Min(sx, sy));
+                spheres.AppendChild(copy);
+            }
+            int filled = FillSphereGaps(own, spheres);
+            StringBuilder text = new StringBuilder();
+            using (XmlWriter writer = XmlWriter.Create(text, new XmlWriterSettings { Indent = true, IndentChars = "  ", OmitXmlDeclaration = true }))
+            {
+                own.DocumentElement.WriteTo(writer);
+            }
+            car.Replace(entry, Encoding.UTF8.GetBytes("\r\n" + text.ToString().Replace(" />", "/>") + "\r\n"));
+            this.donorContent.Add(string.Format(CultureInfo.InvariantCulture, "collision: the donor's {0} spheres fitted to the car's box (scale x {1:0.###}, y {2:0.###}, z {3:0.###}), the source's is a placeholder of {4}", spheres.ChildNodes.Count, sx, sy, sz, placeholder));
+            this.Line(string.Format(CultureInfo.InvariantCulture, "  collision: a placeholder of {0} spheres; box from the model x +-{1:0.###}, y {2:0.###}..{3:0.###}, z {4:0.###}..{5:0.###}, the donor's {6} spheres fitted to it", placeholder, maxX, minY, maxY, minZ, maxZ, spheres.ChildNodes.Count - filled));
+            if (filled > 0)
+            {
+                this.Line("  collision: {0} spheres added between the side spheres the stretch left apart ({1} in all; FM4 cars have at most 39, more is untested)", filled, spheres.ChildNodes.Count);
+            }
+        }
+
+        // A donor collision stretched along a much longer car (BUS_TOUR_12: the Hummer's x 2.9) leaves gaps
+        // between the body spheres (Flags 2) along each side. On each side (x < 0, x > 0) the large ones
+        // (at least half the side's largest radius), front to back: two that do not touch get spheres in
+        // between, position and radius interpolated, until each touches the next. Returns how many.
+        private static int FillSphereGaps(XmlDocument document, XmlElement spheres)
+        {
+            List<XmlElement> all = new List<XmlElement>();
+            foreach (XmlNode node in spheres.ChildNodes)
+            {
+                if (node is XmlElement)
+                {
+                    all.Add((XmlElement) node);
+                }
+            }
+            int added = 0;
+            foreach (int side in new int[] { -1, 1 })
+            {
+                List<XmlElement> chain = all.FindAll(delegate(XmlElement s) { return s.GetAttribute("Flags") == "2" && Attribute(s, "PosX") * side > 0.05; });
+                double largest = 0;
+                foreach (XmlElement s in chain)
+                {
+                    largest = Math.Max(largest, Attribute(s, "Radius"));
+                }
+                chain = chain.FindAll(delegate(XmlElement s) { return Attribute(s, "Radius") >= largest / 2; });
+                chain.Sort(delegate(XmlElement a, XmlElement b) { return Attribute(b, "PosZ").CompareTo(Attribute(a, "PosZ")); });
+                for (int i = 0; i + 1 < chain.Count; i++)
+                {
+                    XmlElement a = chain[i], b = chain[i + 1];
+                    double ra = Attribute(a, "Radius"), rb = Attribute(b, "Radius");
+                    double dx = Attribute(b, "PosX") - Attribute(a, "PosX"), dy = Attribute(b, "PosY") - Attribute(a, "PosY"), dz = Attribute(b, "PosZ") - Attribute(a, "PosZ");
+                    double distance = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+                    int count = (int) Math.Ceiling(distance / (ra + rb)) - 1;
+                    for (int k = 1; k <= count; k++)
+                    {
+                        double t = (double) k / (count + 1);
+                        XmlElement sphere = document.CreateElement("Sphere" + (all.Count + added));
+                        SetAttribute(sphere, "Radius", ra + ((rb - ra) * t));
+                        SetAttribute(sphere, "PosX", Attribute(a, "PosX") + (dx * t));
+                        SetAttribute(sphere, "PosY", Attribute(a, "PosY") + (dy * t));
+                        SetAttribute(sphere, "PosZ", Attribute(a, "PosZ") + (dz * t));
+                        sphere.SetAttribute("Flags", "2");
+                        spheres.AppendChild(sphere);
+                        added++;
+                    }
+                }
+            }
+            return added;
+        }
+
+        private static double Attribute(XmlElement element, string name)
+        {
+            return double.Parse(element.GetAttribute(name), CultureInfo.InvariantCulture);
+        }
+
+        private static void SetAttribute(XmlElement element, string name, double value)
+        {
+            element.SetAttribute(name, value.ToString("0.000000", CultureInfo.InvariantCulture));
         }
 
         // FH traffic cars' brakes are placeholders (GMC_YukonXL_01: one section of 17 vertices per file,
@@ -1784,6 +2013,17 @@ namespace ForzaStudio
             CarbinModel source = main;
             if (driverSeat != null)
             {
+                // A bus has no passenger seat: the other seat is an empty part (BUS_TOUR_12 seatR, the
+                // 0.2 m cube). Mirrored, it would take the driver's seat away: the seat stays as it is.
+                CarbinModel.Section other = main.Find((driverSeat == "seatL") ? "seatR" : "seatL");
+                if (other == null || IsEmptyPartSection(other))
+                {
+                    this.Line("  {0}: the traffic driver is part of it, but the other seat is {1}: kept as it is, with the driver", driverSeat, (other == null) ? "missing" : "an empty part");
+                    driverSeat = null;
+                }
+            }
+            if (driverSeat != null)
+            {
                 // The driver's seat becomes the other seat mirrored across the body's center plane
                 // (decided by the user 2026-10-17).
                 string twin = (driverSeat == "seatL") ? "seatR" : "seatL";
@@ -1797,6 +2037,16 @@ namespace ForzaStudio
             foreach (CarbinModel.Section section in main.Sections)
             {
                 mainVertices += section.Lod.Count;
+            }
+            // Empty parts stay out of the close-up models (decided by the user 2026-10-18): FM4's cockpits
+            // have none, and they would be drawn with 'missing'.
+            List<string> emptyParts = new List<string>();
+            foreach (CarbinModel.Section section in source.Sections)
+            {
+                if (IsEmptyPartSection(section))
+                {
+                    emptyParts.Add(section.Name);
+                }
             }
             foreach (string kind in new string[] { "_lod0", "_cockpit" })
             {
@@ -1832,7 +2082,7 @@ namespace ForzaStudio
                 CarbinModel built;
                 try
                 {
-                    built = source.CloseUpFromLod1(head, delegate(string part) { return CockpitPart(part) == cockpit || (cockpit && part == "body"); });
+                    built = source.CloseUpFromLod1(head, delegate(string part) { return !emptyParts.Contains(part) && (CockpitPart(part) == cockpit || (cockpit && part == "body")); });
                 }
                 catch (InvalidDataException ex)
                 {
@@ -1874,6 +2124,10 @@ namespace ForzaStudio
                 return;
             }
             this.traffic = true;
+            if (emptyParts.Count > 0)
+            {
+                this.Line("  close-up models: empty parts left out ({0})", string.Join(" ", emptyParts.ToArray()));
+            }
             if (driverSeat != null)
             {
                 this.Line("  {0}: the traffic driver is part of it (FM4 draws its own); in the close-up models it is the other seat mirrored", driverSeat);
@@ -2224,7 +2478,7 @@ namespace ForzaStudio
         public static string SuggestMaterial(string name, string fileName)
         {
             string to;
-            if (MaterialMap.TryGetValue(name, out to) && to != null)
+            if (MapMaterial(name, out to) && to != null)
             {
                 return LodVariant(to, fileName);
             }
@@ -2310,6 +2564,49 @@ namespace ForzaStudio
             return ConvertModel(data, lod0, report, materials, null, null);
         }
 
+        // An empty part: a section standing for a part the car does not have, drawn as a few cm of geometry
+        // with the material <section>_LOD<n>, which no shader has (FM4 draws it with 'missing', too small
+        // to see). FH cars use it (BUS_TOUR_12: headlightL, winga, glassT, seatR... as 0.2 m cubes at the
+        // origin; also LAM_ReventonRoadster_09, AUD_RS3_11) and so do FM4's own (BMW_M3E30_91 wingz_LOD1,
+        // LAN_Stratos_74 bumperFa_LOD1; wingz_LOD0 in two _lod0 files, none in the 313 _cockpit files).
+        // Measured 2026-10-18; the largest box seen is 0.33 m. In a section with real parts the empty part is
+        // a LOD 2-5 subsection only (wheel_LOD5, seatL_LOD4, bumperFrameR_LOD5: the 0.2 m cube, 23 indices;
+        // FM4's PON_FirebirdTransAm_77 taillightL_LOD5: 29), told by its few indices.
+        private const float EmptyPartSize = 0.35f;
+        private const int EmptyPartIndices = 64;
+
+        public static bool IsEmptyPart(CarbinModel.Section section, string material)
+        {
+            float[] b = section.Bounds;
+            return Regex.IsMatch(material, "^" + Regex.Escape(section.Name) + "_LOD\\d$", RegexOptions.IgnoreCase)
+                && b[6] - b[3] <= EmptyPartSize && b[7] - b[4] <= EmptyPartSize && b[8] - b[5] <= EmptyPartSize;
+        }
+
+        public static bool IsEmptyPart(CarbinModel.Section section, CarbinModel.SubSection sub)
+        {
+            return IsEmptyPart(section, sub.Name)
+                || (Regex.IsMatch(sub.Name, "^" + Regex.Escape(section.Name) + "_LOD\\d$", RegexOptions.IgnoreCase) && sub.Lod >= 2 && sub.Indices.Count <= EmptyPartIndices);
+        }
+
+        // True when every LOD 1 subsection of the section is an empty part.
+        private static bool IsEmptyPartSection(CarbinModel.Section section)
+        {
+            bool any = false;
+            foreach (CarbinModel.SubSection sub in section.SubSections)
+            {
+                if (sub.Lod != 1)
+                {
+                    continue;
+                }
+                if (!IsEmptyPart(section, sub.Name))
+                {
+                    return false;
+                }
+                any = true;
+            }
+            return any;
+        }
+
         // 'materials' (when given) collects the material names the converted model uses; 'renames' are
         // the user's fixes from the review (FH material -> FM4 material, before MaterialMap); 'unknown'
         // collects the materials no FM4 car uses that are left, with the sections they sit on.
@@ -2328,7 +2625,7 @@ namespace ForzaStudio
                     {
                         to = (lod0 && to == "tail_light") ? "tail_light_lod0" : to;
                     }
-                    else if (!MaterialMap.TryGetValue(sub.Name, out to))
+                    else if (!MapMaterial(sub.Name, out to))
                     {
                         continue;
                     }
@@ -2337,9 +2634,9 @@ namespace ForzaStudio
                         remove.Add(new string[] { section.Name, sub.Name });
                         continue;
                     }
-                    if (lod0 && to == "tail_light")
+                    if (lod0)
                     {
-                        to = "tail_light_lod0";
+                        to = LodVariant(to, "x_lod0.carbin");   // tail_light_lod0, reverse_light_lod0
                     }
                     int count;
                     renamed.TryGetValue(sub.Name + " -> " + to, out count);
@@ -2386,12 +2683,31 @@ namespace ForzaStudio
                 // Material -> the sections it sits on.
                 Dictionary<string, List<string>> unknown = new Dictionary<string, List<string>>(StringComparer.Ordinal);
                 List<string> order = new List<string>();
+                List<string> empty = new List<string>();
+                List<string> ownShader = new List<string>();
                 foreach (CarbinModel.Section section in model.Sections)
                 {
                     foreach (CarbinModel.SubSection sub in section.SubSections)
                     {
                         if (Array.IndexOf(ModelMaterials, sub.Name) >= 0)
                         {
+                            continue;
+                        }
+                        if (MaterialSuggestions.HasShader(sub.Name))
+                        {
+                            // FM4 has the shader (window_2, glass_2, hub...): it renders, though no FM4 car uses it.
+                            if (!ownShader.Contains(sub.Name))
+                            {
+                                ownShader.Add(sub.Name);
+                            }
+                            continue;
+                        }
+                        if (IsEmptyPart(section, sub))
+                        {
+                            if (!empty.Contains(section.Name))
+                            {
+                                empty.Add(section.Name);
+                            }
                             continue;
                         }
                         List<string> sections;
@@ -2431,6 +2747,14 @@ namespace ForzaStudio
                         }
                     }
                     report.AppendLine("  WARNING materials no FM4 car uses, may render black: " + string.Join(", ", text.ToArray()));
+                }
+                if (empty.Count > 0)
+                {
+                    report.AppendLine("  empty parts (<part>_LOD<n>, a few cm of geometry, as on FM4 cars; not in the review): " + string.Join(" ", empty.ToArray()));
+                }
+                if (ownShader.Count > 0)
+                {
+                    report.AppendLine("  materials no FM4 car uses but FM4 has the shader for (they render; not in the review): " + string.Join(" ", ownShader.ToArray()));
                 }
             }
             return model.ToBytes();
@@ -2775,7 +3099,7 @@ namespace ForzaStudio
                 string name = section.Groups[1].Value.Substring(prefix.Length);
                 string to;
                 List<string> targets = new List<string>();
-                if (!MaterialMap.TryGetValue(name, out to))
+                if (!MapMaterial(name, out to))
                 {
                     targets.Add(name);
                 }
@@ -3321,7 +3645,7 @@ namespace ForzaStudio
                 }
                 string tire = TireHeader(model);
                 wheel.Replace(entry, model.ToBytes());
-                this.Line("    wheel {0} {1}: LOD 0 a placeholder of {2} vertices, rebuilt from LOD 1: {3} vertices{4}", media, entry.Name, lod0, built, outerRim ? ", tire -> outer_rim (FM4 tire)" : "");
+                this.Line("    wheel {0} {1}: LOD 0 {2}, rebuilt from LOD 1: {3} vertices{4}", media, entry.Name, (lod0 > 0) ? "a placeholder of " + lod0 + " vertices" : "missing (LOD 1-4 only; draw lists now LOD 0-5 as in FM4)", built, outerRim ? ", tire -> outer_rim (FM4 tire)" : "");
                 if (tire != null)
                 {
                     this.Line("    wheel {0} {1}: tire fit in the header rebuilt from LOD 1: {2}", media, entry.Name, tire);

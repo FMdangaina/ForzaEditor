@@ -1424,6 +1424,39 @@ namespace ForzaStudio
             return model;
         }
 
+        // Draw lists of a model holding every LOD in one file: list n of each pass draws LOD n, 6 per pass
+        // (LOD 0-5) on all 420 FM4 car wheels. Four FH wheels (FOR_F350SuperDuty_08, NIS_Leaf_11,
+        // TOY_RAV4Sport_04, VOL_XC70_12, the same in FH1 and FH2) have LOD 1-4 only, 4 lists per pass
+        // starting with LOD 1: padded with empty lists to that layout.
+        private const int LodsPerPass = 6;
+
+        private void PadLodDrawLists()
+        {
+            int perPass = this.DrawLists.Count / 2;
+            int first = int.MaxValue;
+            foreach (Section section in this.Sections)
+            {
+                foreach (SubSection sub in section.SubSections)
+                {
+                    first = Math.Min(first, (int) sub.Lod);
+                }
+            }
+            if (perPass < 1 || this.DrawLists.Count % 2 != 0 || first == int.MaxValue || first + perPass > LodsPerPass || (first == 0 && perPass == LodsPerPass))
+            {
+                return;
+            }
+            List<uint[]> lists = new List<uint[]>();
+            for (int pass = 0; pass < 2; pass++)
+            {
+                for (int lod = 0; lod < LodsPerPass; lod++)
+                {
+                    int l = lod - first;
+                    lists.Add((l >= 0 && l < perPass) ? this.DrawLists[(pass * perPass) + l] : new uint[0]);
+                }
+            }
+            this.DrawLists = lists;
+        }
+
         // For a model holding every LOD in one file (wheels, type 3): LOD 0 rebuilt from LOD 1, for FH traffic
         // wheels whose LOD 0 is a 3-vertex placeholder. The Lod0 buffer becomes a copy of the Lod buffer
         // with its damage words, the LOD 0 subsections copies of the LOD 1 ones that 'keep' accepts (by
@@ -1431,6 +1464,7 @@ namespace ForzaStudio
         // each pass) the LOD 1 lists' entries moved to the copies. False when there is no LOD 1.
         public bool Lod0FromLod1(Predicate<string> keep)
         {
+            this.PadLodDrawLists();
             int perPass = this.DrawLists.Count / 2;
             if (perPass < 2)
             {

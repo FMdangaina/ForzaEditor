@@ -163,13 +163,17 @@ namespace ForzaStudio
         private static string ByName(string material)
         {
             string name = material.ToLowerInvariant();
+            if (name.Contains("gls"))
+            {
+                return "lights_glass";   // the glass over a light, lights_gls_reverse_light included
+            }
             if (name.Contains("reverse"))
             {
                 return "reverse_light";
             }
-            if (name.StartsWith("lights_gls_"))
+            if (name.Contains("orange"))
             {
-                return "lights_glass";
+                return "lights_amber";   // as the port table's indicators and drlinlorange
             }
             if (Regex.IsMatch(name, "^(fullbeam|hidhead|oldhead|xenonhead|fogwhite|drl.*white.*)$"))
             {
@@ -189,6 +193,81 @@ namespace ForzaStudio
             }
             return null;
         }
+
+        // True when FM4's car shader library has the material (it renders, even if no FM4 car uses it).
+        public static bool HasShader(string material)
+        {
+            return Array.IndexOf(Candidates.Split(' '), material) >= 0;
+        }
+
+        // The best choice for a material the port table does not cover, with why: the name rule, the most
+        // similar shader (score 50 and up), else the material FM4 uses most on its parts (BySection; for a
+        // material on several parts, the one most of them agree on). Null when there is none.
+        public static string BestFor(string material, string fileName, List<string> sections, out string basis)
+        {
+            foreach (Entry entry in For(material, fileName, 2))
+            {
+                if (entry.Group == Group.Recommended)
+                {
+                    basis = entry.Note;
+                    return entry.Name;
+                }
+                break;
+            }
+            Dictionary<string, List<string>> votes = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            string best = null;
+            foreach (string section in sections)
+            {
+                string name;
+                if (!BySection.TryGetValue(section, out name))
+                {
+                    continue;
+                }
+                if (!votes.ContainsKey(name))
+                {
+                    votes[name] = new List<string>();
+                }
+                votes[name].Add(section);
+                if (best == null || votes[name].Count > votes[best].Count)
+                {
+                    best = name;
+                }
+            }
+            if (best == null)
+            {
+                basis = null;
+                return null;
+            }
+            basis = "the FM4 cars' most used on " + string.Join(" ", votes[best].ToArray());
+            return CarPort.LodVariant(best, fileName);
+        }
+
+        // The material FM4 cars use most on each part (section name), in all their models: sections with
+        // at least 150 section/material pairs in the 313 cars' main, _lod0 and _cockpit files (2026-10-18).
+        private static readonly Dictionary<string, string> BySection = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            { "a_pillar", "body" }, { "body", "body" }, { "bumperFa", "body" }, { "bumperFb", "body" },
+            { "bumperFc", "body" }, { "bumperFd", "body" }, { "bumperFe", "body" }, { "bumperFf", "body" },
+            { "bumperFrace", "chrome" }, { "bumperFrameF", "bumper_frame" }, { "bumperFrameR", "bumper_frame" },
+            { "bumperRa", "body" }, { "bumperRb", "body" }, { "bumperRc", "body" }, { "bumperRd", "body" },
+            { "bumperRrace", "chrome" }, { "cagerace", "rubber_trim" }, { "exhausta", "black" },
+            { "exhaustLa", "black" }, { "exhaustRa", "black" }, { "fuel_max", "gauge_needle" },
+            { "fuel_mid", "gauge_needle" }, { "fuel_min", "gauge_needle" }, { "glassF", "window" },
+            { "glassLF", "window" }, { "glassLHL", "glass" }, { "glassLR", "window" },
+            { "glassLTL", "detail_glass_red" }, { "glassR", "window" }, { "glassRF", "window" },
+            { "glassRHL", "glass" }, { "glassRR", "window" }, { "glassRTL", "detail_glass_red" },
+            { "headlightL", "head_light" }, { "headlightLdown", "body" }, { "headlightLup", "body" },
+            { "headlightR", "head_light" }, { "headlightRdown", "body" }, { "headlightRup", "body" },
+            { "hooda", "body" }, { "hoodb", "body" }, { "hoodCIrace", "body" }, { "hoodPSrace", "black" },
+            { "interior", "chrome" }, { "mirrorL", "body" }, { "mirrorR", "body" }, { "seatL", "interior" },
+            { "seatR", "interior" }, { "skirtLa", "body" }, { "skirtLb", "body" }, { "skirtLc", "body" },
+            { "skirtRa", "body" }, { "skirtRb", "body" }, { "skirtRc", "body" }, { "speed_max", "gauge_needle" },
+            { "speed_mid", "gauge_needle" }, { "speed_min", "gauge_needle" }, { "steering_wheel", "interior" },
+            { "tach_max", "gauge_needle" }, { "tach_mid", "gauge_needle" }, { "tach_min", "gauge_needle" },
+            { "taillightL", "textured_reflector" }, { "taillightR", "textured_reflector" }, { "trunk", "body" },
+            { "undercarriagea", "undercarriage" }, { "wheel", "inner_rim" }, { "winga", "body_2" },
+            { "wingb", "body" }, { "wingrace", "chrome" },
+        };
 
         // Every material name of FM4's car shader library (shaders_v16), cockpit_ taken off (a cockpit model
         // names leather, the game draws cockpit_leather), render passes and debug views left out.
