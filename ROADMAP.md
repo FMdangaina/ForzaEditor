@@ -36,7 +36,7 @@ parts by hand).
 
 Tools > Port Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`).
 
-- [ ] Tyre width on ported cars whose wheel mesh is wider than usual (linked to 11)
+- [ ] Tyre width on ported cars whose wheel mesh is wider than usual (check pending: 11.6)
 - [ ] In-game check of a car installed with review fixes
 - [ ] FH1/FH2 ports do not deform in a crash (issue B1)
 - [ ] Big-endian vs little-endian gr2: find the differences before writing a converter
@@ -170,13 +170,24 @@ Steps, in order:
 
 - Done: music and radio for FM2, FM3, FM4, FH1, FH2.
 
-## 11. Wheels: morph targets and resizing ⬜
+## 11. Wheels: morph targets and resizing 🔧
 
 Background: D3.
 
-- [ ] 11.1 Compare a rim that does not scale (BMW E30) with one that does (S60): `Morph_LOD0`, shader,
-      `IsStock`, texture size
-- [ ] 11.2 Write down the rule, then add morph targets to wheels that lack them (linked to tyre width, 1)
+- [x] 11.1 Why a rim does not scale (BMW E30) and another does (S60): the 16-byte per-vertex table of
+      the wheel = LOD0 morph target (copy 1 = rim at max size, copy 2 = the vertex); the game blends by
+      the car's rim size. A 15" reference LOD0 without the table stays at 15". Not shader, `IsStock` or
+      texture size
+- [x] 11.2 Rule: 15" reference LOD0 => morph table + header f8/f10 = target radius; true-size LOD0 =>
+      no table, f8 = own radius. Generator `CarbinModel.WheelMorphTable` / `Lod0MorphScale`
+      (`CarbinModelMotorsport3.cs`), used by the FM3 port; checked in game on the HKS Genesis (20c0fa2)
+- [ ] 11.3 Same check for every older source game: FM3 done; FM2 and FM1 when their ports come. FH1/FH2
+      are the FM4 engine (but Openroad) and keep their own tables: only if a case shows up
+- [ ] 11.4 Traffic cars' LOD0 wheel rebuilt from LOD 1 (14.1) copies the table from the nearest
+      vertex: not seen as a problem, nothing to do. Keep in mind if a traffic rim looks small up close
+- [ ] 11.5 OBJ import onto a wheel: regenerate the table instead of keeping a stale one (stale =
+      exploded wheel in game). When we work on building parts from scratch
+- [ ] 11.6 Tyre width on ported cars (topic 1): check in game whether 11.1/11.2 already fixed it
 
 ## 12. Cleanup, platform and a friendlier UI ⏸
 
@@ -506,6 +517,7 @@ Background of topics 11-15: quotes, file names, what is known so far.
   like a flag travelling with the shader and `IsStock`; a larger texture is mentioned too.
   - BMW E30 rim does not scale, S60 does. @Jew: *"You need morph targets in the wheel model for Forza
     to scale them to size"*. Name to look for: `Morph_LOD0`. Linked to tyre width (topic 1).
+  - Solved 2026-10-18: the morph target is the 16-byte per-vertex table of the wheel (rule in 11.2).
 - **OBJ wheel import** (@delete.diskord): *"i used forza studio to export an fm3 wheel to obj, then
   opened an fm4 wheel zip in forzaeditor and attempted to replace the wheel with the obj i exported,
   resulting in the 'LOD 0 and LODs 1+ live in different files' error. however i did try the fm3
