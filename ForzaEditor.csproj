@@ -194,6 +194,7 @@
     </Compile>
     <Compile Include="ForzaStudio\SqliteDatabase.cs" />
     <Compile Include="ForzaStudio\DlcPackage.cs" />
+    <Compile Include="ForzaStudio\DlcSource.cs" />
     <Compile Include="ForzaStudio\StfsPackage.cs" />
     <Compile Include="ForzaStudio\GameDatabase.cs" />
     <Compile Include="ForzaStudio\GameDbSchema.cs" />

@@ -63,7 +63,7 @@ Tools > Port Car From Another Forza...
    Forza Motorsport 4 folder,
    then press Load Cars.
 2. Select a car, choose its FM4 donor (a star = closest match),
-   press Add Selected Car. Repeat for every car you want.
+   press Add -> between the two lists (or double-click the car). Repeat for every car you want.
 3. Give the pack a Name.
 4. Press Trial Pack. Nothing is written to the game yet.
    Check the Review column and the Review tab; choose fixes if needed,

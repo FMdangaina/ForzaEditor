@@ -344,6 +344,15 @@ namespace ForzaStudio
             {
                 object media = this.source.Scalar("SELECT MediaName FROM Data_Engine WHERE EngineID = ?", engine);
                 object present = this.target.Scalar("SELECT MediaName FROM Data_Engine WHERE EngineID = ?", engine);
+                if (media == null)
+                {
+                    // A DLC package without its base game (DlcSource) lacks the engine rows of the swaps
+                    // only the base game has. Engine ids mean the same in FH1 and FM4 (27 of 27 checked,
+                    // 2026-10-17): FM4's engine is used. One FM4 lacks too stays for the review
+                    // (ReviewDatabase: List_UpgradeEngine.EngineID, the user picks an FM4 engine).
+                    this.Line(present != null ? "  engine {0}: not in the " + this.game + " source, FM4's {1} (same id) used" : "  engine {0}: neither in the " + this.game + " source nor in FM4 (swap of the base game), the review asks for an FM4 engine", engine, present);
+                    continue;
+                }
                 if (present != null && !string.Equals((string) present, (string) media, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException(string.Format("Engine {0} is {1} in FM4 and {2} in " + this.game + ".", engine, present, media));
@@ -851,11 +860,17 @@ namespace ForzaStudio
                         issue.Value = value;
                         issue.Problem = string.Format("{0} {1} has no row in FM4's {2}", relation.Column, value, relation.Target);
                         string label = this.TableHas(relation.Target, "DisplayName") ? ", DisplayName" : "";
+                        // Rows without a name string (Data_Engine) are told apart by their MediaName.
+                        bool media = label.Length == 0 && this.TableHas(relation.Target, "MediaName");
+                        if (media)
+                        {
+                            label = ", MediaName";
+                        }
                         foreach (object[] choice in this.target.Query("SELECT " + SqliteDatabase.Quote(relation.TargetColumn) + label + " FROM " + SqliteDatabase.Quote(relation.Target) + " ORDER BY 1").Rows)
                         {
                             Choice c = new Choice();
                             c.Value = choice[0];
-                            string text = (label.Length > 0 && names != null) ? names.Lookup(relation.Target, "DisplayName", choice[1] as string) : null;
+                            string text = media ? choice[1] as string : (label.Length > 0 && names != null) ? names.Lookup(relation.Target, "DisplayName", choice[1] as string) : null;
                             c.Label = Convert.ToString(choice[0], CultureInfo.InvariantCulture) + (string.IsNullOrEmpty(text) ? "" : "  " + text);
                             issue.Choices.Add(c);
                         }
@@ -1286,7 +1301,11 @@ namespace ForzaStudio
         {
             this.CopyRows("Data_Car", sourceColumns, targetColumns, "Id = " + this.carId);
             double pi = Convert.ToDouble(this.source.Scalar("SELECT PerformanceIndex FROM Data_Car WHERE Id = ?", this.carId), CultureInfo.InvariantCulture);
-            double fm4Pi = MapPerformanceIndex(PerformanceIndexPairs(this.source, this.target, this.carId, this.SourceRoot, this.TargetRoot, this.OutputRoot), pi);
+            double fm4Pi;
+            if (!DlcSource.IsStage(this.SourceRoot) || !FixedPerformanceIndex(GameInfo.Detect(this.SourceRoot), pi, out fm4Pi))
+            {
+                fm4Pi = MapPerformanceIndex(PerformanceIndexPairs(this.source, this.target, this.carId, this.SourceRoot, this.TargetRoot, this.OutputRoot), pi);
+            }
             object classId = ClassFor(this.target, fm4Pi, this.carId);
             this.target.Execute("UPDATE Data_Car SET PerformanceIndex = ?, ClassID = ?, ContentId = 0, IsArcade = ?, IsPurchased = 1, IsInstalled = 1 WHERE Id = ?",
                 fm4Pi, (classId != null) ? Convert.ToInt64(classId) : 9L, this.Arcade ? 1L : 0L, this.carId);
@@ -1323,6 +1342,21 @@ namespace ForzaStudio
             }
             pairs.Sort(delegate(double[] a, double[] b) { return a[0].CompareTo(b[0]); });
             return pairs;
+        }
+
+        // FM4 PI for a car of a DLC package ported without its base game (DlcSource): the base game's
+        // cars, which MapPerformanceIndex pairs with FM4's, are not there. One line per source game, fit
+        // on all the cars it shares with FM4: FH1 (2026-10-17) FM4 = 1.189 FH1 - 0.363, leave-one-out
+        // error 0.0145 (the local pairs 0.0130). False for a game without a line (FM3: no DLC yet).
+        public static bool FixedPerformanceIndex(ForzaGame game, double pi, out double fm4Pi)
+        {
+            fm4Pi = 0;
+            if (game != ForzaGame.Horizon1)
+            {
+                return false;
+            }
+            fm4Pi = Math.Max(0.001, Math.Min(0.999, (1.189 * pi) - 0.363));
+            return true;
         }
 
         // FM4 PI for an FH2 PI: a line through the 15 shared cars nearest in FH2 PI. On the 138 cars

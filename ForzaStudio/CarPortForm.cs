@@ -104,6 +104,7 @@ namespace ForzaStudio
             public Status State;
             public string Note;
             public bool Traffic;        // placeholder close-up models (FH traffic cars), shown in yellow
+            public string Root;         // the source game folder, or the DLC package laid out as one (DlcSource)
         }
 
         private class DonorChoice
@@ -160,7 +161,7 @@ namespace ForzaStudio
             folders.Dock = DockStyle.Top;
             folders.Height = 74;
             folders.Width = this.ClientSize.Width;
-            this.sourceBox = FolderRow(folders, "Source (FH, FH2 or FM3):", 10, AppSettings.Get("CarPort.Source", ""));
+            this.sourceBox = FolderRow(folders, "Source (FH, FH2, FM3, DLC):", 10, AppSettings.Get("CarPort.Source", ""));
             this.targetBox = FolderRow(folders, "Forza Motorsport 4:", 42, AppSettings.Get("CarPort.Target", ""));
             this.load = new Button();
             this.load.Text = "Load Cars";
@@ -268,10 +269,18 @@ namespace ForzaStudio
             options.Controls.Add(this.donors);
             options.Controls.Add(this.arcade);
 
+            // The one-car options under their own header, apart from the pack's actions.
+            options.Dock = DockStyle.Fill;
+            Panel selectedCar = new Panel();
+            selectedCar.Dock = DockStyle.Bottom;
+            selectedCar.Height = options.Height + 28;
+            selectedCar.Controls.Add(options);
+            selectedCar.Controls.Add(SectionHeader("Selected car"));
+
             Panel carsArea = new Panel();
             carsArea.Dock = DockStyle.Fill;
             carsArea.Controls.Add(this.cars);
-            carsArea.Controls.Add(options);
+            carsArea.Controls.Add(selectedCar);
             carsArea.Controls.Add(filter);
             carsArea.Controls.Add(SectionHeader("Cars"));
 
@@ -308,11 +317,37 @@ namespace ForzaStudio
             this.StyleList(this.packList);
 
             int bottom = 300;   // placed from the panel's bottom edge in Layout below
-            this.addToPack = PackButton(packPanel, "Add Selected Car", 8, bottom, 130);
+            // Add / remove between the two lists, as in a "move items" dialog (user's choice 2026-10-18);
+            // a double click on a car adds it too.
+            Panel transfer = new Panel();
+            transfer.Dock = DockStyle.Left;
+            transfer.Width = 112;
+            this.addToPack = new Button();
+            this.addToPack.Text = "Add  →";
+            this.addToPack.Size = new Size(96, 30);
             this.addToPack.Click += delegate { this.AddToPack(); };
-            this.removeFromPack = PackButton(packPanel, "Remove", 144, bottom, 80);
+            new ToolTip().SetToolTip(this.addToPack, "Put the selected car, with its template car and options, into the pack (or double-click the car)");
+            this.removeFromPack = new Button();
+            this.removeFromPack.Text = "←  Remove";
+            this.removeFromPack.Size = new Size(96, 30);
             this.removeFromPack.Click += delegate { this.RemoveFromPack(); };
-            this.newPack = PackButton(packPanel, "New Pack", 230, bottom, 80);
+            new ToolTip().SetToolTip(this.removeFromPack, "Take the selected pack car out of the pack");
+            transfer.Controls.Add(this.addToPack);
+            transfer.Controls.Add(this.removeFromPack);
+            transfer.Layout += delegate
+            {
+                int middle = transfer.ClientSize.Height / 2;
+                this.addToPack.Location = new Point(8, middle - 36);
+                this.removeFromPack.Location = new Point(8, middle + 6);
+            };
+            this.cars.DoubleClick += delegate
+            {
+                if (this.addToPack.Enabled)
+                {
+                    this.AddToPack();
+                }
+            };
+            this.newPack = PackButton(packPanel, "New Pack", 8, bottom, 100);
             this.newPack.Click += delegate { this.NewPack(); };
             Label xeniaLabel = new Label();
             xeniaLabel.Text = "Xenia folder (with xenia_canary.exe):";
@@ -375,7 +410,7 @@ namespace ForzaStudio
                 this.xeniaBox.Bounds = new Rectangle(8, h - 148, w - 54, this.xeniaBox.Height);
                 xeniaBrowse.Location = new Point(w - 40, h - 150);
                 xeniaLabel.Location = new Point(8, h - 168);
-                this.addToPack.Top = this.removeFromPack.Top = this.newPack.Top = h - 204;
+                this.newPack.Top = h - 204;
                 this.packName.Width = w - 66;
                 this.packOfferLabel.Width = w - 16;
                 this.packList.Bounds = new Rectangle(8, this.packList.Top, w - 16, Math.Max(40, h - 212 - this.packList.Top));
@@ -458,6 +493,7 @@ namespace ForzaStudio
             top.FixedPanel = FixedPanel.Panel2;
             top.Panel1.Controls.Add(carsArea);
             top.Panel2.Controls.Add(packPanel);
+            top.Panel2.Controls.Add(transfer);
             SplitContainer body = new SplitContainer();
             body.Dock = DockStyle.Fill;
             body.Orientation = Orientation.Horizontal;
@@ -467,7 +503,7 @@ namespace ForzaStudio
             this.Load += delegate
             {
                 body.SplitterDistance = Math.Max(200, body.Height - 230);
-                top.SplitterDistance = Math.Max(400, top.Width - 380);
+                top.SplitterDistance = Math.Max(400, top.Width - 380 - 112);
             };
 
             this.Controls.Add(body);
@@ -637,8 +673,9 @@ namespace ForzaStudio
             label.Location = new Point(10, y + 4);
             label.AutoSize = true;
             TextBox box = new TextBox();
-            box.Location = new Point(150, y);
-            box.Width = parent.Width - 150 - 176;
+            // Room for the longest caption, "Source (FH, FH2, FM3, DLC):".
+            box.Location = new Point(185, y);
+            box.Width = parent.Width - 185 - 176;
             box.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             box.Text = value;
             Button browse = new Button();
@@ -650,7 +687,7 @@ namespace ForzaStudio
             {
                 using (FolderBrowserDialog dialog = new FolderBrowserDialog())
                 {
-                    dialog.Description = caption + " (the one with default.xex and Media)";
+                    dialog.Description = caption + " (the one with default.xex and Media, or a folder of car DLC packages)";
                     dialog.ShowNewFolderButton = false;
                     if (Directory.Exists(box.Text))
                     {
@@ -791,7 +828,7 @@ namespace ForzaStudio
             if (!this.busy)
             {
                 List<string> changed = this.FixesChangedSinceTrial();
-                this.packStatus.Text = (this.pack.Count == 0) ? "Select a car on the left, choose its donor, then Add Selected Car."
+                this.packStatus.Text = (this.pack.Count == 0) ? "Select a car on the left, choose its donor, then Add (or double-click the car)."
                     : (this.packTrialFolder == null) ? "Run Trial Pack: every car is converted and checked; nothing is written to the game or to Xenia."
                     : (changed.Count > 0) ? "Fixes changed since the trial (" + string.Join(", ", changed.ToArray()) + "): Trial Pack again applies them; Build DLC Package would use the trial as it is."
                     : (content == null) ? "Set Xenia's folder, then Build DLC Package."
@@ -978,7 +1015,7 @@ namespace ForzaStudio
                 for (int i = 0; i < entries.Count && error == null; i++)
                 {
                     CarPort port = new CarPort();
-                    port.SourceRoot = source;
+                    port.SourceRoot = entries[i].Car.Root ?? source;
                     port.TargetRoot = target;
                     port.OutputRoot = folder;
                     port.MediaName = entries[i].Car.MediaName;
@@ -1294,20 +1331,58 @@ namespace ForzaStudio
             string target = this.targetBox.Text.Trim();
             ForzaGame sourceGame = GameInfo.Detect(source);
             ForzaGame targetGame = GameInfo.Detect(target);
-            if ((sourceGame != ForzaGame.Horizon1 && sourceGame != ForzaGame.Horizon2 && sourceGame != ForzaGame.Motorsport3) || targetGame != ForzaGame.Motorsport4)
+            // Not a game: a car DLC package, or a folder of them (ported on their own, DlcSource).
+            List<DlcSource> packages = null;
+            if (!IsSourceGame(sourceGame) && Directory.Exists(source))
             {
-                MessageBox.Show(this, string.Format("The first folder must hold Forza Horizon, Forza Horizon 2 or Forza Motorsport 3 and the second Forza Motorsport 4.\n\nFound: {0} and {1}.",
-                    GameInfo.Name(sourceGame) ?? "no Forza game", GameInfo.Name(targetGame) ?? "no Forza game"), this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                packages = DlcSource.Find(source);
+                foreach (DlcSource package in packages)
+                {
+                    if (package.Problem == null && IsSourceGame(package.Game))
+                    {
+                        sourceGame = package.Game;
+                        break;
+                    }
+                }
+            }
+            if (!IsSourceGame(sourceGame) || targetGame != ForzaGame.Motorsport4)
+            {
+                MessageBox.Show(this, string.Format("The first folder must hold Forza Horizon, Forza Horizon 2 or Forza Motorsport 3, or car DLC packages of one of them (the extracted package folders), and the second Forza Motorsport 4.\n\nFound: {0} and {1}.",
+                    GameInfo.Name(sourceGame) ?? ((packages != null && packages.Count > 0) ? packages.Count + " DLC packages without usable cars" : "no Forza game"), GameInfo.Name(targetGame) ?? "no Forza game"), this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             AppSettings.Set("CarPort.Source", source);
             AppSettings.Set("CarPort.Target", target);
-            this.details.Text = "Loading the two databases...";
+            this.details.Text = (packages != null) ? "Reading the DLC packages and loading the databases..." : "Loading the two databases...";
             this.Background(delegate
             {
                 List<Car> horizon;
                 List<Car> motorsport;
-                ReadCars(source, target, out horizon, out motorsport);
+                System.Text.StringBuilder notes = new System.Text.StringBuilder();
+                List<string> roots = new List<string>();
+                if (packages == null)
+                {
+                    roots.Add(source);
+                }
+                else
+                {
+                    foreach (DlcSource package in packages)
+                    {
+                        if (package.Problem != null)
+                        {
+                            notes.AppendLine(string.Format("{0} (offer {1}): left out, {2}", Path.GetFileName(package.Folder), package.Offer, package.Problem));
+                        }
+                        else if (package.Game != sourceGame)
+                        {
+                            notes.AppendLine(string.Format("{0} (offer {1}): left out, a {2} package (the first was {3})", Path.GetFileName(package.Folder), package.Offer, GameInfo.Tag(package.Game), GameInfo.Tag(sourceGame)));
+                        }
+                        else
+                        {
+                            roots.Add(package.Stage(notes));
+                        }
+                    }
+                }
+                ReadCars(roots, target, out horizon, out motorsport, notes);
                 Dictionary<string, Color> colors = ClassColors(target);
                 List<CarPort.Choice> makeList = Makes(target);
                 return delegate
@@ -1358,9 +1433,20 @@ namespace ForzaStudio
                             portable++;
                         }
                     }
-                    this.details.Text = string.Format("{0} {1} cars, {2} not in FM4. Choose a car.", horizon.Count, this.sourceTag, portable);
+                    this.details.Text = string.Format("{0} {1} cars{3}, {2} not in FM4. Choose a car.", horizon.Count, this.sourceTag, portable,
+                        (packages != null) ? string.Format(CultureInfo.InvariantCulture, " in {0} DLC packages", roots.Count) : "");
+                    if (notes.Length > 0)
+                    {
+                        this.bottomTabs.SelectedIndex = 0;
+                        this.report.Text = "Source DLC packages:\r\n" + notes.ToString();
+                    }
                 };
             });
+        }
+
+        private static bool IsSourceGame(ForzaGame game)
+        {
+            return game == ForzaGame.Horizon1 || game == ForzaGame.Horizon2 || game == ForzaGame.Motorsport3;
         }
 
         // "the source's" and FM4's makes (List_CarMake), by name, for the make choice.
@@ -1405,15 +1491,49 @@ namespace ForzaStudio
             return colors;
         }
 
-        private static void ReadCars(string source, string target, out List<Car> horizon, out List<Car> motorsport)
+        // The cars of every source root (a game, or each DLC package laid out as one); a car two packages
+        // hold (FH1 offers 1100 and 1200: the same 11 cars) is listed once, from the first.
+        private static void ReadCars(List<string> sources, string target, out List<Car> horizon, out List<Car> motorsport, System.Text.StringBuilder notes)
         {
-            SqliteDatabase from = SqliteDatabase.FromBytes(File.ReadAllBytes(Path.Combine(Path.Combine(Path.Combine(source, "Media"), "db"), "gamedb.slt")));
-            SqliteDatabase to = SqliteDatabase.FromBytes(File.ReadAllBytes(Path.Combine(Path.Combine(Path.Combine(target, "Media"), "db"), "gamedb.slt")));
-            try
+            horizon = new List<Car>();
+            Dictionary<string, string> seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            using (SqliteDatabase to = SqliteDatabase.FromBytes(File.ReadAllBytes(Path.Combine(Path.Combine(Path.Combine(target, "Media"), "db"), "gamedb.slt"))))
             {
-                horizon = Cars(from, Names(source));
                 motorsport = Cars(to, Names(target));
-                List<double[]> pairs = CarPort.PerformanceIndexPairs(from, to, -1, source, target);
+                List<Car> ported = new List<Car>();
+                foreach (string source in sources)
+                {
+                    foreach (Car car in ReadCars(source, target, to, motorsport, ported))
+                    {
+                        string first;
+                        if (seen.TryGetValue(car.MediaName, out first))
+                        {
+                            notes.AppendLine(string.Format("{0}: also in {1}, listed once (from {2})", car.MediaName, Path.GetFileName(source), Path.GetFileName(first)));
+                            continue;
+                        }
+                        seen[car.MediaName] = source;
+                        horizon.Add(car);
+                    }
+                }
+                // Donors: FM4's own cars only.
+                foreach (Car car in ported)
+                {
+                    motorsport.Remove(car);
+                }
+                string targetCars = Path.Combine(Path.Combine(target, "Media"), "cars");
+                motorsport.RemoveAll(delegate(Car car) { return !File.Exists(Path.Combine(targetCars, car.MediaName + ".zip")); });
+            }
+        }
+
+        // One source root's cars, with their FM4 state; FM4 cars they were ported over go into 'ported'.
+        private static List<Car> ReadCars(string source, string target, SqliteDatabase to, List<Car> motorsport, List<Car> ported)
+        {
+            using (SqliteDatabase from = SqliteDatabase.FromBytes(File.ReadAllBytes(Path.Combine(Path.Combine(Path.Combine(source, "Media"), "db"), "gamedb.slt"))))
+            {
+                List<Car> horizon = Cars(from, Names(source));
+                bool package = DlcSource.IsStage(source);
+                ForzaGame game = GameInfo.Detect(source);
+                List<double[]> pairs = package ? null : CarPort.PerformanceIndexPairs(from, to, -1, source, target);
                 Dictionary<long, Car> byId = new Dictionary<long, Car>();
                 Dictionary<string, Car> byName = new Dictionary<string, Car>(StringComparer.OrdinalIgnoreCase);
                 foreach (Car car in motorsport)
@@ -1422,10 +1542,12 @@ namespace ForzaStudio
                     byName[car.MediaName] = car;
                 }
                 string sourceCars = Path.Combine(Path.Combine(source, "Media"), "cars");
-                List<Car> ported = new List<Car>();
                 foreach (Car car in horizon)
                 {
-                    car.Fm4Pi = CarPort.MapPerformanceIndex(pairs, car.Pi);
+                    car.Root = source;
+                    double fixedPi;
+                    car.Fm4Pi = (package && CarPort.FixedPerformanceIndex(game, car.Pi, out fixedPi)) ? fixedPi
+                        : CarPort.MapPerformanceIndex(pairs ?? new List<double[]>(), car.Pi);
                     car.Fm4Class = CarPort.ClassName(to, CarPort.ClassFor(to, car.Fm4Pi, car.Id));
                     Car same;
                     Car other;
@@ -1470,18 +1592,7 @@ namespace ForzaStudio
                         car.Note = "";
                     }
                 }
-                // Donors: FM4's own cars only.
-                foreach (Car car in ported)
-                {
-                    motorsport.Remove(car);
-                }
-                string targetCars = Path.Combine(Path.Combine(target, "Media"), "cars");
-                motorsport.RemoveAll(delegate(Car car) { return !File.Exists(Path.Combine(targetCars, car.MediaName + ".zip")); });
-            }
-            finally
-            {
-                from.Dispose();
-                to.Dispose();
+                return horizon;
             }
         }
 
@@ -1644,7 +1755,7 @@ namespace ForzaStudio
                 return;
             }
             CarPort port = new CarPort();
-            port.SourceRoot = this.sourceBox.Text.Trim();
+            port.SourceRoot = car.Root ?? this.sourceBox.Text.Trim();
             port.TargetRoot = this.targetBox.Text.Trim();
             port.MediaName = car.MediaName;
             port.DonorMediaName = donor.Car.MediaName;

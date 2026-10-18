@@ -91,6 +91,19 @@ Steps, in order:
       cars (show once); truncated packages (2100, 2500) refused with a message; the 12 cars already in
       FM4 marked
 - [ ] h. Trial on all 46 new FH1 DLC cars with a harness, then build one pack
+- Progress 2026-10-18: b-g coded; the user ported from the DLC folder in the window and played the
+  Escalade (99%: a front bumper mesh FH1 calls `brinr`, a rear light material, became `tail_light` and
+  lit red under braking; renamed by hand it was fixed; automatic rule for rear-light materials in front
+  parts waits for the material the user picks, file from BlackBirdOsaka). Window: Add → / ← Remove
+  between the two lists (user's choice B), double-click adds, "Selected car" options apart.
+  `DlcSource.cs` lays a package out as a source game folder in `%TEMP%\ForzaStudio\DlcSource\<package>`
+  (merge DB as gamedb, cars/wheels/string tables/tunings as zips, loose banks and thumbnails), game from
+  the merge's ContentOffers.ID; CarPort uses FM4's engine for a swap id the pack lacks, else the review
+  asks (`List_UpgradeEngine.EngineID`, choices named by MediaName); fixed PI line for FH1 packages; the
+  port window takes a DLC folder as source (duplicates once, damaged / rims-only packages listed in the
+  report). Harness `fm4dev\FH1DLC\tools\dlcall.exe`: 48 of 48 cars FM4 lacks pass the chained trial
+  (`fm4dev\FH1DLC\trialall`), 45 review items (swap engines, incomplete sound, materials). Pack build not
+  tried yet
 - [ ] i. In-game check by the user: one complete car, one without swaps, one with partial sound
 - [ ] j. Open the STFS package directly (`CON`/`LIVE`), not only the extracted folder
 

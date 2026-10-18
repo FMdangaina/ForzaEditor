@@ -161,7 +161,7 @@ namespace ForzaStudio
         // A zip of a folder's files (names relative to it, '/' separated, sorted), stored, in the layout of
         // the game's zips: version 10, date field 0x21 as Jew's fm4dlc writes them, and the
         // 0x1123 extra field of the central record holding the data offset the game reads.
-        private static int WriteStoredZip(string folder, string path)
+        internal static int WriteStoredZip(string folder, string path)
         {
             List<string> files = new List<string>();
             foreach (string file in Directory.GetFiles(folder, "*", SearchOption.AllDirectories))

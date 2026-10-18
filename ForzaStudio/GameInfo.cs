@@ -23,18 +23,15 @@ namespace ForzaStudio
             {
                 return ForzaGame.Unknown;
             }
-            switch (TitleId(Path.Combine(root, "default.xex")))
+            ForzaGame game = FromTitleId(TitleId(Path.Combine(root, "default.xex")));
+            if (game == ForzaGame.Unknown)
             {
-                case 0x4D5307EA:
-                    return ForzaGame.Motorsport2;
-                case 0x4D53084D:
-                    return ForzaGame.Motorsport3;
-                case 0x4D530910:
-                    return ForzaGame.Motorsport4;
-                case 0x4D5309C9:
-                    return ForzaGame.Horizon1;
-                case 0x4D530AA4:
-                    return ForzaGame.Horizon2;
+                // A car DLC package laid out as a source game (DlcSource.Stage).
+                game = FromTitleId(DlcSource.StageTitleId(root));
+            }
+            if (game != ForzaGame.Unknown)
+            {
+                return game;
             }
             string media = Path.Combine(root, "Media");
             if (File.Exists(Path.Combine(Path.Combine(Path.Combine(media, "audio"), "radio"), "RadioSystem.xml")))
@@ -51,6 +48,25 @@ namespace ForzaStudio
                 return ForzaGame.Motorsport2;
             }
             return ForzaGame.Unknown;
+        }
+
+        public static ForzaGame FromTitleId(uint titleId)
+        {
+            switch (titleId)
+            {
+                case 0x4D5307EA:
+                    return ForzaGame.Motorsport2;
+                case 0x4D53084D:
+                    return ForzaGame.Motorsport3;
+                case 0x4D530910:
+                    return ForzaGame.Motorsport4;
+                case 0x4D5309C9:
+                    return ForzaGame.Horizon1;
+                case 0x4D530AA4:
+                    return ForzaGame.Horizon2;
+                default:
+                    return ForzaGame.Unknown;
+            }
         }
 
         public static string Name(ForzaGame game)

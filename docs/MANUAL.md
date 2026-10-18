@@ -431,7 +431,7 @@ decals).
 
 The game's own files are not touched. The cars live in a package you can remove at any time.
 
-1. Press **Add Selected Car** for every car you want in the pack.
+1. Press **Add →** (or double-click the car) for every car you want in the pack.
 2. Give the pack a **Name**: it is the name the game and Xenia show.
 3. Press **Trial Pack**. Every car is converted into a temporary folder; nothing is installed.
 4. Check the **Review** column. Select a car in the pack to see its review in the **Review** tab,

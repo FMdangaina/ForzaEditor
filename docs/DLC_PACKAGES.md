@@ -21,7 +21,7 @@ Tools > **Port Car From Another Forza…**, right panel **DLC pack (Xenia / Xbox
 2. For each car you want:
    - select it in the list;
    - choose its FM4 donor (★ = closest match);
-   - press **Add Selected Car**.
+   - press **Add →** (between the two lists), or double-click the car.
 
    Only cars FM4 lacks can go into a pack.
 3. Give the pack a **Name**. It is the content name the game and Xenia show.
