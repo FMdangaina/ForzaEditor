@@ -1,136 +1,130 @@
 # Forza Studio roadmap
 
+Clean sheet, 2026-10-18. This one file now holds everything that used to be split across four:
+the roadmap, `current_issues.md`, `docs/ideas_italian.md` (translated) and `docs/todo_research.md`.
+
 How we work:
 
 - **One item at a time.** The item under **Now** is the only one being worked on. It is closed before anything else starts.
 - **An item is done** when it works (checked in game, if it touches the game), is committed, and is ticked here.
-- Each topic lists what is left (`[ ]`) first, then what is done (`[x]`), one line each. Details of
-  finished work live in the commits, `docs/` and the code comments, not here.
-- New ideas go to **Maybe later**, not into the current item.
+- Open items (`[ ]`) come first; what is done is one short line per topic. Details of finished work
+  live in the commits, `docs/` and the code comments, not here.
+- New ideas go to **C. Ideas** or **Maybe later**, never into the current item.
 - **Game folders:** tests and installs go only to `FM4_Extracted_DEV`. `FM4_Extracted` is the clean copy and is never written.
-- Other lists: `current_issues.md` (problems seen in game, cause unknown), `docs/todo_research.md`
-  (background of topics 11-15).
 
 Status: ✅ done · 🔧 in progress · ⏸ paused · ⬜ not started
 
+Sections:
+
+- **Now** — the single item being worked on
+- **A. Topics** — the work, by area
+- **B. Current issues** — problems seen in game, cause unknown or check pending
+- **C. Ideas** — the user's requests list (from `ideas_italian.md`, translated)
+- **D. Research notes** — background, quotes, what is known
+- **Maybe later**
+
 ## Now
 
-
-
+(empty — the user picks the next item)
 
 ---
 
-## 1. Car port: Forza Horizon 2 → FM4 ✅ working, open points
+# A. Topics
+
+## 1. Car port: FH1 / FH2 → FM4 ✅ working, open points
 
 Tools > Port Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`).
 
-- [ ] Tyre width on ported cars whose wheel mesh is wider than usual
+- [ ] Tyre width on ported cars whose wheel mesh is wider than usual (linked to 11)
 - [ ] In-game check of a car installed with review fixes
-- [ ] FH1/FH2 ports do not deform in a crash: FH damage words differ from FM4's (`current_issues.md` 4)
-- [ ] Big-endian vs little-endian gr2: find the differences before writing a converter (own topic)
-- [x] Model, wheel, brake conversion; DB rows with reference closure; strings in 18 languages
-- [x] Digital dash to the FM4 Anark layout; carattribs, shadersettings, little-endian gr2 animations
-- [x] Engine sound, harmonic tunings (donor's when the FH car has none), sound banks from the source game
-- [x] FM4 stock tyre rule, local PI mapping, class from PI
-- [x] Port window: car list, donor ranking, trial run, data review step with fixes, install
-- [x] `port_log.txt` inside the converted car zip
-- [x] Ported cars work in game; trial run passes on all 73 FH2 cars
+- [ ] FH1/FH2 ports do not deform in a crash (issue B1)
+- [ ] Big-endian vs little-endian gr2: find the differences before writing a converter
+- Done: model/wheel/brake conversion, DB rows with reference closure, strings in 18 languages, digital
+  dash, carattribs, shadersettings, LE gr2 animations, engine sound and banks from the source game, FM4
+  tyre rule, PI mapping, port window with trial/review/install, `port_log.txt`. All 73 FH2 cars pass
+  the trial; FH1 cars work in game (458 Spider, S65 AMG, R8 GT, R8 GT Spyder).
 
-## 2. Car port: Forza Horizon 1 → FM4 ✅ done
+## 2. Ported cars as a DLC package ✅ done, open points
 
-Same tool and code as topic 1; its open points are listed there.
+Credits: **Jew (@mr.abortion)** (`fm4dlc` toolchain) and **XTD (@xtd_ac)** (Xenia folder DLC, XLAST
+package, console tests). Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 
-- [x] FH1 as source; ported cars work in game (458 Spider, S65 AMG, R8 GT, R8 GT Spyder)
-- [x] Fixes: donor animations on cars without gr2, missing engine sound banks
+- [ ] 2.1 (was 3.6d) Several Forza Studio packs at once: each pack's string tables built on top of the
+      other installed packs' (today only the highest priority pack shows its car names)
+- [ ] 2.2 (was 3.8) Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (the user's side)
+- Done: merge DB from a port, Xenia package folder, DLC pack panel (n cars), STFS package for a real
+  Xbox 360 (RGH/JTAG, `StfsPackage.cs`), checked in game and on the console.
 
-## 3. Ported cars as a DLC package ✅ done, open points
+## 3. Port from a car DLC (FH1 / FM3) → FM4 ⏸ very important
 
-A separate DLC package instead of writing into the game's files. Credits: **Jew (@mr.abortion)**
-(`fm4dlc` toolchain) and **XTD (@xtd_ac)** (Xenia folder DLC, XLAST package, console tests).
-Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
+(Was 3.9.) Port → FM4 from an FH1 or FM3 car DLC (FH2 on 360 has no DLC), STFS `CON`/`LIVE` or its
+extracted folder: base game for shared data, the package's `<offer>000_merge.slt`, string tables,
+car/wheel zips and `_pri_N` folders, audio on top. DLC cars appear in the car list and go into an FM4
+pack. **Standalone**: only the DLC package + FM4, never the base source game.
+Material: `fm4dev\Forza Horizon 1 DLC` (20 official packages); census `fm4dev\FH1DLC` (2026-10-17):
+46 new FH1 DLC cars, 16 complete, 16 lose engine swaps, 14 part of the stock sound.
 
-- [ ] 3.6d Several Forza Studio packs at once: each pack's string tables built on top of the other
-      installed packs' (today only the highest priority pack shows its car names)
-- [ ] 3.8 Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (the user's side)
-- [ ] 3.9 **Very important**, paused 2026-10-18 for 4.1 (Now again after it). Port → FM4 from a FH1 or FM3 car DLC (FH2 on 360 has no DLC) (STFS `CON`/`LIVE` or its
-      extracted folder): base game for shared data, the package's `<offer>000_merge.slt`, string
-      tables, car/wheel zips and `_pri_N` folders, audio on top. DLC cars appear in the car list
-      and go into an FM4 pack. Material: `fm4dev\Forza Horizon 1 DLC` (20 official FH1 packages)
-      **Standalone**: only the DLC package + FM4, never the base source game. Census and measure done
-      2026-10-17 (`fm4dev\FH1DLC`): 46 new FH1 DLC cars, 16 complete, 16 lose engine swaps, 14 part of
-      the stock sound. Decisions (user, 2026-10-17):
-  - [ ] Swap engine not in the pack nor FM4: ask the user which swap to put instead
-  - [x] Engine sound incomplete (all ports): tunings and banks come from the source game first; only
-        what it lacks makes the review ask which FM4 car's full sound setup to use (`soundfull:`),
-        donor's by default. `NA.fsb` is a "no sound" placeholder, never missing. Checked in a trial
-        (Yukon XL from FH1); the DLC reader will use the same path
-  - [ ] PI: fixed line per source game (FH1: FM4 = 1.189 PI - 0.363, error 0.0145)
-  - [x] Sound with the engine upgraded: FM3 engine tunings completed to the FM4 layout
-        (`CarPort.CompleteEngineTuning`, review "sound" choice); X5 checked in game 2026-10-17
-  - [ ] FM3 DLC: no material yet
-  - Next steps to resume 3.9 (written 2026-10-17, the 3.9 chat drifted to sound/traffic work), in order:
-    - [ ] a. Before touching `CarPort.cs`: commit (or set aside) the uncommitted traffic close-up work
-          (14.1) so the two topics do not mix
-    - [ ] b. DLC reader on the **extracted folder** first (`fm4dev\FH1DLC\extracted`): `.puboffer`,
-          `zipmount.xml`, `<offer>_pri_65.zip` (LZX, ForzaZip), loose `_pri_N` folders,
-          `StringTables_pri_*.zip`, `cameras_pri_N.zip`, `<n>_merge.slt`. One layered view (pack on top)
-          that CarPort reads like a source game root
-    - [ ] c. Source game detected from the pack itself (title id / merge table set), not from a base game
-    - [ ] d. CarPort standalone: every read that today needs the base source game (gamedb, the tuning
-          zips opened unconditionally, CopyReferences, make rows, base wheels, thumbnail, shared HT/fsb)
-          comes from the pack; what the pack lacks comes from FM4 or the review
-    - [ ] e. PI fixed line per source game (FH1 constants above) instead of base-game PI pairs
-    - [ ] f. Swap engine review choice (the item above)
-    - [ ] g. Port window: open a DLC (folder) as source, list its cars; offers 1100/1200 have the same 11
-          cars (show once); truncated packages (offers 2100, 2500) refused with a message; the 12 cars
-          already in FM4 marked
-    - [ ] h. Trial on all 46 new FH1 DLC cars with a harness (like the 73/73 FH2 one), then build one pack
-    - [ ] i. In-game check by the user: one complete car, one without swaps, one with partial sound
-    - [ ] j. Open the STFS package directly (`CON`/`LIVE`), not only the extracted folder
-- [x] 3.1-3.3 Real DLC studied; merge DB `<offer>000_merge.slt` built from a port on a clean DB copy
-- [x] 3.4-3.5 Xenia package folder with header; works in game with the base game untouched
-- [x] 3.6 Port window DLC pack panel (n cars, trial, build into Xenia); multi-car pack checked in game
-- [x] 3.6e/f Port window restyled; FM4 material list measured again on the original cars
-- [x] 3.7 STFS package for a real Xbox 360 (RGH/JTAG, `StfsPackage.cs`), works on the console
+Decisions (user, 2026-10-17):
+
+- [ ] Swap engine not in the pack nor in FM4: ask the user which swap to put instead
+- [ ] PI: fixed line per source game (FH1: FM4 = 1.189 PI - 0.363, error 0.0145)
+- [ ] FM3 DLC: no material yet
+- [x] Incomplete engine sound: source game first, what it lacks from an FM4 car picked in the review
+      (`soundfull:`); `NA.fsb` = "no sound" placeholder
+- [x] Sound with the engine upgraded: FM3 engine tunings completed to the FM4 layout
+      (`CarPort.CompleteEngineTuning`)
+
+Steps, in order:
+
+- [x] a. Traffic close-up work committed first (aedfdaf), so the two topics do not mix
+- [ ] b. DLC reader on the **extracted folder** first (`fm4dev\FH1DLC\extracted`): `.puboffer`,
+      `zipmount.xml`, `<offer>_pri_65.zip` (LZX, ForzaZip), loose `_pri_N` folders,
+      `StringTables_pri_*.zip`, `cameras_pri_N.zip`, `<n>_merge.slt`. One layered view (pack on top)
+      that CarPort reads like a source game root
+- [ ] c. Source game detected from the pack itself (title id / merge table set), not from a base game
+- [ ] d. CarPort standalone: every read that today needs the base source game (gamedb, tuning zips,
+      CopyReferences, make rows, base wheels, thumbnail, shared HT/fsb) comes from the pack; what the
+      pack lacks comes from FM4 or the review
+- [ ] e. PI fixed line per source game instead of base-game PI pairs
+- [ ] f. Swap engine review choice
+- [ ] g. Port window: open a DLC folder as source, list its cars; offers 1100/1200 have the same 11
+      cars (show once); truncated packages (2100, 2500) refused with a message; the 12 cars already in
+      FM4 marked
+- [ ] h. Trial on all 46 new FH1 DLC cars with a harness, then build one pack
+- [ ] i. In-game check by the user: one complete car, one without swaps, one with partial sound
+- [ ] j. Open the STFS package directly (`CON`/`LIVE`), not only the extracted folder
 
 ## 4. Materials FM4 renders black 🔧
 
-- [ ] 4.1 **Now**: the material choices come from the car shaders of FM4/FH1/FH2/FM3 (`MaterialSuggestions.cs`,
-      data from `fm4dev\Shaders\tools\similarity`): ★ recommended (port table, name rule, most similar FM4
-      shaders with a 0-100 score), the common FM4 materials, ~ unusual ones (FM4 shaders few or no FM4 cars
-      use). Built and committed; left:
-  - [ ] check in the editor and in game (the "by name" rules and the shader scores are not tested in game;
+- [ ] 4.1 Material suggestions from the car shaders (`MaterialSuggestions.cs`, data from
+      `fm4dev\Shaders\tools\similarity`): ★ recommended, common FM4, ~ unusual. Committed (039aa06); left:
+  - [ ] check in the editor and in game (the "by name" rules and shader scores are untested in game;
         `lights_amber`, the port table's target for indicators, is not in FM4's in-race shader library)
-  - [ ] instructions and documentation still to do (`docs/MANUAL.md` sections 5 and 11 only say so)
-- [x] Port report lists them, model view marks them red, Rename Material… (checked by the user)
-- [x] No fixed FH → FM4 table for now (automatic mapping: see Maybe later)
+  - [ ] instructions and documentation (`docs/MANUAL.md` sections 5 and 11)
+- Done: port report lists them, model view marks them red, Rename Material… (checked by the user).
 
 ## 5. Digital dash (Anark) editor 🔧
 
-- [ ] Edit in place: position, scale, colour, text, texture, then a test in game (works, to commit)
-  - [x] 5.1 Edit model (`AnarkDash`): a value is written where it lives (graph property, else .bsg base or
-        .fbf record), nothing is added (the .bgf header counts strings and properties); 585 dashes, 0 failures
-  - [x] 5.2 Edit panel above the property list in the Dash view, live preview, edits are pending entries
-        saved with File > Save (save path checked by `fm4dev\anark\tools\dashsave.exe`); UI accepted by the user
-  - [x] 5.3 Test in game (DEV): text colour change works (2026-10-17)
 - [ ] Slides (pages shown one at a time)
 - [ ] Behaviour parameter names
-- [x] .fbf / .bgf / .bsg parsed (431/431 byte-identical), read-only Dash view
-- [x] FM3 dashes (0x3EE) read too: 154/154 byte-identical in all 3 formats (with 9 3f)
+- Done: .fbf/.bgf/.bsg parsed (431/431 byte-identical), FM3 dashes too (154/154); edit in place
+  (5.1-5.3) works in game (text colour, 2026-10-17, 0f69352).
 
 ## 6. Game database editor ✅ working
 
 - [ ] Decode `EventRestrictions.Value`
-- [x] Cars, tracks, events, wheels, tables views; creation tools
-- [x] Relation map for FM3/FM4/FH1/FH2, Go to / Used by, reference check
+- [ ] See ideas C1-C3 (SQL editor, Id rule, checks before INSERT)
+- Done: cars, tracks, events, wheels, tables views; creation tools; FM3/FM4/FH1/FH2 relation map,
+  Go to / Used by, reference check.
 
 ## 7. Model editing (FM4) ✅ working, tests pending
 
-- [ ] OBJ import into a wheel zip: an OBJ with LOD 0 and LODs 1+ stops with "LOD 0 and LODs 1+ live
-      in different files" (`CarbinModel.cs`); split it between the two carbins (@delete.diskord)
+- [ ] OBJ import into a wheel zip stops with "LOD 0 and LODs 1+ live in different files"
+      (`CarbinModel.cs`): split the OBJ between the two carbins (@delete.diskord, D3)
 - [ ] In-game test of a whole model rebuilt from OBJ, of edited parts and of Merge Into
 - [ ] Effect of the cleared glass A/B arrays on rebuilt parts
-- [x] Edit Part (move/rotate/scale, merge, delete), OBJ part import/export, OBJ work folder
+- [ ] See idea C7 (one export/import folder layout)
+- Done: Edit Part (move/rotate/scale, merge, delete), OBJ part import/export, OBJ work folder.
 
 ## 8. Automatic LODs ⬜
 
@@ -139,140 +133,348 @@ Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 
 ## 9. Forza Motorsport 3 → FM4 🔧
 
-- [ ] **3i** No backfire flames on FM3 ports in FM4 (user, 2026-10-17). Sound side is the same in both
-      games (`BackfireLevels` from exhaust + cam upgrade, identical audio configs); the flame is FM4 only
-      (`Media\Effects\Backfire.xml`, `Flame.tga`, `FireDistortion.tga`). To find: where FM4 places the
-      flame (exhaust point in the carbin, DB or fixed) and what FM3 cars lack. Compare an FM4 car with
-      flames and the same car from FM3. Notes in memory `backfire-findings`
-- [x] 3h Automatic cockpit camera on FM3 cars centred on the steering wheel, checked by the user
-      2026-10-17: the port kept FM3's `CamCockpitOffsetX` (about 0.020; FM4's is 0 on 495/503 cars);
-      port and the panel's rebuild now set offset x to 0 (`CarCamera.SetSteeringWheelFromModel`)
-- [x] 3g Engine sound banks of the same name: rule for now (user, 2026-10-17): FM4's bank when the
-      names match, the source game's when FM4 lacks it. Listening tool moved to Maybe later
-- [x] 3f FM3 digital dashes, checked in game 2026-10-17 (AUD_1_RS6_03 in DEV):
-      FM3 dashes are Anark too (.fbf 0x3EE: text tail 33 bytes instead of 34; .bgf/.bsg as FM4's), kept
-      outside the car (`Data_Car.GaugeID` -> `List_DigitalGauges` -> `Media\DigitalGauges\<name>.zip`,
-      textures in `UI\Textures.zip` ui4\dashboards, linear DXT). The port writes them into the car zip
-      (`digitalgauge/dash_<car>.*` + textures in FM4's gamma form), sets GaugeID -1 (FM4's value on
-      every car; the old port left FM3's id). All 154 FM3 dashes convert, 2252/2252 images found,
-      46/46 FM3-only DVD1 cars pass the trial. The editor's Dash view (topic 5) reads FM3 files too
-- [ ] FM3 ports: drag tyres added by the port, in-game check pending (`current_issues.md` 2)
-- [x] FM3 detected; FM3 carbins read byte-identical; FM3 vertex layout fully decoded (Supra vs FM4)
-- [x] 3a Converter FM3 → FM4 (`CarbinModelMotorsport3.cs`): all 3930 FM3 carbins convert
-- [x] 3b-3c FM3 as a port source; trial run passes on all 74 FM3-only cars
-- [x] 3d FM3-only cars work in game (X5, Boxster):
-  - 3d.1 textures too bright: FM3 marks colour textures linear, the port gives FM4's gamma header;
-    the X5's dark patches are in FM3 too (FM3's own bake, not a port bug)
-  - 3d.2 **cockpit camera at 0,0,0**: FM3 lacks `CarPartPositions` part 9 (steering wheel); the port
-    adds it from the cockpit model; COCKPIT CAMERA panel in the model view (`CarCamera.cs`)
-- [x] 3e Porsche make (FM4 has none): the port adds it (`CarPort.PortMake`), checked in game
-- [x] Port step 4: database column diff for FM3-only cars (ids, wheels, FM4-only columns, torque curves)
+- [ ] 9.1 (was 3i) No backfire flames on FM3 ports. Sound side identical (`BackfireLevels` from exhaust
+      + cam upgrade); the flame is FM4 only (`Media\Effects\Backfire.xml`, `Flame.tga`,
+      `FireDistortion.tga`). To find: where FM4 places the flame (exhaust point in the carbin, DB or
+      fixed) and what FM3 cars lack. Compare an FM4 car with flames and the same car from FM3
+- [ ] 9.2 Drag tyres added by the port: in-game check pending (issue B2)
+- Done: FM3 carbin converter (3930/3930), FM3 as port source (74/74 trial), X5 and Boxster in game,
+  Porsche make, FM3 digital dashes, engine banks rule (FM4's if same name), cockpit camera centred on
+  the steering wheel.
 
 ## 10. Music ✅ done
 
-- [x] Music and radio for FM2, FM3, FM4, FH1, FH2
+- Done: music and radio for FM2, FM3, FM4, FH1, FH2.
 
 ## 11. Wheels: morph targets and resizing ⬜
 
-Background and Jew's notes: `docs/todo_research.md`, C1.
+Background: D3.
 
 - [ ] 11.1 Compare a rim that does not scale (BMW E30) with one that does (S60): `Morph_LOD0`, shader,
       `IsStock`, texture size
-- [ ] 11.2 Write down the rule, then add morph targets to wheels that lack them (linked to the tyre
-      width point of topic 1)
+- [ ] 11.2 Write down the rule, then add morph targets to wheels that lack them (linked to tyre width, 1)
 
 ## 12. Cleanup, platform and a friendlier UI ⏸
 
-12.5 done 2026-10-17, then paused for 3.9. Order of the rest: 12.3, 12.4, the .NET change last (it touches everything).
-
-- [x] 12.5 Friendlier, simpler UI, checked by the user 2026-10-17 (f141093, 9d08e0c). List agreed with the user 2026-10-17; name back to **Forza Studio**
-      (exe and repo stay ForzaEditor), the Pay Respects window stays as it is. Steps, each checked by
-      the user:
-  - [x] a. Dead items out: Tools > Hex View (crashed) and Save Modding (did nothing), the unused
-        XboxTool form, "Chase, hood, bumper: not decoded yet"; name Forza Studio in title, dialogs,
-        About, docs (checked by the user 2026-10-17)
-  - [x] b. Menus without duplicates: File (open/save) / Archive / Model / Texture; one Back (bar +
-        Ctrl+B / Alt+Left); export names "Export Checked Parts to OBJ", "Export/Import Model to/from
-        OBJ Folder"; model folder commands only in the Model menu (checked by the user)
-  - [x] c. Model view side panel as tabs PART / TEXTURE / CAMERA (Camera only for car models), labels
-        sized to their text, buttons in even rows, Save to Game Database Now (checked by the user
-        2026-10-17; asked first by the user, before b)
-  - [x] d. Plain wording: port tool title "Port a car to FM4", "FM4 template car", "Also in arcade
-        mode" (IsArcade in the tooltip); database "Open Linked File", "Filter:" (SQL in the tooltip),
-        text language EN by default; dash captions capitalised, "color" only; camera tab messages
-        without table names (checked by the user)
-  - [x] e. Right-click-only actions visible: Archive menu (Open Selected Archive, also Enter;
-        Extract/Replace/Revert), Rename Material button in the Part tab, red material warning is a
-        link, "Go to / Used by" button in the database tables (checked by the user)
 - [ ] 12.3 Settings window (game folders, Xenia, DEV folder, viewer options)
 - [ ] 12.4 Conversion tool as MDI (child windows inside the main window)
-- [ ] 12.2 Recent .NET Framework (today `v2.0` with XNA, x86): newest one XNA allows; check SQLite, HexBox
-- [x] 12.1 Console Modding and the `xdevkit.dll` reference removed
+- [ ] 12.2 Recent .NET Framework (today `v2.0` with XNA, x86): newest one XNA allows; check SQLite,
+      HexBox (D1). Last, it touches everything
+- Done: 12.1 Console Modding and `xdevkit.dll` removed; 12.5 friendlier UI, name Forza Studio
+  (f141093, 9d08e0c).
 
 ## 13. 3D viewer and game materials 🔧
 
-- [ ] 13.1 Game materials: hardcoded in the executable or shader files somewhere
-- [ ] 13.2 If the FM shaders are found: in-game look in the viewer, carbin viewer with real materials
-- [x] 13.3 Viewer camera and cockpit camera editor checked by the user (2026-10-17)
+Background: D2.
+
+- [ ] 13.1 Game materials: car shaders found (`Media\Shaders\Cars\*.fxobj`); document the format and the score
+- [ ] 13.2 Imitate the FM shaders in the viewer from their parameters (carbin viewer with real materials)
 - [ ] 13.4 User check of Go to Camera (cockpit + the 27 presets of `UICarTargetCameraPresets.xml`)
+- Done: 13.3 viewer camera and cockpit camera editor (checked 2026-10-17).
 
-## 14. Other model formats ⬜
+## 14. Other model formats 🔧
 
-- [ ] 14.1 FH1/FH2 traffic models: open them and describe the format
-  - [x] Close-up models: traffic cars (Yukon XL, Transit, Camry... 19 FH1/FH2 cars) have only
-        placeholder `_lod0`/`_cockpit` files (17-vertex parts), a few none. The port rebuilds them from
-        the main file's LOD 1 by FM4's part rule (`CarPort.RebuildCloseUpModels`,
-        `CarbinModel.CloseUpFromLod1`); the cockpit gets the body too. Yukon checked in game by the
-        user (2026-10-17): tires, cockpit view, brakes, steering wheel all work
-  - [x] Wheel LOD0 from LOD 1; the wheel head's 12 tire-fit floats (0x18, ±3.4e38 in FH traffic
-        wheels, so no tire was drawn) rebuilt from the LOD 1 extents (`CarPort.TireHeader`)
-  - [x] Cockpit driver rig in the `_cockpit.carbin` head (0x1C8-0x2FF: hand grips, wheel pivot and
-        axis, shifter...; zero in FH placeholders, so the wheel orbited the car origin): rebuilt from
-        the steering wheel, other points from the donor (`CarPort.CockpitRig`); hands
-        (`DriverHandsOffset`) from the wheel too
-  - [x] Driver seat with the driver baked in replaced by the other seat mirrored; camera part 9 and
-        hood from the wheel; donor brakes scaled (traffic cars only); material names kept as in the
-        source (no invented `_LOD0` names)
+- [ ] 14.1 FH1/FH2 traffic cars: **to check from scratch** (user, 2026-10-18). Ported cars load and
+      their meshes show in game, but they are full of problems. Code committed (8549e97, 5e9690d,
+      aedfdaf): close-up models (`_lod0`, `_cockpit`) rebuilt from LOD 1, wheel LOD0 and tyre header,
+      cockpit driver rig, seat, camera part 9, hood, scaled donor brakes, collision, empty parts, wheel
+      LODs, material table. Nothing of it counts as done until checked again.
+  - [ ] List the problems seen in game (car, view, part, screenshot), one line each
+  - [ ] Fix them one at a time, each checked in game
   - [ ] Traffic cars shown in yellow in the port list (placeholder close-up files)
   - [ ] Interior very dark; exterior FH material names still black (fixed by hand)
-  - [ ] Same rebuild for FM1/FM2 cars later (FM2 is export only today)
+  - [ ] Same rebuild for FM1/FM2 cars, only after FH traffic works (see C4)
 - [ ] 14.2 FM2 models (today FM2 is export only)
 
 ## 15. Documentation and community 🔧
 
-- [ ] 15.1 Format documentation in `docs/` (carbin, xds, Anark, gamedb, DLC...)
+- [ ] 15.1 Format documentation in `docs/` (carbin, xds, Anark, gamedb, DLC, shaders...)
 - [ ] 15.2 Discord feedback: reports become items in the right topic
-- [x] 15.3 README update (FM3/FH1, port tool, console package)
+- Done: 15.3 README update.
 
 ## 16. Car cameras ✅ done (reduced)
 
-Decision 2026-10-17: the only camera work needed is the FM3 cockpit fix, done in 9 3d.2. The other
-cameras moved to Maybe later.
+- Done: FM3 cockpit camera and the COCKPIT CAMERA panel. Exterior cameras in Maybe later.
 
-- [x] FM3 cockpit camera (9 3d.2) and the COCKPIT CAMERA panel
+---
+
+# B. Current issues
+
+Problems seen in game, not explained or not checked yet. When the cause is found and fixed, the
+issue moves to its topic and is removed from here.
+
+## B1. FH1/FH2 ports do not deform in a crash (open, topic 1)
+
+- Seen 2026-10-17 in DEV: FH1/FH2 ports keep their shape after a crash; FM3 ports deform like FM4
+  cars. Deformable flag OK on the FH body parts.
+- Still to note: which cars, and whether they were ported before or after 80f5104 (FM4 damage values
+  in `carattribs.xml` for soft source cars).
+- Per-vertex damage words, TOY_SupraRZ_98 in four games (`fm4dev\Deform\dmgcmp.exe`, outputs
+  `fm3.txt`, `fh1.txt`, `fh2.txt`, `pairs_fh2.tsv`):
+  - FM3 = FM4 on 93% of matched vertices.
+  - FH1 = FH2, **a different format from FM4**: three signed fields 11:11:10, a short model-space
+    vector (median length 43). FM4's word, same split, is a near-unit direction at full scale (median
+    length 614); |FM4 y| follows |FH vector| (corr 0.81). Not decoded yet.
+  - Likely cause: FM4 reads FH's short vectors as its own format.
+- Next, one of: decode the FM4 word and convert FH words in CarPort; or take each vertex's word from
+  the nearest vertex of the same car in FM4/FM3, else from a similar FM4 car.
+
+## B2. FM3 ports: drag tyres (fixed 2026-10-16, in-game check pending, topic 9)
+
+- FM3's `List_TireCompound` stops at 8; FM4 adds 9 (`9_DragTire`). `CarPort.DragTires()` adds FM4's
+  Level 4 row (`TireCompoundID 9, Price 10000`) to every ported car without compound 9.
+- X5 row inserted in DEV (backup `bin\Debug\bak\2026-10-16_drag_bak_DEV_gamedb.slt`).
+- To close: check in game that the X5 offers the Drag compound.
+
+## B3. The tyre looks the same with every compound (on hold)
+
+- Not a port bug: FM4's own cars do the same in Xenia. The user checks on a real Xbox 360 later; if
+  the tyre changes there, look at what picks `Media\wheels\TireA/B/C.zip` (`List_Wheels`,
+  `WheelLayouts`, `Combo_TireBrandCompound`).
+
+## B4. FM3 port fully upgraded: no engine sound (fixed, last check pending, topic 3)
+
+- Cause: FM3's engine tuning is an older, shorter format (no `HarmonicTunings`, `FocusPEQ`,
+  `Distortion`, `Compressor`, `DSPScalar`... and no `num_cylinders`), copied as is.
+- Fixed in `CarPort.CompleteEngineTuning`; patched X5 confirmed in game 2026-10-17.
+- To close: an in-game check of a car ported with the new code. Then remove this entry.
+
+## B5. Strange ambient occlusion on some parts (probably closed)
+
+- Seen 2026-10-16 on BMW_X5_09 from FM3: most likely FM3's own vertex bake (the user saw the same
+  patches in FM3). Remove unless it shows up on another port; then note car, parts and a screenshot.
+
+---
+
+# C. Ideas
+
+The user's request list (`docs/ideas_italian.md`, 2026-10-17), translated. Goal: make the editing tools
+and automatic procedures more reliable, check asset compatibility across Forza generations, and
+standardise model export/import. Each idea notes what is already known or done today.
+
+| Id | Idea | Priority | Linked to |
+|---|---|---|---|
+| C1 | Better SQL editor and DB schema map | High | 6 |
+| C2 | Fix the automatic Id generation | High | 1, 3, 6 |
+| C3 | Check queries before every `INSERT` | High | 1, 3, 6 |
+| C4 | Build test with traffic cars and FM1/FM2 assets | High | 14 |
+| C5 | Find the driver position | Medium | 14, 16 |
+| C6 | Missing sounds across generations | Medium | 3, 9 |
+| C7 | One export/import folder layout | High | 7 |
+
+## C1. Better SQL editor and understanding of the DB schema
+
+Goal: a more effective SQL editor and reliable knowledge of the tables involved.
+
+- [ ] Examine the full schema of the tables involved
+- [ ] Identify primary keys, foreign keys, indexes, constraints and relations
+- [ ] Document the meaning of the fields used by import, export and build
+- [ ] Check dependencies between tables and the right order of operations
+- [ ] Make the SQL editor easier for writing, running and checking queries
+- [ ] Reusable diagnostic queries to look at data, relations and linked records
+
+Done when: the tables of the workflow are documented; required fields and constraints are clear;
+diagnostic queries run without changing data.
+Known today: gamedb has no `REFERENCES` constraints; the relations are in the 340-relation map
+(`GameDbSchema.cs`) used by Go to / Used by.
+
+## C2. Automatic Id assignment
+
+Goal: no arbitrary Ids or collisions; new records created in a predictable way.
+
+Rules:
+
+- The first car created by the new workflow starts at **Id 4000**.
+- Later Ids follow one deterministic, checkable rule.
+- No Ids picked at random just because they seem to work.
+- The RS6 Champion's Id works but does not follow the rule: not a model for new cars.
+
+- [ ] Find every place where Ids are generated, assigned or copied
+- [ ] Define a single Id allocation rule
+- [ ] Check that the chosen Id is not already in the relevant tables
+- [ ] Handle errors and duplicate insert attempts
+- [ ] Check whether the Id must match across several tables or references
+- [ ] Diagnostic log: assigned Id and why
+
+Done when: the first new car uses an Id from 4000; Ids are unique by the DB's real constraints; no
+hardcoded values scattered in the code.
+Known today: CarPort keeps the source game's car Id; FM4 base Ids are 247-1473, FH1 DLC ports use
+1519-1556. The RS6 Champion is AUD_1_RS6_03, **Id 421** (the original note says 412, which is
+HON_NSXR_92 in FM4).
+
+## C3. Check queries before `INSERT`
+
+Goal: validate data and derived values before writing to the database.
+
+- [ ] A check query before every automatic insert
+- [ ] Check that the Id and any linked records exist
+- [ ] Check that required fields have a value
+- [ ] Compute and check `ordinal` before the insert; find the right rule from real data and the schema,
+      without assuming `MAX(ordinal) + 1`
+- [ ] Check for duplicates and invalid references
+- [ ] Checks and inserts in a transaction where possible, rollback on error
+- [ ] Diagnostic summary of the values about to be inserted
+
+Done when: `ordinal` follows a documented rule; inserts do not run if the checks fail; errors name
+the table and field.
+Known today: in FM4 `Ordinal` = `Data_Car.Id`.
+
+## C4. Build test with traffic cars and FM1/FM2 assets
+
+Goal: check whether models from other categories or generations can be converted and built so they
+work.
+
+- [ ] One or more **traffic cars** as the first test case
+- [ ] Or a car / asset from **Forza Motorsport 1/2**
+- [ ] Temporarily copy `LOD1` into `LOD0` to see whether the build accepts a simplified structure
+- [ ] Build the asset and check it in game or in the viewer
+- [ ] Record errors, warnings and differences from a working native asset
+- [ ] If it builds: check geometry, materials, UVs, hierarchy and in-game behaviour
+- [ ] For compatible Ids, see whether the **cockpit camera** can be turned off
+- [ ] Keep results apart by game generation and asset type
+
+| Case | Change | Check |
+|---|---|---|
+| Traffic car | Temporary copy of `LOD1` into `LOD0` | Build and load |
+| FM1/FM2 asset | Minimal structure change | Format compatibility |
+| Id with cockpit camera | Turn the camera off, if supported | Load and in-game behaviour |
+
+Done when: at least one reproducible test with log and identified source assets; it is documented
+whether copying `LOD1` into `LOD0` is enough or what is missing; turning off the cockpit camera is
+checked, not assumed.
+Known today: traffic cars are built and load in game (topic 14.1: close-up models rebuilt from
+LOD 1), but they are full of problems and must be checked from scratch. FM1/FM2 still open (FM1 `.cab` reader in `fm4dev\Fm1_CAB`, FM2 export only).
+
+## C5. Find the driver position
+
+Goal: where the driver position is stored and how it is read when the car loads.
+
+- [ ] Compare the files of a working car with one whose position is known or correct
+- [ ] Look at hierarchies, nodes, transforms and references in the model files
+- [ ] Is it a dedicated node, a transform matrix, a link to the cockpit camera, or data outside the geometry?
+- [ ] Check position, rotation and coordinate system separately
+- [ ] A controlled change, checked in the viewer or in game
+- [ ] Document the file, structure and fields responsible
+
+Done when: the driver position maps to a specific field or transform; the change is checked with a
+reproducible test.
+Known today: the cockpit driver rig is in the `_cockpit.carbin` head (0x1C8-0x2FF: hand grips, wheel
+pivot and axis, shifter...), hands in `DriverHandsOffset`, cockpit camera = `CarPartPositions` part 9
++ `CameraOverrides` (topic 14.1, 16). The seated body position itself is not located yet.
+
+## C6. Missing sounds across game generations
+
+Goal: find why sounds go missing when cars or data move between Forza generations.
+
+- [ ] Compare a car with working sound and one without
+- [ ] List the audio references in both
+- [ ] Check differences in naming, Ids, events, banks or dependencies
+- [ ] Check that the needed audio assets exist in the target game
+- [ ] Tell apart: missing reference, missing asset, incompatible format, incompatible audio system
+- [ ] A mapping table between the generations
+- [ ] Never copy audio references without checking they exist and fit
+
+Done when: the cause is classified for at least one real case; a procedure to find and fix invalid
+references is written down.
+Known today: one case classified and fixed (B4: FM3 engine tuning format). Banks: source game first,
+FM4 car picked in the review for what is missing, `NA.fsb` = no sound.
+
+## C7. One export/import folder layout
+
+Goal: the same exported folder structure for **every supported asset type**, to make editing,
+comparing and re-importing simpler.
+
+The `car.carbin` folder holds the model structure, with `LOD0` and `body` as folders and every
+relevant object inside:
+
+```text
+<export_folder>/
+└── car.carbin/
+    └── LOD0/
+        └── body/
+            ├── <object_1>
+            ├── <object_2>
+            └── ...
+```
+
+(The original note ends here.)
+
+---
+
+# D. Research notes
+
+Background of topics 11-15: quotes, file names, what is known so far.
+
+## D1. Cleanup and platform (topic 12)
+
+- **.NET:** today `v2.0` with XNA, x86. The renderer stays XNA, so the target is the newest .NET XNA
+  allows. To find out what else breaks (SQLite, HexBox). `xdevkit.dll` no longer blocks it (12.1).
+
+## D2. 3D viewer and materials (topic 13, 4)
+
+- **Renderer:** a new one is almost impossible, the viewer stays on XNA (Maybe later).
+- **Car shaders found** (2026-10-17, details in `fm4dev\Shaders\FINDINGS.md`):
+  `Media\Shaders\Cars\*.fxobj`, compiled Xbox 360 effects. 5 big libraries (`shaders_v16`, `_16car`,
+  `_slod`, `_splitscreen`, `_ui`) + ~148 single-material files listed in `CustomCarShaders.xml`. A
+  carbin material name is a technique name (`cockpit_` prefix in the cockpit). An unknown name falls
+  back to the `missing` technique, which is why FH lights render black in FM4.
+  - FM4 library: 196 techniques, FH1: 254. Single files are the same set in both games. FH1-only (57):
+    one technique per light type (fullbeam, hidhead, xenonhead, drl*, indicator_*, fog*,
+    lights_gls_*...), numberplate/numplate, traffic body/window, shadow masks. FH1 lights take their
+    colour from per-car `shadersettings.xml` (`FullbeamColor`, `DRLWhiteColor`...); FM4 has only
+    generic head_light/tail_light/reverse_light/lights_*.
+  - FH1 shaders need engine inputs FM4 lacks (dynamic lights, cascaded shadows, two-tone paint):
+    copying them into FM4 is not realistic. The viewer can only imitate them from the parameters.
+  - **Similarity** (2026-10-18): technique -> vertex/pixel shader decoded for all four games; every
+    FH1/FH2/FM3 material scored against FM4's (shared constants and size, 0-100). FH lights closest to
+    FM4 `reflector` / `tail_light` (70-75), FM3 same-name materials 59-89. Used by 4.1.
+- **Viewer camera:** the game's FOVs are vertical degrees, in `Media\Camera\CameraSettings.ini` (race
+  cameras) and `Media\UICarTargetCameraPresets.xml` (garage, photo mode).
+
+## D3. Wheels and morph targets (topic 11, 7)
+
+- **Wheel morph.** @Jew: *"it's dependant on the wheel having a morph target in its package"*. Looks
+  like a flag travelling with the shader and `IsStock`; a larger texture is mentioned too.
+  - BMW E30 rim does not scale, S60 does. @Jew: *"You need morph targets in the wheel model for Forza
+    to scale them to size"*. Name to look for: `Morph_LOD0`. Linked to tyre width (topic 1).
+- **OBJ wheel import** (@delete.diskord): *"i used forza studio to export an fm3 wheel to obj, then
+  opened an fm4 wheel zip in forzaeditor and attempted to replace the wheel with the obj i exported,
+  resulting in the 'LOD 0 and LODs 1+ live in different files' error. however i did try the fm3
+  conversion (port car from another forza) in the new commit a little while ago and the wheel zip it
+  output seems to work perfectly in fm4."* An FM4 wheel keeps LOD0 and LOD1+ in two carbins: split
+  the OBJ instead of stopping (topic 7).
+
+## D4. Other models (topic 14)
+
+- FH1/FH2 traffic models: close-up files are placeholders (17-vertex parts), rebuilt by the port;
+  the result loads in game but has many problems (14.1).
+- FM2 models: out of scope today, export only. FM1: `.cab`/`.ca2` reader verified on 243 archives.
+
+## D5. Documentation and community (topic 15)
+
+- Format documentation in `docs/` (carbin, xds, Anark, gamedb, DLC, shaders...).
+- Discord feedback: still few users; reports go into topics, like D3.
+
+---
 
 ## Maybe later
 
-- **Exterior cameras** (hood, bumper, chase, thumbnails). What is known (2026-10-17):
+- **Exterior cameras** (hood, bumper, chase, thumbnails). Known (2026-10-17):
   - Per car: only `CameraOverrides` in the DB. Hood height/Z set on 501 of 503 cars (height ≈
     steering wheel y - 0.195, Z ≈ wheel z), pitch 0; chase/bumper offsets 0 on all cars but one.
-  - Global, plain text in `Media\Camera`: `CameraSettings.ini` (FollowLow/FollowHigh height,
-    radius, target, FOV, springs; HoodCam offsets and FOV 66; BumperHigh height and FOV 53;
-    WheelCam; Driver default cockpit offset), `CameraPhysics.xml` (shake, tilt, FOV effects for
-    Follow, Driver, Hood, BumperHigh; each layer can be turned off), `CameraPhysicsSansEffects.xml`.
+  - Global, plain text in `Media\Camera`: `CameraSettings.ini` (Follow, HoodCam, BumperHigh, WheelCam,
+    Driver default offset), `CameraPhysics.xml` (shake, tilt, FOV effects), `CameraPhysicsSansEffects.xml`.
   - Replay and menu cameras: `CarRelativeCams.xml` (138), `321Cams.xml`, `carrevealcams.xml`,
     `HomeSpaceCams.xml`, `ColorSelectCams.xml`, per track `preracecams.xml` / `tracksegcams.xml`.
   - Thumbnails: `Media\ThumbnailCamSettings.xml` (2 defaults + 24 per-car cameras).
   - A hood camera panel was written and dropped (not committed).
-- **Engine sound listening tool** (from 9 3g): during a port, when the source game and FM4 have an
-  engine sound bank of the same name, play both at a chosen RPM (slider, e.g. idle to redline) and on/off
-  throttle, side by side, then pick which one goes into the car. Needs: the .fsb/.xma sample decoder
-  (the music player has XMA), the engine's RPM-to-sample mapping from the bank or the harmonic tunings,
-  and a crossfade between the samples around the chosen RPM. Today: FM4's bank when the names match
-- Dash editor (topic 5): simpler edit panel (5.4; the user: "to simplify, fine for now")
-- FM2 model writer (FM2 is out of scope for now)
-- Automatic FH → FM4 material mapping instead of the manual fix (topic 4; 4.1 gives the suggestions,
-  the choice stays the user's). @BlackBirdOsaka (Discord) is writing down the materials they replace: a starting point
+- **Engine sound listening tool**: when the source game and FM4 have an engine bank of the same name,
+  play both at a chosen RPM and on/off throttle, then pick one. Needs the .fsb/.xma decoder (the music
+  player has XMA), the RPM-to-sample mapping, and a crossfade. Today: FM4's bank when names match.
+- Dash editor: simpler edit panel (5.4; the user: "to simplify, fine for now")
+- FM2 model writer (FM2 out of scope for now)
+- Automatic FH → FM4 material mapping instead of the manual fix (4.1 gives suggestions, the choice stays
+  the user's). @BlackBirdOsaka (Discord) is writing down the materials they replace: a starting point
 - .gr2 animation editor
 - Cars built from scratch (a full wizard, also as a DLC package)
 - New renderer in place of XNA (a dream; almost impossible for now)
