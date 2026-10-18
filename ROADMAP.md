@@ -92,7 +92,10 @@ Steps, in order:
       review items: swap engines, incomplete sound, materials); pack built and played (offer 93)
 - [ ] i. In-game check by the user: one complete car (Escalade, done 2026-10-18), one without swaps,
       one with partial sound (e.g. LAM_AventadorJ_12)
-- [ ] j. Open the STFS package directly (`CON`/`LIVE`), not only the extracted folder
+- [x] j. Open the STFS package directly (`CON`/`LIVE`), not only the extracted folder:
+      StfsReader.cs, Source row **Folder…** / **Package…**; 17 FH1 packages byte-identical to the
+      extracted ones, the 2 cut short refused, an FM4 package refused with a message; checked by the
+      user in the window 2026-10-18
 - [ ] k. Rear-light materials in front parts: FH1 `brinr` in the Escalade's front bumper became
       `tail_light` and lit red under braking (fixed by hand with Rename Material); also
       MER_CLKGTR_HZN_98 `fogred` in the hood. Automatic rule for `brinl`/`brinr`/`fogred`/`taillight*`

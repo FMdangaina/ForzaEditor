@@ -441,6 +441,11 @@ The game's own files are not touched. The cars live in a package you can remove 
      to be written, ROADMAP 4.1).
 
    If you change fixes, run **Trial Pack** again.
+   - The source can also be **car DLC packages** of Forza Horizon, without the game itself.
+     **Folder…** takes extracted packages (a folder holding `Media\<offer>.puboffer`, or a folder of them);
+     **Package…** takes the Xbox 360 package files themselves (one or more, as the console stores
+     them in `Content\...\4D5309C9\00000002`).
+   - An FM4 package (title `4D530910`), such as one you built, is not a port source.
 5. Set **Xenia's folder** (the one with `xenia_canary.exe`).
 6. **Close Xenia**, then press **Build DLC Package**. The package goes straight into Xenia's
    content folder. Rebuilding a pack replaces it, after a confirmation.

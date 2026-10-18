@@ -203,6 +203,7 @@
     <Compile Include="ForzaStudio\ZipManifest.cs" />
     <Compile Include="ForzaStudio\StringTable.cs" />
     <Compile Include="ForzaStudio\XmaPlayer.cs" />
+    <Compile Include="ForzaStudio\StfsReader.cs" />
     <Compile Include="ForzaStudio\ColorPicker.cs">
       <SubType>UserControl</SubType>
     </Compile>

@@ -161,8 +161,8 @@ namespace ForzaStudio
             folders.Dock = DockStyle.Top;
             folders.Height = 74;
             folders.Width = this.ClientSize.Width;
-            this.sourceBox = FolderRow(folders, "Source (FH, FH2, FM3, DLC):", 10, AppSettings.Get("CarPort.Source", ""));
-            this.targetBox = FolderRow(folders, "Forza Motorsport 4:", 42, AppSettings.Get("CarPort.Target", ""));
+            this.sourceBox = FolderRow(folders, "Source (FH, FH2, FM3, DLC):", 10, AppSettings.Get("CarPort.Source", ""), true);
+            this.targetBox = FolderRow(folders, "Forza Motorsport 4:", 42, AppSettings.Get("CarPort.Target", ""), false);
             this.load = new Button();
             this.load.Text = "Load Cars";
             this.load.Size = new Size(110, 56);
@@ -651,7 +651,7 @@ namespace ForzaStudio
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
-            if (Directory.Exists(this.sourceBox.Text) && Directory.Exists(this.targetBox.Text))
+            if ((Directory.Exists(this.sourceBox.Text) || SourcePackages(this.sourceBox.Text) != null) && Directory.Exists(this.targetBox.Text))
             {
                 this.LoadCars();
             }
@@ -666,7 +666,8 @@ namespace ForzaStudio
             base.OnFormClosing(e);
         }
 
-        private TextBox FolderRow(Panel parent, string caption, int y, string value)
+        // A folder row; the source row also takes package files (Package..., several joined by "; ").
+        private TextBox FolderRow(Panel parent, string caption, int y, string value, bool packages)
         {
             Label label = new Label();
             label.Text = caption;
@@ -675,19 +676,21 @@ namespace ForzaStudio
             TextBox box = new TextBox();
             // Room for the longest caption, "Source (FH, FH2, FM3, DLC):".
             box.Location = new Point(185, y);
-            box.Width = parent.Width - 185 - 176;
+            box.Width = parent.Width - 185 - 282;
             box.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             box.Text = value;
             Button browse = new Button();
-            browse.Text = "...";
-            browse.Size = new Size(32, 24);
+            browse.Text = "Folder...";
+            browse.Size = new Size(72, 24);
             browse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            browse.Location = new Point(parent.Width - 168, y - 2);
+            browse.Location = new Point(parent.Width - 276, y - 2);
             browse.Click += delegate
             {
                 using (FolderBrowserDialog dialog = new FolderBrowserDialog())
                 {
-                    dialog.Description = caption + " (the one with default.xex and Media, or a folder of car DLC packages)";
+                    dialog.Description = packages
+                        ? caption + " the game folder (with default.xex and Media), or a folder of extracted car DLC packages"
+                        : caption + " the game folder (with default.xex and Media)";
                     dialog.ShowNewFolderButton = false;
                     if (Directory.Exists(box.Text))
                     {
@@ -702,7 +705,53 @@ namespace ForzaStudio
             parent.Controls.Add(label);
             parent.Controls.Add(box);
             parent.Controls.Add(browse);
+            if (packages)
+            {
+                Button file = new Button();
+                file.Text = "Package...";
+                file.Size = new Size(72, 24);
+                file.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                file.Location = new Point(parent.Width - 200, y - 2);
+                file.Click += delegate
+                {
+                    using (OpenFileDialog dialog = new OpenFileDialog())
+                    {
+                        dialog.Title = "Car DLC packages (the Xbox 360 files, e.g. Content\\0000000000000000\\4D5309C9\\00000002\\...)";
+                        dialog.Filter = "Xbox 360 packages|*.*";
+                        dialog.Multiselect = true;
+                        List<string> current = SourcePackages(box.Text);
+                        if (current != null && current.Count > 0)
+                        {
+                            dialog.InitialDirectory = Path.GetDirectoryName(current[0]);
+                        }
+                        if (dialog.ShowDialog(this) == DialogResult.OK)
+                        {
+                            box.Text = string.Join("; ", dialog.FileNames);
+                        }
+                    }
+                };
+                parent.Controls.Add(file);
+            }
             return box;
+        }
+
+        // The package files of the source box ("a; b"), or null for a folder.
+        private static List<string> SourcePackages(string text)
+        {
+            List<string> files = new List<string>();
+            foreach (string part in text.Split(';'))
+            {
+                string file = part.Trim();
+                if (file.Length > 0)
+                {
+                    if (!File.Exists(file))
+                    {
+                        return null;
+                    }
+                    files.Add(file);
+                }
+            }
+            return (files.Count > 0) ? files : null;
         }
 
         private static Button ActionButton(Panel parent, string text, int x, int y, int width)
@@ -1331,9 +1380,41 @@ namespace ForzaStudio
             string target = this.targetBox.Text.Trim();
             ForzaGame sourceGame = GameInfo.Detect(source);
             ForzaGame targetGame = GameInfo.Detect(target);
-            // Not a game: a car DLC package, or a folder of them (ported on their own, DlcSource).
+            // Not a game: car DLC package files, an extracted package or a folder of them (ported on their
+            // own, DlcSource).
             List<DlcSource> packages = null;
-            if (!IsSourceGame(sourceGame) && Directory.Exists(source))
+            List<string> packageFiles = SourcePackages(source);
+            if (packageFiles != null)
+            {
+                // The headers only here (the source game); the files are extracted in the background.
+                List<string> notes = new List<string>();
+                foreach (string file in packageFiles)
+                {
+                    try
+                    {
+                        StfsReader package = StfsReader.Open(file);
+                        ForzaGame game = GameInfo.FromTitleId(package.TitleId);
+                        if (!IsSourceGame(sourceGame) && IsSourceGame(game))
+                        {
+                            sourceGame = game;
+                        }
+                        notes.Add(string.Format(CultureInfo.InvariantCulture, "{0}: {1} ({2:X8}), {3}", Path.GetFileName(file), GameInfo.Name(game) ?? "unknown game", package.TitleId, package.DisplayName));
+                    }
+                    catch (Exception e)
+                    {
+                        notes.Add(Path.GetFileName(file) + ": " + e.Message);
+                    }
+                }
+                if (!IsSourceGame(sourceGame))
+                {
+                    MessageBox.Show(this, "No car DLC package of Forza Horizon, Forza Horizon 2 or Forza Motorsport 3 among the files:\n\n" + string.Join("\n", notes.ToArray())
+                        + "\n\nA package you built for Forza Motorsport 4 (title 4D530910) is not a port source: opening it in the editor for small fixes is ROADMAP topic 3 step l.",
+                        this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                packages = new List<DlcSource>();
+            }
+            else if (!IsSourceGame(sourceGame) && Directory.Exists(source))
             {
                 packages = DlcSource.Find(source);
                 foreach (DlcSource package in packages)
@@ -1347,8 +1428,18 @@ namespace ForzaStudio
             }
             if (!IsSourceGame(sourceGame) || targetGame != ForzaGame.Motorsport4)
             {
-                MessageBox.Show(this, string.Format("The first folder must hold Forza Horizon, Forza Horizon 2 or Forza Motorsport 3, or car DLC packages of one of them (the extracted package folders), and the second Forza Motorsport 4.\n\nFound: {0} and {1}.",
-                    GameInfo.Name(sourceGame) ?? ((packages != null && packages.Count > 0) ? packages.Count + " DLC packages without usable cars" : "no Forza game"), GameInfo.Name(targetGame) ?? "no Forza game"), this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                // Package files in the chosen folder: they are opened with Package...
+                bool packageFolder = false;
+                if (packageFiles == null && Directory.Exists(source))
+                {
+                    foreach (string file in Directory.GetFiles(source))
+                    {
+                        packageFolder |= StfsReader.IsPackage(file);
+                    }
+                }
+                MessageBox.Show(this, string.Format("The source must be Forza Horizon, Forza Horizon 2 or Forza Motorsport 3, or car DLC packages of one of them, and the second folder Forza Motorsport 4.\n\nFound: {0} and {1}.{2}",
+                    GameInfo.Name(sourceGame) ?? ((packages != null && packages.Count > 0) ? packages.Count + " DLC packages without usable cars" : "no Forza game"), GameInfo.Name(targetGame) ?? "no Forza game",
+                    packageFolder ? "\n\nThe folder holds Xbox 360 package files: choose them with Package..." : ""), this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             AppSettings.Set("CarPort.Source", source);
@@ -1366,11 +1457,18 @@ namespace ForzaStudio
                 }
                 else
                 {
+                    if (packageFiles != null)
+                    {
+                        foreach (string file in packageFiles)
+                        {
+                            packages.Add(DlcSource.OpenPackage(file));
+                        }
+                    }
                     foreach (DlcSource package in packages)
                     {
                         if (package.Problem != null)
                         {
-                            notes.AppendLine(string.Format("{0} (offer {1}): left out, {2}", Path.GetFileName(package.Folder), package.Offer, package.Problem));
+                            notes.AppendLine(string.Format("{0}{1}: left out, {2}", Path.GetFileName(package.Folder), (package.Offer != 0) ? " (offer " + package.Offer.ToString(CultureInfo.InvariantCulture) + ")" : "", package.Problem));
                         }
                         else if (package.Game != sourceGame)
                         {

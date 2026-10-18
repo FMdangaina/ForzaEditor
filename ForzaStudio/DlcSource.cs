@@ -32,6 +32,7 @@ namespace ForzaStudio
     //   DlcSource.txt                  title id, offer, package: GameInfo.Detect reads the game from it
     // What the pack lacks (shared engine sounds, engine swaps only in the base game) the port takes from
     // FM4 or asks in the review.
+    // OpenPackage() takes the package file itself (STFS, StfsReader) and extracts it first.
     public class DlcSource
     {
         public const string Marker = "DlcSource.txt";
@@ -81,6 +82,72 @@ namespace ForzaStudio
                 source.Problem = e.Message;
             }
             return source;
+        }
+
+        // An Xbox 360 package file (STFS, as the console stores it), extracted under
+        // %TEMP%\ForzaStudio\DlcPackage\<file name> and kept while the file is unchanged. Problem tells why
+        // it can't be used: an FM4 package, an incomplete file, no cars.
+        public static DlcSource OpenPackage(string file)
+        {
+            DlcSource failed = new DlcSource();
+            failed.Folder = file;
+            try
+            {
+                StfsReader package = StfsReader.Open(file);
+                failed.TitleId = package.TitleId;
+                failed.Game = GameInfo.FromTitleId(package.TitleId);
+                if (failed.Game == ForzaGame.Motorsport4)
+                {
+                    failed.Problem = "a Forza Motorsport 4 package (" + package.DisplayName + "): a port takes cars from FH, FH2 or FM3 packages";
+                    return failed;
+                }
+                string folder = Path.Combine(Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "DlcPackage"), Path.GetFileName(file));
+                string marker = Path.Combine(folder, "StfsPackage.txt");
+                FileInfo info = new FileInfo(file);
+                string stamp = info.FullName + "|" + info.Length.ToString(CultureInfo.InvariantCulture) + "|" + info.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture);
+                if (!File.Exists(marker) || File.ReadAllText(marker) != stamp)
+                {
+                    if (Directory.Exists(folder))
+                    {
+                        Directory.Delete(folder, true);
+                    }
+                    string stage = StageFolder(Path.GetFileName(file));
+                    if (Directory.Exists(stage))
+                    {
+                        Directory.Delete(stage, true);
+                    }
+                    try
+                    {
+                        package.Extract(folder);
+                    }
+                    catch (Exception)
+                    {
+                        if (Directory.Exists(folder))
+                        {
+                            Directory.Delete(folder, true);
+                        }
+                        throw;
+                    }
+                    File.WriteAllText(marker, stamp);
+                }
+                DlcSource source = Open(folder);
+                if (source == null)
+                {
+                    failed.Problem = "not a car pack (no Media\\<offer>.puboffer): " + package.DisplayName;
+                    return failed;
+                }
+                if (source.TitleId == 0)
+                {
+                    source.TitleId = package.TitleId;
+                    source.Game = failed.Game;
+                }
+                return source;
+            }
+            catch (Exception e)
+            {
+                failed.Problem = e.Message;
+                return failed;
+            }
         }
 
         // Every package below a folder (a content folder, 00000002, or a folder of extracted packages).
@@ -282,7 +349,7 @@ namespace ForzaStudio
             {
                 throw new InvalidOperationException(this.Problem);
             }
-            string root = Path.Combine(Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "DlcSource"), Path.GetFileName(this.Folder));
+            string root = StageFolder(Path.GetFileName(this.Folder));
             if (IsStage(root))
             {
                 return root;
@@ -301,6 +368,11 @@ namespace ForzaStudio
                 Directory.Delete(root, true);
                 throw;
             }
+        }
+
+        private static string StageFolder(string name)
+        {
+            return Path.Combine(Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "DlcSource"), name);
         }
 
         private string Stage(string root, StringBuilder report)
