@@ -55,7 +55,7 @@ package, console tests). Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4de
 - Done: merge DB from a port, Xenia package folder, DLC pack panel (n cars), STFS package for a real
   Xbox 360 (RGH/JTAG, `StfsPackage.cs`), checked in game and on the console.
 
-## 3. Port from a car DLC (FH1 / FM3) → FM4 ⏸ very important
+## 3. Port from a car DLC (FH1 / FM3) → FM4 🔧 very important
 
 (Was 3.9.) Port → FM4 from an FH1 or FM3 car DLC (FH2 on 360 has no DLC), STFS `CON`/`LIVE` or its
 extracted folder: base game for shared data, the package's `<offer>000_merge.slt`, string tables,
@@ -66,8 +66,8 @@ Material: `fm4dev\Forza Horizon 1 DLC` (20 official packages); census `fm4dev\FH
 
 Decisions (user, 2026-10-17):
 
-- [ ] Swap engine not in the pack nor in FM4: ask the user which swap to put instead
-- [ ] PI: fixed line per source game (FH1: FM4 = 1.189 PI - 0.363, error 0.0145)
+- [ ] Swap engine not in the pack nor in FM4: ask the user which swap to put instead (coded, step f)
+- [ ] PI: fixed line per source game (FH1: FM4 = 1.189 PI - 0.363, error 0.0145) (coded, step e)
 - [ ] FM3 DLC: no material yet
 - [x] Incomplete engine sound: source game first, what it lacks from an FM4 car picked in the review
       (`soundfull:`); `NA.fsb` = "no sound" placeholder
@@ -77,35 +77,28 @@ Decisions (user, 2026-10-17):
 Steps, in order:
 
 - [x] a. Traffic close-up work committed first (aedfdaf), so the two topics do not mix
-- [ ] b. DLC reader on the **extracted folder** first (`fm4dev\FH1DLC\extracted`): `.puboffer`,
-      `zipmount.xml`, `<offer>_pri_65.zip` (LZX, ForzaZip), loose `_pri_N` folders,
-      `StringTables_pri_*.zip`, `cameras_pri_N.zip`, `<n>_merge.slt`. One layered view (pack on top)
-      that CarPort reads like a source game root
-- [ ] c. Source game detected from the pack itself (title id / merge table set), not from a base game
-- [ ] d. CarPort standalone: every read that today needs the base source game (gamedb, tuning zips,
-      CopyReferences, make rows, base wheels, thumbnail, shared HT/fsb) comes from the pack; what the
-      pack lacks comes from FM4 or the review
-- [ ] e. PI fixed line per source game instead of base-game PI pairs
-- [ ] f. Swap engine review choice
-- [ ] g. Port window: open a DLC folder as source, list its cars; offers 1100/1200 have the same 11
-      cars (show once); truncated packages (2100, 2500) refused with a message; the 12 cars already in
-      FM4 marked
-- [ ] h. Trial on all 46 new FH1 DLC cars with a harness, then build one pack
-- Progress 2026-10-18: b-g coded; the user ported from the DLC folder in the window and played the
-  Escalade (99%: a front bumper mesh FH1 calls `brinr`, a rear light material, became `tail_light` and
-  lit red under braking; renamed by hand it was fixed; automatic rule for rear-light materials in front
-  parts waits for the material the user picks, file from BlackBirdOsaka). Window: Add → / ← Remove
-  between the two lists (user's choice B), double-click adds, "Selected car" options apart.
-  `DlcSource.cs` lays a package out as a source game folder in `%TEMP%\ForzaStudio\DlcSource\<package>`
-  (merge DB as gamedb, cars/wheels/string tables/tunings as zips, loose banks and thumbnails), game from
-  the merge's ContentOffers.ID; CarPort uses FM4's engine for a swap id the pack lacks, else the review
-  asks (`List_UpgradeEngine.EngineID`, choices named by MediaName); fixed PI line for FH1 packages; the
-  port window takes a DLC folder as source (duplicates once, damaged / rims-only packages listed in the
-  report). Harness `fm4dev\FH1DLC\tools\dlcall.exe`: 48 of 48 cars FM4 lacks pass the chained trial
-  (`fm4dev\FH1DLC\trialall`), 45 review items (swap engines, incomplete sound, materials). Pack build not
-  tried yet
-- [ ] i. In-game check by the user: one complete car, one without swaps, one with partial sound
+- [x] b. DLC reader on the extracted folder: `DlcSource.cs` lays a package out as a source game folder
+      in `%TEMP%\ForzaStudio\DlcSource\<package>` (merge DB as gamedb, car / wheel / string table /
+      tuning zips, loose banks and thumbnails) (0a1e9fb)
+- [x] c. Source game from the pack itself: the merge's ContentOffers.ID (FH1 4D5309C9)
+- [x] d. CarPort standalone: only the package + FM4 (Escalade played in game, 2026-10-18)
+- [ ] e. PI fixed line per source game (FH1 line coded): check the class / PI of DLC cars in game
+- [ ] f. Swap engine: FM4's engine for an id the pack lacks, else the review asks
+      (`List_UpgradeEngine.EngineID`, choices by MediaName). Coded; check in game a car whose swap
+      is missing (e.g. SUB_BRZ_13), with an engine picked in the review
+- [x] g. Port window: a DLC folder as source (cars listed once, damaged / rims-only packages in the
+      report); Add → / ← Remove between the two lists (user's choice B), double-click adds
+- [x] h. Trial on all FH1 DLC cars FM4 lacks: 48 of 48 pass (`fm4dev\FH1DLC\tools\dlcall.exe`, 45
+      review items: swap engines, incomplete sound, materials); pack built and played (offer 93)
+- [ ] i. In-game check by the user: one complete car (Escalade, done 2026-10-18), one without swaps,
+      one with partial sound (e.g. LAM_AventadorJ_12)
 - [ ] j. Open the STFS package directly (`CON`/`LIVE`), not only the extracted folder
+- [ ] k. Rear-light materials in front parts: FH1 `brinr` in the Escalade's front bumper became
+      `tail_light` and lit red under braking (fixed by hand with Rename Material); also
+      MER_CLKGTR_HZN_98 `fogred` in the hood. Automatic rule for `brinl`/`brinr`/`fogred`/`taillight*`
+      in `bumperF*`/`headlight*`/`hood*`: waits for the material to use (file from BlackBirdOsaka)
+- [ ] l. Open DLC Package in the editor for small fixes (tree of the pack: cars, wheels, merge DB,
+      strings; edit in place; rebuild the Xbox package). Same work as 14.1a g
 
 ## 4. Materials FM4 renders black 🔧
 
@@ -274,6 +267,7 @@ standardise model export/import. Each idea notes what is already known or done t
 | C5 | Find the driver position | Medium | 14, 16 |
 | C6 | Missing sounds across generations | Medium | 3, 9 |
 | C7 | One export/import folder layout | High | 7 |
+| C8 | Change a mesh's material from a list | Medium | 3, 4 |
 
 ## C1. Better SQL editor and understanding of the DB schema
 
@@ -411,6 +405,12 @@ relevant object inside:
 ```
 
 (The original note ends here.)
+
+## C8. Change a mesh's material from a list
+
+In a `.carbin` the mesh name in the model tree is its material (the shader FM4 draws it with), so
+fixing a part means renaming it (Escalade front bumper, 2026-10-18). Instead of typing the name, pick
+it from a list of FM4 materials (★ recommended / common, from `MaterialSuggestions`), one click.
 
 ---
 
