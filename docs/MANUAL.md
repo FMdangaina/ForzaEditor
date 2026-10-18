@@ -93,9 +93,29 @@ the open folder or archive. The right side shows the selected file.
 |---|---|---|
 | File > Open Folder... | Ctrl+Shift+O | A game folder, or any folder inside it. The tree loads as you expand it. **Double-click a `.zip`** in the tree (or Enter, or Archive > Open Selected Archive) to open it. |
 | File > Open Archive... | Ctrl+O | One `.zip`, a `gamedb.slt` or a single `.xds`. |
+| File > Open DLC Package... | | An Xbox 360 DLC package file (`CON`/`LIVE`, the file named by its content id, e.g. `ED6D95A9…4D`). Open Archive opens it too. |
 
 Opening a `gamedb.slt` directly opens the folder it is in, so links to other game files can be
 followed.
+
+### DLC packages
+
+**File > Open DLC Package...** opens a marketplace package of any Forza game (FM4, FH1, FM3...).
+Its files are extracted to a work folder (`%TEMP%\ForzaStudio\DlcEdit\<file name>`) and shown like a
+game folder, with the package's name at the top of the tree:
+
+- every file is shown with its viewer; **double-click a `.zip`** (cars, wheels, string tables,
+  `<offer>_pri_N.zip`) to open it, **◀ Back** returns to the package;
+- edit, replace, add or revert files as in any folder or zip;
+- **Save** (Ctrl+S) writes the work folder **and packs the package file again**, in place, with
+  its own header (title, names, licences, thumbnails); the hash tables and the content id are
+  recomputed. The original file is copied to `bak\` the first time;
+- **File > Rebuild DLC Package** packs it again by hand (for example after a failed save).
+
+The RSA signature is not renewed: the package works in Xenia and on a modded (RGH/JTAG) console,
+not on a retail one. File names longer than 40 characters do not fit in a package: put such files
+in a zip. A DLC already installed in Xenia (a folder) opens with **Open Folder**; there Save writes
+the files directly.
 
 ### What each file shows
 
@@ -421,6 +441,11 @@ decals).
 
 1. Set the **source** folder (FH, FH2 or FM3) and the **Forza Motorsport 4** folder: the folders
    with `default.xex` and `Media`. Press **Load Cars**.
+   - The source can also be **car DLC packages** of Forza Horizon, without the game itself.
+     **Folder…** takes extracted packages (a folder holding `Media\<offer>.puboffer`, or a folder of them);
+     **Package…** takes the Xbox 360 package files themselves (one or more, as the console stores
+     them in `Content\...\4D5309C9\00000002`).
+   - An FM4 package (title `4D530910`), such as one you built, is not a port source.
 2. The list shows every car with its PI and class in both games.
    - **Only cars FM4 lacks** hides the cars FM4 already has.
    - Dimmed rows cannot be ported. The **In FM4** column says why.
@@ -441,11 +466,6 @@ The game's own files are not touched. The cars live in a package you can remove 
      to be written, ROADMAP 4.1).
 
    If you change fixes, run **Trial Pack** again.
-   - The source can also be **car DLC packages** of Forza Horizon, without the game itself.
-     **Folder…** takes extracted packages (a folder holding `Media\<offer>.puboffer`, or a folder of them);
-     **Package…** takes the Xbox 360 package files themselves (one or more, as the console stores
-     them in `Content\...\4D5309C9\00000002`).
-   - An FM4 package (title `4D530910`), such as one you built, is not a port source.
 5. Set **Xenia's folder** (the one with `xenia_canary.exe`).
 6. **Close Xenia**, then press **Build DLC Package**. The package goes straight into Xenia's
    content folder. Rebuilding a pack replaces it, after a confirmation.

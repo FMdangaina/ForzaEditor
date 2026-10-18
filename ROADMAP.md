@@ -25,7 +25,8 @@ Sections:
 
 ## Now
 
-(empty — the user picks the next item)
+**14.1c** Traffic cars: model tree, new part and move a mesh into another part (regroup merged
+parts by hand).
 
 ---
 
@@ -110,8 +111,12 @@ Steps, in order:
       `tail_light` and lit red under braking (fixed by hand with Rename Material); also
       MER_CLKGTR_HZN_98 `fogred` in the hood. Automatic rule for `brinl`/`brinr`/`fogred`/`taillight*`
       in `bumperF*`/`headlight*`/`hood*`: waits for the material to use (file from BlackBirdOsaka)
-- [ ] l. Open DLC Package in the editor for small fixes (tree of the pack: cars, wheels, merge DB,
-      strings; edit in place; rebuild the Xbox package). Same work as 14.1a g
+- [x] l. Open DLC Package in the editor for small fixes (tree of the pack: cars, wheels, merge DB,
+      strings; edit in place; rebuild the Xbox package). Same work as 14.1a g. Coded 2026-10-18:
+      File > Open DLC Package (also Open Archive), work folder in `%TEMP%\ForzaStudio\DlcEdit`, Save
+      packs the package again with its own header (`StfsPackage.Rewrite`); checked with
+      `fm4dev\DLC_EDIT\tools\pkgedit.exe` on FH1 370Z (0.8 MB), 1000 Club (370 MB, 501 files) and
+      our FM4 package (byte-identical). Checked by the user 2026-10-18
 
 ## 4. Materials FM4 renders black 🔧
 
@@ -198,8 +203,46 @@ Background: D2.
       aedfdaf): close-up models (`_lod0`, `_cockpit`) rebuilt from LOD 1, wheel LOD0 and tyre header,
       cockpit driver rig, seat, camera part 9, hood, scaled donor brakes, collision, empty parts, wheel
       LODs, material table. Nothing of it counts as done until checked again.
-  - [ ] List the problems seen in game (car, view, part, screenshot), one line each
-  - [ ] Fix them one at a time, each checked in game
+  - [x] List the problems seen in game: `docs/internal_traffic_conversion.md` (user, 2026-10-18,
+        13-car test pack, offer 92). Mesh and cameras OK; donor engine sound accepted
+  - [ ] Fix them one at a time, each checked in game, in this order:
+    - [x] a. RAV4 / XC70 (and F350): no rims in the showroom (checked in game on the XC70,
+          2026-10-18; pack 92 patched in place). Cause: wheel head 0x15C / 0x160 =
+          first / last LOD (0 / 5 on all 420 FM4 wheels); these FH wheels start at LOD 1 and kept
+          1 after LOD 0 was rebuilt. Fixed in `CarbinModel.SetWheelLodRange` (trial: 0..4)
+    - [x] b. Rename Material on one mesh only (@BlackBirdOsaka: two `detail_glass_amber` meshes, LTL
+          and RTL, in the same part rename together): "only this mesh" option (tree meshes carry
+          section/subsection index; this file only; shadersettings untouched); no option preset,
+          the user picks. Checked in the editor 2026-10-18
+    - [ ] c. Model tree: new part, move a mesh into another part (FH traffic parts are merged at the
+          source: lights in one part, bumpers in the body), to regroup by hand. Done in code: drag a
+          material onto a part (moved there, same material + LOD joined) or onto a LOD (new part,
+          name asked); this file only (`CarbinModel.MoveSubSection`). Harness `fm4dev\Traffic\tools\
+          movetest` on Yukon main/lod0/cockpit: geometry kept (max 0.06 mm). Empty parts: right
+          click on a LOD > New Empty Part, shown in yellow, tree only (not written while empty),
+          real once a mesh is dropped on it. Check in the editor and in game pending
+    - [ ] c2. `shadersettings.xml` follows the material edits (user, 2026-10-18). Facts (317 FM4 cars,
+          `fm4dev\Traffic\ss_fm4`): entry = technique (main/lod0 material as is, cockpit material with
+          `cockpit_`); 61 FM4 cars have no file (shader defaults), 41 list unused techniques
+          (harmless). Done in code: `ShaderSettings.cs` (parse/write, techniques of the car models,
+          FollowRename, checks, FM4 parameters per technique, names only); Rename Material copies the
+          entry when the old name is still used, renames it otherwise (before: always renamed); port
+          applies the review's material choices to the file too (before: dropped). Pack 92 check
+          (`sscheck`): lights_glass carrying BrakeColor / ReverseLightColor from merged FH lights.
+          Shader Settings view (selecting `shadersettings.xml`; Edit as XML / back): techniques with
+          M/L/C/B, red = error (parameter FM4 does not know, or never sets on that technique), yellow
+          = unused entry, grey = no settings (defaults); add (★ = FM4 sets it here; values typed by
+          the user), edit, remove, copy missing from another entry, remove unused. Tests: 256/256 FM4
+          files read and written back the same (`ssround`; Viper's element after the root kept); 7 cars
+          (3 std FH1 + 4 traffic) give the same file as before. Check in the editor pending
+    - [ ] d. Collision: spheres stick out / touch under the car (Yukon). Check the rebuild, then a
+          collision view in the model preview, then editing
+    - [ ] e. Number plates
+    - [ ] f. Upgrades: traffic cars have none. Generic set from an `.ini` (suspension, anti-roll bars,
+          engine levels 0-3 from FM4 averages, rim size, tyre width stock to +30% in real tyre sizes,
+          clutch / gearbox shift time; gear ratios untouched)
+    - [ ] g. Open a DLC pack folder in the editor as a tree, to check what was built (links to 3b)
+  - [ ] All port settings in clear `.ini` files (user note, with f)
   - [ ] Traffic cars shown in yellow in the port list (placeholder close-up files)
   - [ ] Interior very dark; exterior FH material names still black (fixed by hand)
   - [ ] Same rebuild for FM1/FM2 cars, only after FH traffic works (see C4)
