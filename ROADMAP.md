@@ -55,7 +55,7 @@ package, console tests). Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4de
 - Done: merge DB from a port, Xenia package folder, DLC pack panel (n cars), STFS package for a real
   Xbox 360 (RGH/JTAG, `StfsPackage.cs`), checked in game and on the console.
 
-## 3. Port from a car DLC (FH1 / FM3) → FM4 🔧 very important
+## 3. Port from a car DLC (FH1 / FM3) → FM4 ✅ done for FH1, open points (k paused, FM3 DLC)
 
 (Was 3.9.) Port → FM4 from an FH1 or FM3 car DLC (FH2 on 360 has no DLC), STFS `CON`/`LIVE` or its
 extracted folder: base game for shared data, the package's `<offer>000_merge.slt`, string tables,
@@ -66,9 +66,13 @@ Material: `fm4dev\Forza Horizon 1 DLC` (20 official packages); census `fm4dev\FH
 
 Decisions (user, 2026-10-17):
 
-- [ ] Swap engine not in the pack nor in FM4: ask the user which swap to put instead (coded, step f)
-- [ ] PI: fixed line per source game (FH1: FM4 = 1.189 PI - 0.363, error 0.0145) (coded, step e)
-- [ ] FM3 DLC: no material yet
+- [x] Swap engine not in the pack nor in FM4: ask the user which swap to put instead (step f)
+- [x] PI: fixed line per source game (FH1: FM4 = 1.189 PI - 0.363, error 0.0145) (step e)
+- [ ] FM3 DLC: Hyundai Car Pack (`fm4dev\Fm3DLC`, 3 Genesis Coupé) opens since 2026-10-18: no
+      `.puboffer` (offer from `0016_pri_65.zip`), no ContentOffers (game from the package header, or
+      `Media\LicenseMasks` for a folder), dashes staged as `DigitalGauges\<dash>.zip`; the 19 shared
+      FM3 dash images the pack lacks come from FM4 cars' dashes. Trial 3/3 OK
+      (`fm4dev\Fm3DLC\tools\dlcall_obj.exe`); in-game check by the user pending
 - [x] Incomplete engine sound: source game first, what it lacks from an FM4 car picked in the review
       (`soundfull:`); `NA.fsb` = "no sound" placeholder
 - [x] Sound with the engine upgraded: FM3 engine tunings completed to the FM4 layout
@@ -82,21 +86,27 @@ Steps, in order:
       tuning zips, loose banks and thumbnails) (0a1e9fb)
 - [x] c. Source game from the pack itself: the merge's ContentOffers.ID (FH1 4D5309C9)
 - [x] d. CarPort standalone: only the package + FM4 (Escalade played in game, 2026-10-18)
-- [ ] e. PI fixed line per source game (FH1 line coded): check the class / PI of DLC cars in game
-- [ ] f. Swap engine: FM4's engine for an id the pack lacks, else the review asks
+- [x] e. PI fixed line per source game (FH1 line coded): class / PI of DLC cars checked in game by
+      the user 2026-10-18
+- [x] f. Swap engine: FM4's engine for an id the pack lacks, else the review asks
       (`List_UpgradeEngine.EngineID`, choices by MediaName). Coded; check in game a car whose swap
-      is missing (e.g. SUB_BRZ_13), with an engine picked in the review
+      is missing (e.g. SUB_BRZ_13), with an engine picked in the review. Aspiration conversions
+      (`List_UpgradeEngineCSC`/`DSC`/`TurboSingle`/`TurboTwin`/`TurboQuad`, by EngineID) checked on
+      data 2026-10-18 (`fm4dev\FH1DLC\tools\aspcheck.exe`): the 46 stock engines keep the pack's rows,
+      field by field; a swap engine FM4 has gets FM4's rows; a swap picked in the review brings that
+      FM4 engine's rows. FH1 packs have no TurboQuad table. Checked in game by the user 2026-10-18:
+      FOR_Mustang_95 (SVT, swap engine 1020 missing) with Falcon #9 picked in the review, found in the shop
 - [x] g. Port window: a DLC folder as source (cars listed once, damaged / rims-only packages in the
       report); Add → / ← Remove between the two lists (user's choice B), double-click adds
 - [x] h. Trial on all FH1 DLC cars FM4 lacks: 48 of 48 pass (`fm4dev\FH1DLC\tools\dlcall.exe`, 45
       review items: swap engines, incomplete sound, materials); pack built and played (offer 93)
-- [ ] i. In-game check by the user: one complete car (Escalade, done 2026-10-18), one without swaps,
-      one with partial sound (e.g. LAM_AventadorJ_12)
+- [x] i. In-game check by the user: one complete car (Escalade), one with partial sound
+      (LAM_AventadorJ_12, twin turbo, sound from FM4's Aventador): all work (2026-10-18)
 - [x] j. Open the STFS package directly (`CON`/`LIVE`), not only the extracted folder:
       StfsReader.cs, Source row **Folder…** / **Package…**; 17 FH1 packages byte-identical to the
       extracted ones, the 2 cut short refused, an FM4 package refused with a message; checked by the
       user in the window 2026-10-18
-- [ ] k. Rear-light materials in front parts: FH1 `brinr` in the Escalade's front bumper became
+- [ ] k. ⏸ paused (user, 2026-10-18). Rear-light materials in front parts: FH1 `brinr` in the Escalade's front bumper became
       `tail_light` and lit red under braking (fixed by hand with Rename Material); also
       MER_CLKGTR_HZN_98 `fogred` in the hood. Automatic rule for `brinl`/`brinr`/`fogred`/`taillight*`
       in `bumperF*`/`headlight*`/`hood*`: waits for the material to use (file from BlackBirdOsaka)

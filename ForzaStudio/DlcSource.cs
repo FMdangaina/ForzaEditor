@@ -30,6 +30,9 @@ namespace ForzaStudio
     //   Media\audio\cars\CarModelTuning.zip, Engines\EngineTuning.zip, Engines\HarmonicTuning.zip
     //   Media\audio\cars\Engines\Soundbanks\LOD1\*.fsb, Media\UI\Textures\Thumbnails\*.xds (loose)
     //   DlcSource.txt                  title id, offer, package: GameInfo.Detect reads the game from it
+    // An FM3 pack (Hyundai Car Pack, checked 2026-10-18) is the same but has no .puboffer (the offer is in
+    // DLCZips\0016_pri_65.zip's name), no ContentOffers in its merge (Media\LicenseMasks\*.sql unlocks the
+    // cars instead) and its digital dashes in media\DigitalGauges\<dash>\ (staged as <dash>.zip).
     // What the pack lacks (shared engine sounds, engine swaps only in the base game) the port takes from
     // FM4 or asks in the review.
     // OpenPackage() takes the package file itself (STFS, StfsReader) and extracts it first.
@@ -57,21 +60,26 @@ namespace ForzaStudio
         // The package in a folder: the extracted package itself, or its Media folder.
         public static DlcSource Open(string folder)
         {
+            return Open(folder, 0);
+        }
+
+        // titleId: the package header's, when the package file was read (0 for a folder).
+        private static DlcSource Open(string folder, uint titleId)
+        {
             string root = Path.GetFullPath(folder).TrimEnd('\\');
             if (string.Equals(Path.GetFileName(root), "Media", StringComparison.OrdinalIgnoreCase))
             {
                 root = Path.GetDirectoryName(root);
             }
-            string media = Path.Combine(root, "Media");
-            string[] offers = Directory.Exists(media) ? Directory.GetFiles(media, "*.puboffer") : new string[0];
-            int offer;
-            if (offers.Length != 1 || !int.TryParse(Path.GetFileNameWithoutExtension(offers[0]), NumberStyles.None, CultureInfo.InvariantCulture, out offer))
+            int offer = ReadOffer(Path.Combine(root, "Media"));
+            if (offer < 0)
             {
                 return null;
             }
             DlcSource source = new DlcSource();
             source.Folder = root;
             source.Offer = offer;
+            source.TitleId = titleId;
             try
             {
                 source.ReadLayers();
@@ -130,10 +138,10 @@ namespace ForzaStudio
                     }
                     File.WriteAllText(marker, stamp);
                 }
-                DlcSource source = Open(folder);
+                DlcSource source = Open(folder, package.TitleId);
                 if (source == null)
                 {
-                    failed.Problem = "not a car pack (no Media\\<offer>.puboffer): " + package.DisplayName;
+                    failed.Problem = "not a car pack (no Media\\DLCZips): " + package.DisplayName;
                     return failed;
                 }
                 if (source.TitleId == 0)
@@ -148,6 +156,33 @@ namespace ForzaStudio
                 failed.Problem = e.Message;
                 return failed;
             }
+        }
+
+        // The offer of a package's Media folder: FH1 names a <offer>.puboffer file; FM3 has none, its offer
+        // is in the media layer's name (DLCZips\0016_pri_65.zip). -1 when the folder is not a package.
+        private static int ReadOffer(string media)
+        {
+            int offer;
+            string[] offers = Directory.Exists(media) ? Directory.GetFiles(media, "*.puboffer") : new string[0];
+            if (offers.Length == 1)
+            {
+                return int.TryParse(Path.GetFileNameWithoutExtension(offers[0]), NumberStyles.None, CultureInfo.InvariantCulture, out offer) ? offer : -1;
+            }
+            string zips = Path.Combine(media, "DLCZips");
+            if (offers.Length == 0 && Directory.Exists(zips))
+            {
+                List<string> layers = new List<string>(Directory.GetFiles(zips, "*_pri_65.zip"));
+                layers.AddRange(Directory.GetDirectories(zips, "*_pri_65"));
+                foreach (string layer in layers)
+                {
+                    string name = Path.GetFileName(layer);
+                    if (int.TryParse(name.Substring(0, name.IndexOf("_pri_", StringComparison.OrdinalIgnoreCase)), NumberStyles.None, CultureInfo.InvariantCulture, out offer))
+                    {
+                        return offer;
+                    }
+                }
+            }
+            return -1;
         }
 
         // Every package below a folder (a content folder, 00000002, or a folder of extracted packages).
@@ -263,14 +298,23 @@ namespace ForzaStudio
             }
             using (SqliteDatabase db = SqliteDatabase.FromBytes(merge))
             {
-                string id = db.Scalar("SELECT ID FROM ContentOffers LIMIT 1") as string;
+                string id = (db.Scalar("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'ContentOffers'") != null) ? db.Scalar("SELECT ID FROM ContentOffers LIMIT 1") as string : null;
                 uint title;
-                if (id == null || id.Length < 8 || !uint.TryParse(id.Substring(0, 8), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out title))
+                if (id != null && id.Length >= 8 && uint.TryParse(id.Substring(0, 8), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out title))
+                {
+                    this.TitleId = title;
+                }
+                else if (this.TitleId == 0 && Directory.Exists(Path.Combine(Path.Combine(this.Folder, "Media"), "LicenseMasks")))
+                {
+                    // FM3: no ContentOffers, the cars are in the merge and unlocked by
+                    // Media\LicenseMasks\*.sql (UPDATE Data_Car SET IsPurchased=1 ...), a folder FH1 and FM4 lack.
+                    this.TitleId = 0x4D53084D;
+                }
+                else if (this.TitleId == 0)
                 {
                     throw new InvalidDataException("The merge database has no ContentOffers id: the source game is unknown.");
                 }
-                this.TitleId = title;
-                this.Game = GameInfo.FromTitleId(title);
+                this.Game = GameInfo.FromTitleId(this.TitleId);
             }
         }
 
@@ -418,6 +462,15 @@ namespace ForzaStudio
                     {
                         zips += ToZip(folder);
                     }
+                }
+            }
+            // FM3 digital dashes (Media\DigitalGauges\<List_DigitalGauges.MediaName>.zip in the game).
+            string gauges = Path.Combine(media, "DigitalGauges");
+            if (Directory.Exists(gauges))
+            {
+                foreach (string folder in Directory.GetDirectories(gauges))
+                {
+                    zips += ToZip(folder);
                 }
             }
             string tables = Path.Combine(media, "StringTables");

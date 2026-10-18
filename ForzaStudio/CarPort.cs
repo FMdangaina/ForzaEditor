@@ -2352,6 +2352,7 @@ namespace ForzaStudio
                 }
                 string rest = path.Substring(ui.Length).Replace('\\', '/');
                 string name = Path.GetFileNameWithoutExtension(rest);
+            List<string> fromFm4 = new List<string>();
                 if (images.ContainsKey(name))
                 {
                     return true;
@@ -2359,8 +2360,17 @@ namespace ForzaStudio
                 ForzaZip.Entry texture = (textures != null) ? textures.Find(Path.ChangeExtension(rest, ".xds")) : null;
                 if (texture == null)
                 {
-                    missing.Add(path);
-                    return false;
+                    // Not in the source (an FM3 DLC pack has no Textures.zip): the same image as an FM4
+                    // car's dash carries it, already in FM4's format.
+                    byte[] fm4 = this.Fm4DashImage(name);
+                    if (fm4 == null)
+                    {
+                        missing.Add(path);
+                        return false;
+                    }
+                    images[name] = fm4;
+                    fromFm4.Add(name);
+                    return true;
                 }
                 images[name] = ConvertMotorsport3Texture(textures.Read(texture), texture.Name);
                 return true;
@@ -2373,7 +2383,11 @@ namespace ForzaStudio
             {
                 car.Add("digitalgauge/" + image.Key.ToLowerInvariant() + ".xds", image.Value);
             }
-            this.Line("  digital dash: {0}/{1} -> {2}.fbf/.bgf/.bsg, {3} textures from Media\\UI\\Textures.zip", Path.GetFileName(zipPath), Path.GetFileName(stem), prefix, images.Count);
+            this.Line("  digital dash: {0}/{1} -> {2}.fbf/.bgf/.bsg, {3} textures from Media\\UI\\Textures.zip", Path.GetFileName(zipPath), Path.GetFileName(stem), prefix, images.Count - fromFm4.Count);
+            if (fromFm4.Count > 0)
+            {
+                this.Line("  digital dash: {0} images not in the source, taken from FM4 cars' dashes: {1}", fromFm4.Count, string.Join(", ", fromFm4.ToArray()));
+            }
             if (missing.Count > 0)
             {
                 this.Line("  WARNING digital dash: {0} images not found, left pointing at FM3's path: {1}", missing.Count, string.Join(", ", missing.ToArray()));
@@ -2390,6 +2404,53 @@ namespace ForzaStudio
         {
             AnarkFbf fbf = AnarkFbf.Read(data);
             if (!fbf.IsFM3)
+        // An image of an FM4 car's dash (digitalgauge/<name>.xds in the car zips of the target), or null.
+        // The index of the target's dash images is built once per target folder. FM3's shared dash
+        // images (ui4\dashboards\mfd_oval, mfd_square01...) are carried by the FM4 cars whose dash came
+        // from FM3, the same bytes in every car (checked on the Hyundai pack's 19, 2026-10-18).
+        private byte[] Fm4DashImage(string name)
+        {
+            lock (Fm4DashLock)
+            {
+                if (fm4DashImages == null || !string.Equals(fm4DashRoot, this.TargetRoot, StringComparison.OrdinalIgnoreCase))
+                {
+                    fm4DashImages = new Dictionary<string, KeyValuePair<string, string>>(StringComparer.OrdinalIgnoreCase);
+                    fm4DashRoot = this.TargetRoot;
+                    string cars = Path.Combine(Path.Combine(this.TargetRoot, "Media"), "cars");
+                    foreach (string zip in Directory.Exists(cars) ? Directory.GetFiles(cars, "*.zip") : new string[0])
+                    {
+                        try
+                        {
+                            foreach (ForzaZip.Entry entry in new ForzaZip(zip).Entries)
+                            {
+                                string entryName = entry.Name.Replace('\\', '/');
+                                if (entryName.StartsWith("digitalgauge/", StringComparison.OrdinalIgnoreCase) && entryName.EndsWith(".xds", StringComparison.OrdinalIgnoreCase)
+                                    && !fm4DashImages.ContainsKey(Path.GetFileNameWithoutExtension(entryName)))
+                                {
+                                    fm4DashImages[Path.GetFileNameWithoutExtension(entryName)] = new KeyValuePair<string, string>(zip, entry.Name);
+                                }
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            // A damaged or foreign zip: not a source of dash images.
+                        }
+                    }
+                }
+                KeyValuePair<string, string> found;
+                if (!fm4DashImages.TryGetValue(name, out found))
+                {
+                    return null;
+                }
+                ForzaZip car = new ForzaZip(found.Key);
+                return car.Read(car.Find(found.Value));
+            }
+        }
+
+        private static readonly object Fm4DashLock = new object();
+        private static Dictionary<string, KeyValuePair<string, string>> fm4DashImages;
+        private static string fm4DashRoot;
+
             {
                 return data;
             }
