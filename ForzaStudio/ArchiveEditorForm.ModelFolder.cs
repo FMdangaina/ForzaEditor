@@ -184,36 +184,49 @@ namespace ForzaStudio
                 AppSettings.Set("Dir.ModelFolder", single ? Path.GetDirectoryName(dialog.SelectedPath) : dialog.SelectedPath);
             }
 
-            CarModelFolder.Plan plan;
-            try
+            CarModelFolder.Plan plan = this.PrepareModelPlan(folders, models, false);
+            if (plan == null)
             {
-                Cursor.Current = Cursors.WaitCursor;
-                plan = CarModelFolder.Prepare(folders, models);
-            }
-            catch (Exception exception)
-            {
-                MessageBox.Show(this, exception.Message, "Import Model", MessageBoxButtons.OK, MessageBoxIcon.Hand);
-                return;
-            }
-            finally
-            {
-                Cursor.Current = Cursors.Default;
-            }
-            if (plan.Errors.Count > 0)
-            {
-                MessageBox.Show(this, "Nothing imported:\n\n" + string.Join("\n", plan.Errors.GetRange(0, Math.Min(20, plan.Errors.Count)).ToArray())
-                    + ((plan.Errors.Count > 20) ? string.Format("\n... {0} more", plan.Errors.Count - 20) : ""), "Import Model", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             if (plan.IsEmpty)
             {
-                MessageBox.Show(this, "Every OBJ matches the model: nothing to import." + ((plan.Ignored.Count > 0) ? "\n\nIgnored: " + string.Join(", ", plan.Ignored.ToArray()) : ""),
-                    "Import Model", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
+                // Unchanged OBJs can still be rebuilt: fresh precalc lighting and UV data.
+                if (MessageBox.Show(this, "Every OBJ matches the model." + ((plan.Ignored.Count > 0) ? "\n\nIgnored: " + string.Join(", ", plan.Ignored.ToArray()) : "")
+                    + "\n\nRebuild every OBJ anyway (recomputes precalc lighting and UV data)?", "Import Model", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                {
+                    return;
+                }
+                plan = this.PrepareModelPlan(folders, models, true);
+                if (plan == null || plan.IsEmpty)
+                {
+                    return;
+                }
             }
-            if (!this.ConfirmModelPlan(plan))
+            bool rebuildAll;
+            if (!this.ConfirmModelPlan(plan, out rebuildAll))
             {
                 return;
+            }
+            if (rebuildAll)
+            {
+                // Same plan with the unchanged OBJs too; the template choices are kept.
+                CarModelFolder.Plan all = this.PrepareModelPlan(folders, models, true);
+                if (all == null)
+                {
+                    return;
+                }
+                foreach (CarModelFolder.PartPlan part in all.Parts)
+                {
+                    foreach (CarModelFolder.PartPlan chosen in plan.Parts)
+                    {
+                        if (part.IsNew && part.Kind == chosen.Kind && part.Part == chosen.Part)
+                        {
+                            part.Template = chosen.Template;
+                        }
+                    }
+                }
+                plan = all;
             }
 
             StringBuilder report = new StringBuilder();
@@ -243,9 +256,38 @@ namespace ForzaStudio
             this.ShowReport("Import Model", report.ToString());
         }
 
-        // The plan in words, with a template choice for each new part. False when cancelled.
-        private bool ConfirmModelPlan(CarModelFolder.Plan plan)
+        // The import plan, or null after showing its errors.
+        private CarModelFolder.Plan PrepareModelPlan(Dictionary<string, string> folders, Dictionary<string, CarbinModel> models, bool rebuildAll)
         {
+            CarModelFolder.Plan plan;
+            try
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                plan = CarModelFolder.Prepare(folders, models, rebuildAll);
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Import Model", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                return null;
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+            }
+            if (plan.Errors.Count > 0)
+            {
+                MessageBox.Show(this, "Nothing imported:\n\n" + string.Join("\n", plan.Errors.GetRange(0, Math.Min(20, plan.Errors.Count)).ToArray())
+                    + ((plan.Errors.Count > 20) ? string.Format("\n... {0} more", plan.Errors.Count - 20) : ""), "Import Model", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return null;
+            }
+            return plan;
+        }
+
+        // The plan in words, with a template choice for each new part. False when cancelled.
+        // rebuildAll: the user asked to rebuild the unchanged OBJs too.
+        private bool ConfirmModelPlan(CarModelFolder.Plan plan, out bool rebuildAll)
+        {
+            rebuildAll = false;
             List<CarModelFolder.PartPlan> added = new List<CarModelFolder.PartPlan>();
             StringBuilder text = new StringBuilder();
             foreach (CarModelFolder.PartPlan part in plan.Parts)
@@ -269,7 +311,13 @@ namespace ForzaStudio
 
             Panel panel = new Panel();
             int rows = Math.Min(added.Count, 10);
-            panel.Size = new Size(640, 300 + ((added.Count > 0) ? 28 + (rows * 28) : 0));
+            int listHeight = (added.Count > 0) ? 28 + (rows * 28) : 0;
+            panel.Size = new Size(640, 300 + listHeight + 28);
+            CheckBox all = new CheckBox();
+            all.Text = "Also rebuild the unchanged OBJs (recomputes precalc lighting and UV data)";
+            all.AutoSize = true;
+            all.Location = new Point(0, 300 + listHeight + 4);
+            panel.Controls.Add(all);
             TextBox summary = new TextBox();
             summary.Multiline = true;
             summary.ReadOnly = true;
@@ -317,6 +365,7 @@ namespace ForzaStudio
             {
                 return false;
             }
+            rebuildAll = all.Checked;
             foreach (KeyValuePair<CarModelFolder.PartPlan, ComboBox> pair in templates)
             {
                 if (pair.Value.SelectedItem != null)

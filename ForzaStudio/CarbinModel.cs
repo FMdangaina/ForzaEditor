@@ -1769,10 +1769,11 @@ namespace ForzaStudio
             public byte[] ReferenceDamage;
             public int ReferenceCount;
             public float[] ReferenceUv;
+            public float[] ReferenceUv2;        // absolute UV2 of the original vertices, NaN when unused
             public int Stride;                  // 32 (FM4) or 28 (FH)
             public PointTree Tree;
             public VertexBuffer Target;
-            public bool Deformable;
+            public int DamageStride;            // per-vertex table entry: 4 (car damage words), 16 (wheels), 0 = no table
             public bool Lod0;
             public SubSection Template;
             public int Restart;
@@ -1798,21 +1799,33 @@ namespace ForzaStudio
             {
                 throw new ArgumentException(sectionName + ": no LOD to build.");
             }
+            // LOD 0 lives in the Lod0 buffer, LODs 1+ in the Lod buffer: cars keep them in different
+            // files, wheels in the same one. One pass per buffer; the other buffer's subsections stay.
+            Dictionary<uint, ObjMesh> lod0Meshes = new Dictionary<uint, ObjMesh>();
+            Dictionary<uint, ObjMesh> lodMeshes = new Dictionary<uint, ObjMesh>();
+            foreach (KeyValuePair<uint, ObjMesh> pair in meshes)
+            {
+                ((pair.Key == 0) ? lod0Meshes : lodMeshes)[pair.Key] = pair.Value;
+            }
+            string report = "";
+            if (lod0Meshes.Count > 0)
+            {
+                report += this.RebuildBuffer(section, lod0Meshes, true, materialMap, fitUv);
+            }
+            if (lodMeshes.Count > 0)
+            {
+                report += ((report.Length > 0) ? "\r\n" : "") + this.RebuildBuffer(section, lodMeshes, false, materialMap, fitUv);
+            }
+            return report;
+        }
+
+        // RebuildLods on one vertex buffer (Lod0 for LOD 0, Lod for LODs 1+).
+        private string RebuildBuffer(Section section, Dictionary<uint, ObjMesh> meshes, bool useLod0, Dictionary<string, string> materialMap, bool fitUv)
+        {
+            string sectionName = section.Name;
             int sectionIndex = this.Sections.IndexOf(section);
             List<uint> lods = new List<uint>(meshes.Keys);
             lods.Sort();
-            bool useLod0 = lods.Contains(0);
-            if (useLod0 && lods.Count > 1)
-            {
-                throw new NotSupportedException(sectionName + ": LOD 0 and LODs 1+ live in different files.");
-            }
-            foreach (SubSection sub in section.SubSections)
-            {
-                if ((sub.Lod == 0) != useLod0)
-                {
-                    throw new NotSupportedException(sectionName + " mixes lod0 and LOD subsections in one file.");
-                }
-            }
 
             Rebuild work = new Rebuild();
             work.Lod0 = useLod0;
@@ -1823,7 +1836,9 @@ namespace ForzaStudio
                 throw new NotSupportedException(string.Format("{0}: {1}-byte vertices, expected {2}.", sectionName, work.Target.Stride, work.Stride));
             }
             Table damage = useLod0 ? section.DamageLod0 : section.DamageLod;
-            work.Deformable = section.IsDeformable && damage.Count == work.Target.Count && damage.Stride == 4;
+            // The per-vertex table follows the vertices: damage words on deformable car parts, 16 bytes
+            // per vertex on wheels (left stale, it no longer matched the rebuilt vertices).
+            work.DamageStride = (damage.Count > 0 && damage.Count == work.Target.Count && damage.Stride > 0) ? damage.Stride : 0;
             work.Reference = Positions(section, work.Target);
             work.ReferenceData = work.Target.Data;
             work.ReferenceDamage = damage.Data;
@@ -1831,12 +1846,18 @@ namespace ForzaStudio
             work.Tree = new PointTree(work.Reference, work.ReferenceCount);
             // Absolute UVs of the original vertices (each subsection has its own UV range), NaN when unused.
             work.ReferenceUv = new float[work.ReferenceCount * 2];
+            work.ReferenceUv2 = new float[work.ReferenceCount * 2];
             for (int i = 0; i < work.ReferenceUv.Length; i++)
             {
                 work.ReferenceUv[i] = float.NaN;
+                work.ReferenceUv2[i] = float.NaN;
             }
             foreach (SubSection sub in section.SubSections)
             {
+                if ((sub.Lod == 0) != useLod0)
+                {
+                    continue;
+                }
                 foreach (int index in sub.Indices)
                 {
                     if (!IsRestart(sub, index) && index < work.ReferenceCount)
@@ -1844,6 +1865,9 @@ namespace ForzaStudio
                         Microsoft.Xna.Framework.Vector2 uv = VertexUv(work.Target, index, sub, 0);
                         work.ReferenceUv[index * 2] = uv.X;
                         work.ReferenceUv[(index * 2) + 1] = uv.Y;
+                        Microsoft.Xna.Framework.Vector2 uv2 = VertexUv(work.Target, index, sub, 1);
+                        work.ReferenceUv2[index * 2] = uv2.X;
+                        work.ReferenceUv2[(index * 2) + 1] = uv2.Y;
                     }
                 }
             }
@@ -1873,7 +1897,19 @@ namespace ForzaStudio
                 }
             }
 
-            work.Template = (section.SubSections.Count > 0) ? section.SubSections[0].Copy() : this.AnySubSection(useLod0);
+            work.Template = null;
+            foreach (SubSection sub in section.SubSections)
+            {
+                if ((sub.Lod == 0) == useLod0)
+                {
+                    work.Template = sub.Copy();
+                    break;
+                }
+            }
+            if (work.Template == null)
+            {
+                work.Template = this.AnySubSection(useLod0);
+            }
             if (work.Template == null)
             {
                 throw new InvalidDataException("No subsection to use as a template in this file.");
@@ -1890,6 +1926,24 @@ namespace ForzaStudio
             Dictionary<ObjMesh, List<SubSection>> built = new Dictionary<ObjMesh, List<SubSection>>();
             Dictionary<int, int> keptVertex = new Dictionary<int, int>();
             bool rebuilt = false;
+            // Subsections of the other buffer (wheels): kept as they are, LOD 0 ones before the others.
+            List<SubSection> otherSubs = new List<SubSection>();
+            foreach (SubSection sub in section.SubSections)
+            {
+                if ((sub.Lod == 0) != useLod0)
+                {
+                    otherSubs.Add(sub);
+                    int list;
+                    if (ownList.TryGetValue(sub, out list))
+                    {
+                        placed.Add(new KeyValuePair<int, SubSection>(list, sub));
+                    }
+                }
+            }
+            if (!useLod0)
+            {
+                newSubs.AddRange(otherSubs);
+            }
             foreach (uint lod in lods)
             {
                 ObjMesh mesh = meshes[lod];
@@ -1921,10 +1975,10 @@ namespace ForzaStudio
                                 work.Positions.Add(work.Reference[index * 3]);
                                 work.Positions.Add(work.Reference[(index * 3) + 1]);
                                 work.Positions.Add(work.Reference[(index * 3) + 2]);
-                                byte[] word = new byte[4];
-                                if (work.Deformable)
+                                byte[] word = new byte[work.DamageStride];
+                                if (work.DamageStride > 0)
                                 {
-                                    Buffer.BlockCopy(work.ReferenceDamage, index * 4, word, 0, 4);
+                                    Buffer.BlockCopy(work.ReferenceDamage, index * work.DamageStride, word, 0, work.DamageStride);
                                 }
                                 work.Words.Add(word);
                             }
@@ -1966,10 +2020,16 @@ namespace ForzaStudio
                     placed.Add(new KeyValuePair<int, SubSection>(list, copy));
                 }
             }
-            if (newSubs.Count == 0)
+            if (newSubs.Count == otherSubs.Count)
             {
                 throw new InvalidDataException(sectionName + ": the OBJs have no usable triangles.");
             }
+            if (useLod0)
+            {
+                newSubs.AddRange(otherSubs);
+            }
+            // Positions of the other buffer, re-encoded with the new bounds (decoded before they change).
+            double[] other = Positions(section, useLod0 ? section.Lod : section.Lod0);
             if (work.Template.IndexSize == 2 && work.Vertices.Count >= 0xFFFF)
             {
                 throw new InvalidDataException(string.Format("{0}: {1:N0} vertices do not fit the 16-bit indices of this file (max 65,534).", sectionName, work.Vertices.Count));
@@ -1977,26 +2037,25 @@ namespace ForzaStudio
             section.SubSections.Clear();
             section.SubSections.AddRange(newSubs);
 
-            // Vertex buffer and damage words.
+            // Vertex buffer and per-vertex table.
             byte[] data = new byte[work.Vertices.Count * work.Stride];
-            byte[] damageData = new byte[work.Vertices.Count * 4];
+            byte[] damageData = new byte[work.Vertices.Count * work.DamageStride];
             for (int i = 0; i < work.Vertices.Count; i++)
             {
                 Buffer.BlockCopy(work.Vertices[i], 0, data, i * work.Stride, work.Stride);
-                Buffer.BlockCopy(work.Words[i], 0, damageData, i * 4, 4);
+                Buffer.BlockCopy(work.Words[i], 0, damageData, i * work.DamageStride, work.DamageStride);
             }
             work.Target.Data = data;
             work.Target.Count = work.Vertices.Count;
             work.Target.Stride = work.Stride;
-            if (work.Deformable)
+            if (work.DamageStride > 0)
             {
                 damage.Count = work.Vertices.Count;
-                damage.Stride = 4;
                 damage.Data = damageData;
             }
             // Arrays A/B (only on the LOD glass of main files; per-triangle data whose meaning is not
             // known) describe the old triangles: dropped with them, as on every other part.
-            if (rebuilt && (section.ACount > 0 || section.BCount > 0))
+            if (rebuilt && !useLod0 && (section.ACount > 0 || section.BCount > 0))
             {
                 section.ACount = 0;
                 section.A = new byte[0];
@@ -2030,7 +2089,7 @@ namespace ForzaStudio
             }
 
             double[] all = work.Positions.ToArray();
-            Reencode(section, useLod0 ? new double[0] : all, useLod0 ? all : new double[0]);
+            Reencode(section, useLod0 ? other : all, useLod0 ? all : other);
             CheckIndexRange(section);
             this.CheckDrawLists();
             work.Report.AppendFormat("{0}: {1} vertices, LODs {2}", sectionName, work.Vertices.Count, string.Join(",", lods.ConvertAll<string>(delegate(uint x) { return x.ToString(); }).ToArray()));
@@ -2167,6 +2226,7 @@ namespace ForzaStudio
                     continue;
                 }
                 int baseIndex = work.Vertices.Count;
+                List<float[]> uv2 = new List<float[]>();
                 for (int id = 0; id < cornersOf.Count; id++)
                 {
                     ObjMesh.Corner corner = cornersOf[id];
@@ -2196,6 +2256,7 @@ namespace ForzaStudio
                     {
                         // Frame and the 8 trailing bytes as they were.
                         Buffer.BlockCopy(work.ReferenceData, (same * work.Stride) + 16, vertex, 16, work.Stride - 16);
+                        nearest = same;
                         kept++;
                     }
                     else
@@ -2207,13 +2268,16 @@ namespace ForzaStudio
                     work.Positions.Add(corner.Position.X);
                     work.Positions.Add(corner.Position.Y);
                     work.Positions.Add(corner.Position.Z);
-                    byte[] word = new byte[4];
-                    if (work.Deformable && nearest >= 0)
+                    // Per-vertex table entry of the same vertex, else of the nearest one.
+                    byte[] word = new byte[work.DamageStride];
+                    if (work.DamageStride > 0 && nearest >= 0)
                     {
-                        Buffer.BlockCopy(work.ReferenceDamage, nearest * 4, word, 0, 4);
+                        Buffer.BlockCopy(work.ReferenceDamage, nearest * work.DamageStride, word, 0, work.DamageStride);
                     }
                     work.Words.Add(word);
+                    uv2.Add((nearest >= 0) ? new float[] { work.ReferenceUv2[nearest * 2], work.ReferenceUv2[(nearest * 2) + 1] } : new float[] { float.NaN, float.NaN });
                 }
+                EncodeUv2(work, baseIndex, uv2, uvParams);
                 foreach (int[] face in faces)
                 {
                     if (sub.Indices.Count > 0)
@@ -2229,6 +2293,42 @@ namespace ForzaStudio
                 work.Report.AppendFormat("{0} -> {1}: {2} triangles, {3} vertices ({4} unchanged, game tangent frame kept){5}\r\n", material.Name, carMaterial, faces.Count, cornersOf.Count, kept, (flipped > 0) ? string.Format(" ({0} triangles turned to match the normals)", flipped) : "");
             }
             return result;
+        }
+
+        // UV2 of new vertices (bytes 12-15): the absolute UV2 of the vertex they came from, encoded in
+        // the subsection's own UV2 range. The raw bytes belong to the source subsection's range, and
+        // the same material has a different range at each LOD (wheels). A constant UV2 keeps scale 0,
+        // as the game's files store it.
+        private static void EncodeUv2(Rebuild work, int baseIndex, List<float[]> uv2, float[] uvParams)
+        {
+            for (int c = 0; c < 2; c++)
+            {
+                float lo = float.MaxValue;
+                float hi = float.MinValue;
+                foreach (float[] value in uv2)
+                {
+                    if (!float.IsNaN(value[c]))
+                    {
+                        lo = Math.Min(lo, value[c]);
+                        hi = Math.Max(hi, value[c]);
+                    }
+                }
+                if (lo > hi)
+                {
+                    continue;   // no source UV2: raw bytes and range as copied
+                }
+                float range = hi - lo;
+                uvParams[4 + (c * 2)] = lo;
+                uvParams[5 + (c * 2)] = (range > 1e-9f) ? range : 0f;
+                for (int i = 0; i < uv2.Count; i++)
+                {
+                    float value = float.IsNaN(uv2[i][c]) ? lo : uv2[i][c];
+                    int raw = (range > 1e-9f) ? Math.Max(0, Math.Min(65535, (int) Math.Round(((value - lo) / range) * 65535))) : 0;
+                    byte[] vertex = work.Vertices[baseIndex + i];
+                    vertex[12 + (c * 2)] = (byte) (raw >> 8);
+                    vertex[13 + (c * 2)] = (byte) raw;
+                }
+            }
         }
 
         // The 8 trailing vertex bytes: four SNORM16, t0 a level (high on open surfaces, low in

@@ -349,8 +349,9 @@ namespace ForzaStudio
         }
 
         // Compares each .carbin folder with its model (and the manifest of its export, when there is
-        // one). Without a manifest every OBJ counts as changed and nothing is dropped.
-        public static Plan Prepare(Dictionary<string, string> folders, Dictionary<string, CarbinModel> models)
+        // one). Without a manifest every OBJ counts as changed and nothing is dropped. rebuildAll:
+        // unchanged OBJs are rebuilt too (fresh precalc lighting and UV data).
+        public static Plan Prepare(Dictionary<string, string> folders, Dictionary<string, CarbinModel> models, bool rebuildAll)
         {
             Plan plan = new Plan();
             plan.Folders = folders;
@@ -400,11 +401,14 @@ namespace ForzaStudio
                 }
 
                 // OBJs present, by part (spelled as the model spells it when it has it) and LOD.
+                // The main file holds LOD 0 too when the model has no _lod0 file (wheels) or already
+                // has that LOD.
+                bool mainWithLod0 = kind == Main && (!models.ContainsKey(Lod0) || HasLod(model, 0));
                 Dictionary<string, SortedDictionary<uint, string>> present = new Dictionary<string, SortedDictionary<uint, string>>(StringComparer.OrdinalIgnoreCase);
                 foreach (string[] found in Scan(folder, plan.Ignored))
                 {
                     uint lod = uint.Parse(found[0], CultureInfo.InvariantCulture);
-                    if ((lod == 0) != (kind != Main))
+                    if ((kind == Main) ? (lod == 0 && !mainWithLod0) : (lod != 0))
                     {
                         plan.Errors.Add(string.Format("{0}\\lod{1}\\{2}.obj: the {0} file has {3}", Path.GetFileName(folder), lod, found[1], (kind == Main) ? "LODs 1 and up (LOD 0 is the _lod0 file)" : "only LOD 0"));
                         continue;
@@ -465,7 +469,7 @@ namespace ForzaStudio
                                 part.Keep.Add(lod);
                             }
                         }
-                        else if (wasExported && hash == Hash(path))
+                        else if (!rebuildAll && wasExported && hash == Hash(path))
                         {
                             part.Keep.Add(lod);
                         }
@@ -612,6 +616,21 @@ namespace ForzaStudio
                 return key;
             }
             return 0;
+        }
+
+        private static bool HasLod(CarbinModel model, uint lod)
+        {
+            foreach (CarbinModel.Section section in model.Sections)
+            {
+                foreach (CarbinModel.SubSection sub in section.SubSections)
+                {
+                    if (sub.Lod == lod)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         private static CarbinModel.Section FindIgnoreCase(CarbinModel model, string name)
