@@ -100,6 +100,7 @@ namespace ForzaStudio
         private readonly List<string> newZips = new List<string>();
         private readonly List<string> checkedBanks = new List<string>();   // sound banks FM4 already has (compared once)
         private List<Choice> tuningChoices;   // complete FM4 engine tunings for the review (EngineTuningChoices)
+        private Dictionary<string, TuningBanks> tuningBanks;   // their sound banks (SameBanksTuning)
         private ForzaZip carZip;        // the converted car, saved last with port_log.txt in it
         private string carZipPath;
         private readonly Dictionary<string, string> newFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // loose target file -> source file
@@ -1347,16 +1348,25 @@ namespace ForzaStudio
         // FM4 PI for a car of a DLC package ported without its base game (DlcSource): the base game's
         // cars, which MapPerformanceIndex pairs with FM4's, are not there. One line per source game, fit
         // on all the cars it shares with FM4: FH1 (2026-10-17) FM4 = 1.189 FH1 - 0.363, leave-one-out
-        // error 0.0145 (the local pairs 0.0130). False for a game without a line (FM3: no DLC yet).
+        // error 0.0145 (the local pairs 0.0130). FM3 (2026-10-18, 315 shared cars, fm4dev\Fm3DLC\tools\
+        // pifit): FM4 = 0.7779 FM3 + 0.1668, error 0.0191 (local 0.0184), right FM4 class on 264 of 315.
+        // Keeping FM3's displayed PI instead (both games interpolate it in their CarClasses bands, which
+        // differ) gets the class right on only 105: FM4 rated FM3's B 470-500 cars A 503-559. Without a
+        // line (FM3 DLC before this) the FH2 fallback put the HKS Genesis (FM3 B 497) in F.
         public static bool FixedPerformanceIndex(ForzaGame game, double pi, out double fm4Pi)
         {
             fm4Pi = 0;
-            if (game != ForzaGame.Horizon1)
+            if (game == ForzaGame.Horizon1)
             {
-                return false;
+                fm4Pi = Math.Max(0.001, Math.Min(0.999, (1.189 * pi) - 0.363));
+                return true;
             }
-            fm4Pi = Math.Max(0.001, Math.Min(0.999, (1.189 * pi) - 0.363));
-            return true;
+            if (game == ForzaGame.Motorsport3)
+            {
+                fm4Pi = Math.Max(0.001, Math.Min(0.999, (0.7779 * pi) + 0.1668));
+                return true;
+            }
+            return false;
         }
 
         // FM4 PI for an FH2 PI: a line through the 15 shared cars nearest in FH2 PI. On the 138 cars
@@ -2342,6 +2352,7 @@ namespace ForzaStudio
             ForzaZip textures = File.Exists(texturesPath) ? new ForzaZip(texturesPath) : null;
             Dictionary<string, byte[]> images = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
             List<string> missing = new List<string>();
+            List<string> fromFm4 = new List<string>();
             byte[] fbf = ConvertMotorsport3Dash(gauges.Read(gauges.Find(stem + ".fbf")), this.MediaName, delegate(string path)
             {
                 // GAME:\MEDIA\UI\TEXTURES\<rest>.TGA -> Textures.zip <rest>.xds
@@ -2352,7 +2363,6 @@ namespace ForzaStudio
                 }
                 string rest = path.Substring(ui.Length).Replace('\\', '/');
                 string name = Path.GetFileNameWithoutExtension(rest);
-            List<string> fromFm4 = new List<string>();
                 if (images.ContainsKey(name))
                 {
                     return true;
@@ -2394,16 +2404,6 @@ namespace ForzaStudio
             }
         }
 
-        // FM3 dash scene (.fbf 0x3EE) -> FM4 (0x3EF): text tails get FM4's 34th byte (0 on every FM4
-        // file), the default text is emptied as in FM4's files (the .bgf holds it), and every image the
-        // takeTexture callback accepts points at the car's own digitalgauge folder,
-        // GAME:\MEDIA\CARS\<CAR>\DIGITALGAUGE\<NAME>.TGA. .bgf and .bsg are the same format in both
-        // games. Checked on the 59 dashes both games have: everything else in the records as FM4's
-        // (they differ only where FM4 re-authored the dash or moved its textures).
-        public static byte[] ConvertMotorsport3Dash(byte[] data, string mediaName, Predicate<string> takeTexture)
-        {
-            AnarkFbf fbf = AnarkFbf.Read(data);
-            if (!fbf.IsFM3)
         // An image of an FM4 car's dash (digitalgauge/<name>.xds in the car zips of the target), or null.
         // The index of the target's dash images is built once per target folder. FM3's shared dash
         // images (ui4\dashboards\mfd_oval, mfd_square01...) are carried by the FM4 cars whose dash came
@@ -2451,6 +2451,16 @@ namespace ForzaStudio
         private static Dictionary<string, KeyValuePair<string, string>> fm4DashImages;
         private static string fm4DashRoot;
 
+        // FM3 dash scene (.fbf 0x3EE) -> FM4 (0x3EF): text tails get FM4's 34th byte (0 on every FM4
+        // file), the default text is emptied as in FM4's files (the .bgf holds it), and every image the
+        // takeTexture callback accepts points at the car's own digitalgauge folder,
+        // GAME:\MEDIA\CARS\<CAR>\DIGITALGAUGE\<NAME>.TGA. .bgf and .bsg are the same format in both
+        // games. Checked on the 59 dashes both games have: everything else in the records as FM4's
+        // (they differ only where FM4 re-authored the dash or moved its textures).
+        public static byte[] ConvertMotorsport3Dash(byte[] data, string mediaName, Predicate<string> takeTexture)
+        {
+            AnarkFbf fbf = AnarkFbf.Read(data);
+            if (!fbf.IsFM3)
             {
                 return data;
             }
@@ -3879,7 +3889,7 @@ namespace ForzaStudio
                 else
                 {
                     this.Line("engine sound {0}: " + this.game + " tuning, its harmonic tunings are all in FM4{1}", media, (imported.Count > 0) ? " (" + imported.Count + " brought from " + this.game + ")" : "");
-                    data = this.CompleteEngineTuning(media, data, engineTuning, donorEngine);
+                    data = this.CompleteEngineTuning(media, data, engineTuning, donorEngine, harmonic, sourceHarmonic);
                 }
                 this.Put(engineTuning, media + "_ET.xml", data);
             }
@@ -3900,9 +3910,10 @@ namespace ForzaStudio
         // EngineSettings attributes num_cylinders, blowoffL1-3Level/Choice and opencockpit. FM4 plays it
         // at stock but the engine goes silent fully upgraded (BMW_X5_09 from FM3, 2026-10-17; sound back
         // in game with BMW_X5M_11's blocks added). The source values stay as they are; only what is
-        // missing comes from an FM4 tuning: the user's pick in the review (Fixes "sound:<engine>") or the
-        // donor's engine. num_cylinders is the engine's own List_Cylinders.Number.
-        private byte[] CompleteEngineTuning(string media, byte[] data, ForzaZip engineTuning, string donorEngine)
+        // missing comes from an FM4 tuning: the user's pick in the review (Fixes "sound:<engine>"), else
+        // the FM4 tuning playing the same sound banks (SameBanksTuning), else the donor's engine.
+        // num_cylinders is the engine's own List_Cylinders.Number.
+        private byte[] CompleteEngineTuning(string media, byte[] data, ForzaZip engineTuning, string donorEngine, ForzaZip harmonic, ForzaZip sourceHarmonic)
         {
             string text = Encoding.UTF8.GetString(data);
             if (text.IndexOf("<DSPScalar", StringComparison.Ordinal) >= 0)
@@ -3912,7 +3923,13 @@ namespace ForzaStudio
             string key = "sound:" + media;
             object fix;
             bool picked = this.Fixes.TryGetValue(key, out fix) && fix is string && engineTuning.Find((string) fix + "_ET.xml") != null;
-            string layoutName = picked ? (string) fix : donorEngine;
+            string shared = null;
+            string sameBanks = picked ? null : this.SameBanksTuning(media, text, engineTuning, harmonic, sourceHarmonic, out shared);
+            string layoutName = picked ? (string) fix : (sameBanks ?? donorEngine);
+            if (sameBanks != null)
+            {
+                this.Line("  engine sound {0}: DSP blocks from {1}, same sound banks ({2})", media, sameBanks, shared);
+            }
             ForzaZip.Entry layoutEntry = (layoutName != null) ? engineTuning.Find(layoutName + "_ET.xml") : null;
             string layout = (layoutEntry != null) ? Encoding.UTF8.GetString(engineTuning.Read(layoutEntry)) : null;
             if (layout == null || layout.IndexOf("<DSPScalar", StringComparison.Ordinal) < 0)
@@ -3975,7 +3992,7 @@ namespace ForzaStudio
                 issue.Kind = "sound";
                 issue.Where = media + "_ET.xml";
                 issue.Value = layoutName;
-                issue.Problem = string.Format("{0} engine tuning lacks FM4's DSP blocks (silent when upgraded): taken from {1}; pick the FM4 car whose sound setup to use", this.game, layoutName);
+                issue.Problem = string.Format("{0} engine tuning lacks FM4's DSP blocks (silent when upgraded): taken from {1}{2}; pick the FM4 car whose sound setup to use", this.game, layoutName, (sameBanks != null) ? " (same sound banks: " + shared + ")" : " (the donor's: no FM4 tuning plays the same sound banks)");
                 issue.Choices.AddRange(this.EngineTuningChoices(engineTuning));
                 issue.Suggested = layoutName;
                 this.Issues.Add(issue);
@@ -4010,6 +4027,110 @@ namespace ForzaStudio
                 }
             }
             return this.tuningChoices;
+        }
+
+        // The sound banks an engine tuning plays: the <Soundbank name> of the harmonic tunings its
+        // EngineAmbient, EngineIntake and Exhaust upgrades name (lower case), and the exhaust's at L0.
+        private class TuningBanks
+        {
+            public List<string> Banks = new List<string>();
+            public string Exhaust;
+        }
+
+        private static TuningBanks ReadTuningBanks(string tuning, ForzaZip harmonic, ForzaZip sourceHarmonic)
+        {
+            TuningBanks result = new TuningBanks();
+            foreach (string element in new string[] { "EngineAmbient", "EngineIntake", "Exhaust" })
+            {
+                Match block = Regex.Match(tuning, "<" + element + ">(.*?)</" + element + ">", RegexOptions.Singleline);
+                if (!block.Success)
+                {
+                    continue;
+                }
+                foreach (Match reference in Regex.Matches(block.Groups[1].Value, "(\\w+)=\"([^\"]+_HT\\.xml)\"", RegexOptions.IgnoreCase))
+                {
+                    ForzaZip.Entry entry = harmonic.Find(reference.Groups[2].Value);
+                    ForzaZip zip = (entry != null) ? harmonic : sourceHarmonic;
+                    if (entry == null && sourceHarmonic != null)
+                    {
+                        entry = sourceHarmonic.Find(reference.Groups[2].Value);
+                    }
+                    Match bank = (entry != null) ? Regex.Match(Encoding.UTF8.GetString(zip.Read(entry)), "<Soundbank\\s+name=\"([^\"]+)\"", RegexOptions.IgnoreCase) : Match.Empty;
+                    if (!bank.Success || string.Equals(bank.Groups[1].Value, "NA.fsb", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                    string name = bank.Groups[1].Value.ToLowerInvariant();
+                    if (!result.Banks.Contains(name))
+                    {
+                        result.Banks.Add(name);
+                    }
+                    if (element == "Exhaust" && reference.Groups[1].Value == "L0")
+                    {
+                        result.Exhaust = name;
+                    }
+                }
+            }
+            return result;
+        }
+
+        // The complete FM4 engine tuning whose DSP blocks suit a source tuning best: FM4's DSP values go
+        // with the recordings (fm4dev\Fm3DLC\snd\sndpick.txt, mean DSP distance 0.076 between tunings with
+        // the same exhaust bank, 0.132 with another shared bank, 0.151 with none). Ranked by the same
+        // exhaust bank, then by the number of shared banks, then by name; null when none shares a bank.
+        // The engines of this port are left out (an earlier port of the car is not FM4's).
+        private string SameBanksTuning(string media, string tuning, ForzaZip engineTuning, ForzaZip harmonic, ForzaZip sourceHarmonic, out string shared)
+        {
+            shared = null;
+            TuningBanks own = ReadTuningBanks(tuning, harmonic, sourceHarmonic);
+            if (own.Banks.Count == 0)
+            {
+                return null;
+            }
+            if (this.tuningBanks == null)
+            {
+                this.tuningBanks = new Dictionary<string, TuningBanks>(StringComparer.OrdinalIgnoreCase);
+                foreach (Choice choice in this.EngineTuningChoices(engineTuning))
+                {
+                    string name = (string) choice.Value;
+                    this.tuningBanks[name] = ReadTuningBanks(Encoding.UTF8.GetString(engineTuning.Read(engineTuning.Find(name + "_ET.xml"))), harmonic, null);
+                }
+            }
+            string best = null;
+            int bestScore = 0;
+            List<string> bestShared = null;
+            foreach (KeyValuePair<string, TuningBanks> candidate in this.tuningBanks)
+            {
+                bool ours = false;
+                foreach (string engine in this.engineMedia)
+                {
+                    ours |= string.Equals(engine, candidate.Key, StringComparison.OrdinalIgnoreCase);
+                }
+                List<string> common = new List<string>();
+                foreach (string bank in candidate.Value.Banks)
+                {
+                    if (own.Banks.Contains(bank))
+                    {
+                        common.Add(bank);
+                    }
+                }
+                if (ours || common.Count == 0)
+                {
+                    continue;
+                }
+                int score = common.Count + ((own.Exhaust != null && own.Exhaust == candidate.Value.Exhaust) ? 10 : 0);
+                if (score > bestScore || (score == bestScore && string.Compare(candidate.Key, best, StringComparison.OrdinalIgnoreCase) < 0))
+                {
+                    best = candidate.Key;
+                    bestScore = score;
+                    bestShared = common;
+                }
+            }
+            if (best != null)
+            {
+                shared = string.Join(", ", bestShared.ToArray());
+            }
+            return best;
         }
 
         // <element .../> of the source with the layout's attributes it lacks appended; num_cylinders
