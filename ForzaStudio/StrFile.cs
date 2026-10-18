@@ -121,6 +121,12 @@ namespace ForzaStudio
             this.Entries.Add(added);
         }
 
+        // Removes the string of a key (an uninstalled car's); false when the table has none.
+        public bool Remove(int key)
+        {
+            return this.Entries.RemoveAll(delegate(Entry entry) { return entry.Key == key; }) > 0;
+        }
+
         public byte[] ToBytes()
         {
             List<Entry> byKey = new List<Entry>(this.Entries);

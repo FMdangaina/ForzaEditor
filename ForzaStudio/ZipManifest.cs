@@ -145,6 +145,44 @@ namespace ForzaStudio
             return true;
         }
 
+        // Takes the zip's line out (with its line break and indentation); false when it is not listed.
+        public static bool Remove(string manifestPath, string gamePath)
+        {
+            byte[] original = File.ReadAllBytes(manifestPath);
+            bool bom = original.Length >= 3 && original[0] == 0xEF && original[1] == 0xBB && original[2] == 0xBF;
+            string text = Encoding.UTF8.GetString(original, bom ? 3 : 0, original.Length - (bom ? 3 : 0));
+            Match line = FindLine(text, gamePath);
+            if (line == null)
+            {
+                return false;
+            }
+            int start = text.LastIndexOf('\n', line.Index) + 1;
+            int end = line.Index + line.Length;
+            if (end < text.Length && text[end] == '\r')
+            {
+                end++;
+            }
+            if (end < text.Length && text[end] == '\n')
+            {
+                end++;
+            }
+            text = text.Substring(0, start) + text.Substring(end);
+            byte[] body = new UTF8Encoding(false).GetBytes(text);
+            byte[] data = new byte[(bom ? 3 : 0) + body.Length];
+            if (bom)
+            {
+                data[0] = 0xEF;
+                data[1] = 0xBB;
+                data[2] = 0xBF;
+            }
+            Buffer.BlockCopy(body, 0, data, bom ? 3 : 0, body.Length);
+            string temp = manifestPath + ".tmp";
+            File.WriteAllBytes(temp, data);
+            File.Delete(manifestPath);
+            File.Move(temp, manifestPath);
+            return true;
+        }
+
         private static Match FindLine(string text, string gamePath)
         {
             foreach (Match match in Regex.Matches(text, "<Zip\\b[^>]*>", RegexOptions.IgnoreCase))

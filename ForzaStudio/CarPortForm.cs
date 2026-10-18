@@ -71,6 +71,7 @@ namespace ForzaStudio
         private readonly Button trial;
         private readonly Button install;
         private readonly Button openTrial;
+        private readonly Button uninstall;
         private readonly List<ListViewItem> items = new List<ListViewItem>();
 
         private List<Car> fm4Cars = new List<Car>();
@@ -265,6 +266,9 @@ namespace ForzaStudio
                     Process.Start("explorer.exe", "\"" + this.trialFolder + "\"");
                 }
             };
+            this.uninstall = ActionButton(options, "Uninstall...", 376, 94, 100);
+            this.uninstall.Click += delegate { this.Uninstall(); };
+            new ToolTip().SetToolTip(this.uninstall, "Take a car ported earlier out of the FM4 folder (database rows, strings, zips), e.g. to put it into a DLC pack instead");
             options.Controls.Add(donorLabel);
             options.Controls.Add(this.donors);
             options.Controls.Add(this.arcade);
@@ -777,6 +781,7 @@ namespace ForzaStudio
             this.install.Enabled = ready;
             this.load.Enabled = !this.busy;
             this.openTrial.Enabled = !this.busy && this.trialFolder != null && Directory.Exists(this.trialFolder);
+            this.uninstall.Enabled = !this.busy && car != null && car.State == Status.Ported;
 
             this.addToPack.Enabled = !this.busy && car != null && car.State == Status.New && this.donors.SelectedItem != null && this.FindEntry(car.MediaName) == null;
             this.removeFromPack.Enabled = !this.busy && this.packList.SelectedItems.Count == 1;
@@ -1938,6 +1943,63 @@ namespace ForzaStudio
                             }
                         }
                     }
+                };
+            });
+        }
+
+        // Takes a ported car out of the FM4 folder (CarUninstall): the plan into the report first, then
+        // the user confirms; afterwards the car is "new" once more, so it can go into a DLC pack (built
+        // against an FM4 without it).
+        private void Uninstall()
+        {
+            Car car = this.SelectedCar;
+            if (car == null || car.State != Status.Ported)
+            {
+                return;
+            }
+            CarUninstall uninstall = new CarUninstall();
+            uninstall.TargetRoot = this.targetBox.Text.Trim();
+            uninstall.MediaName = car.MediaName;
+            this.bottomTabs.SelectedIndex = 0;
+            this.report.Text = string.Format("Uninstall {0} from {1}: what goes\r\n", car.MediaName, uninstall.TargetRoot);
+            this.Background(delegate
+            {
+                List<string> plan = uninstall.Plan();
+                return delegate
+                {
+                    this.report.Text += string.Join("\r\n", plan.ToArray()) + "\r\n";
+                    if (MessageBox.Show(this, string.Format("Uninstall {0} from the FM4 folder?\n\n{1}\n\nThe report lists every database row, string and file that goes (only what the port added and no other car uses). Every file is backed up first to\n{2}",
+                        car.Name, uninstall.TargetRoot, uninstall.BackupFolder), this.Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+                    {
+                        this.report.Text += "\r\ncancelled, nothing changed\r\n";
+                        return;
+                    }
+                    if (XeniaRunning())
+                    {
+                        MessageBox.Show(this, "Close Xenia first: it keeps the game's files open.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+                    this.Background(delegate
+                    {
+                        uninstall.Report = new System.Text.StringBuilder();
+                        uninstall.Run();
+                        return delegate
+                        {
+                            this.report.Text += "\r\n" + uninstall.Report.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n") + "\r\nuninstalled\r\n";
+                            this.report.SelectionStart = this.report.TextLength;
+                            this.report.ScrollToCaret();
+                            car.State = Status.New;
+                            car.Note = "uninstalled";
+                            foreach (ListViewItem item in this.items)
+                            {
+                                if (item.Tag == car)
+                                {
+                                    item.SubItems[7].Text = car.Note;
+                                }
+                            }
+                            this.details.Text = car.Name + " is out of the FM4 folder: it can go into a DLC pack now.";
+                        };
+                    });
                 };
             });
         }

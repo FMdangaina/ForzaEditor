@@ -148,6 +148,7 @@
     <Compile Include="ForzaStudio\GameMusic.cs" />
     <Compile Include="ForzaStudio\StrFile.cs" />
     <Compile Include="ForzaStudio\CarPort.cs" />
+    <Compile Include="ForzaStudio\CarUninstall.cs" />
     <Compile Include="ForzaStudio\CarCamera.cs" />
     <Compile Include="ForzaStudio\MaterialSuggestions.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Camera.cs">
