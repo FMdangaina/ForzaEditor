@@ -15,31 +15,8 @@ Status: ✅ done · 🔧 in progress · ⏸ paused · ⬜ not started
 
 ## Now
 
-**4.1: Recommended and unusual FM4 materials in Rename Material and the port review** (user, 2026-10-18:
-"fondamentale"; 3.9 paused meanwhile, it comes back as Now after this). Details in topic 4.
 
-## Next (in order)
 
-Fastest first.
-
-Quick (hours to a day):
-
-1. 9 3i: backfire flames missing on FM3 ports (study first: where FM4 places the flame)
-2. 7: OBJ wheel import, LOD 0 and LODs 1+ split between the two carbins (bug from Discord)
-
-Medium (a few days):
-
-3. 11: Wheel morph targets (why the E30 rim does not scale and the S60 one does)
-4. 14.1: FH1/FH2 traffic models
-5. 15.1: Format documentation (grows with each topic)
-
-Long (research first, size unknown):
-
-6. 13.1: Game materials and shaders (hardcoded or shader files)
-7. 12: Settings window, MDI conversion tool, newer .NET (12.3, 12.4, 12.2)
-8. 14.2: FM2 models
-
-Always open: 15.2 Discord feedback, added here as items when reported.
 
 ---
 
