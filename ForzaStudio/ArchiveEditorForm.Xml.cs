@@ -60,6 +60,16 @@ namespace ForzaStudio
             bar.Items.Add(new ToolStripButton("Discard Edits", null, delegate { this.DiscardXml(); }));
             this.btnXmlCheck = new ToolStripButton("Check XML", null, delegate { this.CheckXml(true); });
             bar.Items.Add(this.btnXmlCheck);
+            // shadersettings.xml: back to the Shader Settings view (after applying or discarding edits).
+            this.btnXmlShaderView = new ToolStripButton("Shader Settings View", null, delegate
+            {
+                if (this.ConfirmXmlEdits())
+                {
+                    this.shaderAsXml = false;
+                    this.ShowShaderSettings(this.xmlEntry, this.zip.Read(this.xmlEntry));
+                }
+            });
+            bar.Items.Add(this.btnXmlShaderView);
             bar.Items.Add(new ToolStripSeparator());
             bar.Items.Add(new ToolStripLabel("Find:"));
             this.txtXmlFind = new ToolStripTextBox();
@@ -96,6 +106,7 @@ namespace ForzaStudio
         {
             this.xmlIsXml = isXml;
             this.btnXmlCheck.Visible = isXml;
+            this.btnXmlShaderView.Visible = IsShaderSettings(entry);
             this.xmlEntry = entry;
             string text = DecodeText(data, out this.xmlEncoding, out this.xmlPreamble);
             this.xmlCrLf = text.Contains("\r\n");

@@ -1276,7 +1276,6 @@ namespace ForzaStudio
             {
                 return 0;
             }
-            int sectionIndex = this.Sections.IndexOf(section);
             List<int> removed = new List<int>();
             for (int k = 0; k < section.SubSections.Count; k++)
             {
@@ -1285,15 +1284,78 @@ namespace ForzaStudio
                     removed.Add(k);
                 }
             }
+            return this.RemoveSubSectionsAt(this.Sections.IndexOf(section), removed);
+        }
+
+        // Moves one mesh (subsection 'subIndex' of section 'sectionIndex') into the part 'targetName',
+        // which is created when it does not exist (with the source part's settings: damage, flags).
+        // The mesh takes only its own vertices; the source part is compacted, and removed if it was
+        // its last mesh. Into an existing part a mesh of the same material and LOD is joined to it
+        // (MergeSection), as FM4 keeps one subsection per material and LOD. Returns a short report.
+        public string MoveSubSection(int sectionIndex, int subIndex, string targetName)
+        {
+            if (sectionIndex < 0 || sectionIndex >= this.Sections.Count || subIndex < 0 || subIndex >= this.Sections[sectionIndex].SubSections.Count)
+            {
+                throw new ArgumentException("The mesh to move is not in the model.");
+            }
+            Section source = this.Sections[sectionIndex];
+            Section target = this.Find(targetName);
+            if (target == source)
+            {
+                throw new ArgumentException("The mesh is already in " + targetName + ".");
+            }
+            SubSection moving = source.SubSections[subIndex];
+            string copyName = targetName;
+            if (target != null)
+            {
+                copyName = "__moving";
+                while (this.Find(copyName) != null)
+                {
+                    copyName += "_";
+                }
+            }
+            this.DuplicateSection(source.Name, copyName);
+            List<int> others = new List<int>();
+            for (int k = 0; k < source.SubSections.Count; k++)
+            {
+                if (k != subIndex)
+                {
+                    others.Add(k);
+                }
+            }
+            this.RemoveSubSectionsAt(this.Sections.IndexOf(this.Find(copyName)), others);
+            this.RemoveSubSectionsAt(sectionIndex, new List<int> { subIndex });
+            string report = string.Format("{0} (LOD {1}) moved from {2} to {3}", moving.Name, moving.Lod, source.Name, targetName);
+            if (target != null)
+            {
+                this.MergeSection(copyName, targetName);
+            }
+            else
+            {
+                report += " (new part)";
+            }
+            if (!this.Sections.Contains(source))
+            {
+                report += "; " + source.Name + " had no other mesh and was removed";
+            }
+            return report;
+        }
+
+        // Removes the given subsections of a section, drops the vertices nobody uses any more and refits
+        // the bounds. A section left without subsections is removed. Returns the number removed.
+        private int RemoveSubSectionsAt(int sectionIndex, List<int> removed)
+        {
+            Section section = this.Sections[sectionIndex];
             if (removed.Count == 0)
             {
                 return 0;
             }
             if (removed.Count == section.SubSections.Count)
             {
-                this.RemoveSection(sectionName);
+                this.RemoveSection(section.Name);
                 return removed.Count;
             }
+            removed.Sort();
             double[] lod = Positions(section, section.Lod);
             double[] lod0 = Positions(section, section.Lod0);
             for (int i = removed.Count - 1; i >= 0; i--)
@@ -1563,7 +1625,39 @@ namespace ForzaStudio
                 CheckIndexRange(section);
             }
             this.CheckDrawLists();
+            this.SetWheelLodRange();
             return true;
+        }
+
+        // Wheel head (type 3) 0x15C / 0x160: first and last LOD of the file, BE words (0 and 5 on all 420
+        // FM4 car wheels, 0/1 on the 4 SLOD wheels, 0/0 on the 18 tyres). A wheel whose source starts at
+        // LOD 1 (FH RAV4, XC70, F350) keeps 1 there after LOD 0 is rebuilt, and the game draws no rim
+        // where it uses LOD 0 (showroom): set from the subsections.
+        private void SetWheelLodRange()
+        {
+            if (this.Type != 3 || this.Head.Length < 0x164)
+            {
+                return;
+            }
+            uint first = uint.MaxValue;
+            uint last = 0;
+            foreach (Section section in this.Sections)
+            {
+                foreach (SubSection sub in section.SubSections)
+                {
+                    first = Math.Min(first, sub.Lod);
+                    last = Math.Max(last, sub.Lod);
+                }
+            }
+            if (first == uint.MaxValue)
+            {
+                return;
+            }
+            for (int k = 0; k < 4; k++)
+            {
+                this.Head[0x15C + k] = (byte) (first >> (24 - (k * 8)));
+                this.Head[0x160 + k] = (byte) (last >> (24 - (k * 8)));
+            }
         }
 
         // Removes a whole section; later sections shift down by one in the draw lists.

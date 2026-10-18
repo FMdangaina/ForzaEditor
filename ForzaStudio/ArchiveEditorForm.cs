@@ -129,12 +129,14 @@
             this.BuildModelView();
             this.BuildTextureView();
             this.BuildXmlView();
+            this.BuildShaderView();
             this.BuildGameDbView();
             this.BuildDashView();
 
             this.pnlContent.Controls.Add(this.lblEmpty);
             this.pnlContent.Controls.Add(this.txtContent);
             this.pnlContent.Controls.Add(this.pnlXml);
+            this.pnlContent.Controls.Add(this.pnlShader);
             this.pnlContent.Controls.Add(this.pnlGameDb);
             this.pnlContent.Controls.Add(this.pnlInfo);
             this.pnlContent.Controls.Add(this.pnlModel);
@@ -994,6 +996,10 @@
                 else if (extension == ".tga")
                 {
                     this.ShowTga(data);
+                }
+                else if (extension == ".xml" && IsShaderSettings(entry) && !(this.shaderAsXml && entry == this.shaderEntry))
+                {
+                    this.ShowShaderSettings(entry, data);
                 }
                 else if (extension == ".xml")
                 {

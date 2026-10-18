@@ -150,18 +150,24 @@ namespace ForzaStudio
             {
                 using (ForzaCarBin bin = new ForzaCarBin(name, data))
                 {
-                    foreach (ForzaCarSection section in bin.Sections)
+                    for (int s = 0; s < bin.Sections.Length; s++)
                     {
-                        foreach (ForzaCarSubSection sub in section.SubSections)
+                        ForzaCarSection section = bin.Sections[s];
+                        for (int k = 0; k < section.SubSections.Length; k++)
                         {
+                            ForzaCarSubSection sub = section.SubSections[k];
                             TreeNode lod = GetChild(root.Nodes, "LOD" + sub.Lod);
                             TreeNode part = GetChild(lod.Nodes, section.Name);
                             TreeNode mesh = new TreeNode(sub.Name);
-                            mesh.Tag = new ForzaMesh(section.Name + "_" + sub.Name, sub.Name, sub.Indices, sub.Vertices);
+                            ForzaMesh forzaMesh = new ForzaMesh(section.Name + "_" + sub.Name, sub.Name, sub.Indices, sub.Vertices);
+                            forzaMesh.SectionIndex = s;
+                            forzaMesh.SubIndex = k;
+                            mesh.Tag = forzaMesh;
                             part.Nodes.Add(mesh);
                         }
                     }
                 }
+                this.AddEmptyParts(name, root);
             }
             else
             {

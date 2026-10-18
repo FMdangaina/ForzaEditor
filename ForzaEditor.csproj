@@ -151,6 +151,7 @@
     <Compile Include="ForzaStudio\CarUninstall.cs" />
     <Compile Include="ForzaStudio\CarCamera.cs" />
     <Compile Include="ForzaStudio\MaterialSuggestions.cs" />
+    <Compile Include="ForzaStudio\ShaderSettings.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Camera.cs">
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>
@@ -182,6 +183,12 @@
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="ForzaStudio\ArchiveEditorForm.MaterialCheck.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.MoveMesh.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.ShaderSettings.cs">
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="ForzaStudio\ArchiveEditorForm.Xml.cs">

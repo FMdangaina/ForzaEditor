@@ -199,6 +199,16 @@ namespace ForzaStudio
             "StaticEnvLightmapDampner", "StitchColor", "UseDiffuseInsteadOfSH", "UV1Tile1",
         };
 
+        public static string[] ShaderParameterNames
+        {
+            get { return (string[]) ShaderParameters.Clone(); }
+        }
+
+        public static bool IsShaderParameter(string name)
+        {
+            return Array.Exists(ShaderParameters, delegate(string p) { return string.Equals(p, name, StringComparison.OrdinalIgnoreCase); });
+        }
+
         // The most tick marks an FM4 gauge has (Firebird Trans Am Speed: 19). The FH2 P1 repeats its
         // 4 speed and 3 tach marks 12 times (48 and 36), past what FM4 reads into its fixed table.
         private const int MaxTicks = 19;
@@ -1765,7 +1775,7 @@ namespace ForzaStudio
             this.DriverHandsFromSteeringWheel(car, prefix);
             if (shaderSettings != null)
             {
-                car.Add("shadersettings.xml", ConvertShaderSettings(Encoding.UTF8.GetString(shaderSettings), materials, this.Report));
+                car.Add("shadersettings.xml", ConvertShaderSettings(Encoding.UTF8.GetString(shaderSettings), materials, this.MaterialFixes(), this.Report));
             }
             if (this.motorsport3 && !string.IsNullOrEmpty(this.motorsport3Dash))
             {
@@ -3188,7 +3198,15 @@ namespace ForzaStudio
         // FM4 ShaderSettings.xml: only the materials the converted models use (FH2-only ones under
         // their FM4 names, tail lights also for the _lod0 variant) and only the parameters FM4 has.
         // FM4 cars list at most 24 materials; the FH2 P1 lists 33, most for materials it renamed.
+        // 'renames' are the review's material choices, which the models get before MaterialMap
+        // (ConvertModel): without them an entry such as fullbeam stayed under its FH name, no model
+        // used it any more and it was dropped, so the chosen FM4 material lost the car's values.
         public static byte[] ConvertShaderSettings(string fh2, List<string> materials, StringBuilder report)
+        {
+            return ConvertShaderSettings(fh2, materials, null, report);
+        }
+
+        public static byte[] ConvertShaderSettings(string fh2, List<string> materials, Dictionary<string, string> renames, StringBuilder report)
         {
             List<string> order = new List<string>();
             Dictionary<string, List<string[]>> settings = new Dictionary<string, List<string[]>>(StringComparer.Ordinal);
@@ -3204,17 +3222,23 @@ namespace ForzaStudio
                 string name = section.Groups[1].Value.Substring(prefix.Length);
                 string to;
                 List<string> targets = new List<string>();
-                if (!MapMaterial(name, out to))
+                if ((renames != null && renames.TryGetValue(name, out to)) || (MapMaterial(name, out to) && to != null))
+                {
+                    // The lod0 model names its lights tail_light_lod0 / reverse_light_lod0 (LodVariant).
+                    targets.Add(to);
+                    string lod0 = LodVariant(to, "x_lod0.carbin");
+                    if (lod0 != to && prefix.Length == 0)
+                    {
+                        targets.Add(lod0);
+                    }
+                }
+                else if (to == null && MapMaterial(name, out to))
+                {
+                    // Mapped to nothing (dropped from the models): its settings go too.
+                }
+                else
                 {
                     targets.Add(name);
-                }
-                else if (to != null)
-                {
-                    targets.Add(to);
-                    if (to == "tail_light" && prefix.Length == 0)
-                    {
-                        targets.Add("tail_light_lod0");
-                    }
                 }
                 foreach (string material in targets)
                 {

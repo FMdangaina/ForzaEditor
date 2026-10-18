@@ -115,10 +115,12 @@ namespace ForzaStudio
             this.btnMergeInto = SideWideButton("Merge...", delegate { this.MergeSelectedPart(); });
             side.Controls.Add(this.btnMergeInto);
             side.Controls.Add(SideNote("Materials with the same name are joined, the others are moved; the merged part is removed."));
+            side.Controls.Add(SideNote("Drag a material in the tree onto a part to move that mesh there, onto a LOD for a new part (this file only)."));
             this.AddPartImportControls(side);
 
             this.tvModel.AfterSelect += delegate { this.OnPartSelected(); };
             this.BuildModelTreeMenu();
+            this.HookMeshDragDrop();
             this.EnablePartEdit(false);
         }
 
@@ -131,6 +133,8 @@ namespace ForzaStudio
             ToolStripMenuItem duplicate = new ToolStripMenuItem("Duplicate Part...", null, delegate { this.DuplicateSelectedPart(); });
             ToolStripMenuItem rename = new ToolStripMenuItem("Rename Material...", null, delegate { this.RenameSelectedMaterial(); });
             ToolStripSeparator partSeparator = new ToolStripSeparator();
+            ToolStripMenuItem newPart = new ToolStripMenuItem("New Empty Part...", null, delegate { this.NewEmptyPart(this.tvModel.SelectedNode); });
+            menu.Items.Add(newPart);
             menu.Items.Add(focus);
             menu.Items.Add(duplicate);
             menu.Items.Add(rename);
@@ -140,6 +144,20 @@ namespace ForzaStudio
             {
                 string section;
                 string material;
+                // LOD node: only New Empty Part; empty part: only its removal.
+                TreeNode node = this.tvModel.SelectedNode;
+                bool lodNode = IsLodNode(node) && this.SelectedSectionName == null && this.currentEntry != null
+                    && this.currentEntry.Name.EndsWith(".carbin", StringComparison.OrdinalIgnoreCase);
+                bool empty = IsEmptyPart(node);
+                newPart.Visible = lodNode;
+                focus.Visible = duplicate.Visible = partSeparator.Visible = !lodNode && !empty;
+                delete.Visible = !lodNode;
+                if (lodNode || empty)
+                {
+                    rename.Visible = false;
+                    delete.Text = string.Format("Remove Empty Part \"{0}\"", (node != null) ? node.Text : "");
+                    return;
+                }
                 if (!this.DeletableNode(out section, out material))
                 {
                     // Only parts and their materials have commands (LOD and model nodes have none).
@@ -192,6 +210,11 @@ namespace ForzaStudio
 
         private void DeleteSelectedNode()
         {
+            if (IsEmptyPart(this.tvModel.SelectedNode))
+            {
+                this.RemoveEmptyPart(this.tvModel.SelectedNode);
+                return;
+            }
             string section;
             string material;
             if (!this.DeletableNode(out section, out material))
@@ -471,6 +494,12 @@ namespace ForzaStudio
             if (section == null)
             {
                 this.lblEditPart.Text = PickPartText;
+                this.EnablePartEdit(false);
+                return;
+            }
+            if (IsEmptyPart(this.tvModel.SelectedNode))
+            {
+                this.lblEditPart.Text = section + ": empty part (yellow). Drag meshes onto it in the tree; while it is empty it is not written to the file.";
                 this.EnablePartEdit(false);
                 return;
             }

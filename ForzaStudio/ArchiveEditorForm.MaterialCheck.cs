@@ -3,6 +3,7 @@ namespace ForzaStudio
     using System;
     using System.Collections.Generic;
     using System.Drawing;
+    using System.IO;
     using System.Text.RegularExpressions;
     using System.Windows.Forms;
 
@@ -127,8 +128,24 @@ namespace ForzaStudio
             {
                 return;
             }
+            ForzaMesh selected = this.tvModel.SelectedNode.Tag as ForzaMesh;
+            int sharing = 0;   // meshes of the selected part (all LODs) with this material
+            foreach (TreeNode lodNode in this.tvModel.SelectedNode.Parent.Parent.Parent.Nodes)
+            {
+                foreach (TreeNode partNode in lodNode.Nodes)
+                {
+                    if (partNode.Text != section)
+                    {
+                        continue;
+                    }
+                    foreach (TreeNode meshNode in partNode.Nodes)
+                    {
+                        sharing += (meshNode.Tag is ForzaMesh && meshNode.Text == material) ? 1 : 0;
+                    }
+                }
+            }
             Panel content = new Panel();
-            content.Size = new Size(440, 168);
+            content.Size = new Size(440, 192);
             Label label = new Label();
             label.Text = string.Format("Rename the material {0} of {1} to:", material, section);
             label.AutoSize = true;
@@ -157,20 +174,31 @@ namespace ForzaStudio
             }
             CheckBox everyPart = new CheckBox();
             everyPart.Text = "In every part with this material";
-            everyPart.Checked = true;
+            everyPart.Checked = false;   // nothing preset: the user picks the scope
             everyPart.AutoSize = true;
             everyPart.Location = new Point(0, 60);
             CheckBox everyFile = new CheckBox();
             everyFile.Text = "In every model file of the car (main, lod0, cockpit)";
-            everyFile.Checked = true;
+            everyFile.Checked = false;
             everyFile.AutoSize = true;
             everyFile.Location = new Point(0, 84);
+            // FH traffic parts merge several pieces (both tail lights in one part): one mesh renamed alone.
+            CheckBox onlyThis = new CheckBox();
+            onlyThis.Text = string.Format("Only this mesh ({0} meshes of {1} use {2})", sharing, section, material);
+            onlyThis.AutoSize = true;
+            onlyThis.Location = new Point(0, 108);
+            onlyThis.Enabled = selected != null && selected.SubIndex >= 0;
+            onlyThis.CheckedChanged += delegate
+            {
+                everyPart.Enabled = !onlyThis.Checked;
+                everyFile.Enabled = !onlyThis.Checked;
+            };
             Label note = new Label();
             note.Text = "★ recommended   ~ unusual: an FM4 shader few or no FM4 cars use\n\"shader N\": how close the FM4 shader is to the source game's (0-100).";
             note.ForeColor = SystemColors.GrayText;
             note.AutoSize = true;
-            note.Location = new Point(0, 114);
-            content.Controls.AddRange(new Control[] { label, name, everyPart, everyFile, note });
+            note.Location = new Point(0, 138);
+            content.Controls.AddRange(new Control[] { label, name, everyPart, everyFile, onlyThis, note });
             if (!this.ShowOptions("Rename Material", content))
             {
                 return;
@@ -184,8 +212,8 @@ namespace ForzaStudio
             try
             {
                 Cursor.Current = Cursors.WaitCursor;
-                List<string> renamedIn = new List<string>();   // "cockpit_" or "" per renamed model, for shadersettings.xml
-                foreach (ForzaZip.Entry entry in this.PartEditTargets(everyFile.Checked))
+                List<string[]> renamed = new List<string[]>();   // technique from -> to, for shadersettings.xml
+                foreach (ForzaZip.Entry entry in this.PartEditTargets(everyFile.Checked && !onlyThis.Checked))
                 {
                     CarbinModel model;
                     try
@@ -198,9 +226,21 @@ namespace ForzaStudio
                     }
                     string to = CarPort.LodVariant(newName, entry.Name);
                     int count = 0;
+                    if (onlyThis.Checked)
+                    {
+                        // The tree reads the file in the same order as CarbinModel; checked by name anyway.
+                        CarbinModel.SubSection sub = (selected.SectionIndex < model.Sections.Count && selected.SubIndex < model.Sections[selected.SectionIndex].SubSections.Count)
+                            ? model.Sections[selected.SectionIndex].SubSections[selected.SubIndex] : null;
+                        if (sub == null || model.Sections[selected.SectionIndex].Name != section || sub.Name != material)
+                        {
+                            throw new InvalidDataException("The selected mesh could not be found in the file: nothing renamed.");
+                        }
+                        sub.Name = to;
+                        count = 1;
+                    }
                     foreach (CarbinModel.Section part in model.Sections)
                     {
-                        if (!everyPart.Checked && part.Name != section)
+                        if (onlyThis.Checked || (!everyPart.Checked && part.Name != section))
                         {
                             continue;
                         }
@@ -221,16 +261,13 @@ namespace ForzaStudio
                     this.RefreshEntryNode(entry);
                     string file = entry.Name.Substring(entry.Name.LastIndexOf('/') + 1);
                     report.Add(string.Format("{0}: {1} -> {2} ({3})", file, material, to, count));
-                    string prefix = entry.Name.EndsWith("_cockpit.carbin", StringComparison.OrdinalIgnoreCase) ? "cockpit_" : "";
-                    if (!renamedIn.Contains(prefix + to))
+                    string[] pair = new string[] { ShaderSettings.TechniqueName(material, entry.Name), ShaderSettings.TechniqueName(to, entry.Name) };
+                    if (!renamed.Exists(delegate(string[] p) { return p[0] == pair[0] && p[1] == pair[1]; }))
                     {
-                        renamedIn.Add(prefix + to);
-                        if (this.RenameShaderSetting(prefix + material, prefix + to))
-                        {
-                            report.Add("shadersettings.xml: " + prefix + material + " -> " + prefix + to);
-                        }
+                        renamed.Add(pair);
                     }
                 }
+                this.FollowShaderSettings(renamed, report);
             }
             catch (Exception exception)
             {
@@ -246,35 +283,35 @@ namespace ForzaStudio
             this.SetStatus((report.Count > 0) ? string.Join("; ", report.ToArray()) + " (pending: Save to write the archive)" : "Nothing to rename.");
         }
 
-        // Renames the <from> element of the car's shadersettings.xml to <to> when it has no <to> yet.
-        private bool RenameShaderSetting(string from, string to)
+        // After materials were renamed in the car's models (technique pairs from -> to): the car's
+        // shadersettings.xml follows (ShaderSettings.FollowRename). The models are read again, so a
+        // technique still used elsewhere (other part, other file, one mesh renamed) keeps its entry and
+        // the new name gets a copy; otherwise the entry is renamed. Before, the entry was always renamed,
+        // which left the meshes still using the old name without their settings.
+        private void FollowShaderSettings(List<string[]> renamed, List<string> report)
         {
             ForzaZip.Entry entry = this.zip.Find(this.ModelFolder + "shadersettings.xml");
-            if (entry == null)
+            if (entry == null || renamed.Count == 0)
             {
-                return false;
+                return;
             }
-            byte[] data = this.zip.Read(entry);
-            string xml = System.Text.Encoding.UTF8.GetString(data);
-            bool bom = xml.Length > 0 && xml[0] == '﻿';
-            if (Regex.IsMatch(xml, "<" + Regex.Escape(to) + ">") || !Regex.IsMatch(xml, "<" + Regex.Escape(from) + ">"))
+            byte[] original = this.zip.Read(entry);
+            ShaderSettings settings = ShaderSettings.Parse(original);
+            string before = Convert.ToBase64String(settings.ToBytes());
+            SortedDictionary<string, List<string>> used = ShaderSettings.Techniques(this.zip, this.ModelFolder);
+            foreach (string[] pair in renamed)
             {
-                return false;
+                string done = settings.FollowRename(pair[0], pair[1], used.ContainsKey(pair[0]));
+                if (done != null)
+                {
+                    report.Add("shadersettings.xml: " + done);
+                }
             }
-            xml = Regex.Replace(xml, "<(/?)" + Regex.Escape(from) + ">", "<$1" + to + ">");
-            byte[] text = System.Text.Encoding.UTF8.GetBytes(bom ? xml.Substring(1) : xml);
-            if (bom)
+            if (Convert.ToBase64String(settings.ToBytes()) != before)
             {
-                byte[] withBom = new byte[text.Length + 3];
-                withBom[0] = 0xEF;
-                withBom[1] = 0xBB;
-                withBom[2] = 0xBF;
-                Buffer.BlockCopy(text, 0, withBom, 3, text.Length);
-                text = withBom;
+                this.zip.Replace(entry, settings.ToBytes());
+                this.RefreshEntryNode(entry);
             }
-            this.zip.Replace(entry, text);
-            this.RefreshEntryNode(entry);
-            return true;
         }
     }
 }

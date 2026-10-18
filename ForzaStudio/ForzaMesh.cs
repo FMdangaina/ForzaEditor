@@ -37,6 +37,10 @@ namespace ForzaStudio
         public string MaterialName;
         public string Name;
         public ForzaVertex[] Vertices;
+        // Position in the carbin (section, subsection in file order), -1 if unknown: lets an edit
+        // reach this one mesh when several in a part share the material name.
+        public int SectionIndex = -1;
+        public int SubIndex = -1;
 
         public ForzaMesh(string name, string materialName, int[] indices, ForzaVertex[] vertices)
         {
