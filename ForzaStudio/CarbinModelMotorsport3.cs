@@ -2,6 +2,7 @@ namespace ForzaStudio
 {
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.IO;
     using Microsoft.Xna.Framework;
 
@@ -42,7 +43,8 @@ namespace ForzaStudio
             System.Text.StringBuilder report = new System.Text.StringBuilder();
             bool brake = this.Type == 1 && ReadU32(this.Head, 4) == 0xD;
             bool wheel = this.Type == 2;
-            // The header first: the wheel measures are read from the FM3 vertices.
+            // The header first: the wheel measures (and wheelMorph) are read from the FM3 vertices.
+            this.wheelMorph = 1;
             this.Head = this.ConvertMotorsport3Head(brake, wheel);
             foreach (Section section in this.Sections)
             {
@@ -129,6 +131,12 @@ namespace ForzaStudio
             bool deformable = HasMotorsport3Damage(section.Lod) || HasMotorsport3Damage(section.Lod0);
             section.DamageLod = deformable ? Motorsport3Damage(section.Lod) : new Table();
             section.DamageLod0 = deformable ? Motorsport3Damage(section.Lod0) : new Table();
+            bool morph = this.wheelMorph != 1;
+            if (morph)
+            {
+                section.DamageLod = WheelMorphTable(lodPositions, 1);
+                section.DamageLod0 = WheelMorphTable(lod0Positions, this.wheelMorph);
+            }
 
             // UV offset/scale per group of subsections sharing vertices (the LODs of a material can).
             foreach (SubSection sub in section.SubSections)
@@ -171,9 +179,78 @@ namespace ForzaStudio
             }
             section.Pre = new byte[] { (byte) (section.VbTest1 >> 24), (byte) (section.VbTest1 >> 16), (byte) (section.VbTest1 >> 8), (byte) section.VbTest1 };
             section.VbTest1 = 0;
-            section.Post9 = new byte[] { 0, 0, 0, 1, (byte) (deformable ? 1 : 0), 0, 0, 0, 2 };
+            section.Post9 = new byte[] { 0, 0, 0, 1, (byte) ((deformable || morph) ? 1 : 0), 0, 0, 0, 2 };
             section.Mid = new byte[] { 0, 0, 0, 2 };
-            report.AppendFormat("{0}: lod {1} lod0 {2} vertices{3}\r\n", section.Name, section.Lod.Count, section.Lod0.Count, deformable ? ", deformable" : "");
+            report.AppendFormat(CultureInfo.InvariantCulture, "{0}: lod {1} lod0 {2} vertices{3}{4}\r\n", section.Name, section.Lod.Count, section.Lod0.Count, deformable ? ", deformable" : "",
+                morph ? string.Format(CultureInfo.InvariantCulture, ", lod0 morph target x{0:0.###}", this.wheelMorph) : "");
+        }
+
+        // FM4 wheel morph table (wheels whose lod0 rim is at the 15-inch reference; 284 FM4 wheels, fm4dev\
+        // Fm3DLC\tools\morphstat, wheeltbl, wheelpost9): 16 bytes per vertex of each buffer, big-endian
+        // halves, the morph target then the vertex itself, each as (y/L, x/L, L, z/L) with L its distance
+        // from (0, 0, 0). The game blends the lod0 towards the target to draw the rim at the car's size
+        // (the "Morph_LOD0" of the source scenes; Jew on Discord); without it the rim stays at 15 inches
+        // (Genesis Coupe HKS from the FM3 DLC, 2026-10-18). FM3 wheels carry no morph, so the target is
+        // the vertex with Y and Z scaled by `scale` and X kept, as on FM4's NSX '97, DBR1, V8 Vantage, RS2
+        // (most FM4 wheels scale the hub less). The lod (LOD 1-5) table holds the vertex twice, as FM4's
+        // 273 such wheels do; the section's Post9 flag is 1.
+        private static Table WheelMorphTable(double[] positions, double scale)
+        {
+            Table table = new Table();
+            int count = positions.Length / 3;
+            if (count == 0)
+            {
+                return table;
+            }
+            table.Count = count;
+            table.Stride = 16;
+            table.Data = new byte[count * 16];
+            for (int i = 0; i < count; i++)
+            {
+                double x = positions[i * 3];
+                double y = positions[(i * 3) + 1];
+                double z = positions[(i * 3) + 2];
+                WritePolar(table.Data, i * 16, x, y * scale, z * scale);
+                WritePolar(table.Data, (i * 16) + 8, x, y, z);
+            }
+            table.ExtraFor = table.Data;
+            return table;
+        }
+
+        private static void WritePolar(byte[] data, int offset, double x, double y, double z)
+        {
+            double length = Math.Sqrt((x * x) + (y * y) + (z * z));
+            double[] values = (length < 1e-9) ? new double[4] : new double[] { y / length, x / length, length, z / length };
+            for (int k = 0; k < 4; k++)
+            {
+                ushort half = ToHalf(values[k]);
+                data[offset + (k * 2)] = (byte) (half >> 8);
+                data[offset + (k * 2) + 1] = (byte) half;
+            }
+        }
+
+        // IEEE half, rounded to nearest (no infinities or NaN are needed here).
+        private static ushort ToHalf(double value)
+        {
+            int sign = (value < 0) ? 0x8000 : 0;
+            double a = Math.Abs(value);
+            if (a < Math.Pow(2, -24))
+            {
+                return (ushort) sign;
+            }
+            int exponent = (int) Math.Floor(Math.Log(a, 2));
+            if (exponent < -14)
+            {
+                return (ushort) (sign | (int) Math.Round(a / Math.Pow(2, -24)));
+            }
+            int mantissa = (int) Math.Round(((a / Math.Pow(2, exponent)) - 1) * 1024);
+            if (mantissa == 1024)
+            {
+                mantissa = 0;
+                exponent++;
+            }
+            exponent = Math.Min(exponent, 15);
+            return (ushort) (sign | ((exponent + 15) << 10) | mantissa);
         }
 
         private static bool IsZeroBounds(float[] bounds)
@@ -507,8 +584,8 @@ namespace ForzaStudio
         // The 12 floats FM4 wheel headers hold at 0x18 (fitted on FM4's 437 wheels; the material names
         // are the game's): wheel_black (lod0) min x, inner_rim (lod1) min x, lod0 max x, inner_rim (lod1)
         // max x, wheel_black min x again, tire (lod1) min x, wheel_black max x, tire max x, two radii
-        // whose rule is not known (the lod0 radius is used: right on a third of the wheels), inner_rim
-        // (lod1) radius, tire radius. A missing material falls back on the whole LOD.
+        // set by the lod0 rim (see Lod0Radius), inner_rim (lod1) radius, tire radius. A missing material
+        // falls back on the whole LOD.
         private float[] WheelMeasures()
         {
             Section section = (this.Sections.Count > 0) ? this.Sections[0] : null;
@@ -522,13 +599,28 @@ namespace ForzaStudio
             double[] inner = this.WheelMaterial(section, "inner_rim", false, lod, lod0);
             double[] tire = this.WheelMaterial(section, "tire", false, lod, lod0);
             double[] all0 = this.WheelMaterial(section, null, true, lod, lod0);
+            this.wheelMorph = Lod0MorphScale(all0[2], inner[2]);
+            float radius0 = (float) (all0[2] * this.wheelMorph);
             return new float[]
             {
                 (float) black[0], (float) inner[0], (float) all0[1], (float) inner[1],
                 (float) black[0], (float) tire[0], (float) black[1], (float) tire[1],
-                (float) all0[2], (float) inner[2], (float) all0[2], (float) tire[2],
+                radius0, (float) inner[2], radius0, (float) tire[2],
             };
         }
+
+        // Header floats 8 and 10 = the largest YZ radius of the lod0 morph target. Most FM4 wheels model
+        // the lod0 rim at a 15-inch reference size (YZ radius ~0.194) smaller than the lod1 rim, with a
+        // morph target (see WheelMorphTable) whose rim reaches that radius + 0.130 (~0.324, 232 of 236
+        // such wheels; fm4dev\Fm3DLC\tools\wheelf8, morphstat). A true-size lod0 has no morph and holds
+        // its own radius (141 of 142). Returns the target's scale, 1 for a true-size lod0.
+        private static double Lod0MorphScale(double lod0Radius, double innerRadius)
+        {
+            bool reference = lod0Radius > 0.19 && lod0Radius < 0.2 && innerRadius - lod0Radius > 0.02;
+            return reference ? (lod0Radius + 0.1301) / lod0Radius : 1;
+        }
+
+        private double wheelMorph = 1;
 
         // Min x, max x and largest YZ radius of a material's vertices (null: every material) at LOD 0
         // (lod0) or 1; the whole LOD when the material is not there.
