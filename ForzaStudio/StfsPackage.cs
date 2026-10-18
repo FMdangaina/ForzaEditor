@@ -31,6 +31,30 @@ namespace ForzaStudio
         // id in hex + "4D", as official packages are named).
         public static string Write(string folder, string output, uint titleId, uint contentType, string displayName, string description, string titleName, byte[] thumbnail)
         {
+            return WriteCore(folder, output, Header(titleId, contentType, displayName, description, titleName, thumbnail));
+        }
+
+        // A package edited in the editor (Open DLC Package): 'folder' packed again with the header of
+        // the package it came from (StfsReader.Header: magic, licences, names, thumbnails, metadata
+        // kept). Only the volume descriptor, the content size and the content id change, as in Write;
+        // the signature becomes stale (a modded console and Xenia do not check it).
+        public static string Rewrite(string folder, string output, byte[] header)
+        {
+            if (header == null || header.Length < 0x1712 || (header.Length % Block) != 0)
+            {
+                throw new ArgumentException("Not an STFS package header.", "header");
+            }
+            byte[] copy = (byte[]) header.Clone();
+            for (int i = 0x379; i < 0x39D; i++)
+            {
+                copy[i] = 0;
+            }
+            return WriteCore(folder, output, copy);
+        }
+
+        private static string WriteCore(string folder, string output, byte[] header)
+        {
+            long headerSize = header.Length;
             // Entries in the order of the file table: breadth first, each folder's children sorted by name.
             List<Entry> entries = new List<Entry>();
             Queue<KeyValuePair<string, int>> queue = new Queue<KeyValuePair<string, int>>();
@@ -91,7 +115,7 @@ namespace ForzaStudio
             using (FileStream file = new FileStream(output, FileMode.Create, FileAccess.ReadWrite))
             using (SHA1 sha = SHA1.Create())
             {
-                file.SetLength(HeaderSize + (physical * Block));
+                file.SetLength(headerSize + (physical * Block));
 
                 // File table.
                 byte[] table = new byte[tableBlocks * Block];
@@ -120,7 +144,7 @@ namespace ForzaStudio
                 {
                     byte[] data = new byte[Block];
                     Buffer.BlockCopy(table, b * Block, data, 0, Block);
-                    blockHashes[b] = WriteBlock(file, sha, Backing(b), data);
+                    blockHashes[b] = WriteBlock(file, headerSize, sha, Backing(b), data);
                 }
 
                 // Files, block by block.
@@ -137,7 +161,7 @@ namespace ForzaStudio
                         {
                             Array.Clear(buffer, 0, Block);
                             ReadFull(input, buffer);
-                            blockHashes[entry.Start + k] = WriteBlock(file, sha, Backing(entry.Start + k), buffer);
+                            blockHashes[entry.Start + k] = WriteBlock(file, headerSize, sha, Backing(entry.Start + k), buffer);
                         }
                     }
                 }
@@ -161,7 +185,7 @@ namespace ForzaStudio
                         hashes[(k * 0x18) + 22] = (byte) (next >> 8);
                         hashes[(k * 0x18) + 23] = (byte) next;
                     }
-                    level0Hashes[g] = WriteBlock(file, sha, Level0Position(g), hashes);
+                    level0Hashes[g] = WriteBlock(file, headerSize, sha, Level0Position(g), hashes);
                 }
                 byte[] top;
                 if (level1 == 0)
@@ -178,7 +202,7 @@ namespace ForzaStudio
                         {
                             Buffer.BlockCopy(level0Hashes[(s * PerTable) + k], 0, hashes, k * 0x18, 20);
                         }
-                        level1Hashes[s] = WriteBlock(file, sha, Level1Position(s), hashes);
+                        level1Hashes[s] = WriteBlock(file, headerSize, sha, Level1Position(s), hashes);
                     }
                     if (level2)
                     {
@@ -187,7 +211,7 @@ namespace ForzaStudio
                         {
                             Buffer.BlockCopy(level1Hashes[s], 0, hashes, s * 0x18, 20);
                         }
-                        top = WriteBlock(file, sha, (PerTable * 171) + 1, hashes);
+                        top = WriteBlock(file, headerSize, sha, (PerTable * 171) + 1, hashes);
                     }
                     else
                     {
@@ -195,7 +219,6 @@ namespace ForzaStudio
                     }
                 }
 
-                byte[] header = Header(titleId, contentType, displayName, description, titleName, thumbnail);
                 // Volume descriptor: size 0x24, block separation 1, file table blocks and start, top hash,
                 // allocated blocks.
                 header[0x379] = 0x24;
@@ -206,7 +229,7 @@ namespace ForzaStudio
                 PutBig32(header, 0x395, (uint) blocks);
                 PutBig64(header, 0x34C, physical * Block);
                 // Content id: SHA-1 of the header from 0x344 on.
-                byte[] id = sha.ComputeHash(header, 0x344, HeaderSize - 0x344);
+                byte[] id = sha.ComputeHash(header, 0x344, header.Length - 0x344);
                 Buffer.BlockCopy(id, 0, header, 0x32C, 20);
                 file.Position = 0;
                 file.Write(header, 0, header.Length);
@@ -283,9 +306,9 @@ namespace ForzaStudio
             return (s == 0) ? 171 : ((long) s * PerTable * 171) + s + 1;
         }
 
-        private static byte[] WriteBlock(FileStream file, SHA1 sha, long position, byte[] data)
+        private static byte[] WriteBlock(FileStream file, long headerSize, SHA1 sha, long position, byte[] data)
         {
-            file.Position = HeaderSize + (position * Block);
+            file.Position = headerSize + (position * Block);
             file.Write(data, 0, Block);
             return sha.ComputeHash(data, 0, Block);
         }

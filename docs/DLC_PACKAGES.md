@@ -174,6 +174,12 @@ package XTD built with the Xbox 360 authoring tool, which a console loads:
   `<offer>_pri_65` folder becomes **`<offer>_pri_65.zip`**: stored entries in the game's zip
   layout, with the `0x1123` extra field holding the data offset. The official packs do the same,
   and the game mounts the zip like the folder. The `*_build_report.html` files stay out.
+- **Reading and editing a package.** `StfsReader.cs` reads `CON`/`LIVE`/`PIRS` packages (one or two
+  hash tables per level, chained files). File > Open DLC Package extracts one to a work folder;
+  each save packs it again with `StfsPackage.Rewrite`, which keeps the original header and only
+  rewrites the volume descriptor, the content size and the content id. Our own packages come back
+  byte-identical; official FH1 packages keep every header byte except the content id and the top
+  hash (the file table order and dates are ours).
 
 ## Code
 

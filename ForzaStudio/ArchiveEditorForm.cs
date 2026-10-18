@@ -183,6 +183,7 @@
             ToolStripMenuItem file = new ToolStripMenuItem("&File");
             file.DropDownItems.Add(new ToolStripMenuItem("&Open Archive...", null, delegate { this.OpenArchiveDialog(); }, Keys.Control | Keys.O));
             file.DropDownItems.Add(new ToolStripMenuItem("Open &Folder...", null, delegate { this.OpenFolderDialog(); }, Keys.Control | Keys.Shift | Keys.O));
+            file.DropDownItems.Add(new ToolStripMenuItem("Open DLC &Package...", null, delegate { this.OpenPackageDialog(); }));
             file.DropDownItems.Add(new ToolStripSeparator());
             this.mnuSave = new ToolStripMenuItem("&Save", null, delegate { this.SaveArchive(false); }, Keys.Control | Keys.S);
             this.mnuSaveAs = new ToolStripMenuItem("Save &As...", null, delegate { this.SaveArchive(true); });
@@ -190,6 +191,10 @@
             file.DropDownItems.Add(this.mnuSave);
             file.DropDownItems.Add(this.mnuSaveAs);
             file.DropDownItems.Add(this.mnuClose);
+            file.DropDownItems.Add(new ToolStripSeparator());
+            ToolStripMenuItem rebuild = new ToolStripMenuItem("&Rebuild DLC Package", null, delegate { this.RebuildPackageCommand(); });
+            file.DropDownItems.Add(rebuild);
+            file.DropDownOpening += delegate { rebuild.Enabled = this.package != null; };
             file.DropDownItems.Add(new ToolStripSeparator());
             file.DropDownItems.Add(new ToolStripMenuItem("E&xit", null, delegate { this.Close(); }));
 
@@ -321,6 +326,12 @@
 
         public void OpenArchive(string path)
         {
+            // An Xbox 360 package (the DLC file as the console stores it, no extension).
+            if (!IsArchive(path) && File.Exists(path) && StfsReader.IsPackage(path))
+            {
+                this.OpenPackage(path);
+                return;
+            }
             // A loose game file (media\db\gamedb.slt): open its folder and select it.
             if (!IsArchive(path) && File.Exists(path) && Path.GetExtension(path).Equals(".slt", StringComparison.OrdinalIgnoreCase))
             {
@@ -388,7 +399,10 @@
                 this.CloseArchiveCore();
                 this.zip = opened;
                 this.lastFolder = opened.FilePath;
-                AppSettings.Set("OpenFolder", opened.FilePath);
+                if (!this.InPackage(opened.FilePath))
+                {
+                    AppSettings.Set("OpenFolder", opened.FilePath);
+                }
                 this.PopulateTree();
                 this.SetStatus(string.Format("Opened folder {0} ({1} files)", opened.FilePath, this.zip.Entries.Count));
                 this.StartMusicFor(opened.FilePath);
@@ -513,9 +527,10 @@
             }
             this.tvArchive.BeginUpdate();
             this.tvArchive.Nodes.Clear();
-            TreeNode root = new TreeNode(this.SourceName);
+            bool packageRoot = this.package != null && string.Equals(this.zip.FilePath.TrimEnd('\\'), this.packageFolder, StringComparison.OrdinalIgnoreCase);
+            TreeNode root = new TreeNode(packageRoot ? this.PackageRootLabel : this.SourceName);
             root.Tag = "";
-            root.ToolTipText = this.zip.FilePath;
+            root.ToolTipText = packageRoot ? this.package.Path + "\nwork folder: " + this.zip.FilePath : this.zip.FilePath;
             this.FillFolderNode(root);
             this.tvArchive.Nodes.Add(root);
             root.Expand();
@@ -728,6 +743,7 @@
                     }
                 }
                 List<ForzaZip.Entry> saved = this.zip.SaveFolder();
+                this.packagePending |= saved.Count > 0 && this.InPackage(this.zip.FilePath);
                 int manifests = 0;
                 foreach (ForzaZip.Entry entry in saved)
                 {
@@ -756,7 +772,17 @@
             }
         }
 
+        // Inside an open DLC package, a save also packs the package again.
         private bool SaveArchive(bool saveAs)
+        {
+            if (!this.SaveArchiveCore(saveAs))
+            {
+                return false;
+            }
+            return !this.packagePending || this.zip == null || !this.InPackage(this.zip.FilePath) || this.RebuildPackage();
+        }
+
+        private bool SaveArchiveCore(bool saveAs)
         {
             if (this.zip == null)
             {
@@ -801,6 +827,7 @@
                 }
                 string selected = (this.currentEntry != null) ? this.currentEntry.Name : null;
                 this.zip.Save(path);
+                this.packagePending |= this.InPackage(path);
                 bool manifest = this.UpdateZipManifest(path, stamp);
                 this.PopulateTree();
                 if (selected != null)
@@ -1098,11 +1125,18 @@
             this.mnuClose.Enabled = open;
             this.UpdateBackMenu();
             this.Text = open ? string.Format("{0}{1}{2} - {3}", this.zip.IsFolder ? this.zip.FilePath.TrimEnd('\\') : Path.GetFileName(this.zip.FilePath), this.zip.IsFolder ? "\\" : "", this.zip.IsModified ? " *" : "", AppName) : AppName;
+            if (open && this.package != null && this.InPackage(this.zip.FilePath))
+            {
+                // The work folder's path means nothing to the user: name the package instead.
+                string inside = this.zip.FilePath.TrimEnd('\\').Substring(this.packageFolder.Length).TrimStart('\\');
+                this.Text = string.Format("{0}{1}{2}{3} - {4}", this.PackageRootLabel, (inside.Length > 0) ? " \\ " + inside : "", this.zip.IsModified ? " *" : "",
+                    this.packagePending ? " (package not written)" : "", AppName);
+            }
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            if (!this.ConfirmDiscard())
+            if (!this.ConfirmDiscard() || !this.ConfirmPackageRebuild())
             {
                 e.Cancel = true;
                 return;
