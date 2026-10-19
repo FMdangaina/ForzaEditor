@@ -47,7 +47,7 @@ Tools > Port Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`).
 
 ## 2. Ported cars as a DLC package ✅ done, open points
 
-Credits: **Jew (@mr.abortion)** (`fm4dlc` toolchain) and **XTD (@xtd_ac)** (Xenia folder DLC, XLAST
+Credits: **[Aiden-Piercee](https: //github.com/Aiden-Piercee)** (`fm4dlc` toolchain) and **XTD (@xtd_ac)** (Xenia folder DLC, XLAST
 package, console tests). Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 
 - [ ] 2.1 (was 3.6d) Several Forza Studio packs at once: each pack's string tables built on top of the
@@ -513,7 +513,7 @@ Background of topics 11-15: quotes, file names, what is known so far.
 
 ## D3. Wheels and morph targets (topic 11, 7)
 
-- **Wheel morph.** @Jew: *"it's dependant on the wheel having a morph target in its package"*. Looks
+- **Wheel morph.** [Aiden-Piercee](https: //github.com/Aiden-Piercee): *"it's dependant on the wheel having a morph target in its package"*. Looks
   like a flag travelling with the shader and `IsStock`; a larger texture is mentioned too.
   - BMW E30 rim does not scale, S60 does. @Jew: *"You need morph targets in the wheel model for Forza
     to scale them to size"*. Name to look for: `Morph_LOD0`. Linked to tyre width (topic 1).
