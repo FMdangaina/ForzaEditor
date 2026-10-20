@@ -39,6 +39,11 @@ namespace ForzaStudio
         private List<ListViewItem> dbItems = new List<ListViewItem>();
         private DbSection dbSection = DbSection.Cars;
         private bool dbFilling;
+        // Each section keeps its own search, each table its own row filter (user 2026-10-20: switching
+        // between two tables to compare them lost the filter).
+        private readonly Dictionary<DbSection, string> dbSearches = new Dictionary<DbSection, string>();
+        private readonly Dictionary<string, string> tableFilters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private bool dbSearchRestoring;
 
         private TabControl tabCar;
         private PropertyGrid pgCar;
@@ -83,7 +88,15 @@ namespace ForzaStudio
             bar.Items.Add(new ToolStripLabel("Search:"));
             this.txtDbSearch = new ToolStripTextBox();
             this.txtDbSearch.Width = 180;
-            this.txtDbSearch.TextChanged += delegate { this.FilterDbList(); };
+            this.txtDbSearch.TextChanged += delegate
+            {
+                if (this.dbSearchRestoring)
+                {
+                    return;
+                }
+                this.dbSearches[this.dbSection] = this.txtDbSearch.Text;
+                this.FilterDbList();
+            };
             bar.Items.Add(this.txtDbSearch);
             this.btnDbChanges = new ToolStripDropDownButton("No changes");
             this.btnDbChanges.Alignment = ToolStripItemAlignment.Right;
@@ -419,8 +432,8 @@ namespace ForzaStudio
             }
             else
             {
-                this.txtDbSearch.Text = "";
                 this.SelectDbSection(DbSection.Tables);
+                this.ClearDbSearch();
                 foreach (ListViewItem item in this.lvDb.Items)
                 {
                     if (string.Equals(item.Tag as string, table, StringComparison.OrdinalIgnoreCase))
@@ -433,7 +446,7 @@ namespace ForzaStudio
                         break;
                     }
                 }
-                this.gridTable.ShowRows(this.gameDb, table, where);
+                this.ShowTableRows(table, where);
                 this.ShowDbContent(this.gridTable);
                 this.gridTable.FocusGrid();
             }
@@ -842,7 +855,27 @@ namespace ForzaStudio
                     break;
             }
             this.ShowDbContent(null);
+            string search;
+            this.dbSearchRestoring = true;
+            this.txtDbSearch.Text = this.dbSearches.TryGetValue(section, out search) ? search : "";
+            this.dbSearchRestoring = false;
             this.FilterDbList();
+        }
+
+        // Clears the search of the section shown (a jump to an item that has to be in the list).
+        private void ClearDbSearch()
+        {
+            this.txtDbSearch.Text = "";
+        }
+
+        // A table's rows with the given filter; the table shown before keeps its own for when it comes back.
+        private void ShowTableRows(string table, string filter)
+        {
+            if (this.gridTable.TableName != null)
+            {
+                this.tableFilters[this.gridTable.TableName] = this.gridTable.Filter ?? "";
+            }
+            this.gridTable.ShowRows(this.gameDb, table, filter);
         }
 
         private const string CarListSql = "SELECT Id, MakeID, MediaName, Year, ClassID, PerformanceIndex, DisplayName FROM Data_Car";
@@ -988,7 +1021,8 @@ namespace ForzaStudio
                         break;
 
                     case DbSection.Tables:
-                        this.gridTable.ShowRows(this.gameDb, (string) item.Tag, null);
+                        string filter;
+                        this.ShowTableRows((string) item.Tag, this.tableFilters.TryGetValue((string) item.Tag, out filter) ? filter : null);
                         this.ShowDbContent(this.gridTable);
                         break;
                 }

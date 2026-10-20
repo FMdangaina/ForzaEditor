@@ -305,7 +305,7 @@ namespace ForzaStudio
             long id = (this.powerEngine * 1000) + level;
             if (this.gameDb.Count(part.Table, "Id = " + id.ToString(CultureInfo.InvariantCulture)) > 0)
             {
-                id = this.gameDb.Max(part.Table, "Id", null, 0) + 1;
+                id = this.gameDb.NextId(part.Table, "Id");
             }
             object price = this.gameDb.Sql.Scalar("SELECT Price FROM " + part.Table + " WHERE rowid = ?", template);
             long newPrice = (price is long && (long) price > 0) ? (long) Math.Round((long) price * 1.4 / 100) * 100 : 1000;
@@ -326,7 +326,12 @@ namespace ForzaStudio
                 long curveRow = (curve is long) ? this.gameDb.RowIdOf("List_TorqueCurve", (long) curve) : -1;
                 if (curveRow >= 0)
                 {
-                    long newCurve = this.gameDb.Max("List_TorqueCurve", "TorqueCurveID", null, 0) + 1;
+                    // FM4's rule for curve ids: engine * 1000 + level (DbIds), else the next free id.
+                    long newCurve = (this.powerEngine * 1000) + level;
+                    if (this.gameDb.Count("List_TorqueCurve", "TorqueCurveID = " + newCurve.ToString(CultureInfo.InvariantCulture)) > 0)
+                    {
+                        newCurve = this.gameDb.NextId("List_TorqueCurve", "TorqueCurveID");
+                    }
                     Dictionary<string, object> curveValues = new Dictionary<string, object>();
                     curveValues["TorqueCurveID"] = newCurve;
                     this.gameDb.CopyRow("List_TorqueCurve", curveRow, curveValues, "torque curve " + newCurve + " (copy of " + curve + ")");

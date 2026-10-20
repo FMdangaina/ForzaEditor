@@ -432,6 +432,12 @@ namespace ForzaStudio
             return (value is long) ? (long) value : (value is double ? (long) (double) value : fallback);
         }
 
+        // The Id for a new row of a table (DbIds: its reserved range, else the next after the largest).
+        public long NextId(string table, string column)
+        {
+            return DbIds.Next(this.db, table, column);
+        }
+
         public void DeleteRow(string tableName, long rowId)
         {
             this.db.Execute("DELETE FROM " + SqliteDatabase.Quote(tableName) + " WHERE rowid = ?", rowId);

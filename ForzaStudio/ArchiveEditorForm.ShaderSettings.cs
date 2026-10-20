@@ -109,6 +109,7 @@ namespace ForzaStudio
             this.cmbAddParameter = new ComboBox();
             this.cmbAddParameter.DropDownStyle = ComboBoxStyle.DropDownList;
             this.cmbAddParameter.Width = 220;
+            ForzaTheme.GreenItems(this.cmbAddParameter);
             this.cmbAddParameter.MaxDropDownItems = 24;
             this.btnAddParameter = new Button();
             this.btnAddParameter.Text = "Add";
@@ -145,9 +146,9 @@ namespace ForzaStudio
             this.btnRemoveEntry.Text = "Remove Settings";
             this.btnRemoveEntry.AutoSize = true;
             this.btnRemoveEntry.Click += delegate { this.RemoveShaderEntry(); };
-            // Labels: the add list holds the parameters the technique lacks (★ = FM4 sets it on that
+            // Labels: the add list holds the parameters the technique lacks (green = FM4 sets it on that
             // technique), the copy list the file's other entries with settings.
-            Label addLabel = ShaderButtonLabel("Add parameter (★ = FM4):");
+            Label addLabel = ShaderButtonLabel("Add parameter (green = FM4):");
             Label carLabel = ShaderButtonLabel("Settings of car:");
             Label copyLabel = ShaderButtonLabel("Copy missing from:");
             buttons.Controls.AddRange(new Control[] { addLabel, this.cmbAddParameter, this.btnAddParameter, this.btnEditParameter, this.btnRemoveParameter, this.btnRemoveEntry });
@@ -324,7 +325,7 @@ namespace ForzaStudio
                         this.lvParameters.Items.Add(item);
                     }
                 }
-                // Add: ★ = FM4 cars set it on this technique, first; then the other FM4 parameters.
+                // Add: green = FM4 cars set it on this technique, first; then the other FM4 parameters.
                 List<string> names = new List<string>(CarPort.ShaderParameterNames);
                 names.Sort(StringComparer.Ordinal);
                 foreach (bool starred in new bool[] { true, false })
@@ -336,7 +337,7 @@ namespace ForzaStudio
                         {
                             continue;
                         }
-                        this.cmbAddParameter.Items.Add(starred ? "★ " + name : name);
+                        this.cmbAddParameter.Items.Add(new ParameterChoice(name, starred));
                     }
                 }
                 if (this.cmbAddParameter.Items.Count > 0)
@@ -527,6 +528,29 @@ namespace ForzaStudio
             this.SetStatus(status + " (pending: Save to write the archive)");
         }
 
+        // An entry of the add list: green when FM4 cars set the parameter on this technique.
+        private class ParameterChoice : IRecommended
+        {
+            private readonly string name;
+            private readonly bool fm4;
+
+            public ParameterChoice(string name, bool fm4)
+            {
+                this.name = name;
+                this.fm4 = fm4;
+            }
+
+            public bool Recommended
+            {
+                get { return this.fm4; }
+            }
+
+            public override string ToString()
+            {
+                return this.name;
+            }
+        }
+
         private void AddShaderParameter()
         {
             string technique = this.SelectedTechnique;
@@ -534,7 +558,7 @@ namespace ForzaStudio
             {
                 return;
             }
-            string name = ((string) this.cmbAddParameter.SelectedItem).Replace("★ ", "");
+            string name = this.cmbAddParameter.SelectedItem.ToString();
             List<string[]> attributes = new List<string[]>();
             foreach (string a in ShaderSettings.AttributeNames(name))
             {

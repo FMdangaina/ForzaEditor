@@ -84,7 +84,6 @@ namespace ForzaStudio
             New,
             Ported,
             InFm4,
-            IdTaken,
             NoFiles
         }
 
@@ -108,14 +107,19 @@ namespace ForzaStudio
             public string Root;         // the source game folder, or the DLC package laid out as one (DlcSource)
         }
 
-        private class DonorChoice
+        private class DonorChoice : IRecommended
         {
             public Car Car;
             public bool Suggested;
 
+            public bool Recommended
+            {
+                get { return this.Suggested; }
+            }
+
             public override string ToString()
             {
-                return (this.Suggested ? "★ " : "") + this.Car.Name + "  (" + this.Car.MediaName + ", " + this.Car.Year + ")";
+                return this.Car.Name + "  (" + this.Car.MediaName + ", " + this.Car.Year + ")";
             }
         }
 
@@ -180,7 +184,7 @@ namespace ForzaStudio
             folders.Dock = DockStyle.Top;
             folders.Height = 74;
             folders.Width = this.ClientSize.Width;
-            this.sourceBox = FolderRow(folders, "Source (FH, FH2, FM3, DLC):", 10, AppSettings.Get("CarPort.Source", ""), true);
+            this.sourceBox = FolderRow(folders, "Source (FH, FH2, FM3, DLC):", 10, AppSettings.Get("CarPort.Source", "").Length > 0 ? AppSettings.Get("CarPort.Source", "") : FirstSourceGame(), true);
             this.targetBox = FolderRow(folders, "Forza Motorsport 4:", 42, target ?? AppSettings.Get("CarPort.Target", ""), false);
             if (target != null)
             {
@@ -239,7 +243,7 @@ namespace ForzaStudio
             options.Dock = DockStyle.Bottom;
             options.Height = 124;
             Label donorLabel = new Label();
-            donorLabel.Text = "FM4 template car, for what the source car lacks (★ = most similar: make, layout, drive, year, weight, PI):";
+            donorLabel.Text = "FM4 template car, for what the source car lacks (green = most similar: make, layout, drive, year, weight, PI):";
             donorLabel.Location = new Point(8, 8);
             donorLabel.AutoSize = true;
             this.donors = new ComboBox();
@@ -247,6 +251,7 @@ namespace ForzaStudio
             this.donors.Location = new Point(8, 28);
             this.donors.Width = 460;
             this.donors.MaxDropDownItems = 24;
+            ForzaTheme.GreenItems(this.donors);
             this.donors.SelectedIndexChanged += delegate { this.UpdateButtons(); };
             this.arcade = new CheckBox();
             this.arcade.Text = "Also in arcade mode";
@@ -504,6 +509,24 @@ namespace ForzaStudio
                 }
             };
             this.review.DataError += delegate(object sender, DataGridViewDataErrorEventArgs e) { e.ThrowException = false; };
+            // Recommended fixes in green, in the cell and in its list.
+            this.review.CellFormatting += delegate(object sender, DataGridViewCellFormattingEventArgs e)
+            {
+                if (e.ColumnIndex == 2 && e.RowIndex >= 0 && RecommendedFix(this.review.Rows[e.RowIndex], e.Value))
+                {
+                    e.CellStyle.ForeColor = ForzaTheme.Green;
+                    e.CellStyle.SelectionForeColor = ForzaTheme.Green;
+                }
+            };
+            this.review.EditingControlShowing += delegate(object sender, DataGridViewEditingControlShowingEventArgs e)
+            {
+                ComboBox combo = e.Control as ComboBox;
+                if (combo != null && combo.Tag as string != "green")
+                {
+                    combo.Tag = "green";   // the grid reuses its editing control
+                    ForzaTheme.GreenItems(combo, delegate(object item) { return this.review.CurrentRow != null && RecommendedFix(this.review.CurrentRow, item); });
+                }
+            };
             this.reviewPanel.Controls.Add(this.review);
             this.reviewPanel.Controls.Add(this.reviewTitle);
 
@@ -697,6 +720,20 @@ namespace ForzaStudio
         }
 
         // A folder row; the source row also takes package files (Package..., several joined by "; ").
+        // The first source game set in Tools > Settings, or "".
+        private static string FirstSourceGame()
+        {
+            foreach (string[] source in SettingsForm.SourceFolders)
+            {
+                string folder = AppSettings.Get(source[0], "");
+                if (folder.Length > 0)
+                {
+                    return folder;
+                }
+            }
+            return "";
+        }
+
         private TextBox FolderRow(Panel parent, string caption, int y, string value, bool packages)
         {
             Label label = new Label();
@@ -706,9 +743,42 @@ namespace ForzaStudio
             TextBox box = new TextBox();
             // Room for the longest caption, "Source (FH, FH2, FM3, DLC):".
             box.Location = new Point(185, y);
-            box.Width = parent.Width - 185 - 282;
+            box.Width = parent.Width - 185 - 282 - (packages ? 30 : 0);
             box.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             box.Text = value;
+            if (packages)
+            {
+                // The source games set in Tools > Settings > FOLDERS.
+                Button games = new Button();
+                games.Text = "▾";
+                games.Size = new Size(26, 24);
+                games.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                games.Location = new Point(parent.Width - 282 - 28, y - 2);
+                new ToolTip().SetToolTip(games, "The source games set in Tools > Settings");
+                games.Click += delegate
+                {
+                    ContextMenuStrip menu = new ContextMenuStrip();
+                    menu.Renderer = ForzaTheme.Renderer;
+                    foreach (string[] source in SettingsForm.SourceFolders)
+                    {
+                        string folder = AppSettings.Get(source[0], "");
+                        if (folder.Length > 0)
+                        {
+                            ToolStripMenuItem item = new ToolStripMenuItem(source[1] + "  " + folder, null, delegate { box.Text = folder; });
+                            item.ForeColor = ForzaTheme.Text;
+                            menu.Items.Add(item);
+                        }
+                    }
+                    if (menu.Items.Count == 0)
+                    {
+                        ToolStripMenuItem none = new ToolStripMenuItem("No source games yet: set them in Tools > Settings > Folders");
+                        none.Enabled = false;
+                        menu.Items.Add(none);
+                    }
+                    menu.Show(games, new Point(0, games.Height));
+                };
+                parent.Controls.Add(games);
+            }
             Button browse = new Button();
             browse.Text = "Folder...";
             browse.Size = new Size(72, 24);
@@ -1054,6 +1124,7 @@ namespace ForzaStudio
         {
             string source = this.sourceBox.Text.Trim();
             string target = this.targetBox.Text.Trim();
+            string content = this.XeniaContent();
             string trials = Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "CarPort");
             // A pack trial holds a copy of UI\Textures.zip (436 MB): the earlier pack trials go.
             if (Directory.Exists(trials))
@@ -1103,6 +1174,7 @@ namespace ForzaStudio
                     port.SourceRoot = entries[i].Car.Root ?? source;
                     port.TargetRoot = target;
                     port.OutputRoot = folder;
+                    port.XeniaContent = content;
                     port.MediaName = entries[i].Car.MediaName;
                     port.DonorMediaName = entries[i].Donor;
                     port.Arcade = entries[i].Arcade;
@@ -1670,11 +1742,9 @@ namespace ForzaStudio
                 bool package = DlcSource.IsStage(source);
                 ForzaGame game = GameInfo.Detect(source);
                 List<double[]> pairs = package ? null : CarPort.PerformanceIndexPairs(from, to, -1, source, target);
-                Dictionary<long, Car> byId = new Dictionary<long, Car>();
                 Dictionary<string, Car> byName = new Dictionary<string, Car>(StringComparer.OrdinalIgnoreCase);
                 foreach (Car car in motorsport)
                 {
-                    byId[car.Id] = car;
                     byName[car.MediaName] = car;
                 }
                 string sourceCars = Path.Combine(Path.Combine(source, "Media"), "cars");
@@ -1686,7 +1756,6 @@ namespace ForzaStudio
                         : CarPort.MapPerformanceIndex(pairs ?? new List<double[]>(), car.Pi);
                     car.Fm4Class = CarPort.ClassName(to, CarPort.ClassFor(to, car.Fm4Pi, car.Id));
                     Car same;
-                    Car other;
                     string zip = Path.Combine(sourceCars, car.MediaName + ".zip");
                     if (File.Exists(zip))
                     {
@@ -1705,7 +1774,8 @@ namespace ForzaStudio
                     }
                     else if (byName.TryGetValue(car.MediaName, out same))
                     {
-                        if (same.Id == car.Id && CarPort.IsPorted(source, target, car.MediaName))
+                        // A ported car has an Id of its own (DbIds): found by name and build number.
+                        if (CarPort.IsPorted(source, target, car.MediaName))
                         {
                             car.State = Status.Ported;
                             car.Note = "ported earlier (install updates it)";
@@ -1716,11 +1786,6 @@ namespace ForzaStudio
                             car.State = Status.InFm4;
                             car.Note = "an FM4 car (id " + same.Id + ")";
                         }
-                    }
-                    else if (byId.TryGetValue(car.Id, out other))
-                    {
-                        car.State = Status.IdTaken;
-                        car.Note = "id taken by " + other.MediaName;
                     }
                     else
                     {
@@ -1901,6 +1966,7 @@ namespace ForzaStudio
             CarPort port = new CarPort();
             port.SourceRoot = car.Root ?? this.sourceBox.Text.Trim();
             port.TargetRoot = this.targetBox.Text.Trim();
+            port.XeniaContent = this.XeniaContent();
             port.MediaName = car.MediaName;
             port.DonorMediaName = donor.Car.MediaName;
             port.Arcade = this.arcade.Checked;
@@ -2111,6 +2177,14 @@ namespace ForzaStudio
             this.bottomTabs.Parent.Invalidate(true);   // the tab strip shows the new count
             this.StoreFixes();
             this.showingReview = false;
+        }
+
+        // Whether a label of a review row is one of its recommended choices.
+        private static bool RecommendedFix(DataGridViewRow row, object label)
+        {
+            CarPort.Issue issue = row.Tag as CarPort.Issue;
+            string text = label as string;
+            return issue != null && text != null && issue.Choices.Exists(delegate(CarPort.Choice c) { return c.Recommended && c.Label == text; });
         }
 
         // The fixes picked in the grid, kept for the car on review.

@@ -55,9 +55,11 @@ namespace ForzaStudio
                 }
             };
             // Textures on (the game's own, or the ones picked in the TEXTURE tab) or off (plain grey).
-            this.btnTextures = new ToolStripButton("Textures: on");
+            // At start as chosen in Tools > Settings > VIEWER.
+            bool texturesOn = AppSettings.Get("Viewer.Textures", "1") != "0";
+            this.btnTextures = new ToolStripButton(texturesOn ? "Textures: on" : "Textures: off");
             this.btnTextures.CheckOnClick = true;
-            this.btnTextures.Checked = true;
+            this.btnTextures.Checked = texturesOn;
             this.btnTextures.CheckedChanged += delegate { this.TexturesSwitched(this.btnTextures.Checked); };
             this.cmbCameraSpeed = new ToolStripComboBox();
             this.cmbCameraSpeed.DropDownStyle = ComboBoxStyle.DropDownList;

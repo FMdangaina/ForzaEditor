@@ -1341,6 +1341,154 @@ namespace ForzaStudio
             return report;
         }
 
+        // Splits a part triangle by triangle, every LOD: 'target' names the part each triangle belongs to
+        // from its centroid (model space). Each named part gets a copy of the section holding only its
+        // triangles (each written as a 3-index strip ended by a restart, so the winding stays), joined
+        // into that part when it exists (MergeSection: one subsection per material and LOD), the part
+        // itself when the name is its own. The original goes. Returns one line per resulting part, or ""
+        // when every triangle already belongs to the part.
+        public delegate string PartOfPoint(double x, double y, double z);
+
+        public string SplitSection(string name, PartOfPoint target)
+        {
+            Section section = this.Find(name);
+            if (section == null)
+            {
+                return "";
+            }
+            double[] lodPositions = Positions(section, section.Lod);
+            double[] lod0Positions = Positions(section, section.Lod0);
+            // Per subsection, per triangle: the target name.
+            List<string> names = new List<string>();
+            List<List<int[]>> triangles = new List<List<int[]>>();
+            List<List<string>> owners = new List<List<string>>();
+            foreach (SubSection sub in section.SubSections)
+            {
+                double[] p = (sub.Lod == 0) ? lod0Positions : lodPositions;
+                List<int[]> faces = StripTriangles(sub);
+                List<string> owner = new List<string>();
+                foreach (int[] f in faces)
+                {
+                    double x = (p[f[0] * 3] + p[f[1] * 3] + p[f[2] * 3]) / 3;
+                    double y = (p[(f[0] * 3) + 1] + p[(f[1] * 3) + 1] + p[(f[2] * 3) + 1]) / 3;
+                    double z = (p[(f[0] * 3) + 2] + p[(f[1] * 3) + 2] + p[(f[2] * 3) + 2]) / 3;
+                    string t = target(x, y, z) ?? name;
+                    owner.Add(t);
+                    if (!names.Contains(t))
+                    {
+                        names.Add(t);
+                    }
+                }
+                triangles.Add(faces);
+                owners.Add(owner);
+            }
+            if (names.Count == 0 || (names.Count == 1 && string.Equals(names[0], name, StringComparison.OrdinalIgnoreCase)))
+            {
+                return "";
+            }
+
+            StringBuilder report = new StringBuilder();
+            List<string> copies = new List<string>();
+            Dictionary<string, string> targetOf = new Dictionary<string, string>();
+            foreach (string t in names)
+            {
+                string copy = "__split_" + t;
+                while (this.Find(copy) != null)
+                {
+                    copy += "_";
+                }
+                this.DuplicateSection(name, copy);
+                Section part = this.Find(copy);
+                List<int> empty = new List<int>();
+                int count = 0;
+                for (int k = 0; k < part.SubSections.Count; k++)
+                {
+                    SubSection sub = part.SubSections[k];
+                    int restart = (sub.IndexSize == 2) ? 0xFFFF : 0x00FFFFFF;
+                    List<int> indices = new List<int>();
+                    for (int i = 0; i < triangles[k].Count; i++)
+                    {
+                        if (owners[k][i] != t)
+                        {
+                            continue;
+                        }
+                        if (indices.Count > 0)
+                        {
+                            indices.Add(restart);
+                        }
+                        indices.AddRange(triangles[k][i]);
+                        count++;
+                    }
+                    sub.Indices = indices;
+                    if (indices.Count == 0)
+                    {
+                        empty.Add(k);
+                    }
+                }
+                int index = this.Sections.IndexOf(part);
+                if (empty.Count > 0)
+                {
+                    this.RemoveSubSectionsAt(index, empty);
+                }
+                else
+                {
+                    double[] lod = Compact(part, part.Lod, part.DamageLod, false, Positions(part, part.Lod));
+                    double[] lod0 = Compact(part, part.Lod0, part.DamageLod0, true, Positions(part, part.Lod0));
+                    Reencode(part, lod, lod0);
+                    CheckIndexRange(part);
+                }
+                if (this.Find(copy) != null)
+                {
+                    copies.Add(copy);
+                    targetOf[copy] = t;
+                    report.AppendFormat("{0} -> {1}: {2} triangles\r\n", name, t, count);
+                }
+            }
+            this.RemoveSection(name);
+            foreach (string copy in copies)
+            {
+                string t = targetOf[copy];
+                if (this.Find(t) == null)
+                {
+                    this.Find(copy).Name = t;
+                }
+                else
+                {
+                    this.MergeSection(copy, t);
+                }
+            }
+            this.CheckDrawLists();
+            return report.ToString();
+        }
+
+        // The box (min x, y, z, max x, y, z; model space) of the vertices a subsection draws.
+        public double[] SubSectionBox(Section section, SubSection sub)
+        {
+            VertexBuffer buffer = (sub.Lod == 0) ? section.Lod0 : section.Lod;
+            double[] p = Positions(section, buffer);
+            double[] box = { double.MaxValue, double.MaxValue, double.MaxValue, double.MinValue, double.MinValue, double.MinValue };
+            foreach (int index in sub.Indices)
+            {
+                if (index < 0 || index >= buffer.Count || IsRestart(sub, index))
+                {
+                    continue;
+                }
+                for (int c = 0; c < 3; c++)
+                {
+                    box[c] = Math.Min(box[c], p[(index * 3) + c]);
+                    box[3 + c] = Math.Max(box[3 + c], p[(index * 3) + c]);
+                }
+            }
+            return box;
+        }
+
+        // Removes the subsections at these indices of a section (see RemoveSubSectionsAt).
+        public int RemoveSubSections(string sectionName, List<int> indices)
+        {
+            Section section = this.Find(sectionName);
+            return (section == null) ? 0 : this.RemoveSubSectionsAt(this.Sections.IndexOf(section), new List<int>(indices));
+        }
+
         // Removes the given subsections of a section, drops the vertices nobody uses any more and refits
         // the bounds. A section left without subsections is removed. Returns the number removed.
         private int RemoveSubSectionsAt(int sectionIndex, List<int> removed)

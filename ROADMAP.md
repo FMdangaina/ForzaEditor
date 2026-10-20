@@ -25,8 +25,116 @@ Sections:
 
 ## Now
 
-Empty. Last closed: **14.1f** generic upgrades + drive type conversions (`Upgrades.ini`), closed by
-the user 2026-10-20 (committed 7458731).
+**C2 + C3: Id rule and checks before every insert** ✅ closed by the user 2026-10-20: Aveo IE (4000)
+and X5 (4001) work in game once ModelId = Id (the Aveo IE also had FM3's unicorn flag and IsArcade 0,
+source data). Not committed yet.
+
+**Now:** empty.
+
+**14.1 traffic cars' interior very dark** ✅ closed by the user 2026-10-20 ("sembrerebbe ok", less
+manual work; not committed). Black pieces still fixed by hand: parked under 13 (shader research, an
+FM4 "mini engine" in the viewer). Steps:
+
+- [x] a. Source game checked by the user ("bingo": the interior_lod0 = nodamage copy lead); handled
+      by Claude, generic for FM1/FM2 (no cockpit file there)
+- [x] b. Cause (tools `fm4dev\Traffic\tools` texsample, texsample2, intcensus, intmats, tailstat):
+      the rebuilt interior's UVs are laid out on the source's own `interior_LOD0.xds`, a real atlas
+      (22 of 31 FH1/FH2 traffic cars), not on nodamage (Focus ZX4: mean luma 59.6 vs 6.3; FM4
+      cockpits 61.5); the port replaced it with a nodamage copy. And the material `interior` has no
+      `cockpit_` technique: it reads nodamage_LOD0, not the atlas. Vertex baked light is not the
+      cause (FM4 cockpit interiors t0 0.29, rebuilt 0.41)
+- [x] c. USER RULE (2026-10-20, tested by hand in game): traffic cars' `interior_lod0.xds` = always
+      a copy of `nodamage.xds` (`CarPort.InteriorAtlas`; the atlas / shared-atlas / grey variants
+      tried the same day were dropped). Materials: rebuilt `_cockpit` interior `interior` → `leather`
+      (cockpit_leather; FM4 262 of 313 cockpits); main file LODs 1-5 keep `interior` (FM4: 312 of
+      313; all 32 FH traffic already have it). Not committed; build blocked while Forza Studio is open
+
+Also checked (user 2026-10-20, "LOD1 → LOD0 mangles nodes" on the Focus, `lodcmp`, `splitstat`):
+the rebuilt _lod0 + _cockpit hold every LOD 1 subsection unchanged (same indices and bounds). The
+missing _lod0 nodes are FM4's split (interior, steering_wheel, mirrors, hood, seats, glassF/LF/RF/
+LM/RM, cage: only in _cockpit on all 313 FM4 cars) and the dropped empty parts; lights in odd nodes
+come from the FH1 source (taillightR holds the headlights, indicators and plate light, glassRTL the
+front and rear glass). Fixed the same day: `CarPort.SplitLights` (+ `CarbinModel.SplitSection`)
+moves every light triangle, all LODs, to FM4's corner part (headlightL/R, taillightL/R, glassLHL/RHL,
+glassLTL/RTL) before the close-up rebuild; centre placeholders removed. Checked by the user.
+
+Before: 9.1 backfire flames on FM3 ports ✅ closed by the user 2026-10-20: the flames are
+there (not enough tests earlier), no code change.
+
+**12.3 Settings window + 14.1 port settings in `.ini` files** ✅ closed by the user 2026-10-20
+(coded the same day; not committed):
+
+- `Port.ini` next to the exe (`PortSettings.cs`, written with the defaults when missing, same format
+  as `Upgrades.ini`): [Ids] FirstCar 4000 and the row ranges (DbIds reads them), [PI] the DLC lines
+  FH1 / FM3 (`CarPort.FixedPerformanceIndex`), [Tires] drag tyres on/off, level, price (`DragTires`).
+  `IniFile.Set` changes one value in place, comments and order kept (test `fm4dev\Settings\tools\
+  settest.exe ini`: 3 lines changed of 32, FirstCar 4100 and FH1 slope 1.2 read back)
+- Tools > Settings… (`SettingsForm.cs`, tabs FOLDERS / PORT / UPGRADES / VIEWER): FM4 folder for
+  installs, FH / FH2 / FM3 source folders with the game found in each, Xenia; the Port.ini values;
+  Upgrades.ini section by section in a grid (key, value, the file's note; user: a tab, not Notepad;
+  `settest.exe upsave`: 1 line of 331 changed); "Restore … Defaults" for each file (a `.bak` copy
+  first); textures at start, database text language, music auto play / shuffle. Port window: ▾ next
+  to the source box lists the source games, the first one fills an empty box; "Edit Upgrades.ini…"
+  opens the UPGRADES tab. Drawn off screen tab by tab (`settest.exe shot`, `fm4dev\Settings\shots`)
+- Style check of the windows (user, same day): every Forza Studio window is themed but the original
+  4.6 ones kept as a tribute (Pay Respects and its About / HexView / SaveModding / CustomColor /
+  CustomKeyboard); file / folder dialogs and message boxes are Windows' own. Fixed: column headers of
+  every list view drawn dark by the theme (were light in Pick dialogs, Shader Settings, Dash, DB
+  dialog), last column stretched; the model tree's right-click menu in the Forza style; the port
+  window's swap list no longer disabled (Windows drew it light grey)
+
+Last closed before: 14.1f / 14.1h (7458731).
+
+Decisions (user 2026-10-20): a ported car **always** gets a new Id from 4000 up (not the source's);
+Ids Forza Studio generates for other rows come from a reserved range per table.
+First in-game try (2026-10-20): CHE_Aveo5IE_09 (FM3) with Id 4000 did not show, but the FM3 Cobalt
+SS installed with it did, and the plain CHE_Aveo5_09 works with its source Id: the "IE" car itself
+is the question, not the Id (user). The rule was reverted for an hour and then put back as coded.
+Second try: BMW_X5_09 as 4001 not in game either; the user saw **Data_Car.ModelId still 1079**: FM4
+has ModelId = Id on all 503 cars, the renumbering missed it (the only other Data_Car column holding
+the Id). Fixed in `RenumberCar`, and CheckCar refuses a ModelId other than the Id; a scan of every
+column of the trial DB finds no value left on the source Id (Mini, Yukon, FM3 Fit). Reinstall the
+Aveo IE (4000) and the X5 (4001), then **test again in game**.
+UI (user, same day): no ★ marks any more, recommended entries drawn in green (donor list, Rename
+Material, port review, Add parameter; `ForzaTheme.GreenItems` / `IRecommended`); database view:
+each section keeps its own search, each table its own row filter.
+C3 test without the game (`fm4dev\DbIds\tools\c3test.exe <gamedb> <car>`, in-memory copy): clean car
+no errors; Data_CarBody deleted, a key twice, a second Data_Car row with the same name: each one
+caught with table and column (4/4 on FOR_FocusZX4_05 and CHE_Aveo5IE_09). A second car with the same
+Id SQLite refuses by itself (primary key). In a port the check shows as the port_log line
+"database check: car N (...) OK"; on an error the port stops and writes nothing.
+
+Facts (2026-10-20, FM4 / FH1 / FH2 `gamedb.slt`): car Ids are one list across the games (same Id =
+same car in all 344 shared cases); max Ids: Data_Car 1473 / 1568 / 51558, List_Wheels 11066 / 11153 /
+5011150, Events 726 / 246 / 911, Races 3675 / 182 / 716, EventParticipants 72470 / 1337 / 4754.
+Engine / drivetrain / wheel Ids copied from the source stay as they are (global Ids, not generated).
+
+Steps as first coded (a, b and the 4000 parts of c-f are the reverted attempt):
+
+- [x] a. `DbIds.cs`: one allocator. Car: the target car of the same MediaName if installed (reinstall
+      keeps its Id, also old installs with the source Id), else the first Id ≥ 4000 free in the target
+      DB **and** in the installed Forza Studio packs' merge DBs. Generated rows (proposal): wheels from
+      9 000 000, events from 40 000, races from 400 000, AI participants from 4 000 000, torque curves
+      and drivetrains keep their formulas (engine × 1000 + level, 100 000 × k + car), offers keep ≥ 91.
+      Every Id written to the port log with its reason
+- [x] b. CarPort: the new Id everywhere (via the renumbered source copy); car columns and
+      car × 1000 + n Ids rewritten (CarPartPositions, List_Upgrade*, Data_CarBody, physics, rear wing
+      aero rows in the car's range; shared aero rows untouched); `Ordinal` = Data_Car.Id (FM4's rule)
+- [x] c. C3 checks before the write (`DbIds.CheckCar`): one Data_Car row (Id and MediaName), its
+      Data_CarBody row, no key twice among the car's rows, no key still built from the source Id; the
+      port writes nothing when one fails, errors name table and column. Renumbering refuses a key
+      already used. Strict references stay with the review (as before); all writes on the in-memory DB
+- [x] d. Port window: "Ported" by MediaName + build number (no Id match, "id taken" state gone);
+      Uninstall already finds the car by MediaName. Uninstall now also removes the aspiration rows
+      CarUpgrades generated for the car's own engine (they were left behind)
+- [x] e. Creators (swap fallback, events, races, AI participants, restrictions) and Power (part and
+      torque curve: engine × 1000 + level, else next free) use the allocator; CarUpgrades and DlcPackage
+      keep their formulas
+- [ ] f. Tests (`fm4dev\DbIds`): trial 20 FH1 cars (10 standard + 10 traffic, seed 20261020) 20/20 OK, 3
+      FM3 cars OK, X5 keeps 1079 (installed earlier); pack chain 4000 → 4001, installed pack →
+      4002, a pack car keeps its pack Id; DEV install + uninstall of TOY_Camry_07 (Id 4000): DB back
+      identical (only the harmonic tuning stays, by design). Left: **in game** (a car with Id ≥ 4000
+      in the showroom, race, upgrades; a 2-car pack), editor check of the port window
 
 ---
 
@@ -38,7 +146,8 @@ Tools > Port Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`).
 
 - [ ] Tyre width on ported cars whose wheel mesh is wider than usual: one item with 11.6, maybe tied
       to the morph table (11.5)
-- [ ] In-game check of a car installed with review fixes
+- [x] In-game check of a car installed with review fixes: sound and swap choices OK (user
+      2026-10-20); materials still wrong, left to the separate materials project (as 3k, 4.1)
 - [ ] FH1/FH2 ports do not deform in a crash (issue B1; maybe tied to the morph data, 11.5?)
 - [ ] Big-endian vs little-endian gr2: find the differences before writing a converter
 - Done: model/wheel/brake conversion, DB rows with reference closure, strings in 18 languages, digital
@@ -59,7 +168,7 @@ package, console tests). Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4de
 - Done: merge DB from a port, Xenia package folder, DLC pack panel (n cars), STFS package for a real
   Xbox 360 (RGH/JTAG, `StfsPackage.cs`), checked in game and on the console.
 
-## 3. Port from a car DLC (FH1 / FM3) → FM4 ✅ done for FH1, open point FM3 DLC
+## 3. Port from a car DLC (FH1 / FM3) → FM4 ✅ done
 
 (Was 3.9.) Port → FM4 from an FH1 or FM3 car DLC (FH2 on 360 has no DLC), STFS `CON`/`LIVE` or its
 extracted folder: base game for shared data, the package's `<offer>000_merge.slt`, string tables,
@@ -72,11 +181,12 @@ Decisions (user, 2026-10-17):
 
 - [x] Swap engine not in the pack nor in FM4: ask the user which swap to put instead (step f)
 - [x] PI: fixed line per source game (FH1: FM4 = 1.189 PI - 0.363, error 0.0145) (step e)
-- [ ] FM3 DLC: Hyundai Car Pack (`fm4dev\Fm3DLC`, 3 Genesis Coupé) opens since 2026-10-18: no
+- [x] FM3 DLC: Hyundai Car Pack (`fm4dev\Fm3DLC`, 3 Genesis Coupé) opens since 2026-10-18: no
       `.puboffer` (offer from `0016_pri_65.zip`), no ContentOffers (game from the package header, or
       `Media\LicenseMasks` for a folder), dashes staged as `DigitalGauges\<dash>.zip`; the 19 shared
       FM3 dash images the pack lacks come from FM4 cars' dashes. Trial 3/3 OK
-      (`fm4dev\Fm3DLC\tools\dlcall_obj.exe`); in-game check by the user pending
+      (`fm4dev\Fm3DLC\tools\dlcall_obj.exe`); checked in game by the user 2026-10-20 (car list,
+      driving, dash)
 - [x] Incomplete engine sound: source game first, what it lacks from an FM4 car picked in the review
       (`soundfull:`); `NA.fsb` = "no sound" placeholder
 - [x] Sound with the engine upgraded: FM3 engine tunings completed to the FM4 layout
@@ -166,16 +276,31 @@ Steps, in order:
 
 ## 9. Forza Motorsport 3 → FM4 🔧
 
-- [ ] 9.1 (was 3i) No backfire flames on FM3 ports. Sound side identical (`BackfireLevels` from exhaust
+- [x] 9.1 ✅ closed 2026-10-20: FM3 ports DO show the flames (user, more tests). Found on the way:
+      the exhaust locators are the car carbin's header records (type 2, 4x4 matrix at the pipe tip,
+      e.g. Supra -0.534 0.120 2.151 = exhausta tip), identical in FM3 and FM4 and copied by the
+      converter (X5: 2, DEV = FM3); DB CarPartPositions has no exhaust; exhaust/cam levels 0-3 ported
+      (tools `fm4dev\FM3_FM4\tools\headrec`, `exhrec`, `secpos`). Old text: (was 3i) No backfire flames on FM3 ports. Sound side identical (`BackfireLevels` from exhaust
       + cam upgrade); the flame is FM4 only (`Media\Effects\Backfire.xml`, `Flame.tga`,
       `FireDistortion.tga`). To find: where FM4 places the flame (exhaust point in the carbin, DB or
       fixed) and what FM3 cars lack. Plan (user, 2026-10-19): compare TOY_SupraRZ_98 in FM4 and FM3
       (carbin: points/parts near the exhaust) and the Supra's rows in both `gamedb.slt` (backfire,
       exhaust position); then test in game
-- [ ] 9.2 Drag tyres added by the port: in-game check pending (issue B2)
+- [x] 9.3 FM3 textures a little too bright in FM4 (user, 2026-10-20). ✅ Closed by the user
+      2026-10-20 (X5 in DEV: much darker, close to FM4). Cause: the pixels are not the
+      same in both games; FM4 holds FM3's sRGB colours re-encoded for the Xbox 360 gamma curve,
+      FM4 = PWL⁻¹(sRGB → linear(FM3)), alpha unchanged (Supra; the flag alone left the darks ~2×
+      too bright). `CarPort.ConvertMotorsport3Texture` now also applies that curve to the DXT colour
+      endpoints. Supra vs FM4, mean error: interior_lod0 14.6 → 2.1, wood 12.7 → 6.2,
+      damagelights 12.7 → 3.1, lights 10.8 → 6.0, nodamage 0.8 → 0.8 (tool `fm4dev\FM3_FM4\tools\
+      texcmp`); portall 74/74 OK; DEV X5 textures rebuilt from FM3 (`fixtex3`, backups
+      `bin\Debug\bak\2026-10-20_19-03-40_*`). Checked in game; not committed.
+      Earlier FM3 ports in DEV left as they are (user: DEV copy to be dropped soon)
 - Done: FM3 carbin converter (3930/3930), FM3 as port source (74/74 trial), X5 and Boxster in game,
   Porsche make, FM3 digital dashes, engine banks rule (FM4's if same name), cockpit camera centred on
-  the steering wheel.
+  the steering wheel; 9.2 drag tyres (`CarPort.DragTires`, FM4's Level 4 compound 9 row; X5 offers
+  Drag, user 2026-10-20); fully upgraded engine sound (`CarPort.CompleteEngineTuning`, ported car
+  checked by the user 2026-10-20).
 
 ## 10. Music ✅ done
 
@@ -205,7 +330,8 @@ Background: D3.
 
 ## 12. Cleanup, platform and a friendlier UI ⏸
 
-- [ ] 12.3 Settings window (game folders, Xenia, DEV folder, viewer options)
+- [x] 12.3 Settings window (game folders, Xenia, DEV folder, viewer options): coded 2026-10-20,
+      closed by the user the same day (not committed)
 - [ ] 12.4 Conversion tool as MDI (child windows inside the main window)
 - [ ] 12.2 Recent .NET Framework (today `v2.0` with XNA, x86): newest one XNA allows; check SQLite,
       HexBox (D1). Last, it touches everything
@@ -218,8 +344,8 @@ Background: D2.
 
 - [ ] 13.1 Game materials: car shaders found (`Media\Shaders\Cars\*.fxobj`); document the format and the score
 - [ ] 13.2 Imitate the FM shaders in the viewer from their parameters (carbin viewer with real materials)
-- [ ] 13.4 User check of Go to Camera (cockpit + the 27 presets of `UICarTargetCameraPresets.xml`)
-- Done: 13.3 viewer camera and cockpit camera editor (checked 2026-10-17).
+- Done: 13.3 viewer camera and cockpit camera editor (checked 2026-10-17); 13.4 Go to Camera
+  (cockpit + the 27 presets of `UICarTargetCameraPresets.xml`, checked by the user 2026-10-20).
 
 ## 14. Other model formats 🔧
 
@@ -328,7 +454,10 @@ Background: D2.
           type (the ini rule, none, or a conversion picked for this car, also for non-traffic cars).
           Kept with the review's fixes (`swapdel:` / `swapadd:` / `drive`), so trial, install and the
           DLC pack use them. Trial: Focus + 2JZ swap (+90 kg) and no conversion, 458 without the
-          Enzo swap and RWD → AWD: OK. Editor / in-game check pending.
+          Enzo swap and RWD → AWD: OK. Checked by the user 2026-10-20 on the X5 (FM3): with the M5
+          V10 swap it loads; with M6 V10 + M3 GTR V8 the race failed with an I/O error (as the S65 in
+          topic 1): the M3 GTR's `8N1_E92M3_Exh.fsb` is not in our FM4 folder (DVD1 only, no DVD2).
+          FM4 swap engines whose banks are on DVD2 fail the same way; see Maybe later "FM4 DVD2".
           Model view: the side tabs moved to a vertical rail at the right edge (COLLISION was cut;
           user's choice). Checked by the user 2026-10-20: rail ("bellissimo"), locked target, UPGRADES
           tab, upgrades in game, main window reload and refusal with unsaved edits; turbo conversions
@@ -351,7 +480,7 @@ Background: D2.
           Focus 9 meshes, Yukon 10. Checked in game
     - [x] g. Open a DLC pack folder in the editor as a tree: done with 3l (Open DLC Package)
     - [x] h. Steering wheel on traffic cars without a source cockpit: reopened and closed 2026-10-20
-          (closed by the user without a last in-game check of the hands). Seen on FOR_FocusZX4_05 (donor FOR_Fiesta_09): the wheel
+          (hands checked in game on the Focus by the user, 2026-10-20). Seen on FOR_FocusZX4_05 (donor FOR_Fiesta_09): the wheel
           swings over the roof when steering (Yukon and Corolla always fine). The driver rig is in
           the `_cockpit.carbin` head 0x1C8-0x2FF (3 grip pairs, wheel pivot 0x228, axis 0x238,
           shifter, 4 point/dir/value records), zero in FH files; `CarPort.CockpitRig` rebuilt it only
@@ -376,12 +505,14 @@ Background: D2.
           1.5 cm off in z. Now hands from the pivot (origin rule only without a pivot); grips on the
           measured rim (outer x 0.995, inner x 1.083, tube middle x 1.031, FM4 medians) instead of
           fixed ratios. Trial: Focus, Yukon (hands 1.5 cm), R8 GT / Focus ST untouched
-  - [ ] 🔧 All port settings in clear `.ini` files (user note, with f): first one `Upgrades.ini` (14.1f)
+  - [x] All port settings in clear `.ini` files (user note, with f): `Upgrades.ini` (14.1f), then
+        `Port.ini` (Ids, PI lines, drag tyres) with Tools > Settings, 2026-10-20 (closed by the user)
   - [x] Traffic cars shown in yellow in the port list. Rule (`CarPort.HasPlaceholderCloseUp`): the
         `_lod0` or `_cockpit` carbin is missing or smaller than 1/10 of the main carbin (real cars 40%
         and up, placeholders 3% at most)
-  - [ ] Interior very dark, not fixed; maybe tied to the materials project (internal doc). Exterior FH
-        material names still black (fixed by hand)
+  - [x] Interior very dark: closed 2026-10-20 (interior_lod0 = nodamage copy, cockpit interior →
+        leather, lights split by corner). Exterior FH material names still black (fixed by hand):
+        parked under 13 (shader research / FM4 "mini engine" in the viewer), user 2026-10-20
   - [ ] Same rebuild for FM1/FM2 cars, only after FH traffic works (see C4)
 - [ ] 14.2 FM2 models (today FM2 is export only)
 
@@ -420,13 +551,6 @@ issue moves to its topic and is removed from here.
 - Next, one of: decode the FM4 word and convert FH words in CarPort; or take each vertex's word from
   the nearest vertex of the same car in FM4/FM3, else from a similar FM4 car.
 
-## B2. FM3 ports: drag tyres (fixed 2026-10-16, in-game check pending, topic 9)
-
-- FM3's `List_TireCompound` stops at 8; FM4 adds 9 (`9_DragTire`). `CarPort.DragTires()` adds FM4's
-  Level 4 row (`TireCompoundID 9, Price 10000`) to every ported car without compound 9.
-- X5 row inserted in DEV (backup `bin\Debug\bak\2026-10-16_drag_bak_DEV_gamedb.slt`).
-- To close: check in game that the X5 offers the Drag compound.
-
 ## B3. The tyre looks the same with every compound (on hold, uncertain)
 
 - 2026-10-19: no real hardware any more (the user sold the Xbox 360), so the console check cannot be
@@ -434,13 +558,6 @@ issue moves to its topic and is removed from here.
 - Not a port bug: FM4's own cars do the same in Xenia. The user checks on a real Xbox 360 later; if
   the tyre changes there, look at what picks `Media\wheels\TireA/B/C.zip` (`List_Wheels`,
   `WheelLayouts`, `Combo_TireBrandCompound`).
-
-## B4. FM3 port fully upgraded: no engine sound (fixed, last check pending, topic 3)
-
-- Cause: FM3's engine tuning is an older, shorter format (no `HarmonicTunings`, `FocusPEQ`,
-  `Distortion`, `Compressor`, `DSPScalar`... and no `num_cylinders`), copied as is.
-- Fixed in `CarPort.CompleteEngineTuning`; patched X5 confirmed in game 2026-10-17.
-- To close: an in-game check of a car ported with the new code. Then remove this entry.
 
 ---
 
@@ -675,6 +792,12 @@ Background of topics 11-15: quotes, file names, what is known so far.
 
 ## Maybe later
 
+- **FM4 DVD2** (user 2026-10-20: for now files come only from the folder opened / given as source).
+  Our FM4 folder is DVD1 only (353 engine banks in `soundbanks\lod1`); FM4 engines whose sound is on
+  DVD2 crash the race with an I/O error ("Disc Read Error") when picked as a swap. Seen: BMW M3 GTR V8
+  (`8N1_E92M3_Exh.fsb` missing); M5 / M6 V10 have all their banks. To do when DVD2 is found: read it as
+  a second FM4 source; until then maybe hide or flag swap engines with a missing bank (ET → HT →
+  `<Soundbank>` check, as `CarPort.ImportHarmonic` does for ported engines).
 - **Exterior cameras** (hood, bumper, chase, thumbnails). Known (2026-10-17):
   - Per car: only `CameraOverrides` in the DB. Hood height/Z set on 501 of 503 cars (height ≈
     steering wheel y - 0.195, Z ≈ wheel z), pitch 0; chase/bumper offsets 0 on all cars but one.

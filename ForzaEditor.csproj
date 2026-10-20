@@ -150,6 +150,9 @@
     <Compile Include="ForzaStudio\CarPort.cs" />
     <Compile Include="ForzaStudio\CarUninstall.cs" />
     <Compile Include="ForzaStudio\CarUpgrades.cs" />
+    <Compile Include="ForzaStudio\DbIds.cs" />
+    <Compile Include="ForzaStudio\PortSettings.cs" />
+    <Compile Include="ForzaStudio\SettingsForm.cs" />
     <Compile Include="ForzaStudio\CarCamera.cs" />
     <Compile Include="ForzaStudio\MaterialSuggestions.cs" />
     <Compile Include="ForzaStudio\ShaderSettings.cs" />

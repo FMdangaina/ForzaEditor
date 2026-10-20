@@ -21,15 +21,21 @@ namespace ForzaStudio
             Unusual,
         }
 
-        public class Entry
+        // Recommended entries are drawn in green (ForzaTheme.GreenItems), unusual ones marked "~".
+        public class Entry : IRecommended
         {
             public string Name;
             public Group Group;
             public string Note;       // why it is offered: "port table", "shader 74", ...
 
+            public bool Recommended
+            {
+                get { return this.Group == Group.Recommended; }
+            }
+
             public override string ToString()
             {
-                string mark = (this.Group == Group.Recommended) ? "★ " : (this.Group == Group.Unusual) ? "~ " : "";
+                string mark = (this.Group == Group.Unusual) ? "~ " : "";
                 return mark + this.Name + (string.IsNullOrEmpty(this.Note) ? "" : "   (" + this.Note + ")");
             }
         }

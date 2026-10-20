@@ -128,6 +128,7 @@ namespace ForzaStudio
         private void BuildModelTreeMenu()
         {
             ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Renderer = ForzaTheme.Renderer;
             ToolStripMenuItem delete = new ToolStripMenuItem("Delete...", null, delegate { this.DeleteSelectedNode(); });
             ToolStripMenuItem focus = new ToolStripMenuItem("Focus On Part", null, delegate { this.FocusPart(); });
             ToolStripMenuItem duplicate = new ToolStripMenuItem("Duplicate Part...", null, delegate { this.DuplicateSelectedPart(); });

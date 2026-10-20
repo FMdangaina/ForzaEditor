@@ -35,6 +35,7 @@ namespace ForzaStudio
             this.label4 = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
             this.label5 = new System.Windows.Forms.Label();
+            this.label6 = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
             // 
@@ -78,7 +79,7 @@ namespace ForzaStudio
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(294, 40);
             this.label3.TabIndex = 4;
-            this.label3.Text = "Derived from Forza Studio 4.6\nby Mike Davis (codeescape.com)";
+            this.label3.Text = "Original source: Forza Studio 4.6\nby Mike Davis (codeescape.com)";
             this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.label3.Cursor = System.Windows.Forms.Cursors.Hand;
             this.label3.Click += new System.EventHandler(this.label3_Click);
@@ -87,18 +88,18 @@ namespace ForzaStudio
             // 
             this.label4.BackColor = System.Drawing.Color.Transparent;
             this.label4.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
-            this.label4.Location = new System.Drawing.Point(0, 282);
+            this.label4.Location = new System.Drawing.Point(0, 304);
             this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(294, 22);
+            this.label4.Size = new System.Drawing.Size(294, 58);
             this.label4.TabIndex = 5;
-            this.label4.Text = "Edited by FMdangaina";
+            this.label4.Text = "Turned into this contraption\nby FMdangaina\nFM4 · FH1 · FH2 · FM3: car ports, DLC packs";
             this.label4.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // label2
             // 
             this.label2.BackColor = System.Drawing.Color.Transparent;
             this.label2.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Italic);
-            this.label2.Location = new System.Drawing.Point(0, 310);
+            this.label2.Location = new System.Drawing.Point(0, 370);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(294, 40);
             this.label2.TabIndex = 6;
@@ -108,13 +109,24 @@ namespace ForzaStudio
             // label5
             // 
             this.label5.BackColor = System.Drawing.Color.Transparent;
-            this.label5.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F);
-            this.label5.Location = new System.Drawing.Point(0, 360);
+            this.label5.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
+            this.label5.Location = new System.Drawing.Point(0, 278);
             this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(294, 30);
+            this.label5.Size = new System.Drawing.Size(294, 22);
             this.label5.TabIndex = 7;
-            this.label5.Text = "Earlier edit by JYSB59 - GPL-3.0\nForza Studio (C) 2012 Mike Davis (MIT)";
+            this.label5.Text = "First mod by JYSB59";
             this.label5.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            //
+            // label6
+            //
+            this.label6.BackColor = System.Drawing.Color.Transparent;
+            this.label6.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F);
+            this.label6.Location = new System.Drawing.Point(0, 418);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(294, 30);
+            this.label6.TabIndex = 8;
+            this.label6.Text = "Forza Studio 4.6 (C) 2012 Mike Davis (MIT)\nThis edition (C) 2026 FMdangaina (GPL-3.0)";
+            this.label6.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // AboutForm
             // 
@@ -122,7 +134,8 @@ namespace ForzaStudio
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(17)))), ((int)(((byte)(17)))), ((int)(((byte)(17)))));
             this.BackgroundImage = global::Properties.Resources.nodesfont;
-            this.ClientSize = new System.Drawing.Size(294, 400);
+            this.ClientSize = new System.Drawing.Size(294, 458);
+            this.Controls.Add(this.label6);
             this.Controls.Add(this.label5);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label4);
@@ -155,5 +168,6 @@ namespace ForzaStudio
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.Label label6;
     }
 }

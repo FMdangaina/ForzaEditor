@@ -19,6 +19,7 @@ namespace ForzaStudio
         public static readonly Color RedDark = Color.FromArgb(120, 24, 20);
         public static readonly Color Selection = Color.FromArgb(150, 28, 22);
         public static readonly Color Yellow = Color.FromArgb(240, 200, 60);
+        public static readonly Color Green = Color.FromArgb(96, 204, 112);   // recommended entries (IRecommended)
 
         public static readonly Font Regular = new Font("Segoe UI", 9f);
         public static readonly Font Bold = new Font("Segoe UI Semibold", 9f);
@@ -139,7 +140,77 @@ namespace ForzaStudio
                 e.Graphics.FillRectangle(brush, e.Bounds);
             }
             Rectangle text = new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 4, e.Bounds.Height);
-            TextRenderer.DrawText(e.Graphics, list.Items[e.Index].ToString(), list.Font, text, selected ? Color.White : list.ForeColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            object item = list.Items[e.Index];
+            TextRenderer.DrawText(e.Graphics, item.ToString(), list.Font, text, IsRecommended(item) ? Green : (selected ? Color.White : list.ForeColor), TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+        }
+
+        public static void DrawListHeader(object sender, DrawListViewColumnHeaderEventArgs e)
+        {
+            using (Brush brush = new SolidBrush(Background))
+            {
+                e.Graphics.FillRectangle(brush, e.Bounds);
+            }
+            Rectangle text = new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 6, e.Bounds.Height);
+            TextRenderer.DrawText(e.Graphics, e.Header.Text.ToUpperInvariant(), Bold, text, TextDim, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            using (Pen pen = new Pen(Red))
+            {
+                e.Graphics.DrawLine(pen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+            }
+        }
+
+        // The last column reaches the right edge, so no undrawn (light) header is left beside it.
+        private static void StretchLastColumn(ListView list)
+        {
+            if (list.View != View.Details || list.Columns.Count == 0 || !list.IsHandleCreated || list.IsDisposed)
+            {
+                return;
+            }
+            int others = 0;
+            for (int i = 0; i < list.Columns.Count - 1; i++)
+            {
+                others += list.Columns[i].Width;
+            }
+            int width = list.ClientSize.Width - others;
+            ColumnHeader last = list.Columns[list.Columns.Count - 1];
+            if (width > 40 && last.Width != width)
+            {
+                last.Width = width;
+            }
+        }
+
+        public delegate bool ItemTest(object item);
+
+        public static bool IsRecommended(object item)
+        {
+            IRecommended entry = item as IRecommended;
+            return entry != null && entry.Recommended;
+        }
+
+        // A list whose recommended entries are written in green (in place of a ★ mark, user 2026-10-20).
+        public static void GreenItems(ComboBox combo)
+        {
+            GreenItems(combo, IsRecommended);
+        }
+
+        public static void GreenItems(ComboBox combo, ItemTest green)
+        {
+            combo.DrawMode = DrawMode.OwnerDrawFixed;
+            combo.DrawItem += delegate(object sender, DrawItemEventArgs e)
+            {
+                if (e.Index < 0)
+                {
+                    return;
+                }
+                object item = combo.Items[e.Index];
+                bool selected = (e.State & DrawItemState.Selected) != 0 && (e.State & DrawItemState.ComboBoxEdit) == 0;
+                using (Brush brush = new SolidBrush(selected ? Selection : combo.BackColor))
+                {
+                    e.Graphics.FillRectangle(brush, e.Bounds);
+                }
+                Rectangle text = new Rectangle(e.Bounds.X + 2, e.Bounds.Y, e.Bounds.Width - 2, e.Bounds.Height);
+                TextRenderer.DrawText(e.Graphics, combo.GetItemText(item), combo.Font, text, green(item) ? Green : (selected ? Color.White : combo.ForeColor),
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            };
         }
 
         private static void Style(Control control)
@@ -190,6 +261,23 @@ namespace ForzaStudio
                 list.BackColor = Surface;
                 list.ForeColor = Text;
                 list.BorderStyle = BorderStyle.None;
+                if (!list.OwnerDraw)
+                {
+                    // Windows draws the column headers light even in dark mode: they are drawn here
+                    // (upper case, red rule, as the database list), the rows stay Windows' own.
+                    list.OwnerDraw = true;
+                    list.DrawColumnHeader += new DrawListViewColumnHeaderEventHandler(DrawListHeader);
+                    list.DrawItem += delegate(object sender, DrawListViewItemEventArgs e) { e.DrawDefault = true; };
+                    list.DrawSubItem += delegate(object sender, DrawListViewSubItemEventArgs e) { e.DrawDefault = true; };
+                    list.Resize += delegate { StretchLastColumn(list); };
+                    list.ColumnWidthChanged += delegate(object sender, ColumnWidthChangedEventArgs e)
+                    {
+                        if (e.ColumnIndex < list.Columns.Count - 1)
+                        {
+                            StretchLastColumn(list);
+                        }
+                    };
+                }
                 return;
             }
             if (control is ListBox)
@@ -449,6 +537,13 @@ namespace ForzaStudio
                 base.OnRenderToolStripBorder(e);
             }
         }
+    }
+
+    // A list entry the tool recommends (most similar donor, suggested material, parameter FM4 sets):
+    // drawn in ForzaTheme.Green.
+    internal interface IRecommended
+    {
+        bool Recommended { get; }
     }
 
     // Tabs drawn like the game's menu headers: upper-case labels on slanted plates, the selected one

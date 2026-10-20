@@ -101,8 +101,8 @@ namespace ForzaStudio
 
         private void SelectDbItem(DbSection section, long id)
         {
-            this.txtDbSearch.Text = "";
             this.SelectDbSection(section);
+            this.ClearDbSearch();
             string key = id.ToString(CultureInfo.InvariantCulture);
             foreach (ListViewItem item in this.lvDb.Items)
             {
@@ -168,7 +168,7 @@ namespace ForzaStudio
                 long id = (car * 1000) + level;
                 if (this.gameDb.Count("List_UpgradeEngine", "Id = " + id.ToString(CultureInfo.InvariantCulture)) > 0)
                 {
-                    id = this.gameDb.Max("List_UpgradeEngine", "Id", null, 0) + 1;
+                    id = this.gameDb.NextId("List_UpgradeEngine", "Id");
                 }
                 object stockEngine = this.gameDb.Sql.Scalar("SELECT EngineID FROM List_UpgradeEngine WHERE rowid = ?", stockRow);
                 double stockMass = ToDouble(this.gameDb.Sql.Scalar("SELECT [EngineMass-kg] FROM Data_Engine WHERE EngineID = ?", stockEngine));
@@ -229,7 +229,7 @@ namespace ForzaStudio
             long source = this.dbEventId;
             string sourceKey = source.ToString(CultureInfo.InvariantCulture);
             long eventRow = this.gameDb.RowIdOf("Events", source);
-            long newEvent = this.gameDb.Max("Events", "Id", null, 0) + 1;
+            long newEvent = this.gameDb.NextId("Events", "Id");
             Dictionary<string, object> values = new Dictionary<string, object>();
             values["Id"] = newEvent;
             this.gameDb.CopyRow("Events", eventRow, values, "new event " + newEvent + " (copy of " + source + ")");
@@ -238,7 +238,7 @@ namespace ForzaStudio
             {
                 foreach (object[] race in this.gameDb.Sql.Query("SELECT rowid, Id FROM Races WHERE EventId = ? ORDER BY RaceNumber", source).Rows)
                 {
-                    long newRace = this.gameDb.Max("Races", "Id", null, 0) + 1;
+                    long newRace = this.gameDb.NextId("Races", "Id");
                     Dictionary<string, object> raceValues = new Dictionary<string, object>();
                     raceValues["Id"] = newRace;
                     raceValues["EventId"] = newEvent;
@@ -264,7 +264,7 @@ namespace ForzaStudio
                 foreach (object[] row in this.gameDb.Sql.Query("SELECT rowid FROM " + table + " WHERE EventID = " + sourceKey).Rows)
                 {
                     Dictionary<string, object> rowValues = new Dictionary<string, object>();
-                    rowValues["ID"] = this.gameDb.Max(table, "ID", null, 0) + 1;
+                    rowValues["ID"] = this.gameDb.NextId(table, "ID");
                     rowValues["EventID"] = newEvent;
                     this.gameDb.CopyRow(table, (long) row[0], rowValues, table + " for event " + newEvent);
                 }
@@ -301,7 +301,7 @@ namespace ForzaStudio
                     template = this.RowIdWhere("Races", "1 = 1", "rowid");
                 }
                 Dictionary<string, object> values = new Dictionary<string, object>();
-                values["Id"] = this.gameDb.Max("Races", "Id", null, 0) + 1;
+                values["Id"] = this.gameDb.NextId("Races", "Id");
                 values["EventId"] = this.dbEventId;
                 values["RaceNumber"] = this.gameDb.Max("Races", "RaceNumber", where, 0) + 1;
                 values["TrackId"] = Convert.ToInt64(dialog.SelectedKey);
@@ -340,7 +340,7 @@ namespace ForzaStudio
                     template = this.RowIdWhere("EventParticipants", "1 = 1", "rowid");
                 }
                 Dictionary<string, object> values = new Dictionary<string, object>();
-                values["ID"] = this.gameDb.Max("EventParticipants", "ID", null, 0) + 1;
+                values["ID"] = this.gameDb.NextId("EventParticipants", "ID");
                 values["EventID"] = this.dbEventId;
                 values["Priority"] = this.gameDb.Max("EventParticipants", "Priority", where, 0) + 1;
                 values["Ordinal"] = Convert.ToInt64(dialog.SelectedKey);

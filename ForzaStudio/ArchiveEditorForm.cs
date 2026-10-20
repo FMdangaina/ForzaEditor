@@ -251,6 +251,8 @@
             ToolStripMenuItem tools = new ToolStripMenuItem("&Tools");
             tools.DropDownItems.Add(new ToolStripMenuItem("&Port Car From Another Forza...", null, delegate { this.ShowCarPort(); }));
             tools.DropDownItems.Add(new ToolStripSeparator());
+            tools.DropDownItems.Add(new ToolStripMenuItem("&Settings...", null, delegate { this.ShowSettings(); }));
+            tools.DropDownItems.Add(new ToolStripSeparator());
             // The original Forza Studio 4.6 window, kept as a tribute: Alt+T, F.
             tools.DropDownItems.Add(new ToolStripMenuItem("Pay Respects (&F)", null, delegate { new ForzaStudioForm().Show(); }));
 
@@ -266,6 +268,21 @@
             this.mnuBackBar = new ToolStripMenuItem("◀ Back", null, delegate { this.GoBack(); });
             this.menu.Items.Add(this.mnuBackBar);
             this.AddBrand();
+        }
+
+        // Tools > Settings: folders, Port.ini, viewer; the music menu follows the new choices.
+        private void ShowSettings()
+        {
+            using (SettingsForm settings = new SettingsForm())
+            {
+                if (settings.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+                this.mnuMusicShuffle.Checked = settings.MusicShuffle;
+                this.mnuMusicAutoPlay.Checked = settings.MusicAutoPlay;
+                this.SetStatus("Settings saved.");
+            }
         }
 
         private void BuildArchiveMenu()

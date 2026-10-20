@@ -150,13 +150,14 @@ namespace ForzaStudio
             label.Text = string.Format("Rename the material {0} of {1} to:", material, section);
             label.AutoSize = true;
             label.Location = new Point(0, 4);
-            // ★ recommended (port table, name, most similar shaders), then the common FM4 materials, then
+            // Green: recommended (port table, name, most similar shaders), then the common FM4 materials, then
             // ~ the unusual ones (an FM4 shader no or few FM4 cars use: for something different on purpose).
             List<MaterialSuggestions.Entry> choices = MaterialSuggestions.For(material, this.currentEntry.Name, this.modelType);
             ComboBox name = new ComboBox();
             name.DropDownStyle = ComboBoxStyle.DropDown;
             name.Width = 420;
             name.MaxDropDownItems = 20;
+            ForzaTheme.GreenItems(name);
             name.Location = new Point(0, 26);
             AutoCompleteStringCollection names = new AutoCompleteStringCollection();
             foreach (MaterialSuggestions.Entry choice in choices)
@@ -194,7 +195,7 @@ namespace ForzaStudio
                 everyFile.Enabled = !onlyThis.Checked;
             };
             Label note = new Label();
-            note.Text = "★ recommended   ~ unusual: an FM4 shader few or no FM4 cars use\n\"shader N\": how close the FM4 shader is to the source game's (0-100).";
+            note.Text = "green = recommended   ~ unusual: an FM4 shader few or no FM4 cars use\n\"shader N\": how close the FM4 shader is to the source game's (0-100).";
             note.ForeColor = SystemColors.GrayText;
             note.AutoSize = true;
             note.Location = new Point(0, 138);

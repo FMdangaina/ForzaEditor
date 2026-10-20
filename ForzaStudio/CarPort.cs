@@ -18,6 +18,8 @@ namespace ForzaStudio
     //   wheel     the stock wheel's zip converted the same way;
     //   database  every row of the car (FM4 and FH2 share almost all table layouts) plus its engine,
     //             drivetrain, torque curve and wheel rows; PI mapped to the FM4 scale, class from it;
+    //             the car gets an Id of its own from 4000 up (DbIds, user 2026-10-20), checked with its
+    //             rows before anything is written;
     //   strings   the car's names added to Data_Car.str in every FM4 language;
     //   sound     the engine tuning and car model tuning XML (FH2 reuses FM4 engine samples);
     //   thumbnail the car's thumbnail added to the UI textures;
@@ -48,6 +50,7 @@ namespace ForzaStudio
         public string OutputRoot;       // trial run: files written here (same layout) instead of TargetRoot;
                                         // a file already there (an earlier car of the same DLC pack) is
                                         // read instead of the target's, so the cars of a pack chain
+        public string XeniaContent;     // Xenia's FM4 content folder: car Ids of the installed packs stay theirs (DbIds.CarId)
         public string BackupFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bak");
         public StringBuilder Report = new StringBuilder();
 
@@ -59,6 +62,7 @@ namespace ForzaStudio
         {
             public object Value;
             public string Label;
+            public bool Recommended;        // drawn in green in the review
 
             public override string ToString()
             {
@@ -229,14 +233,22 @@ namespace ForzaStudio
             this.target = SqliteDatabase.FromBytes(File.ReadAllBytes(this.In(targetDbPath)));
             try
             {
-                this.carId = ToLong(this.source.Scalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", this.MediaName), "the source database has no car " + this.MediaName);
+                // The car gets an Id of its own (DbIds.CarId); the source copy in memory is renumbered
+                // to it, so every step below reads and writes that Id.
+                long sourceId = ToLong(this.source.Scalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", this.MediaName), "the source database has no car " + this.MediaName);
+                string reason;
+                this.carId = DbIds.CarId(this.target, this.source, this.MediaName, DbIds.PackDatabases(this.XeniaContent), out reason);
                 this.donorId = ToLong(this.target.Scalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", this.DonorMediaName), "the target database has no car " + this.DonorMediaName);
                 object existing = this.target.Scalar("SELECT MediaName FROM Data_Car WHERE Id = ?", this.carId);
                 if (existing != null && !string.Equals((string) existing, this.MediaName, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException(string.Format("Car id {0} is {1} in the target database.", this.carId, existing));
                 }
-                this.Line("car {0}: id {1}, donor {2} (id {3})", this.MediaName, this.carId, this.DonorMediaName, this.donorId);
+                this.Line("car {0}: id {1} ({2}; " + this.game + " id {3}), donor {4} (id {5})", this.MediaName, this.carId, reason, sourceId, this.DonorMediaName, this.donorId);
+                foreach (string line in DbIds.RenumberCar(this.source, sourceId, this.carId))
+                {
+                    this.Line("  {0}", line);
+                }
                 if (this.OutputRoot == null)
                 {
                     this.CheckWritable(targetDbPath);
@@ -251,6 +263,14 @@ namespace ForzaStudio
                 this.PortSound();
                 this.PortThumbnail();
                 this.DonorReport();
+
+                // C3: the car's rows are checked before anything is written.
+                List<string> errors = DbIds.CheckCar(this.target, this.carId, sourceId, this.MediaName);
+                if (errors.Count > 0)
+                {
+                    throw new InvalidOperationException("Database check failed, nothing was written:\r\n  " + string.Join("\r\n  ", errors.ToArray()));
+                }
+                this.Line("database check: car {0} (Data_Car, Data_CarBody, the keys of its rows) OK", this.carId);
 
                 // Write everything: backups first, then files, then the manifest.
                 this.Write(targetDbPath, this.target.ToBytes());
@@ -707,7 +727,7 @@ namespace ForzaStudio
             }
             else
             {
-                newId = Convert.ToInt64(this.target.Scalar("SELECT max(ID) + 1 FROM List_Wheels"));
+                newId = DbIds.Next(this.target, "List_Wheels", "ID");
                 this.CopyRowAs("List_Wheels", from["List_Wheels"], to["List_Wheels"], "ID", id, newId);
                 if (to.ContainsKey("WheelExceptions") && from.ContainsKey("WheelExceptions"))
                 {
@@ -944,15 +964,17 @@ namespace ForzaStudio
                 {
                     Choice c = new Choice();
                     c.Value = best;
-                    c.Label = "★ " + best + "   (" + basis + ")";
+                    c.Label = best + "   (" + basis + ")";
+                    c.Recommended = true;
                     issue.Choices.Add(c);
                 }
-                // ★ recommended first, then the common FM4 materials, then ~ the unusual ones
+                // Recommended first (green in the review), then the common FM4 materials, then ~ the unusual ones
                 foreach (MaterialSuggestions.Entry entry in MaterialSuggestions.For(material.Key, this.MediaName + ".carbin", 2))
                 {
                     Choice c = new Choice();
                     c.Value = entry.Name;
                     c.Label = entry.ToString();
+                    c.Recommended = entry.Recommended;
                     issue.Choices.Add(c);
                 }
                 issue.Suggested = best;
@@ -990,22 +1012,23 @@ namespace ForzaStudio
 
         // FM4 sells drag tyres (9 DragTire) to 502 of its 503 cars, always the same row: level 4, price
         // 10000, no manufacturer. FM3 has no compound 9, and FH1/FH2 have it but give it to no car, so
-        // every ported car gets that row (the next free level if 4 is taken).
+        // every ported car gets that row (the next free level if 4 is taken). Port.ini [Tires].
         private void DragTires()
         {
-            if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_UpgradeTireCompound WHERE Ordinal = ?", this.carId)) == 0
+            if (!PortSettings.GetBool("Tires", "DragTires", true)
+                || Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_UpgradeTireCompound WHERE Ordinal = ?", this.carId)) == 0
                 || Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_UpgradeTireCompound WHERE Ordinal = ? AND TireCompoundID = 9", this.carId)) > 0)
             {
                 return;
             }
-            long level = Math.Max(4, Convert.ToInt64(this.target.Scalar("SELECT max(Level) FROM List_UpgradeTireCompound WHERE Ordinal = ?", this.carId)) + 1);
+            long level = Math.Max(PortSettings.GetLong("Tires", "DragLevel", 4), Convert.ToInt64(this.target.Scalar("SELECT max(Level) FROM List_UpgradeTireCompound WHERE Ordinal = ?", this.carId)) + 1);
             long id = (this.carId * 1000) + level;
             while (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_UpgradeTireCompound WHERE Id = ?", id)) > 0)
             {
                 id++;
             }
-            this.target.Execute("INSERT INTO List_UpgradeTireCompound (Id, Ordinal, Level, IsStock, TireCompoundID, ManufacturerID, Price, MassDiff, DragScale, WindInstabilityScale) VALUES (?, ?, ?, 0, 9, 0, 10000, 0, 1, 1)",
-                id, this.carId, level);
+            this.target.Execute("INSERT INTO List_UpgradeTireCompound (Id, Ordinal, Level, IsStock, TireCompoundID, ManufacturerID, Price, MassDiff, DragScale, WindInstabilityScale) VALUES (?, ?, ?, 0, 9, 0, ?, 0, 1, 1)",
+                id, this.carId, level, PortSettings.GetLong("Tires", "DragPrice", 10000));
             this.Line("  tyres: no drag tyres in " + this.game + " -> FM4's 9 DragTire added as upgrade level {0}", level);
         }
 
@@ -1390,7 +1413,7 @@ namespace ForzaStudio
                                 table, string.Join(",", key.ConvertAll<string>(delegate(int i) { return columns[i]; }).ToArray()),
                                 string.Join(",", Array.ConvertAll<object, string>(values, delegate(object v) { return Convert.ToString(v, CultureInfo.InvariantCulture); }))));
                         }
-                        row[key[0]] = Convert.ToInt64(this.target.Scalar("SELECT ifnull(max(" + quoted[key[0]] + "), 0) + 1 FROM " + SqliteDatabase.Quote(table)));
+                        row[key[0]] = DbIds.Next(this.target, table, columns[key[0]]);
                         renumbered++;
                     }
                 }
@@ -1516,15 +1539,16 @@ namespace ForzaStudio
         // line (FM3 DLC before this) the FH2 fallback put the HKS Genesis (FM3 B 497) in F.
         public static bool FixedPerformanceIndex(ForzaGame game, double pi, out double fm4Pi)
         {
+            // The lines are in Port.ini [PI] (these defaults).
             fm4Pi = 0;
             if (game == ForzaGame.Horizon1)
             {
-                fm4Pi = Math.Max(0.001, Math.Min(0.999, (1.189 * pi) - 0.363));
+                fm4Pi = Math.Max(0.001, Math.Min(0.999, (PortSettings.GetDouble("PI", "FH1.Slope", 1.189) * pi) + PortSettings.GetDouble("PI", "FH1.Offset", -0.363)));
                 return true;
             }
             if (game == ForzaGame.Motorsport3)
             {
-                fm4Pi = Math.Max(0.001, Math.Min(0.999, (0.7779 * pi) + 0.1668));
+                fm4Pi = Math.Max(0.001, Math.Min(0.999, (PortSettings.GetDouble("PI", "FM3.Slope", 0.7779) * pi) + PortSettings.GetDouble("PI", "FM3.Offset", 0.1668)));
                 return true;
             }
             return false;
@@ -1930,6 +1954,10 @@ namespace ForzaStudio
                 materials.Remove(PlateMaterial);
             }
             this.AddSharedTextures(from, car);
+            if (this.dropPlates)
+            {
+                this.SplitLights(car, prefix);
+            }
             this.RebuildCloseUpModels(car, donor, prefix, donorPrefix, materials);
             this.ReplacePlaceholderBrakes(car, donor, prefix, donorPrefix);
             this.ReplacePlaceholderCollision(car, donor, prefix);
@@ -1955,6 +1983,106 @@ namespace ForzaStudio
             this.carZipPath = path;
             this.Line("car zip: {0} entries + port_log.txt, {1} models converted -> {2}", car.Entries.Count, models, this.Relative(path));
         }
+
+        // FM4 keeps each light in its own part, the same in the main file and _lod0 (FOR_Fiesta_09 and the
+        // other 313 cars): headlightL/R (lamp, chrome, frame, reflector of one front corner), taillightL/R,
+        // and their glass in glassLHL/RHL and glassLTL/RTL; L = left (x below the body's centre), front =
+        // z below it. FH traffic models merge them (FOR_FocusZX4_05: taillightR holds the headlights,
+        // indicators and plate light of both ends, glassRTL the front and rear glass; headlightL/R and
+        // taillightL are empty-part cubes), and the close-up files rebuilt from LOD 1 inherited that (user
+        // 2026-10-20). So, on cars with placeholder close-ups, before the rebuild: every triangle of those
+        // eight parts goes, every LOD, to the part of its corner (CarbinModel.SplitSection), and an
+        // empty-part cube in a part that got real geometry goes. Kept generic for FM1/FM2 sources.
+        private static readonly string[] LightParts = { "headlightL", "headlightR", "taillightL", "taillightR" };
+        private static readonly string[] LightGlassParts = { "glassLHL", "glassRHL", "glassLTL", "glassRTL" };
+
+        private void SplitLights(ForzaZip car, string prefix)
+        {
+            ForzaZip.Entry entry = car.Find(prefix + ".carbin");
+            if (entry == null)
+            {
+                return;
+            }
+            CarbinModel model = new CarbinModel(car.Read(entry));
+            CarbinModel.Section body = model.Find("body");
+            if (body == null)
+            {
+                return;
+            }
+            float[] b = body.Bounds;
+            double cx = b[0] + ((b[3] + b[6]) / 2);
+            double cz = b[2] + ((b[5] + b[8]) / 2);
+            bool changed = false;
+            List<string> parts = new List<string>(LightParts);
+            parts.AddRange(LightGlassParts);
+            foreach (string part in parts)
+            {
+                CarbinModel.Section section = model.Find(part);
+                if (section == null || IsEmptyPartSection(section))
+                {
+                    continue;
+                }
+                bool glass = Array.IndexOf(LightGlassParts, part) >= 0;
+                string report = model.SplitSection(section.Name, delegate(double x, double y, double z)
+                {
+                    if (Math.Abs(x - cx) < LightPlaceholderReach && Math.Abs(z - cz) < LightPlaceholderReach)
+                    {
+                        return null;    // a placeholder at the car's centre (no light is there): stays
+                    }
+                    bool left = x < cx;
+                    bool front = z < cz;
+                    return glass ? ("glass" + (left ? "L" : "R") + (front ? "HL" : "TL")) : ((front ? "headlight" : "taillight") + (left ? "L" : "R"));
+                });
+                if (report.Length > 0)
+                {
+                    changed = true;
+                    foreach (string line in report.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        this.Line("  lights: {0}", line);
+                    }
+                }
+            }
+            if (!changed)
+            {
+                return;
+            }
+            // A placeholder left beside real geometry goes: the empty-part cube (headlightL_LOD1 in
+            // headlightL) or the 1 cm quad of VW_Beetle_04 (material body), whatever its name: a mesh of at
+            // most EmptyPartSize at the car's centre.
+            foreach (string part in parts)
+            {
+                CarbinModel.Section section = model.Find(part);
+                if (section == null)
+                {
+                    continue;
+                }
+                List<int> placeholders = new List<int>();
+                List<string> names = new List<string>();
+                for (int k = 0; k < section.SubSections.Count; k++)
+                {
+                    double[] box = model.SubSectionBox(section, section.SubSections[k]);
+                    bool small = box[3] - box[0] <= EmptyPartSize && box[4] - box[1] <= EmptyPartSize && box[5] - box[2] <= EmptyPartSize;
+                    bool central = Math.Abs(((box[0] + box[3]) / 2) - cx) < LightPlaceholderReach && Math.Abs(((box[2] + box[5]) / 2) - cz) < LightPlaceholderReach;
+                    if (small && central)
+                    {
+                        placeholders.Add(k);
+                        if (!names.Contains(section.SubSections[k].Name))
+                        {
+                            names.Add(section.SubSections[k].Name);
+                        }
+                    }
+                }
+                if (placeholders.Count > 0 && placeholders.Count < section.SubSections.Count)
+                {
+                    model.RemoveSubSections(section.Name, placeholders);
+                    this.Line("  lights: {0}: placeholder {1} removed (the part has real geometry now)", part, string.Join(", ", names.ToArray()));
+                }
+            }
+            car.Replace(entry, model.ToBytes());
+        }
+
+        // Half the side of the square around the body's centre (x, z) where no light sits: placeholders do.
+        private const double LightPlaceholderReach = 0.3;
 
         // FH traffic cars lose their number plate (material `numberplate`, a quad in bumperFrameF/R): FM4
         // has no plate shader, it only stayed red / black and needed outside work (user 2026-10-20: "lo
@@ -2434,6 +2562,7 @@ namespace ForzaStudio
             bool rebuilt = false;
             bool lod0Rebuilt = false;
             bool cockpitRebuilt = false;
+            CarbinModel cockpitModel = null;
             string driverSeat = DriverSeat(main);
             CarbinModel source = main;
             if (driverSeat != null)
@@ -2516,6 +2645,7 @@ namespace ForzaStudio
                 }
                 List<string> parts = new List<string>();
                 int built0 = 0;
+                int atlasRenames = 0;
                 foreach (CarbinModel.Section section in built.Sections)
                 {
                     parts.Add(section.Name);
@@ -2524,6 +2654,16 @@ namespace ForzaStudio
                     foreach (CarbinModel.SubSection sub in section.SubSections)
                     {
                         sub.Name = LodVariant(sub.Name, name);
+                        // `interior` (the main file's LOD 1 interior material) has no cockpit_ technique:
+                        // drawn with the plain one it reads nodamage_LOD0, not the interior atlas its UVs are
+                        // laid out on (InteriorAtlas). FM4 itself uses it in 5 of 313 cockpits; leather
+                        // (cockpit_leather: the atlas only) is on 262, and the user picked it by hand on the
+                        // Focus ZX4 (2026-10-20).
+                        if (cockpit && string.Equals(sub.Name, "interior", StringComparison.OrdinalIgnoreCase))
+                        {
+                            sub.Name = "leather";
+                            atlasRenames++;
+                        }
                         if (!materials.Contains(sub.Name))
                         {
                             materials.Add(sub.Name);
@@ -2540,9 +2680,17 @@ namespace ForzaStudio
                     car.Add(name, data);
                 }
                 this.Line("  {0}: {1} (main file {2}), rebuilt from LOD 1: {3} parts, {4} vertices ({5})", name, (own == null) ? "missing" : "a placeholder of " + vertices + " vertices", mainVertices, parts.Count, built0, string.Join(" ", parts.ToArray()));
+                if (atlasRenames > 0)
+                {
+                    this.Line("  {0}: material interior -> leather on {1} meshes (reads the interior atlas)", name, atlasRenames);
+                }
                 rebuilt = true;
                 lod0Rebuilt |= !cockpit;
                 cockpitRebuilt |= cockpit;
+                if (cockpit)
+                {
+                    cockpitModel = built;
+                }
             }
             if (!rebuilt)
             {
@@ -2581,21 +2729,9 @@ namespace ForzaStudio
                     this.Line("  {0}_lod0.xds: {1}, now a copy of {0}.xds", texture, (close != null) ? "the placeholder's" : "missing");
                 }
             }
-            // The rebuilt cockpit's interior parts are LOD 1 geometry too, mapped on nodamage.xds, while the
-            // cockpit samples interior_lod0.xds (decided by the user 2026-10-17: make it a copy of nodamage).
-            ForzaZip.Entry nodamage = car.Find("nodamage.xds");
-            if (cockpitRebuilt && nodamage != null)
+            if (cockpitRebuilt && cockpitModel != null)
             {
-                ForzaZip.Entry interior = car.Find("interior_lod0.xds");
-                if (interior != null)
-                {
-                    car.Replace(interior, car.Read(nodamage));
-                }
-                else
-                {
-                    car.Add("interior_lod0.xds", car.Read(nodamage));
-                }
-                this.Line("  interior_lod0.xds: {0}, now a copy of nodamage.xds", (interior != null) ? "the placeholder's" : "missing");
+                this.InteriorAtlas(car, cockpitModel);
             }
             // The placeholders' materials (body_LOD0, hooda_LOD0...) are gone with them: out of the review
             // and of the shader settings.
@@ -2625,6 +2761,29 @@ namespace ForzaStudio
                 }
             }
             materials.RemoveAll(delegate(string material) { return !used.Contains(material); });
+        }
+
+        // A rebuilt cockpit's interior_lod0.xds is always a copy of nodamage.xds (user 2026-10-20, checked
+        // by hand in game: "quando converti traffic prendi il nodamage.xds e fai una copia che chiami
+        // interior_lod0.xds"), replacing the source's own when it has one.
+        private void InteriorAtlas(ForzaZip car, CarbinModel cockpit)
+        {
+            ForzaZip.Entry nodamage = car.Find("nodamage.xds");
+            if (nodamage == null)
+            {
+                this.Line("  interior_lod0.xds: no nodamage.xds to copy, left as it is");
+                return;
+            }
+            ForzaZip.Entry interior = car.Find("interior_lod0.xds");
+            if (interior != null)
+            {
+                car.Replace(interior, car.Read(nodamage));
+            }
+            else
+            {
+                car.Add("interior_lod0.xds", car.Read(nodamage));
+            }
+            this.Line("  interior_lod0.xds: {0}, now a copy of nodamage.xds", (interior != null) ? "the source's, replaced" : "missing");
         }
 
         // FM4's cockpit parts (_cockpit file, never in _lod0; measured on the 313 cars of the game):
@@ -2900,9 +3059,12 @@ namespace ForzaStudio
         // An FM3 texture in FM4 form. FM3 stores every texture as linear (fetch dword 0 low byte 0x02)
         // in plain DXT1/DXT5 (0x52/0x54); FM4 marks the colour textures gamma (0xFE: sign x/y/z = 3) in the
         // AS_16 formats (0x73/0x75) and leaves only the normal maps linear (4224 FM3, 11775 FM4 car and
-        // wheel textures, 2026-10-16). The pixels are the same: on the Supra (in both games) the
-        // re-encoded FM4 blocks decode to FM3's values. Left linear, FM4 skips the gamma decode and the
-        // car looks washed out (BMW X5 in game). FM3's DXT1 normal maps (FM4: DXN) are kept as they are.
+        // wheel textures, 2026-10-16). Left linear, FM4 skips the gamma decode and the car looks washed
+        // out (BMW X5 in game). The colours differ too: FM3 holds sRGB values, FM4 the same colours
+        // re-encoded for the Xbox 360 gamma curve, FM4 = PWL^-1(sRGB to linear(FM3)), alpha unchanged
+        // (Supra in both games, 2026-10-20: interior_lod0 mean error 14.6 -> 2.5, bias 0; with the flag
+        // alone the dark tones come out about twice as bright). The curve goes on the DXT colour
+        // endpoints of every level. FM3's DXT1 normal maps (FM4: DXN) are kept as they are.
         public static byte[] ConvertMotorsport3Texture(byte[] data, string name)
         {
             string file = Path.GetFileNameWithoutExtension(name).ToLowerInvariant();
@@ -2910,7 +3072,34 @@ namespace ForzaStudio
             {
                 return data;
             }
-            byte[] result = (byte[]) data.Clone();
+            XdsTexture texture = new XdsTexture(data);
+            if (!texture.IsGamma)
+            {
+                DxtFormat codec = texture.Codec;
+                for (int level = 0; level < texture.LevelCount; level++)
+                {
+                    byte[] blocks = texture.ReadLevelBlocks(level);
+                    if (codec == DxtFormat.A8R8G8B8)
+                    {
+                        for (int i = 0; i < blocks.Length; i += 4)
+                        {
+                            blocks[i] = SrgbToGamma360[blocks[i]];
+                            blocks[i + 1] = SrgbToGamma360[blocks[i + 1]];
+                            blocks[i + 2] = SrgbToGamma360[blocks[i + 2]];
+                        }
+                    }
+                    else if (codec == DxtFormat.Dxt1 || codec == DxtFormat.Dxt3 || codec == DxtFormat.Dxt5)
+                    {
+                        int size = texture.BytesPerBlock;
+                        for (int offset = size - 8; offset < blocks.Length; offset += size)
+                        {
+                            ConvertColorEndpoints(blocks, offset, codec == DxtFormat.Dxt1);
+                        }
+                    }
+                    texture.WriteLevelBlocks(level, blocks);
+                }
+            }
+            byte[] result = texture.ToBytes();
             result[0x1F] = (byte) ((result[0x1F] & 0x03) | 0xFC);   // fetch 0: sign x, y, z = gamma
             int format = result[0x23] & 0x3F;
             if (format == 0x12 || format == 0x14)
@@ -2918,6 +3107,96 @@ namespace ForzaStudio
                 result[0x23] = (byte) ((result[0x23] & 0xC0) | (format + 0x21));   // DXT1/DXT4_5 -> their AS_16 forms
             }
             return result;
+        }
+
+        // The two 565 endpoints of a DXT colour block through SrgbToGamma360. A DXT1 block keeps its
+        // mode (c0 > c1: four colours, else three + transparent): when the new endpoints swap order they
+        // are swapped back with their indices, and a four-colour block whose endpoints became equal
+        // points every texel at endpoint 0 (index 3 would turn transparent).
+        private static void ConvertColorEndpoints(byte[] blocks, int offset, bool dxt1)
+        {
+            int c0 = blocks[offset] | (blocks[offset + 1] << 8);
+            int c1 = blocks[offset + 2] | (blocks[offset + 3] << 8);
+            uint indices = (uint) (blocks[offset + 4] | (blocks[offset + 5] << 8) | (blocks[offset + 6] << 16) | (blocks[offset + 7] << 24));
+            int n0 = ConvertEndpoint(c0);
+            int n1 = ConvertEndpoint(c1);
+            if (dxt1)
+            {
+                bool four = c0 > c1;
+                if (four && n0 == n1)
+                {
+                    indices = 0;
+                }
+                else if ((four && n0 < n1) || (!four && n0 > n1))
+                {
+                    int swap = n0;
+                    n0 = n1;
+                    n1 = swap;
+                    uint swapped = 0;
+                    for (int i = 0; i < 16; i++)
+                    {
+                        uint index = (indices >> (i * 2)) & 3;
+                        index = four ? (index ^ 1) : ((index < 2) ? (index ^ 1) : index);   // 0<->1, 2<->3 / 0<->1
+                        swapped |= index << (i * 2);
+                    }
+                    indices = swapped;
+                }
+            }
+            blocks[offset] = (byte) n0;
+            blocks[offset + 1] = (byte) (n0 >> 8);
+            blocks[offset + 2] = (byte) n1;
+            blocks[offset + 3] = (byte) (n1 >> 8);
+            blocks[offset + 4] = (byte) indices;
+            blocks[offset + 5] = (byte) (indices >> 8);
+            blocks[offset + 6] = (byte) (indices >> 16);
+            blocks[offset + 7] = (byte) (indices >> 24);
+        }
+
+        private static int ConvertEndpoint(int c)
+        {
+            return (Endpoint5[(c >> 11) & 0x1F] << 11) | (Endpoint6[(c >> 5) & 0x3F] << 5) | Endpoint5[c & 0x1F];
+        }
+
+        // sRGB byte -> Xbox 360 gamma byte: sRGB to linear, then the inverse of the PWL curve the
+        // texture unit decodes gamma textures with (64 -> 16, 96 -> 32, 128 -> 64, 192 -> 128, 255 -> 255).
+        private static readonly byte[] SrgbToGamma360 = BuildSrgbToGamma360();
+        private static readonly int[] Endpoint5 = BuildEndpointMap(5);
+        private static readonly int[] Endpoint6 = BuildEndpointMap(6);
+
+        private static byte[] BuildSrgbToGamma360()
+        {
+            byte[] map = new byte[256];
+            for (int v = 0; v < 256; v++)
+            {
+                double c = v / 255.0;
+                double l = 255.0 * ((c <= 0.04045) ? (c / 12.92) : Math.Pow((c + 0.055) / 1.055, 2.4));
+                double g = (l < 16) ? (l * 4) : (l < 32) ? (64 + ((l - 16) * 2)) : (l < 128) ? (96 + (l - 32)) : (192 + ((l - 128) * 63.0 / 127.0));
+                map[v] = (byte) Math.Max(0, Math.Min(255, (int) Math.Round(g)));
+            }
+            return map;
+        }
+
+        // A 5 or 6 bit endpoint channel through SrgbToGamma360, back to the nearest code of that width.
+        private static int[] BuildEndpointMap(int bits)
+        {
+            int count = 1 << bits;
+            int[] map = new int[count];
+            for (int code = 0; code < count; code++)
+            {
+                int target = SrgbToGamma360[(code << (8 - bits)) | (code >> ((2 * bits) - 8))];
+                int best = 0;
+                for (int other = 1; other < count; other++)
+                {
+                    int expanded = (other << (8 - bits)) | (other >> ((2 * bits) - 8));
+                    int bestExpanded = (best << (8 - bits)) | (best >> ((2 * bits) - 8));
+                    if (Math.Abs(expanded - target) < Math.Abs(bestExpanded - target))
+                    {
+                        best = other;
+                    }
+                }
+                map[code] = best;
+            }
+            return map;
         }
 
         // A source model (read with the FM3 opt-in) in FM4 form: FM3 through its own converter, FH (and

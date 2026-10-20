@@ -109,7 +109,7 @@ namespace ForzaStudio
             this.genericNote.Size = new Size(350, 52);
             this.genericNote.ForeColor = ForzaTheme.TextDim;
             Button openIni = new Button();
-            openIni.Text = "Open " + CarUpgrades.FileName;
+            openIni.Text = "Edit " + CarUpgrades.FileName + "...";
             openIni.Size = new Size(150, 26);
             openIni.Location = new Point(14, 184);
             openIni.Click += delegate { this.OpenUpgradesIni(); };
@@ -186,7 +186,7 @@ namespace ForzaStudio
             this.swapList.Items.Clear();
             this.driveChoice.Items.Clear();
             bool usable = car != null && (car.State == Status.New || car.State == Status.Ported);
-            this.swapList.Enabled = usable;
+            // The list stays enabled (empty when not usable): Windows draws a disabled list light grey.
             this.driveChoice.Enabled = usable;
             this.addSwap.Enabled = usable;
             if (!usable)
@@ -445,13 +445,14 @@ namespace ForzaStudio
             }
         }
 
+        // Upgrades.ini in Tools > Settings, on its UPGRADES tab (user 2026-10-20: a tab, not Notepad).
         private void OpenUpgradesIni()
         {
-            CarUpgrades.LoadIni(new List<string>());   // written with the defaults when missing
-            if (File.Exists(CarUpgrades.IniPath))
+            using (SettingsForm settings = new SettingsForm("Upgrades"))
             {
-                Process.Start("notepad.exe", "\"" + CarUpgrades.IniPath + "\"");
+                settings.ShowDialog(this);
             }
+            this.ShowUpgrades(this.upgradesCar);   // the drive rule and notes may have changed
         }
     }
 }

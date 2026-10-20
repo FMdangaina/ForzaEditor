@@ -175,6 +175,23 @@ namespace ForzaStudio
                     }
                     shared += this.Delete(db, table, SqliteDatabase.Quote(column) + " = " + id, apply, plan);
                 }
+                // Engine part rows the log does not list (the aspiration conversions CarUpgrades adds to
+                // a naturally aspirated engine, 14.1f): every List_UpgradeEngine* row of an engine whose
+                // Data_Engine row went above.
+                foreach (long engine in engines)
+                {
+                    if (db.Scalar("SELECT EngineID FROM Data_Engine WHERE EngineID = ?", engine) != null)
+                    {
+                        continue;
+                    }
+                    foreach (string table in Tables(db))
+                    {
+                        if (table.StartsWith("List_UpgradeEngine", StringComparison.Ordinal) && table != "List_UpgradeEngine" && Has(Columns(db, table), "EngineID"))
+                        {
+                            shared += this.Delete(db, table, "EngineID = " + engine, apply, plan);
+                        }
+                    }
+                }
                 // FM3 torque curves get new ids the log does not list: the curves of the car's engines.
                 foreach (long curve in curves)
                 {

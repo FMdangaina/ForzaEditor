@@ -217,10 +217,10 @@ namespace ForzaStudio
                 return;
             }
             this.PushBookmark(this.CaptureBookmark());
-            this.txtDbSearch.Text = "";
             this.wheelFilter = "";
             this.btnWheelFilter.Text = "Show: All";
             this.SelectDbSection(DbSection.Wheels);
+            this.ClearDbSearch();
             string key = ((long) wheel).ToString(CultureInfo.InvariantCulture);
             foreach (ListViewItem item in this.lvDb.Items)
             {
