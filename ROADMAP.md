@@ -26,7 +26,7 @@ Sections:
 ## Now
 
 Empty. Last closed: **14.1f** generic upgrades + drive type conversions (`Upgrades.ini`), closed by
-the user 2026-10-20. Not committed yet (diff chat).
+the user 2026-10-20 (committed 7458731).
 
 ---
 
