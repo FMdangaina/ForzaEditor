@@ -9,11 +9,24 @@ namespace ForzaStudio
     using System.Windows.Forms;
 
     // Mesh information and preview texture assignment. The .carbin only names the material
-    // (shader) of each part; which .xds it samples is decided by the game, so textures are
-    // assigned by hand, by default to every part sharing the material.
+    // (shader technique) of each part; the textures it samples come from the game's shaders and
+    // Media\cars\Shared.zip\textures.xml (ShaderTextures): each material gets its colour texture by
+    // itself ("(auto)"), from the car's files or Shared.zip. A texture picked by hand wins, by default
+    // for every part sharing the material, for this session only. The toolbar's Textures button
+    // switches them all off (plain grey) and on.
     public partial class ArchiveEditorForm
     {
         private const string ArchivePrefix = "zip:";
+        private const string SharedPrefix = "shared:";        // an entry of the game's Media\cars\Shared.zip
+        private const string AutoItem = "(auto)";
+        private Dictionary<ForzaMesh, string> autoTextureSampler = new Dictionary<ForzaMesh, string>();
+
+        // The toolbar's Textures button.
+        private void TexturesSwitched(bool on)
+        {
+            this.btnTextures.Text = on ? "Textures: on" : "Textures: off";
+            this.ApplyTextures();
+        }
         private static readonly System.Drawing.Color BaseColor = System.Drawing.Color.FromArgb(150, 150, 150);
 
         private Label lblMeshInfo;
@@ -29,23 +42,30 @@ namespace ForzaStudio
         private Dictionary<ForzaMesh, string> meshTextures = new Dictionary<ForzaMesh, string>();
         private Dictionary<string, Bitmap> previewCache = new Dictionary<string, Bitmap>(StringComparer.OrdinalIgnoreCase);
 
-        // Model view side panel: game-style tabs PART / TEXTURE / CAMERA, each a column of controls
-        // SideWidth wide. CAMERA is shown only for car models (SetCameraTabVisible).
+        // Model view side panel: game-style tabs PART / TEXTURE / CAMERA / COLLISION, each a column of
+        // controls SideWidth wide. CAMERA and COLLISION are shown only for car models (SetCameraTabVisible,
+        // SetCollisionTabVisible); their lines are drawn in the view only while their tab is open.
         private const int SideWidth = 236;
         private TabControl tabSide;
         private TabPage tabSideCamera;
+        private TabPage tabSideCollision;
+        private bool cameraTabWanted = true;
+        private bool collisionTabWanted = true;
 
         private Panel BuildMeshInfoPanel()
         {
             Panel host = new Panel();
             host.Dock = DockStyle.Right;
-            host.Width = 280;
+            host.Width = 296;
             this.tabSide = new TabControl();
             FlowLayoutPanel part = this.AddSideTab("Part");
             FlowLayoutPanel textures = this.AddSideTab("Texture");
             FlowLayoutPanel camera = this.AddSideTab("Camera");
             this.tabSideCamera = this.tabSide.TabPages[2];
-            host.Controls.Add(TabHost(this.tabSide, null));
+            FlowLayoutPanel collision = this.AddSideTab("Collision");
+            this.tabSideCollision = this.tabSide.TabPages[3];
+            this.tabSide.SelectedIndexChanged += delegate { this.UpdateViewOverlay(); };
+            host.Controls.Add(SideRailHost(this.tabSide));
 
             this.lblMeshInfo = SideNote("Select a part in the tree.");
             this.lblMeshInfo.ForeColor = this.ForeColor;
@@ -58,7 +78,7 @@ namespace ForzaStudio
                 if (!this.updatingMeshPanel && this.cmbMeshTexture.SelectedIndex >= 0)
                 {
                     string item = (string) this.cmbMeshTexture.SelectedItem;
-                    this.AssignTexture(item == "(none)" ? null : ArchivePrefix + item);
+                    this.AssignTexture(item == AutoItem ? null : ArchivePrefix + item);
                 }
             };
 
@@ -103,12 +123,31 @@ namespace ForzaStudio
             textures.Controls.Add(this.cmbMeshUV);
             textures.Controls.Add(this.chkSameMaterial);
             textures.Controls.Add(this.chkAlphaMask);
-            textures.Controls.Add(SideNote("The model names each part's material, not its texture file: pick the texture to preview. Choices are remembered per material and only change the preview."));
+            textures.Controls.Add(SideNote("(auto): the texture the game draws the material with (its shader's samplers and Shared.zip\\textures.xml), from the car's files or Shared.zip. Pick another to override it; choices are remembered per material and only change the preview."));
 
             // Kept in the tabs until a model loads, so the theme reaches it (LoadCockpitCamera hides it).
             this.AddCameraControls(camera);
+            this.AddCollisionControls(collision);
 
             this.tvModel.AfterSelect += delegate { this.UpdateMeshPanel(); };
+            return host;
+        }
+
+        // The side tabs with their labels on a vertical rail at the right edge: a horizontal strip ran
+        // out of room at four tabs (COLLISION cut, user 2026-10-20). The TabControl is a little larger
+        // than its area so its own light border is cut off, as in TabHost.
+        private static Control SideRailHost(TabControl tabs)
+        {
+            Panel host = new Panel();
+            host.Dock = DockStyle.Fill;
+            ForzaTabStrip rail = new ForzaTabStrip(tabs, true);
+            Panel pages = new Panel();
+            pages.Dock = DockStyle.Fill;
+            tabs.Dock = DockStyle.None;
+            pages.Controls.Add(tabs);
+            pages.Resize += delegate { tabs.Bounds = new Rectangle(-4, -4, pages.Width + 8, pages.Height + 8); };
+            host.Controls.Add(pages);
+            host.Controls.Add(rail);
             return host;
         }
 
@@ -125,16 +164,56 @@ namespace ForzaStudio
 
         private void SetCameraTabVisible(bool visible)
         {
-            bool shown = this.tabSide.TabPages.Contains(this.tabSideCamera);
-            if (visible && !shown)
+            this.cameraTabWanted = visible;
+            this.ArrangeCarTabs();
+        }
+
+        private void SetCollisionTabVisible(bool visible)
+        {
+            this.collisionTabWanted = visible;
+            this.ArrangeCarTabs();
+        }
+
+        // CAMERA before COLLISION whichever comes and goes; the open tab stays open when still there.
+        private void ArrangeCarTabs()
+        {
+            bool cameraShown = this.tabSide.TabPages.Contains(this.tabSideCamera);
+            bool collisionShown = this.tabSide.TabPages.Contains(this.tabSideCollision);
+            if (cameraShown == this.cameraTabWanted && collisionShown == this.collisionTabWanted)
+            {
+                return;
+            }
+            TabPage selected = this.tabSide.SelectedTab;
+            this.tabSide.TabPages.Remove(this.tabSideCamera);
+            this.tabSide.TabPages.Remove(this.tabSideCollision);
+            if (this.cameraTabWanted)
             {
                 this.tabSide.TabPages.Add(this.tabSideCamera);
             }
-            else if (!visible && shown)
+            if (this.collisionTabWanted)
             {
-                this.tabSide.TabPages.Remove(this.tabSideCamera);
+                this.tabSide.TabPages.Add(this.tabSideCollision);
+            }
+            if (selected != null && this.tabSide.TabPages.Contains(selected))
+            {
+                this.tabSide.SelectedTab = selected;
             }
             this.tabSide.Parent.Invalidate(true);
+        }
+
+        // The view's line overlay belongs to the open side tab: the cockpit camera on CAMERA, the
+        // collision spheres on COLLISION, nothing on the others.
+        private void UpdateViewOverlay()
+        {
+            if (this.scene == null)
+            {
+                return;
+            }
+            TabPage open = this.tabSide.SelectedTab;
+            List<Microsoft.Xna.Framework.Graphics.VertexPositionColor> lines = (open == this.tabSideCamera) ? this.CameraOverlayLines()
+                : (open == this.tabSideCollision) ? this.CollisionOverlayLines() : null;
+            this.scene.Overlay = (lines != null && lines.Count >= 2) ? lines.ToArray() : null;
+            this.scene.Update(true);
         }
 
         // Side panel pieces: a red section heading, a small caption over a control, a grey note that
@@ -226,7 +305,7 @@ namespace ForzaStudio
         {
             this.updatingMeshPanel = true;
             this.cmbMeshTexture.Items.Clear();
-            this.cmbMeshTexture.Items.Add("(none)");
+            this.cmbMeshTexture.Items.Add(AutoItem);
             // Textures next to the model and below it: the whole zip, or the car's folder in folder mode.
             string folder = this.ModelFolder;
             foreach (ForzaZip.Entry entry in this.zip.Entries)
@@ -243,18 +322,103 @@ namespace ForzaStudio
             this.updatingMeshPanel = false;
 
             this.meshTextures.Clear();
+            this.autoTextureSampler.Clear();
+            Dictionary<ForzaMesh, int> lods = this.MeshLods();
+            int auto = 0, missing = 0;
             foreach (ForzaMesh mesh in GetMeshes(this.tvModel.Nodes, false))
             {
                 string source;
-                if (this.materialTextures.TryGetValue(mesh.MaterialName, out source) && this.SourceExists(source))
+                if (this.materialTextures.TryGetValue(mesh.MaterialName, out source))
                 {
-                    this.meshTextures[mesh] = source;
+                    if (source.Length > 0 && this.SourceExists(source))
+                    {
+                        this.meshTextures[mesh] = source;
+                    }
+                }
+                else if (this.SetAutoTexture(mesh, lods))
+                {
+                    auto++;
+                }
+                else
+                {
+                    missing++;
                 }
                 bool second;
                 mesh.UseSecondUV = this.materialSecondUV.TryGetValue(mesh.MaterialName, out second) && second;
             }
             this.ApplyTextures();
             this.UpdateMeshPanel();
+            ShaderTextures table = ShaderTextures.For(this.GameRoot);
+            if (table.Problem != null)
+            {
+                this.SetStatus("Automatic textures not available: " + table.Problem);
+            }
+            else if (auto + missing > 0)
+            {
+                this.SetStatus(string.Format("Automatic textures: {0} parts textured, {1} without a texture the game would use", auto, missing));
+            }
+        }
+
+        // The LOD of every mesh, from the tree (LODn > part > mesh).
+        private Dictionary<ForzaMesh, int> MeshLods()
+        {
+            Dictionary<ForzaMesh, int> lods = new Dictionary<ForzaMesh, int>();
+            foreach (TreeNode root in this.tvModel.Nodes)
+            {
+                foreach (TreeNode lod in root.Nodes)
+                {
+                    int level;
+                    if (!lod.Text.StartsWith("LOD") || !int.TryParse(lod.Text.Substring(3), out level))
+                    {
+                        continue;
+                    }
+                    foreach (ForzaMesh mesh in GetMeshes(lod.Nodes, false))
+                    {
+                        lods[mesh] = level;
+                    }
+                }
+            }
+            return lods;
+        }
+
+        // The model file's kind for textures.xml: the cockpit file, a LOD 0 (the _lod0 file, a wheel's
+        // LOD 0), or LODs 1-5 of the main file.
+        private ShaderTextures.Kind TextureKind(ForzaMesh mesh, Dictionary<ForzaMesh, int> lods)
+        {
+            string name = (this.currentEntry != null) ? this.currentEntry.Name.ToLowerInvariant() : "";
+            if (name.EndsWith("_cockpit.carbin"))
+            {
+                return ShaderTextures.Kind.Cockpit;
+            }
+            int lod;
+            return (name.EndsWith("_lod0.carbin") || (lods.TryGetValue(mesh, out lod) && lod == 0)) ? ShaderTextures.Kind.Lod0 : ShaderTextures.Kind.Main;
+        }
+
+        // The texture the game draws the mesh's material with, when the car or Shared.zip has it.
+        private bool SetAutoTexture(ForzaMesh mesh, Dictionary<ForzaMesh, int> lods)
+        {
+            ShaderTextures table = ShaderTextures.For(this.GameRoot);
+            if (table.Problem != null)
+            {
+                return false;
+            }
+            foreach (ShaderTextures.Texture texture in table.ColourTextures(mesh.MaterialName, this.TextureKind(mesh, lods)))
+            {
+                string source = (texture.Where == ShaderTextures.Place.Shared) ? SharedPrefix + texture.File
+                    : (texture.Where == ShaderTextures.Place.Car) ? ArchivePrefix + texture.File : null;
+                // A shared texture this game lacks, carried by a ported car in its own zip (CarPort).
+                if (texture.Where == ShaderTextures.Place.Shared && !this.SourceExists(source))
+                {
+                    source = ArchivePrefix + texture.File;
+                }
+                if (source != null && this.SourceExists(source) && this.LoadPreview(source, true) != null)
+                {
+                    this.meshTextures[mesh] = source;
+                    this.autoTextureSampler[mesh] = texture.Sampler;
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void UpdateMeshPanel()
@@ -288,8 +452,11 @@ namespace ForzaStudio
                 {
                     string part = (node.Parent != null) ? node.Parent.Text : "";
                     string lod = (node.Parent != null && node.Parent.Parent != null) ? node.Parent.Parent.Text : "";
-                    this.lblMeshInfo.Text = string.Format("Part: {0}\nLOD: {1}\nMaterial: {2}\nDamage: {7}\n\nVertices: {3:N0}\nFaces: {4:N0}\nParts with this material: {5}\n\nTexture: {6}",
-                        part, lod, first.MaterialName + (this.IsUnknownMaterial(first.MaterialName) ? " (no FM4 car uses it: may render black)" : ""), vertices, faces, this.CountMaterial(first.MaterialName), DisplaySource(texture), this.DescribeDamage(part));
+                    string sampler;
+                    string shown = DisplaySource(texture) + (this.autoTextureSampler.TryGetValue(first, out sampler) ? " (auto, " + sampler + ")" : "");
+                    this.lblMeshInfo.Text = string.Format("Part: {0}\nLOD: {1}\nMaterial: {2}\nDamage: {7}\n\nVertices: {3:N0}\nFaces: {4:N0}\nParts with this material: {5}\n\nTexture: {6}{8}",
+                        part, lod, first.MaterialName + (this.IsUnknownMaterial(first.MaterialName) ? " (no FM4 car uses it: may render black)" : ""), vertices, faces, this.CountMaterial(first.MaterialName), shown, this.DescribeDamage(part),
+                        this.DescribeShader(first));
                 }
                 else
                 {
@@ -306,7 +473,8 @@ namespace ForzaStudio
                         this.tvModel.SelectedNode.Text, meshes.Count, vertices, faces, total, string.Join(", ", names.ToArray()), this.DescribeDamage(node));
                 }
                 string entry = (texture != null && texture.StartsWith(ArchivePrefix)) ? texture.Substring(ArchivePrefix.Length) : null;
-                int index = (texture == null) ? 0 : ((entry != null) ? this.cmbMeshTexture.Items.IndexOf(entry) : -1);
+                int index = (this.autoTextureSampler.ContainsKey(first) || texture == null) ? 0
+                    : ((entry != null) ? this.cmbMeshTexture.Items.IndexOf(entry) : -1);
                 this.cmbMeshTexture.SelectedIndex = index;
                 this.cmbMeshUV.SelectedIndex = first.UseSecondUV ? 1 : 0;
             }
@@ -398,11 +566,30 @@ namespace ForzaStudio
 
         private static string DisplaySource(string source)
         {
-            if (source == null)
+            if (string.IsNullOrEmpty(source))
             {
                 return "(none)";
             }
-            return source.StartsWith(ArchivePrefix) ? source.Substring(ArchivePrefix.Length) : Path.GetFileName(source) + " (folder)";
+            return source.StartsWith(ArchivePrefix) ? source.Substring(ArchivePrefix.Length)
+                : source.StartsWith(SharedPrefix) ? source.Substring(SharedPrefix.Length) + " (Shared.zip)"
+                : Path.GetFileName(source) + " (folder)";
+        }
+
+        // The game's technique for the mesh's material and the textures its shader reads.
+        private string DescribeShader(ForzaMesh mesh)
+        {
+            ShaderTextures table = ShaderTextures.For(this.GameRoot);
+            if (table.Problem != null)
+            {
+                return "";
+            }
+            string technique = table.TechniqueOf(mesh.MaterialName, this.TextureKind(mesh, this.MeshLods()));
+            if (technique == null)
+            {
+                return "\nShader: none in this game (drawn as `missing`)";
+            }
+            List<string> samplers = table.SamplersOf(technique);
+            return "\nShader: " + technique + (samplers.Count > 0 ? "\nSamplers: " + string.Join(", ", samplers.ToArray()) : "");
         }
 
         // Targets are the selected parts, widened to every part sharing their materials when requested.
@@ -432,6 +619,7 @@ namespace ForzaStudio
             return targets;
         }
 
+        // source: a texture, or null = back to the automatic one.
         private void AssignTexture(string source)
         {
             List<string> materials;
@@ -440,17 +628,20 @@ namespace ForzaStudio
             {
                 return;
             }
-            if (source != null && this.LoadPreview(source) == null)
+            if (!string.IsNullOrEmpty(source) && this.LoadPreview(source) == null)
             {
                 return;
             }
+            Dictionary<ForzaMesh, int> lods = (source == null) ? this.MeshLods() : null;
             foreach (ForzaMesh mesh in targets)
             {
+                this.meshTextures.Remove(mesh);
+                this.autoTextureSampler.Remove(mesh);
                 if (source == null)
                 {
-                    this.meshTextures.Remove(mesh);
+                    this.SetAutoTexture(mesh, lods);
                 }
-                else
+                else if (source.Length > 0)
                 {
                     this.meshTextures[mesh] = source;
                 }
@@ -471,7 +662,7 @@ namespace ForzaStudio
             }
             this.ApplyTextures();
             this.UpdateMeshPanel();
-            this.SetStatus(string.Format("{0} -> {1} ({2} parts)", string.Join(", ", materials.ToArray()), DisplaySource(source), targets.Count));
+            this.SetStatus(string.Format("{0} -> {1} ({2} parts)", string.Join(", ", materials.ToArray()), (source == null) ? "automatic texture" : DisplaySource(source), targets.Count));
         }
 
         private void AssignTextureFromFile()
@@ -528,7 +719,29 @@ namespace ForzaStudio
             {
                 return this.FindArchiveSource(source) != null;
             }
+            if (source.StartsWith(SharedPrefix))
+            {
+                ForzaZip shared = this.SharedZip;
+                return shared != null && shared.Find(source.Substring(SharedPrefix.Length)) != null;
+            }
             return File.Exists(source);
+        }
+
+        // The game folder's Media\cars\Shared.zip, or null.
+        private ForzaZip SharedZip
+        {
+            get
+            {
+                string path = ShaderTextures.For(this.GameRoot).SharedZipPath;
+                try
+                {
+                    return (path != null && File.Exists(path)) ? GamePaths.OpenZip(path) : null;
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
         }
 
         private void ApplyTextures()
@@ -538,9 +751,12 @@ namespace ForzaStudio
                 return;
             }
             this.scene.ClearTextures();
-            foreach (KeyValuePair<ForzaMesh, string> pair in this.meshTextures)
+            if (this.btnTextures.Checked)
             {
-                this.scene.SetMeshTexture(pair.Key, this.LoadPreview(pair.Value));
+                foreach (KeyValuePair<ForzaMesh, string> pair in this.meshTextures)
+                {
+                    this.scene.SetMeshTexture(pair.Key, this.LoadPreview(pair.Value));
+                }
             }
             this.scene.Update(true);
         }
@@ -559,11 +775,19 @@ namespace ForzaStudio
             this.previewCache.Clear();
         }
 
-        // Decodes a texture source into the bitmap shown on the model (null if it cannot be read).
         private Bitmap LoadPreview(string source)
         {
+            return this.LoadPreview(source, false);
+        }
+
+        // Decodes a texture source into the bitmap shown on the model (null if it cannot be read; quiet:
+        // no message, for the automatic textures).
+        private Bitmap LoadPreview(string source, bool quiet)
+        {
             Bitmap preview;
-            string key = source.StartsWith(ArchivePrefix) ? (ArchivePrefix + this.ModelFolder + source.Substring(ArchivePrefix.Length)) : source;
+            string key = source.StartsWith(ArchivePrefix) ? (ArchivePrefix + this.ModelFolder + source.Substring(ArchivePrefix.Length))
+                : source.StartsWith(SharedPrefix) ? (SharedPrefix + ShaderTextures.For(this.GameRoot).SharedZipPath + "|" + source.Substring(SharedPrefix.Length))
+                : source;
             if (this.previewCache.TryGetValue(key, out preview))
             {
                 return preview;
@@ -576,6 +800,11 @@ namespace ForzaStudio
                     ForzaZip.Entry entry = this.FindArchiveSource(source);
                     byte[] data = this.zip.Read(entry);
                     image = entry.Name.EndsWith(".tga", StringComparison.OrdinalIgnoreCase) ? new TgaImage(data).ToBitmap() : new XdsTexture(data).GetLevelBitmap(0);
+                }
+                else if (source.StartsWith(SharedPrefix))
+                {
+                    ForzaZip shared = this.SharedZip;
+                    image = new XdsTexture(shared.Read(shared.Find(source.Substring(SharedPrefix.Length)))).GetLevelBitmap(0);
                 }
                 else if (source.EndsWith(".xds", StringComparison.OrdinalIgnoreCase))
                 {
@@ -602,7 +831,10 @@ namespace ForzaStudio
             }
             catch (Exception exception)
             {
-                MessageBox.Show(this, "Cannot load " + DisplaySource(source) + ":\n" + exception.Message, "Preview Texture", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                if (!quiet)
+                {
+                    MessageBox.Show(this, "Cannot load " + DisplaySource(source) + ":\n" + exception.Message, "Preview Texture", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                }
                 return null;
             }
         }

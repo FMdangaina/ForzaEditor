@@ -370,19 +370,18 @@ namespace ForzaStudio
             }
         }
 
-        // Wheel point (yellow cross), eye (cyan cross), the line between them and the eye's view
-        // (FOV 62, 16:9, 0.6 m deep) looking forward along the car.
         private void UpdateCameraOverlay()
         {
-            if (this.scene == null)
-            {
-                return;
-            }
+            this.UpdateViewOverlay();
+        }
+
+        // Wheel point (yellow cross), eye (cyan cross), the line between them and the eye's view
+        // (FOV 62, 16:9, 0.6 m deep) looking forward along the car. Drawn while the CAMERA tab is open.
+        private List<VertexPositionColor> CameraOverlayLines()
+        {
             if (this.camState == null || !this.chkCamShow.Checked || !this.camState.HasSteeringWheel)
             {
-                this.scene.Overlay = null;
-                this.scene.Update(true);
-                return;
+                return null;
             }
             Microsoft.Xna.Framework.Graphics.Color yellow = new Microsoft.Xna.Framework.Graphics.Color(255, 220, 40, 255);
             Microsoft.Xna.Framework.Graphics.Color cyan = new Microsoft.Xna.Framework.Graphics.Color(60, 220, 255, 255);
@@ -410,8 +409,7 @@ namespace ForzaStudio
                 lines.Add(new VertexPositionColor(corners[i], cyan));
                 lines.Add(new VertexPositionColor(corners[(i + 1) % 4], cyan));
             }
-            this.scene.Overlay = lines.ToArray();
-            this.scene.Update(true);
+            return lines;
         }
 
         // Toolbar menu: the viewer jumps to a game camera. The cockpit from the panel above; the garage,

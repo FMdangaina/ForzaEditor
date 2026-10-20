@@ -148,9 +148,9 @@ namespace ForzaStudio
             // Any name with "gls" in it is light glass (MapMaterial; user's rule 2026-10-18).
             // The number plate lamp (in the light sections): the most similar shader, reflector (74).
             map["numplate"] = "reflector";
-            // The plate itself, a quad in bumperFrameR / bumperFrameF: FM4 draws those sections with
-            // bumper_frame (325 and 331 cars).
-            map["numberplate"] = "bumper_frame";
+            // The plate itself (`numberplate`, a quad in bumperFrameR / bumperFrameF) is NOT mapped: FM4
+            // has no plate technique, so it stays red in the editor and the user picks the material by
+            // hand (user 2026-10-20: traffic cars need outside 3D work, nothing automatic here).
             // The gauge range marks of FH cockpits are named after their section; FM4's are gauge_needle (238 cars).
             foreach (string gauge in new string[] { "tach", "speed", "fuel" })
             {
@@ -351,8 +351,13 @@ namespace ForzaStudio
             // drivetrain another FM4 car already uses is FM4's own and stays as it is (FER_458Spider_12's
             // Enzo engine swap, EngineID 87, is used by 13 FM4 cars; copying it replaced their rows).
             List<long> engines = new List<long>();
+            this.RemoveSwaps();
             foreach (long engine in this.Ids("SELECT DISTINCT EngineID FROM List_UpgradeEngine WHERE Ordinal = ?"))
             {
+                if (this.Fixes.ContainsKey(SwapRemoveKey + engine.ToString(CultureInfo.InvariantCulture)))
+                {
+                    continue;
+                }
                 object media = this.source.Scalar("SELECT MediaName FROM Data_Engine WHERE EngineID = ?", engine);
                 object present = this.target.Scalar("SELECT MediaName FROM Data_Engine WHERE EngineID = ?", engine);
                 if (media == null)
@@ -427,6 +432,8 @@ namespace ForzaStudio
             }
             this.StockTires();
             this.DragTires();
+            this.AddSwaps();
+            this.GenericUpgrades();
             this.ReviewDatabase();
         }
 
@@ -1002,6 +1009,147 @@ namespace ForzaStudio
             this.Line("  tyres: no drag tyres in " + this.game + " -> FM4's 9 DragTire added as upgrade level {0}", level);
         }
 
+        // Engine swaps and drive type chosen in the port window's UPGRADES tab (user 2026-10-20), kept
+        // with the review's fixes so the trial, the install and the DLC pack all use them:
+        //   swapdel:<EngineID>  a swap of the source left out
+        //   swapadd:<EngineID>  an FM4 engine added as a swap (value: price)
+        //   drive               AWD / RWD / FWD / none: the conversion instead of Upgrades.ini's rule
+        public const string SwapRemoveKey = "swapdel:";
+        public const string SwapAddKey = "swapadd:";
+        public const string DriveKey = "drive";
+
+        // The source's swaps the user left out: their rows go before the engines are copied.
+        private void RemoveSwaps()
+        {
+            foreach (KeyValuePair<string, object> fix in this.Fixes)
+            {
+                long engine;
+                if (fix.Key.StartsWith(SwapRemoveKey, StringComparison.Ordinal)
+                    && long.TryParse(fix.Key.Substring(SwapRemoveKey.Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out engine))
+                {
+                    int removed = this.target.Execute("DELETE FROM List_UpgradeEngine WHERE Ordinal = ? AND EngineID = ? AND Level > 0", this.carId, engine);
+                    this.Line("  engine swap {0}: left out (port window){1}", engine, (removed == 0) ? ", not a swap of this car" : "");
+                }
+            }
+        }
+
+        // FM4 engines the user added as swaps: one List_UpgradeEngine row each, at the next level, mass
+        // and weight distribution as the game's own swaps (new - stock engine mass; +-0.3 of it over the
+        // curb weight for a front / other engine, as ArchiveEditorForm.AddEngineSwap), ManufacturerID =
+        // the car's make (FM4's swaps). Their parts and sound are FM4's, already there.
+        private void AddSwaps()
+        {
+            SqliteDatabase.Result stock = this.target.Query("SELECT * FROM List_UpgradeEngine WHERE Ordinal = ? AND Level = 0", this.carId);
+            if (stock.Rows.Count == 0)
+            {
+                return;
+            }
+            foreach (KeyValuePair<string, object> fix in this.Fixes)
+            {
+                long engine;
+                if (!fix.Key.StartsWith(SwapAddKey, StringComparison.Ordinal)
+                    || !long.TryParse(fix.Key.Substring(SwapAddKey.Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out engine))
+                {
+                    continue;
+                }
+                object name = this.target.Scalar("SELECT EngineName FROM Data_Engine WHERE EngineID = ?", engine);
+                if (name == null)
+                {
+                    this.Line("  engine swap {0}: not an FM4 engine, not added", engine);
+                    continue;
+                }
+                if (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_UpgradeEngine WHERE Ordinal = ? AND EngineID = ?", this.carId, engine)) > 0)
+                {
+                    this.Line("  engine swap {0} ({1}): the car has it already", engine, name);
+                    continue;
+                }
+                long level = Convert.ToInt64(this.target.Scalar("SELECT max(Level) FROM List_UpgradeEngine WHERE Ordinal = ?", this.carId)) + 1;
+                long id = (this.carId * 1000) + level;
+                while (Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM List_UpgradeEngine WHERE Id = ?", id)) > 0)
+                {
+                    id++;
+                }
+                object[] row = (object[]) stock.Rows[0].Clone();
+                double stockMass = ToDouble(this.target.Scalar("SELECT [EngineMass-kg] FROM Data_Engine WHERE EngineID = ?", row[Array.FindIndex(stock.Columns, delegate(string c) { return string.Equals(c, "EngineID", StringComparison.OrdinalIgnoreCase); })]));
+                double newMass = ToDouble(this.target.Scalar("SELECT [EngineMass-kg] FROM Data_Engine WHERE EngineID = ?", engine));
+                double curb = ToDouble(this.target.Scalar("SELECT CurbWeight FROM Data_Car WHERE Id = ?", this.carId));
+                object placement = this.target.Scalar("SELECT EnginePlacementID FROM Data_Car WHERE Id = ?", this.carId);
+                double massDiff = Math.Round(newMass - stockMass, 3);
+                double side = (placement != null && Convert.ToInt64(placement) == 1) ? 0.3 : -0.3;
+                object make = this.target.Scalar("SELECT MakeID FROM Data_Car WHERE Id = ?", this.carId);
+                long price = (fix.Value is long) ? (long) fix.Value : 6800;
+                for (int i = 0; i < stock.Columns.Length; i++)
+                {
+                    switch (stock.Columns[i].ToLowerInvariant())
+                    {
+                        case "id": row[i] = id; break;
+                        case "level": row[i] = level; break;
+                        case "engineid": row[i] = engine; break;
+                        case "isstock": row[i] = 0L; break;
+                        case "price": row[i] = price; break;
+                        case "massdiff": row[i] = massDiff; break;
+                        case "weightdistdiff": row[i] = (curb > 0) ? Math.Round(massDiff * side / (curb * 100), 6) : 0.0; break;
+                        case "manufacturerid": row[i] = (make != null) ? Convert.ToInt64(make) : 0L; break;
+                    }
+                }
+                string[] marks = new string[stock.Columns.Length];
+                string[] quoted = new string[stock.Columns.Length];
+                for (int i = 0; i < marks.Length; i++)
+                {
+                    marks[i] = "?";
+                    quoted[i] = SqliteDatabase.Quote(stock.Columns[i]);
+                }
+                this.target.Execute("INSERT INTO List_UpgradeEngine (" + string.Join(", ", quoted) + ") VALUES (" + string.Join(", ", marks) + ")", row);
+                this.Line("  engine swap {0} ({1}): added (port window), level {2}, mass {3:+0.#;-0.#;0} kg, {4} Cr", engine, name, level, massDiff, price);
+            }
+        }
+
+        private static double ToDouble(object value)
+        {
+            return (value == null || value is string) ? 0 : Convert.ToDouble(value, CultureInfo.InvariantCulture);
+        }
+
+        // Street / Sport / Race levels for the parts that have only the stock one, and the drive type
+        // conversion, by the rules of Upgrades.ini (CarUpgrades, ROADMAP 14.1f). By default only for
+        // traffic cars, by the car list's quick test (the close-up rebuild that sets this.traffic runs
+        // after the database).
+        private void GenericUpgrades()
+        {
+            List<string> notes = new List<string>();
+            CarUpgrades upgrades = new CarUpgrades(this.target, this.carId, CarUpgrades.LoadIni(notes));
+            foreach (string note in notes)
+            {
+                this.Line("{0}", note);
+            }
+            string sourcePath = GamePaths.FindCar(this.SourceRoot, this.MediaName);
+            bool traffic = sourcePath != null && sourcePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && HasPlaceholderCloseUp(sourcePath, this.MediaName);
+            object drive;
+            if (this.Fixes.TryGetValue(DriveKey, out drive) && drive is string)
+            {
+                upgrades.DriveOverride = (string) drive;
+            }
+            if (!upgrades.AppliesTo(traffic))
+            {
+                this.Line("upgrades: none generated ({0}: Cars rule, {1})", CarUpgrades.FileName, traffic ? "traffic car" : "not a traffic car");
+                if (upgrades.DriveOverride != null)
+                {
+                    upgrades.ApplyDrivetrainOnly();
+                }
+                else
+                {
+                    upgrades.RemoveOldConversions();
+                }
+            }
+            else
+            {
+                upgrades.Apply();
+            }
+            foreach (string line in upgrades.Lines)
+            {
+                this.Line("{0}", line);
+            }
+        }
+
         // Every "...ID" value in the rows of the car (and of its engine and drivetrain) that names
         // the key of a List_/Data_ table (first column of that name) must exist in FM4: the missing
         // rows come from FH2, and their own references after them (the P1's bumpers and wing point
@@ -1205,12 +1353,15 @@ namespace ForzaStudio
             }
             List<string> quoted = columns.ConvertAll<string>(delegate(string c) { return SqliteDatabase.Quote(c); });
             SqliteDatabase.Result rows = this.source.Query("SELECT " + string.Join(",", quoted.ToArray()) + " FROM " + SqliteDatabase.Quote(table) + " WHERE " + where);
+            // The target's rows go even when the source has none: a port over a car installed before
+            // must not keep rows that install generated (aspiration conversions, a drive type swap...;
+            // user 2026-10-20: reinstall did not take the new choices).
+            this.target.Execute("DELETE FROM " + SqliteDatabase.Quote(table) + " WHERE " + where);
             if (rows.Rows.Count == 0)
             {
                 return 0;
             }
             this.writtenRows.Add(new string[] { table, where });
-            this.target.Execute("DELETE FROM " + SqliteDatabase.Quote(table) + " WHERE " + where);
             string marks = string.Join(",", columns.ConvertAll<string>(delegate(string c) { return "?"; }).ToArray());
             string insert = "INSERT INTO " + SqliteDatabase.Quote(table) + " (" + string.Join(",", quoted.ToArray()) + ") VALUES (" + marks + ")";
             List<int> key = new List<int>();
@@ -1663,6 +1814,7 @@ namespace ForzaStudio
             ForzaZip from = new ForzaZip(sourcePath);
             ForzaZip donor = new ForzaZip(donorPath);
             ForzaZip car = ForzaZip.CreateLike(donor);
+            this.dropPlates = HasPlaceholderCloseUp(sourcePath, this.MediaName);
             this.donorFormat.Add("car zip: entry headers (zip versions, extra field, compression) of " + Path.GetFileName(donorPath));
             this.donorFormat.Add("zipmanifest.xml: the car zip's line modelled on the donor's");
             string prefix = this.MediaName.ToLowerInvariant();
@@ -1745,6 +1897,10 @@ namespace ForzaStudio
                     else
                     {
                         data = ConvertModel(data, name.EndsWith("_lod0.carbin"), this.Report, materials, this.MaterialFixes(), this.unknownMaterials);
+                        if (this.dropPlates)
+                        {
+                            data = this.DropMaterial(data, name, PlateMaterial);
+                        }
                         models++;
                     }
                 }
@@ -1768,6 +1924,12 @@ namespace ForzaStudio
                 }
                 car.Add(name, data);
             }
+            if (this.dropPlates)
+            {
+                this.unknownMaterials.Remove(PlateMaterial);    // gone from the models: nothing to review
+                materials.Remove(PlateMaterial);
+            }
+            this.AddSharedTextures(from, car);
             this.RebuildCloseUpModels(car, donor, prefix, donorPrefix, materials);
             this.ReplacePlaceholderBrakes(car, donor, prefix, donorPrefix);
             this.ReplacePlaceholderCollision(car, donor, prefix);
@@ -1792,6 +1954,123 @@ namespace ForzaStudio
             this.carZip = car;
             this.carZipPath = path;
             this.Line("car zip: {0} entries + port_log.txt, {1} models converted -> {2}", car.Entries.Count, models, this.Relative(path));
+        }
+
+        // FH traffic cars lose their number plate (material `numberplate`, a quad in bumperFrameF/R): FM4
+        // has no plate shader, it only stayed red / black and needed outside work (user 2026-10-20: "lo
+        // leviamo, non serve"). Decided by the car list's quick test (HasPlaceholderCloseUp), since the
+        // models are converted before the close-up rebuild sets this.traffic. A section left empty goes.
+        private const string PlateMaterial = "numberplate";
+        private bool dropPlates;
+
+        private byte[] DropMaterial(byte[] data, string file, string material)
+        {
+            CarbinModel model = new CarbinModel(data);
+            List<string> sections = new List<string>();
+            foreach (CarbinModel.Section section in model.Sections)
+            {
+                if (section.SubSections.Exists(delegate(CarbinModel.SubSection sub) { return string.Equals(sub.Name, material, StringComparison.OrdinalIgnoreCase); }))
+                {
+                    sections.Add(section.Name);
+                }
+            }
+            if (sections.Count == 0)
+            {
+                return data;
+            }
+            int removed = 0;
+            foreach (string section in sections)
+            {
+                removed += model.RemoveSubSections(section, material);
+            }
+            this.Line("  {0}: traffic car, number plate removed ({1} meshes in {2})", file, removed, string.Join(" ", sections.ToArray()));
+            return model.ToBytes();
+        }
+
+        // Colour textures the car's materials take from the source game's Media\cars\Shared.zip (its shaders and
+        // Shared.zip\textures.xml, ShaderTextures) that FM4's Shared.zip lacks go into the car zip, so
+        // the car carries them (user 2026-10-20: GMC_YukonXL_01's number plates,
+        // traffic_numplates_DXT1.xds, FH1 only). FM4's shaders do not read them from there: they are for
+        // the editor's preview and for later material work, not a change in game.
+        private void AddSharedTextures(ForzaZip from, ForzaZip car)
+        {
+            ShaderTextures source = ShaderTextures.For(this.SourceRoot);
+            ShaderTextures target = ShaderTextures.For(this.TargetRoot);
+            if (source.Problem != null || target.SharedZipPath == null || !File.Exists(target.SharedZipPath))
+            {
+                this.Line("  shared textures: not checked ({0})", source.Problem ?? "no FM4 Media\\cars\\Shared.zip");
+                return;
+            }
+            ForzaZip sourceShared = GamePaths.OpenZip(source.SharedZipPath);
+            ForzaZip targetShared = GamePaths.OpenZip(target.SharedZipPath);
+            SortedDictionary<string, List<string>> needed = new SortedDictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (ForzaZip.Entry entry in from.Entries)
+            {
+                string name = entry.Name.ToLowerInvariant();
+                if (!name.EndsWith(".carbin") || name.Contains("_caliper") || name.Contains("_rotor") || name.StartsWith("stripped_"))
+                {
+                    continue;   // stripped_*: FH2-only copies, not ported
+                }
+                ShaderTextures.Kind fileKind = name.EndsWith("_cockpit.carbin") ? ShaderTextures.Kind.Cockpit
+                    : name.EndsWith("_lod0.carbin") ? ShaderTextures.Kind.Lod0 : ShaderTextures.Kind.Main;
+                try
+                {
+                    using (ForzaCarBin bin = new ForzaCarBin(name, from.Read(entry)))
+                    {
+                        foreach (ForzaCarSection section in bin.Sections)
+                        {
+                            foreach (ForzaCarSubSection sub in section.SubSections)
+                            {
+                                if (this.dropPlates && string.Equals(sub.Name, PlateMaterial, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    continue;   // removed from the models (DropMaterial): no plate texture
+                                }
+                                ShaderTextures.Kind kind = (fileKind == ShaderTextures.Kind.Main && sub.Lod == 0) ? ShaderTextures.Kind.Lod0 : fileKind;
+                                // Only a material's own colour texture: FH1's `body` reads the plates too
+                                // (a switch the traffic cars turn on), so every FH1 car would carry them;
+                                // `numberplate` draws with them (user 2026-10-20: only cars with a
+                                // material that fits).
+                                List<ShaderTextures.Texture> colours = source.ColourTextures(sub.Name, kind);
+                                foreach (ShaderTextures.Texture texture in colours.GetRange(0, Math.Min(1, colours.Count)))
+                                {
+                                    if (texture.Where != ShaderTextures.Place.Shared)
+                                    {
+                                        continue;
+                                    }
+                                    List<string> users;
+                                    if (!needed.TryGetValue(texture.File, out users))
+                                    {
+                                        needed[texture.File] = users = new List<string>();
+                                    }
+                                    if (!users.Contains(sub.Name))
+                                    {
+                                        users.Add(sub.Name);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    this.Line("  shared textures: {0} not read ({1})", name, ex.Message);
+                }
+            }
+            foreach (KeyValuePair<string, List<string>> pair in needed)
+            {
+                ForzaZip.Entry file = sourceShared.Find(pair.Key);
+                if (targetShared.Find(pair.Key) != null || file == null || car.Find(pair.Key.ToLowerInvariant()) != null)
+                {
+                    continue;
+                }
+                byte[] data = sourceShared.Read(file);
+                if (this.motorsport3)
+                {
+                    data = ConvertMotorsport3Texture(data, pair.Key.ToLowerInvariant());
+                }
+                car.Add(pair.Key.ToLowerInvariant(), data);
+                this.Line("  shared texture {0}: not in FM4's Shared.zip, copied from {1}'s into the car zip (used by {2})", pair.Key, this.game, string.Join(", ", pair.Value.ToArray()));
+            }
         }
 
         // The collision (physics/maxdata.xml: a bevelled box and spheres; Flags 2 = body, 1 = contact
@@ -1847,6 +2126,47 @@ namespace ForzaStudio
             double maxY = b[1] + b[7] - 0.010;
             double maxZ = -(b[2] + b[5]) + 0.096;    // model Z backward
             double minZ = -(b[2] + b[8]) - 0.046;
+            // Front and rear from the whole LOD 1 mesh (vertices, all parts): an FH traffic body holds
+            // the bumpers too (GMC_YukonXL_01), so the body rule above put the box and the spheres
+            // ~0.2 m past both ends (seen in the collision view, user 2026-10-19). The collision's Z is
+            // measured from the wheelbase centre (Misc/BottomCenterWheelbasePos z = the middle of the DB
+            // wheels' Z): with it FM4's ends spread half as much (314 cars, fm4dev\Traffic\tools\colsurvey)
+            // and the Yukon (z 0.188) stopped short at the front and went into a wall at the back
+            // (user 2026-10-20). FM4 medians, model axes: box front = mesh front - 0.127, rear = mesh
+            // rear + 0.045; body spheres front = mesh front - 0.092, rear = mesh rear - 0.003. The rear is
+            // then pulled in 0.05 m more and the front pushed out 0.05 m (box and spheres), tuned in game
+            // on the Yukon against walls (user 2026-10-20, "quasi perfetta"). Final rule, Z forward from
+            // the wheelbase centre: box front = mesh front - 0.077, rear = mesh rear + 0.095; body
+            // spheres front = mesh front - 0.042, rear = mesh rear + 0.047.
+            const double RearIn = 0.05;
+            const double FrontOut = 0.05;
+            XmlElement wheelbase = (XmlElement) own.SelectSingleNode("/MAXData/Misc/BottomCenterWheelbasePos");
+            double centreZ = (wheelbase != null && wheelbase.HasAttribute("z")) ? Attribute(wheelbase, "z") : 0;
+            double meshFront = double.MinValue, meshRear = double.MaxValue;
+            using (ForzaCarBin bin = new ForzaCarBin(prefix, car.Read(main)))
+            {
+                foreach (ForzaCarSection section in bin.Sections)
+                {
+                    foreach (ForzaCarSubSection sub in section.SubSections)
+                    {
+                        if (sub.Lod != 1)
+                        {
+                            continue;
+                        }
+                        foreach (int i in sub.Indices)
+                        {
+                            double z = -sub.Vertices[i].position.Z;
+                            meshFront = Math.Max(meshFront, z);
+                            meshRear = Math.Min(meshRear, z);
+                        }
+                    }
+                }
+            }
+            if (meshFront > meshRear)
+            {
+                maxZ = meshFront - 0.127 + FrontOut - centreZ;
+                minZ = meshRear + 0.045 + RearIn - centreZ;
+            }
             double width = 2 * maxX, length = maxZ - minZ;
 
             XmlDocument theirs = new XmlDocument();
@@ -1886,6 +2206,10 @@ namespace ForzaStudio
                 SetAttribute(copy, "Radius", Attribute(sphere, "Radius") * Math.Min(sx, sy));
                 spheres.AppendChild(copy);
             }
+            if (meshFront > meshRear)
+            {
+                StretchSpheresZ(spheres, meshFront - 0.092 + FrontOut - centreZ, meshRear - 0.003 + RearIn - centreZ);
+            }
             int filled = FillSphereGaps(own, spheres);
             StringBuilder text = new StringBuilder();
             using (XmlWriter writer = XmlWriter.Create(text, new XmlWriterSettings { Indent = true, IndentChars = "  ", OmitXmlDeclaration = true }))
@@ -1898,6 +2222,53 @@ namespace ForzaStudio
             if (filled > 0)
             {
                 this.Line("  collision: {0} spheres added between the side spheres the stretch left apart ({1} in all; FM4 cars have at most 39, more is untested)", filled, spheres.ChildNodes.Count);
+            }
+        }
+
+        // FM4's body spheres (Flags 2) end near the mesh ends (314 cars, medians: front surface = mesh
+        // front - 0.092, rear = mesh rear - 0.003, wheelbase-centre axes; colsurvey). The donor's spheres, fitted to the box,
+        // fall short of that (GMC_YukonXL_01: 0.23 / 0.14 m inside): their centres are moved along Z,
+        // linearly, so the outermost surfaces land there. Radii stay; contact points move with them.
+        private static void StretchSpheresZ(XmlElement spheres, double front, double rear)
+        {
+            List<XmlElement> all = new List<XmlElement>();
+            foreach (XmlNode node in spheres.ChildNodes)
+            {
+                if (node is XmlElement)
+                {
+                    all.Add((XmlElement) node);
+                }
+            }
+            XmlElement first = null, last = null;
+            foreach (XmlElement s in all)
+            {
+                if (s.GetAttribute("Flags") != "2")
+                {
+                    continue;
+                }
+                if (first == null || Attribute(s, "PosZ") + Attribute(s, "Radius") > Attribute(first, "PosZ") + Attribute(first, "Radius"))
+                {
+                    first = s;
+                }
+                if (last == null || Attribute(s, "PosZ") - Attribute(s, "Radius") < Attribute(last, "PosZ") - Attribute(last, "Radius"))
+                {
+                    last = s;
+                }
+            }
+            if (first == null || first == last)
+            {
+                return;
+            }
+            double z1 = Attribute(first, "PosZ"), z0 = Attribute(last, "PosZ");
+            double t1 = front - Attribute(first, "Radius"), t0 = rear + Attribute(last, "Radius");
+            if (z1 - z0 < 0.01 || t1 <= t0)
+            {
+                return;
+            }
+            double a = (t1 - t0) / (z1 - z0);
+            foreach (XmlElement s in all)
+            {
+                SetAttribute(s, "PosZ", t0 + ((Attribute(s, "PosZ") - z0) * a));
             }
         }
 
@@ -3371,7 +3742,7 @@ namespace ForzaStudio
         // The _cockpit.carbin header holds the driver rig, big-endian floats in model axes (decoded on the 313
         // FM4 cockpits, 2026-10-17):
         //   0x1C8..0x218  three left/right pairs of hand grips (vec4 each, w 0): on the rim circle 20 degrees
-        //                 above the centre, at 1.0, 0.824 and 0.913 of the wheel's half width (x within 1 cm)
+        //                 above the centre, on the rim's outer edge, inner edge and tube middle (GripRadii)
         //   0x228         the steering wheel pivot: the steering_wheel origin (x exact, y/z within 1-4 cm)
         //   0x238         the wheel axis: the normal of the wheel's plane, pointing back (0.8 degrees median)
         //   0x248, 0x258  two points (0x258 on the centre console: the shifter, mirrored with the wheel side)
@@ -3381,13 +3752,22 @@ namespace ForzaStudio
         // cockpit file turned in place, its wheel section alone did not; checked by the user 2026-10-17).
         // When the pivot is 0,0,0: pivot, axis and grips come from the steering_wheel geometry, the other
         // records from the donor's cockpit relative to its wheel (x mirrored when the wheels sit on opposite
-        // sides).
+        // sides). The same when the pivot is not on the car's own wheel: a source without a _cockpit file gets
+        // the donor's header, whose rig belongs to the donor's wheel (FOR_FocusZX4_05 left-hand drive with the
+        // right-hand drive Fiesta 09 / Supra RZ 98 pivot: the wheel swung over the roof, user 2026-10-20). The
+        // side is the sign of the steering_wheel x: on 312 of 313 FM4 cockpits the pivot x has the same sign
+        // (McLaren F1 GTR centred), x < 0 = left (233), > 0 = right (80) (fm4dev\Traffic\tools\drivesurvey).
         private const int RigGrips = 0x1C8;
         private const int RigPivot = 0x228;
         private const int RigAxis = 0x238;
         private const int RigRest = 0x248;
         private const int RigEnd = 0x300;
-        private static readonly float[] GripRadii = { 1.0f, 0.824f, 0.913f };
+        // Grip radii against the measured rim (289 FM4 cockpits, fm4dev\Traffic\tools\handsurvey, medians):
+        // outer edge x 0.995, inner edge x 1.083, tube middle x 1.031. Rim = vertices beyond 75% of the
+        // largest radius about the pivot, in the wheel's plane.
+        private static readonly float[] GripRadii = { 0.995f, 1.083f, 1.031f };
+        // FM4's grips sit 20 degrees above the centre (median and quartiles, 289 cockpits); the user first
+        // asked for 9:15 (0), then chose FM4's standard (2026-10-20).
         private const double GripAngle = 20.0 * Math.PI / 180.0;
 
         private void CockpitRig(ForzaZip car, ForzaZip donor, string prefix, string donorPrefix)
@@ -3399,22 +3779,37 @@ namespace ForzaStudio
             }
             CarbinModel cockpit = new CarbinModel(car.Read(entry));
             CarbinModel.Section wheel = cockpit.Find("steering_wheel");
-            if (wheel == null || cockpit.Head.Length < RigEnd || RigVector(cockpit.Head, RigPivot) != Microsoft.Xna.Framework.Vector3.Zero)
+            if (wheel == null || cockpit.Head.Length < RigEnd)
             {
                 return;
             }
             Microsoft.Xna.Framework.Vector3 pivot = new Microsoft.Xna.Framework.Vector3(wheel.Bounds[0], wheel.Bounds[1], wheel.Bounds[2]);
+            Microsoft.Xna.Framework.Vector3 old = RigVector(cockpit.Head, RigPivot);
+            string reason;
+            if (old == Microsoft.Xna.Framework.Vector3.Zero)
+            {
+                reason = "driver rig in the header was empty (wheel pivot 0,0,0)";
+            }
+            else if (Math.Abs(old.X - pivot.X) > RigOffWheel || Microsoft.Xna.Framework.Vector3.Distance(old, pivot) > RigOffWheelFar)
+            {
+                reason = string.Format(CultureInfo.InvariantCulture, "driver rig in the header is not on this car's steering wheel (pivot {0:F4}, {1:F4}, {2:F4}, {3} drive; wheel at x {4:F4}, {5} drive)", old.X, old.Y, old.Z, DriveSide(old.X), pivot.X, DriveSide(pivot.X));
+            }
+            else
+            {
+                return;
+            }
             Microsoft.Xna.Framework.Vector3 axis = WheelNormal(wheel);
             Microsoft.Xna.Framework.Vector3 up = Microsoft.Xna.Framework.Vector3.Normalize(Microsoft.Xna.Framework.Vector3.Cross(axis, Microsoft.Xna.Framework.Vector3.UnitX));
             if (up.Y < 0)
             {
                 up = -up;
             }
-            float half = wheel.Bounds[6];
+            float[] rim = RimRadii(wheel, pivot, axis, up);
+            float[] radii = { rim[0], rim[1], (rim[0] + rim[1]) / 2 };
             for (int g = 0; g < GripRadii.Length; g++)
             {
-                float across = (float) (GripRadii[g] * half * Math.Cos(GripAngle));
-                float above = (float) (GripRadii[g] * half * Math.Sin(GripAngle));
+                float across = (float) (GripRadii[g] * radii[g] * Math.Cos(GripAngle));
+                float above = (float) (GripRadii[g] * radii[g] * Math.Sin(GripAngle));
                 WriteRigVector(cockpit.Head, RigGrips + (g * 32), pivot + (across * Microsoft.Xna.Framework.Vector3.UnitX) + (above * up));
                 WriteRigVector(cockpit.Head, RigGrips + (g * 32) + 16, pivot - (across * Microsoft.Xna.Framework.Vector3.UnitX) + (above * up));
             }
@@ -3458,7 +3853,43 @@ namespace ForzaStudio
                 this.donorContent.Add(entry.Name + ": cockpit rig points but the wheel and grips (shifter, eye-level records), the donor's moved to the wheel");
             }
             car.Replace(entry, cockpit.ToBytes());
-            this.Line("  {0}: driver rig in the header was empty (wheel pivot 0,0,0): pivot {1:F4}, {2:F4}, {3:F4}, axis {4:F4}, {5:F4}, {6:F4}, hand grips from the wheel; other points {7}", entry.Name, pivot.X, pivot.Y, pivot.Z, axis.X, axis.Y, axis.Z, rest);
+            this.Line("  {0}: {1}: pivot {2:F4}, {3:F4}, {4:F4}, axis {5:F4}, {6:F4}, {7:F4}, hand grips from the wheel; other points {8}", entry.Name, reason, pivot.X, pivot.Y, pivot.Z, axis.X, axis.Y, axis.Z, rest);
+        }
+
+        // An FM4 pivot sits on the steering_wheel origin: x exact, y / z within 1-4 cm.
+        private const float RigOffWheel = 0.03f;
+        private const float RigOffWheelFar = 0.15f;
+
+        private static string DriveSide(float x)
+        {
+            return (Math.Abs(x) < 0.05f) ? "centre" : ((x < 0) ? "left-hand" : "right-hand");
+        }
+
+        // Outer and inner radius of the rim about the pivot, in the wheel's plane (x and up).
+        private static float[] RimRadii(CarbinModel.Section wheel, Microsoft.Xna.Framework.Vector3 pivot, Microsoft.Xna.Framework.Vector3 axis, Microsoft.Xna.Framework.Vector3 up)
+        {
+            CarbinModel.VertexBuffer buffer = (wheel.Lod0.Count > 0) ? wheel.Lod0 : wheel.Lod;
+            double[] p = CarbinModel.Positions(wheel, buffer);
+            List<double> radii = new List<double>();
+            double outer = 0;
+            for (int i = 0; i < buffer.Count; i++)
+            {
+                Microsoft.Xna.Framework.Vector3 d = new Microsoft.Xna.Framework.Vector3((float) p[i * 3], (float) p[(i * 3) + 1], (float) p[(i * 3) + 2]) - pivot;
+                double u = d.X;
+                double v = Microsoft.Xna.Framework.Vector3.Dot(d, up);
+                double r = Math.Sqrt((u * u) + (v * v));
+                radii.Add(r);
+                outer = Math.Max(outer, r);
+            }
+            double inner = outer;
+            foreach (double r in radii)
+            {
+                if (r >= 0.75 * outer)
+                {
+                    inner = Math.Min(inner, r);
+                }
+            }
+            return new float[] { (float) outer, (float) inner };
         }
 
         // The normal of the wheel's plane (smallest axis of its vertex spread), pointing back (+z).
@@ -3534,8 +3965,16 @@ namespace ForzaStudio
         // z 0.404..0.454 for 80%). FH traffic cars have values unrelated to their wheel (GMC_YukonXL_01:
         // 0.083, -0.420, 0.394 for a wheel at x -0.428): no hands in view; with the offset rebuilt they
         // showed at the wheel (user, 2026-10-17; the wheel's own turning comes from CockpitRig). When x is
-        // more than 3 cm off the wheel, the offset is rebuilt from the wheel.
+        // more than 3 cm off the wheel, the offset is rebuilt from the wheel. On a traffic car y and z count
+        // too: FOR_FocusZX4_05 and FOR_F350SuperDuty_08 share -0.359, 0.390, -0.019, a placeholder whose x
+        // fell within 3 cm of the Focus wheel while y sat 6 cm off FM4's rule; the hands showed as black blobs
+        // up by the windscreen (user, 2026-10-20). Measured from the rig pivot instead (289 FM4 cars,
+        // handsurvey) the offset is (0, -0.402, 0.410), within 1 cm for half of them: FM4's pivot sits 1.4 cm
+        // behind the origin, a rebuilt pivot on it, so the origin rule left rebuilt hands 1.5 cm off (user saw
+        // the hand's grip hole beside the rim, 2026-10-20). The origin rule stays for a cockpit with no pivot.
         private static readonly Microsoft.Xna.Framework.Vector3 HandsFromWheel = new Microsoft.Xna.Framework.Vector3(0f, -0.403f, 0.425f);
+        private static readonly Microsoft.Xna.Framework.Vector3 HandsFromPivot = new Microsoft.Xna.Framework.Vector3(0f, -0.402f, 0.410f);
+        private const float HandsOffWheel = 0.03f;
 
         private void DriverHandsFromSteeringWheel(ForzaZip car, string prefix)
         {
@@ -3545,22 +3984,35 @@ namespace ForzaStudio
             {
                 return;
             }
-            CarbinModel.Section wheel = new CarbinModel(car.Read(cockpit)).Find("steering_wheel");
+            CarbinModel model = new CarbinModel(car.Read(cockpit));
+            CarbinModel.Section wheel = model.Find("steering_wheel");
             if (wheel == null)
             {
                 return;
             }
+            Microsoft.Xna.Framework.Vector3 pivot = (model.Head.Length >= RigEnd) ? RigVector(model.Head, RigPivot) : Microsoft.Xna.Framework.Vector3.Zero;
             string text = Encoding.UTF8.GetString(car.Read(attributes));
             Match match = Regex.Match(text, "<DriverHandsOffset value\\.x=\"([^\"]*)\" value\\.y=\"([^\"]*)\" value\\.z=\"([^\"]*)\"");
-            float x;
-            if (!match.Success || !float.TryParse(match.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out x) || Math.Abs(x - wheel.Bounds[0]) <= 0.03f)
+            float x, y, z;
+            if (!match.Success || !float.TryParse(match.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out x)
+                || !float.TryParse(match.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out y)
+                || !float.TryParse(match.Groups[3].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out z))
             {
                 return;
             }
-            Microsoft.Xna.Framework.Vector3 hands = new Microsoft.Xna.Framework.Vector3(wheel.Bounds[0], wheel.Bounds[1], wheel.Bounds[2]) + HandsFromWheel;
+            Microsoft.Xna.Framework.Vector3 hands = (pivot != Microsoft.Xna.Framework.Vector3.Zero) ? pivot + HandsFromPivot : new Microsoft.Xna.Framework.Vector3(wheel.Bounds[0], wheel.Bounds[1], wheel.Bounds[2]) + HandsFromWheel;
+            bool off = Math.Abs(x - hands.X) > HandsOffWheel;
+            if (this.traffic)
+            {
+                off |= Math.Abs(y - hands.Y) > HandsOffWheel || Math.Abs(z - hands.Z) > HandsOffWheel;
+            }
+            if (!off)
+            {
+                return;
+            }
             string values = string.Format(CultureInfo.InvariantCulture, "<DriverHandsOffset value.x=\"{0:F6}\" value.y=\"{1:F6}\" value.z=\"{2:F6}\"", hands.X, hands.Y, hands.Z);
             car.Replace(attributes, Encoding.UTF8.GetBytes(text.Substring(0, match.Index) + values + text.Substring(match.Index + match.Length)));
-            this.Line("  carattribs DriverHandsOffset {0}, {1}, {2} is not at the steering wheel (x {3:F6}): now {4:F6}, {5:F6}, {6:F6} (wheel origin + FM4's median offset)", match.Groups[1].Value, match.Groups[2].Value, match.Groups[3].Value, wheel.Bounds[0], hands.X, hands.Y, hands.Z);
+            this.Line("  carattribs DriverHandsOffset {0}, {1}, {2} is not at the steering wheel ({3:F6}, {7:F6}, {8:F6}): now {4:F6}, {5:F6}, {6:F6} ({9} + FM4's median offset)", match.Groups[1].Value, match.Groups[2].Value, match.Groups[3].Value, wheel.Bounds[0], hands.X, hands.Y, hands.Z, wheel.Bounds[1], wheel.Bounds[2], (pivot != Microsoft.Xna.Framework.Vector3.Zero) ? "rig pivot" : "wheel origin");
         }
 
         // FH traffic models carry a low-poly driver merged into the driver's seat: seatL has 594-926 LOD 1

@@ -113,9 +113,10 @@ namespace ForzaStudio
                 CopyForConsole(packageFolder, stage, report);
                 string id = StfsPackage.Write(stage, temp, uint.Parse(TitleId, NumberStyles.HexNumber, CultureInfo.InvariantCulture), 2, name,
                     "Forza Studio DLC pack", "Forza Motorsport 4", thumbnail);
-                string folder = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.Combine(output, "Content"), "0000000000000000"), TitleId), "00000002"), string.Empty);
-                Directory.CreateDirectory(folder);
-                string file = Path.Combine(folder, id);
+                // Straight into the folder the user chose: no Content\0000000000000000\<title>\00000002
+                // tree (user 2026-10-20); the file name is the content id, as the console wants it.
+                Directory.CreateDirectory(output);
+                string file = Path.Combine(output, id);
                 if (File.Exists(file))
                 {
                     File.Delete(file);

@@ -20,7 +20,7 @@ namespace ForzaStudio
     // (every car ported in turn into one trial folder, each starting from the one before, so their ids
     // and string keys never clash; each car's review is shown when it is selected in the pack), then
     // build the package straight into Xenia's content folder. The pack is kept in the settings.
-    internal class CarPortForm : Form
+    internal partial class CarPortForm : Form
     {
         private readonly TextBox packName;
         private readonly Label packOfferLabel;
@@ -119,7 +119,25 @@ namespace ForzaStudio
             }
         }
 
+        // Whether the main window has edits not saved yet: an install or uninstall rewrites the same
+        // files (gamedb.slt, zips), so it waits until they are saved or discarded.
+        public delegate bool UnsavedCheck();
+
+        public UnsavedCheck MainWindowUnsaved;
+
+        // After an install or uninstall: the main window reloads what it shows of the game.
+        public event EventHandler GameChanged;
+
+        private Button lastBrowse;
+
         public CarPortForm()
+            : this(null)
+        {
+        }
+
+        // target: the FM4 folder open in the main window; the port then works on that one only (the
+        // box is locked), so a car never goes into another FM4 copy by mistake (user 2026-10-20).
+        public CarPortForm(string target)
         {
             this.Text = "Port Car From Another Forza";
             this.Size = new Size(1360, 900);
@@ -163,7 +181,13 @@ namespace ForzaStudio
             folders.Height = 74;
             folders.Width = this.ClientSize.Width;
             this.sourceBox = FolderRow(folders, "Source (FH, FH2, FM3, DLC):", 10, AppSettings.Get("CarPort.Source", ""), true);
-            this.targetBox = FolderRow(folders, "Forza Motorsport 4:", 42, AppSettings.Get("CarPort.Target", ""), false);
+            this.targetBox = FolderRow(folders, "Forza Motorsport 4:", 42, target ?? AppSettings.Get("CarPort.Target", ""), false);
+            if (target != null)
+            {
+                this.targetBox.ReadOnly = true;
+                this.lastBrowse.Enabled = false;
+                new ToolTip().SetToolTip(this.targetBox, "The FM4 folder open in the main window. Open another one there to port into it.");
+            }
             this.load = new Button();
             this.load.Text = "Load Cars";
             this.load.Size = new Size(110, 56);
@@ -490,6 +514,8 @@ namespace ForzaStudio
             this.reviewPage.Controls.Add(this.reviewPanel);
             this.bottomTabs.TabPages.Add(reportPage);
             this.bottomTabs.TabPages.Add(this.reviewPage);
+            this.BuildUpgradesPage();
+            this.bottomTabs.TabPages.Add(this.upgradesPage);
 
             // Cars | pack above, report / review below.
             SplitContainer top = new SplitContainer();
@@ -709,6 +735,7 @@ namespace ForzaStudio
             parent.Controls.Add(label);
             parent.Controls.Add(box);
             parent.Controls.Add(browse);
+            this.lastBrowse = browse;
             if (packages)
             {
                 Button file = new Button();
@@ -1014,6 +1041,10 @@ namespace ForzaStudio
             {
                 this.ShowReview(entry.Car.MediaName, entry.Issues, entry.Applied);
             }
+            if (entry != null)
+            {
+                this.ShowUpgrades(entry.Car);
+            }
             this.UpdateButtons();
         }
 
@@ -1203,7 +1234,7 @@ namespace ForzaStudio
                     {
                         this.report.Text += "\r\nbuilt " + package + "\r\n";
                         this.UpdatePackInfo();
-                        this.packStatus.Text = string.Format("\"{0}\" is in Xenia ({1} cars). Start FM4 from {2}: the cars are with their makes.", name, this.pack.Count, target);
+                        this.packStatus.Text = string.Format("\"{0}\" is in the Xenia folder ({1} cars): {2}. Start FM4 from {3}: the cars are with their makes.", name, this.pack.Count, package, target);
                     }
                     this.report.SelectionStart = this.report.TextLength;
                     this.report.ScrollToCaret();
@@ -1242,8 +1273,8 @@ namespace ForzaStudio
         }
 
         // The pack as an Xbox 360 package (STFS file) for a modded console: built in a temporary folder
-        // like the Xenia one (same offer), then packed into <chosen folder>\Content\0000000000000000\
-        // 4D530910\00000002\<content id>, to copy to the console's Hdd1:\ by FTP.
+        // like the Xenia one (same offer), then packed into <chosen folder>\<content id>, to copy to the
+        // console (Hdd1:\Content\0000000000000000\4D530910\00000002\) by FTP.
         private void BuildXbox()
         {
             string trial = this.packTrialFolder;
@@ -1253,10 +1284,11 @@ namespace ForzaStudio
             {
                 return;
             }
+            // The user picks the folder; the package file goes straight into it (user 2026-10-20).
             string output;
             using (FolderBrowserDialog dialog = new FolderBrowserDialog())
             {
-                dialog.Description = "Folder for the Xbox 360 package (a Content folder is made in it, to copy to the console's Hdd1:\\)";
+                dialog.Description = "Folder for the Xbox 360 package file (saved directly in it)";
                 string last = AppSettings.Get("CarPort.XboxOut", "");
                 if (Directory.Exists(last))
                 {
@@ -1318,7 +1350,8 @@ namespace ForzaStudio
                     }
                     else
                     {
-                        this.packStatus.Text = string.Format("Xbox 360 package ready: copy the Content folder in {0} to the console's Hdd1:\\ (FTP).", output);
+                        this.packStatus.Text = string.Format("Xbox 360 package saved: {0}. On the console it goes in Hdd1:\\Content\\0000000000000000\\4D530910\\00000002\\ (FTP).", file);
+                        this.report.Text += "\r\nXbox 360 package: " + file + "\r\n";
                         Process.Start("explorer.exe", "/select,\"" + file + "\"");
                     }
                     this.report.SelectionStart = this.report.TextLength;
@@ -1792,6 +1825,7 @@ namespace ForzaStudio
             {
                 this.reviewPanel.Visible = false;   // the fixes stay kept for that car
             }
+            this.ShowUpgrades(car);
             if (car == null)
             {
                 this.UpdateButtons();
@@ -1848,7 +1882,14 @@ namespace ForzaStudio
         {
             Car car = this.SelectedCar;
             DonorChoice donor = this.donors.SelectedItem as DonorChoice;
-            if (car == null || donor == null)
+            if (car == null || donor == null || (installing && this.MainWindowBusy()))
+            {
+                return;
+            }
+            // A pack car installed in Xenia wins over the FM4 folder: its merge database is read on top
+            // of gamedb.slt (user 2026-10-20: the Focus kept the swaps of pack 91 after a reinstall).
+            if (installing && this.FindEntry(car.MediaName) != null && MessageBox.Show(this, string.Format("{0} is also in the DLC pack \"{1}\". If that pack is in Xenia, the game uses the pack's version of the car (its database rows: swaps, upgrades...), not this install.\n\nRemove the pack from Xenia, or build it again with these choices.\n\nInstall anyway?",
+                car.Name, this.packName.Text.Trim()), this.Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
             {
                 return;
             }
@@ -1933,6 +1974,7 @@ namespace ForzaStudio
                     this.report.ScrollToCaret();
                     if (installing && error == null)
                     {
+                        this.OnGameChanged();
                         car.State = Status.Ported;
                         car.Note = "ported (install updates it)";
                         foreach (ListViewItem item in this.items)
@@ -1953,7 +1995,7 @@ namespace ForzaStudio
         private void Uninstall()
         {
             Car car = this.SelectedCar;
-            if (car == null || car.State != Status.Ported)
+            if (car == null || car.State != Status.Ported || this.MainWindowBusy())
             {
                 return;
             }
@@ -1998,10 +2040,30 @@ namespace ForzaStudio
                                 }
                             }
                             this.details.Text = car.Name + " is out of the FM4 folder: it can go into a DLC pack now.";
+                            this.OnGameChanged();
                         };
                     });
                 };
             });
+        }
+
+        private bool MainWindowBusy()
+        {
+            if (this.MainWindowUnsaved == null || !this.MainWindowUnsaved())
+            {
+                return false;
+            }
+            MessageBox.Show(this, "The main window has changes not saved yet in this FM4 folder. Save or discard them there first: the install / uninstall rewrites the same files.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return true;
+        }
+
+        private void OnGameChanged()
+        {
+            this.ForgetGameDbs();
+            if (this.GameChanged != null)
+            {
+                this.GameChanged(this, EventArgs.Empty);
+            }
         }
 
         // The issues of the last run of this car, each row preset to the fix chosen before (or the

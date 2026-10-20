@@ -16,6 +16,12 @@ Creato pack auto traffic. - per controllare va fatto punto che prende dai dlc e 
 
 ps. portare tutte le settings su INI chiari e precisi.    
 
+Progetto materiali WIP (2026-10-19), su un progetto a parte:
+    -decodifica semplice e di base degli shader del gioco e resa simile a quella in gioco, per avere un'anteprima fedele.
+    -sostituisce ROADMAP 3k (materiali luci posteriori nelle parti anteriori) e fa rivedere 4.1 (somiglianze tra shader).
+    -interni troppo scuri delle traffic car: non sistemato, forse dipende da questo.
+    -collegato a ROADMAP 14.1e.2 (modello già texturizzato con i suoi .xds) e 13.2.
+
 
 
 

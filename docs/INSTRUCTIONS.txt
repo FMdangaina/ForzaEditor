@@ -38,7 +38,6 @@ Keep the files together: do not move ForzaEditor.exe out of its folder.
 
 Forza Studio writes only inside its own folder:
 - settings.txt   your folders and options
-- materials.txt  texture previews chosen per material
 - bak\           a copy of every file before it is overwritten
 Car port trials go to %TEMP%\ForzaStudio\CarPort (they can be deleted).
 

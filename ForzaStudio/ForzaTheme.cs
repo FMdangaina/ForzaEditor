@@ -453,16 +453,32 @@ namespace ForzaStudio
 
     // Tabs drawn like the game's menu headers: upper-case labels on slanted plates, the selected one
     // in Forza red. It drives a TabControl whose own tab row is hidden.
+    // Vertical: a rail on the right edge of a side panel, the labels read top to bottom, so any
+    // number of sections fits (the model view's PART / TEXTURE / CAMERA / COLLISION, user 2026-10-20).
     internal class ForzaTabStrip : Control
     {
         private readonly TabControl tabs;
+        private readonly bool vertical;
         private int hover = -1;
 
         public ForzaTabStrip(TabControl tabs)
+            : this(tabs, false)
+        {
+        }
+
+        public ForzaTabStrip(TabControl tabs, bool vertical)
         {
             this.tabs = tabs;
-            this.Dock = DockStyle.Top;
-            this.Height = 30;
+            this.vertical = vertical;
+            this.Dock = vertical ? DockStyle.Right : DockStyle.Top;
+            if (vertical)
+            {
+                this.Width = 28;
+            }
+            else
+            {
+                this.Height = 30;
+            }
             this.DoubleBuffered = true;
             this.BackColor = ForzaTheme.Background;
             this.Cursor = Cursors.Hand;
@@ -471,10 +487,25 @@ namespace ForzaStudio
             tabs.SizeMode = TabSizeMode.Fixed;
             tabs.SelectedIndexChanged += delegate { this.Invalidate(); };
             tabs.ControlAdded += delegate { this.Invalidate(); };
+            tabs.ControlRemoved += delegate { this.Invalidate(); };
         }
 
         private Rectangle TabBounds(int index, Graphics graphics)
         {
+            if (this.vertical)
+            {
+                int y = 6;
+                for (int i = 0; i < this.tabs.TabCount; i++)
+                {
+                    int height = TextRenderer.MeasureText(graphics, this.tabs.TabPages[i].Text.ToUpperInvariant(), ForzaTheme.Bold).Width + 24;
+                    if (i == index)
+                    {
+                        return new Rectangle(4, y, this.Width - 6, height);
+                    }
+                    y += height + 3;
+                }
+                return Rectangle.Empty;
+            }
             int x = 6;
             for (int i = 0; i < this.tabs.TabCount; i++)
             {
@@ -492,6 +523,11 @@ namespace ForzaStudio
         {
             e.Graphics.Clear(this.BackColor);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            if (this.vertical)
+            {
+                this.PaintVertical(e.Graphics);
+                return;
+            }
             for (int i = 0; i < this.tabs.TabCount; i++)
             {
                 Rectangle bounds = this.TabBounds(i, e.Graphics);
@@ -508,6 +544,40 @@ namespace ForzaStudio
             using (Pen pen = new Pen(ForzaTheme.Red))
             {
                 e.Graphics.DrawLine(pen, 0, this.Height - 2, this.Width, this.Height - 2);
+            }
+        }
+
+        // Plates down the rail, the text turned 90 degrees; the red rule on the panel side.
+        private void PaintVertical(Graphics graphics)
+        {
+            using (Pen pen = new Pen(ForzaTheme.Red))
+            {
+                graphics.DrawLine(pen, 1, 0, 1, this.Height);
+            }
+            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+            using (StringFormat format = new StringFormat())
+            {
+                format.Alignment = StringAlignment.Center;
+                format.LineAlignment = StringAlignment.Center;
+                format.FormatFlags = StringFormatFlags.NoWrap;
+                for (int i = 0; i < this.tabs.TabCount; i++)
+                {
+                    Rectangle bounds = this.TabBounds(i, graphics);
+                    bool selected = i == this.tabs.SelectedIndex;
+                    Color fill = selected ? ForzaTheme.Red : (i == this.hover ? ForzaTheme.Raised : ForzaTheme.Surface);
+                    using (Brush brush = new SolidBrush(fill))
+                    {
+                        graphics.FillRectangle(brush, bounds);
+                    }
+                    GraphicsState state = graphics.Save();
+                    graphics.TranslateTransform(bounds.X + (bounds.Width / 2f), bounds.Y + (bounds.Height / 2f));
+                    graphics.RotateTransform(90);
+                    using (Brush text = new SolidBrush(selected ? Color.White : ForzaTheme.TextDim))
+                    {
+                        graphics.DrawString(this.tabs.TabPages[i].Text.ToUpperInvariant(), ForzaTheme.Bold, text, new RectangleF(-bounds.Height / 2f, -bounds.Width / 2f, bounds.Height, bounds.Width), format);
+                    }
+                    graphics.Restore(state);
+                }
             }
         }
 

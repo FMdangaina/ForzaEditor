@@ -289,12 +289,20 @@ Forza Motorsport 2 models can be exported but not imported back.
 
 ### Texture preview
 
-The **Texture** tab shows a texture on the selected material. It changes only what you
+Every material shows the texture the game draws it with, by itself: Forza Studio reads the
+game's shaders (`Media\Shaders\Cars`) and `Media\cars\Shared.zip\textures.xml`, and takes the
+file from the car's zip or from `Shared.zip`. This needs the model opened from a game folder.
+The **Textures** button in the model toolbar switches all textures off (plain grey) and on.
+
+The **Texture** tab changes the texture of the selected material. It changes only what you
 see: the model file is not touched.
 
-- Pick an `.xds` from the car's zip, or **Texture From File...** for one on disk.
+- **(auto)** is the game's texture; pick an `.xds` from the car's zip, or **Texture From
+  File...** for one on disk, to override it.
 - Choose the UV set.
-- The choice is remembered per material in `materials.txt`.
+- The choices last until Forza Studio is closed.
+- The **Part** tab shows the material's shader, the textures it reads and where the shown
+  texture comes from.
 
 ## 6. Textures (.xds)
 
@@ -558,7 +566,6 @@ Forza Studio writes only these files:
 | Where | What |
 |---|---|
 | `settings.txt` (next to the exe) | Folders, language, music and port window options |
-| `materials.txt` (next to the exe) | Texture previews chosen per material |
 | `bak\` (next to the exe) | A copy of every file before it is overwritten |
 | `%TEMP%\ForzaStudio\CarPort\` | Port trial folders; safe to delete |
 | The files you save | In the game folder you opened |

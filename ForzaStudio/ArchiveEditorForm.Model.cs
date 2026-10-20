@@ -17,6 +17,7 @@ namespace ForzaStudio
         private TreeView tvModel;
         private Panel pnlViewport;
         private ToolStripButton btnWireframe;
+        private ToolStripButton btnTextures;
         private ToolStripComboBox cmbCameraSpeed;
         private ToolStripComboBox cmbCameraFov;
         private ToolStripLabel lblCameraFov;
@@ -53,6 +54,11 @@ namespace ForzaStudio
                     this.scene.Update(true);
                 }
             };
+            // Textures on (the game's own, or the ones picked in the TEXTURE tab) or off (plain grey).
+            this.btnTextures = new ToolStripButton("Textures: on");
+            this.btnTextures.CheckOnClick = true;
+            this.btnTextures.Checked = true;
+            this.btnTextures.CheckedChanged += delegate { this.TexturesSwitched(this.btnTextures.Checked); };
             this.cmbCameraSpeed = new ToolStripComboBox();
             this.cmbCameraSpeed.DropDownStyle = ComboBoxStyle.DropDownList;
             this.cmbCameraSpeed.Items.Add(new ComboBoxItem<float>(0.25f, "Camera: slow"));
@@ -80,6 +86,7 @@ namespace ForzaStudio
             this.lblCameraFov = new ToolStripLabel();
             this.lblCameraFov.ForeColor = SystemColors.GrayText;
             toolbar.Items.Add(this.btnWireframe);
+            toolbar.Items.Add(this.btnTextures);
             toolbar.Items.Add(this.cmbCameraSpeed);
             toolbar.Items.Add(this.cmbCameraFov);
             toolbar.Items.Add(this.lblCameraFov);
@@ -219,6 +226,7 @@ namespace ForzaStudio
             this.UpdateModelInfo();
             this.OnModelLoaded();
             this.LoadCockpitCamera();
+            this.LoadCollision();
             this.modelTimer.Start();
         }
 

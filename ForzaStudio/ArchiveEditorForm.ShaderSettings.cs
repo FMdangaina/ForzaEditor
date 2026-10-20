@@ -4,6 +4,7 @@ namespace ForzaStudio
     using System.Collections.Generic;
     using System.Drawing;
     using System.Globalization;
+    using System.IO;
     using System.Windows.Forms;
 
     // Shader Settings view of a car's shadersettings.xml: on the left the techniques the car's models
@@ -12,6 +13,8 @@ namespace ForzaStudio
     // BrakeColor on lights_glass); yellow: an entry no model uses (harmless, 41 FM4 cars have some).
     // A technique without an entry runs with its shader's defaults (61 FM4 cars have no file at all).
     // Every edit is stored in the archive at once (pending until Save); "Edit as XML" opens the text.
+    // "Copy missing from" reads the entries of this file or of another car (Media\cars of the same game
+    // folder, or any car zip by Browse...), shows the chosen entry's values and copies what is missing.
     public partial class ArchiveEditorForm
     {
         private Panel pnlShader;
@@ -21,6 +24,8 @@ namespace ForzaStudio
         private Label lblShaderTechnique;
         private ComboBox cmbAddParameter;
         private ComboBox cmbCopyFrom;
+        private ComboBox cmbCopyCar;
+        private Label lblCopyPreview;
         private Button btnAddParameter;
         private Button btnEditParameter;
         private Button btnRemoveParameter;
@@ -32,6 +37,13 @@ namespace ForzaStudio
         private ShaderSettings shaderData;
         private SortedDictionary<string, List<string>> shaderUsed;
         private bool shaderAsXml;          // "Edit as XML" chosen for the shown file
+        private ShaderSettings copySource;    // the settings "Copy missing from" reads (this file or another car)
+        private string copySourceName;        // that car's name, null = this file
+        private Dictionary<string, string> copyCarPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private bool fillingCopyCars;
+
+        private const string CopyThisFile = "(this file)";
+        private const string CopyBrowse = "Browse...";
 
         private static bool IsShaderSettings(ForzaZip.Entry entry)
         {
@@ -88,10 +100,12 @@ namespace ForzaStudio
             this.lblShaderTechnique.Height = 40;
             this.lblShaderTechnique.Padding = new Padding(4);
 
+            // Grows with its rows, so a narrow window wraps the buttons instead of hiding them.
             FlowLayoutPanel buttons = new FlowLayoutPanel();
             buttons.Dock = DockStyle.Bottom;
-            buttons.Height = 64;
-            buttons.Padding = new Padding(2);
+            buttons.AutoSize = true;
+            buttons.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            buttons.Padding = new Padding(2, 2, 2, 6);
             this.cmbAddParameter = new ComboBox();
             this.cmbAddParameter.DropDownStyle = ComboBoxStyle.DropDownList;
             this.cmbAddParameter.Width = 220;
@@ -111,6 +125,18 @@ namespace ForzaStudio
             this.cmbCopyFrom = new ComboBox();
             this.cmbCopyFrom.DropDownStyle = ComboBoxStyle.DropDownList;
             this.cmbCopyFrom.Width = 220;
+            this.cmbCopyFrom.MaxDropDownItems = 24;
+            this.cmbCopyFrom.SelectedIndexChanged += delegate { this.ShowCopyPreview(); };
+            this.cmbCopyCar = new ComboBox();
+            this.cmbCopyCar.DropDownStyle = ComboBoxStyle.DropDownList;
+            this.cmbCopyCar.Width = 220;
+            this.cmbCopyCar.MaxDropDownItems = 24;
+            this.cmbCopyCar.SelectedIndexChanged += delegate { this.CopyCarChanged(); };
+            this.lblCopyPreview = new Label();
+            this.lblCopyPreview.AutoSize = true;
+            this.lblCopyPreview.MaximumSize = new Size(700, 0);
+            this.lblCopyPreview.Margin = new Padding(156, 2, 3, 3);
+            this.lblCopyPreview.ForeColor = ForzaTheme.TextDim;
             this.btnCopyFrom = new Button();
             this.btnCopyFrom.Text = "Copy Missing From";
             this.btnCopyFrom.AutoSize = true;
@@ -119,9 +145,18 @@ namespace ForzaStudio
             this.btnRemoveEntry.Text = "Remove Settings";
             this.btnRemoveEntry.AutoSize = true;
             this.btnRemoveEntry.Click += delegate { this.RemoveShaderEntry(); };
-            buttons.Controls.AddRange(new Control[] { this.cmbAddParameter, this.btnAddParameter, this.btnEditParameter, this.btnRemoveParameter });
-            buttons.SetFlowBreak(this.btnRemoveParameter, true);
-            buttons.Controls.AddRange(new Control[] { this.cmbCopyFrom, this.btnCopyFrom, this.btnRemoveEntry });
+            // Labels: the add list holds the parameters the technique lacks (★ = FM4 sets it on that
+            // technique), the copy list the file's other entries with settings.
+            Label addLabel = ShaderButtonLabel("Add parameter (★ = FM4):");
+            Label carLabel = ShaderButtonLabel("Settings of car:");
+            Label copyLabel = ShaderButtonLabel("Copy missing from:");
+            buttons.Controls.AddRange(new Control[] { addLabel, this.cmbAddParameter, this.btnAddParameter, this.btnEditParameter, this.btnRemoveParameter, this.btnRemoveEntry });
+            buttons.SetFlowBreak(this.btnRemoveEntry, true);
+            buttons.Controls.AddRange(new Control[] { carLabel, this.cmbCopyCar });
+            buttons.SetFlowBreak(this.cmbCopyCar, true);
+            buttons.Controls.AddRange(new Control[] { copyLabel, this.cmbCopyFrom, this.btnCopyFrom });
+            buttons.SetFlowBreak(this.btnCopyFrom, true);
+            buttons.Controls.Add(this.lblCopyPreview);
 
             split.Panel2.Controls.Add(this.lvParameters);
             split.Panel2.Controls.Add(buttons);
@@ -131,12 +166,24 @@ namespace ForzaStudio
             this.pnlShader.Controls.Add(bar);
         }
 
+        // A label in front of a list in the button rows, the same width on both rows so the lists line up.
+        private static Label ShaderButtonLabel(string text)
+        {
+            Label label = new Label();
+            label.Text = text;
+            label.Width = 150;
+            label.TextAlign = ContentAlignment.MiddleRight;
+            label.Margin = new Padding(3, 4, 3, 3);
+            return label;
+        }
+
         private void ShowShaderSettings(ForzaZip.Entry entry, byte[] data)
         {
             this.shaderEntry = entry;
             this.shaderData = ShaderSettings.Parse(data);
             string folder = entry.Name.Substring(0, entry.Name.LastIndexOf('/') + 1);
             this.shaderUsed = ShaderSettings.Techniques(this.zip, folder);
+            this.FillCopyCars();
             this.FillShaderTechniques(null);
             this.ShowView(this.pnlShader);
         }
@@ -296,20 +343,165 @@ namespace ForzaStudio
                 {
                     this.cmbAddParameter.SelectedIndex = 0;
                 }
-                foreach (ShaderSettings.Entry other in this.shaderData.Entries)
+            }
+            this.lvParameters.EndUpdate();
+            this.FillCopyFrom();
+        }
+
+        // The cars "Copy missing from" can read: this file, the cars of Media\cars of the game folder the
+        // open file is in, cars picked before with Browse..., and Browse... itself.
+        private void FillCopyCars()
+        {
+            string keep = (this.cmbCopyCar.SelectedItem as string) ?? CopyThisFile;
+            string root = this.GameRoot;
+            string cars = (root == null) ? null : Path.Combine(Path.Combine(root, "Media"), "cars");
+            if (cars != null && Directory.Exists(cars))
+            {
+                foreach (string path in Directory.GetFiles(cars, "*.zip"))
                 {
-                    if (other.Name != technique && other.Parameters.Count > 0)
+                    this.copyCarPaths[Path.GetFileNameWithoutExtension(path)] = path;
+                }
+            }
+            List<string> names = new List<string>(this.copyCarPaths.Keys);
+            names.Sort(StringComparer.OrdinalIgnoreCase);
+            this.fillingCopyCars = true;
+            this.cmbCopyCar.Items.Clear();
+            this.cmbCopyCar.Items.Add(CopyThisFile);
+            foreach (string name in names)
+            {
+                this.cmbCopyCar.Items.Add(name);
+            }
+            this.cmbCopyCar.Items.Add(CopyBrowse);
+            int index = this.cmbCopyCar.Items.IndexOf(keep);
+            this.cmbCopyCar.SelectedIndex = (index >= 0 && keep != CopyBrowse) ? index : 0;
+            this.fillingCopyCars = false;
+            this.LoadCopySource();
+        }
+
+        private void CopyCarChanged()
+        {
+            if (this.fillingCopyCars)
+            {
+                return;
+            }
+            if ((this.cmbCopyCar.SelectedItem as string) == CopyBrowse)
+            {
+                using (OpenFileDialog dialog = new OpenFileDialog())
+                {
+                    dialog.Title = "Car to read shadersettings.xml from";
+                    dialog.Filter = "Car zip (*.zip)|*.zip|All files (*.*)|*.*";
+                    string picked = null;
+                    if (dialog.ShowDialog(this) == DialogResult.OK)
                     {
-                        this.cmbCopyFrom.Items.Add(other.Name);
+                        picked = Path.GetFileNameWithoutExtension(dialog.FileName);
+                        this.copyCarPaths[picked] = dialog.FileName;
                     }
+                    this.fillingCopyCars = true;
+                    this.cmbCopyCar.SelectedItem = CopyThisFile;
+                    this.fillingCopyCars = false;
+                    this.FillCopyCars();
+                    if (picked != null)
+                    {
+                        this.cmbCopyCar.SelectedItem = picked;
+                    }
+                    else
+                    {
+                        this.FillCopyFrom();
+                    }
+                }
+                return;
+            }
+            this.LoadCopySource();
+            this.FillCopyFrom();
+        }
+
+        // Reads the chosen car's shadersettings.xml (any folder in the zip), or uses this file.
+        private void LoadCopySource()
+        {
+            string car = this.cmbCopyCar.SelectedItem as string;
+            this.copySource = null;
+            this.copySourceName = null;
+            if (car == null || car == CopyThisFile || !this.copyCarPaths.ContainsKey(car))
+            {
+                return;
+            }
+            this.copySourceName = car;
+            try
+            {
+                ForzaZip other = GamePaths.OpenZip(this.copyCarPaths[car]);
+                ForzaZip.Entry entry = other.Entries.Find(delegate(ForzaZip.Entry e) { return IsShaderSettings(e); });
+                this.copySource = (entry == null) ? new ShaderSettings() : ShaderSettings.Parse(other.Read(entry));
+            }
+            catch (Exception exception)
+            {
+                this.copySource = new ShaderSettings();
+                this.SetStatus(car + ": " + exception.Message);
+            }
+        }
+
+        // The entries with settings of the chosen source; the selected technique's own name first.
+        private void FillCopyFrom()
+        {
+            string technique = this.SelectedTechnique;
+            ShaderSettings source = this.copySource ?? this.shaderData;
+            this.cmbCopyFrom.Items.Clear();
+            if (technique != null)
+            {
+                List<string> names = new List<string>();
+                foreach (ShaderSettings.Entry other in source.Entries)
+                {
+                    if (other.Parameters.Count > 0 && (this.copySource != null || other.Name != technique))
+                    {
+                        names.Add(other.Name);
+                    }
+                }
+                names.Sort(StringComparer.OrdinalIgnoreCase);
+                if (names.Remove(technique))
+                {
+                    names.Insert(0, technique);
+                }
+                foreach (string name in names)
+                {
+                    this.cmbCopyFrom.Items.Add(name);
                 }
                 if (this.cmbCopyFrom.Items.Count > 0)
                 {
                     this.cmbCopyFrom.SelectedIndex = 0;
                 }
             }
-            this.lvParameters.EndUpdate();
+            this.ShowCopyPreview();
             this.EnableShaderButtons();
+        }
+
+        // The values of the entry about to be copied, so another car's settings can be read before copying.
+        private void ShowCopyPreview()
+        {
+            ShaderSettings source = this.copySource ?? this.shaderData;
+            string where = (this.copySourceName != null) ? this.copySourceName : "this file";
+            ShaderSettings.Entry from = (this.cmbCopyFrom.SelectedItem != null) ? source.Find((string) this.cmbCopyFrom.SelectedItem) : null;
+            if (this.SelectedTechnique == null)
+            {
+                this.lblCopyPreview.Text = "";
+            }
+            else if (from == null)
+            {
+                this.lblCopyPreview.Text = (this.copySourceName != null && source.Entries.Count == 0)
+                    ? where + " has no shadersettings.xml (shader defaults)." : "Nothing to copy from " + where + ".";
+            }
+            else
+            {
+                List<string> lines = new List<string>();
+                foreach (ShaderSettings.Parameter p in from.Parameters)
+                {
+                    List<string> values = new List<string>();
+                    foreach (string[] a in ShaderSettings.Attributes(p.Xml))
+                    {
+                        values.Add((a[0] == "value") ? a[1] : a[0] + " " + a[1]);
+                    }
+                    lines.Add(p.Name + " " + string.Join(" ", values.ToArray()));
+                }
+                this.lblCopyPreview.Text = from.Name + " in " + where + ": " + string.Join(";  ", lines.ToArray());
+            }
         }
 
         private void EnableShaderButtons()
@@ -454,8 +646,9 @@ namespace ForzaStudio
         private void CopyShaderEntry()
         {
             string technique = this.SelectedTechnique;
-            ShaderSettings.Entry from = (this.cmbCopyFrom.SelectedItem != null) ? this.shaderData.Find((string) this.cmbCopyFrom.SelectedItem) : null;
-            if (technique == null || from == null)
+            ShaderSettings source = this.copySource ?? this.shaderData;
+            ShaderSettings.Entry from = (this.cmbCopyFrom.SelectedItem != null) ? source.Find((string) this.cmbCopyFrom.SelectedItem) : null;
+            if (technique == null || from == null || (this.copySource == null && from.Name == technique))
             {
                 return;
             }
@@ -479,7 +672,8 @@ namespace ForzaStudio
             {
                 this.shaderData.Entries.Remove(entry);
             }
-            this.StoreShaderSettings(string.Format("{0}: {1} parameter(s) copied from {2}", technique, added, from.Name));
+            this.StoreShaderSettings(string.Format("{0}: {1} parameter(s) copied from {2}{3}", technique, added, from.Name,
+                (this.copySourceName != null) ? " of " + this.copySourceName : ""));
         }
 
         private void RemoveShaderEntry()

@@ -149,11 +149,19 @@
     <Compile Include="ForzaStudio\StrFile.cs" />
     <Compile Include="ForzaStudio\CarPort.cs" />
     <Compile Include="ForzaStudio\CarUninstall.cs" />
+    <Compile Include="ForzaStudio\CarUpgrades.cs" />
     <Compile Include="ForzaStudio\CarCamera.cs" />
     <Compile Include="ForzaStudio\MaterialSuggestions.cs" />
     <Compile Include="ForzaStudio\ShaderSettings.cs" />
+    <Compile Include="ForzaStudio\ShaderTextures.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Camera.cs">
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Collision.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\CarPortForm.Upgrades.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="ForzaStudio\CarPortForm.cs">
       <SubType>Form</SubType>

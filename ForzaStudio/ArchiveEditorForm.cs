@@ -249,7 +249,7 @@
             };
 
             ToolStripMenuItem tools = new ToolStripMenuItem("&Tools");
-            tools.DropDownItems.Add(new ToolStripMenuItem("&Port Car From Another Forza...", null, delegate { new CarPortForm().Show(this); }));
+            tools.DropDownItems.Add(new ToolStripMenuItem("&Port Car From Another Forza...", null, delegate { this.ShowCarPort(); }));
             tools.DropDownItems.Add(new ToolStripSeparator());
             // The original Forza Studio 4.6 window, kept as a tribute: Alt+T, F.
             tools.DropDownItems.Add(new ToolStripMenuItem("Pay Respects (&F)", null, delegate { new ForzaStudioForm().Show(); }));
@@ -297,6 +297,55 @@
         }
 
         #endregion
+
+        // The port window works on the FM4 folder open here, if any (its target box locked), and an
+        // install or uninstall there reloads this window, so the change shows at once.
+        private void ShowCarPort()
+        {
+            string root = (this.zip == null) ? null : GamePaths.FindRoot(this.zip.FilePath);
+            bool fm4 = root != null && GameInfo.Detect(root) == ForzaGame.Motorsport4;
+            CarPortForm port = new CarPortForm(fm4 ? root : null);
+            if (fm4)
+            {
+                port.MainWindowUnsaved = delegate { return this.zip != null && this.zip.IsModified; };
+                port.GameChanged += delegate { this.ReloadAfterGameChange(root); };
+            }
+            port.Show(this);
+        }
+
+        // What is open here, read again from disk after the port changed the game folder; the same
+        // file stays selected. Only when it still belongs to that game folder.
+        private void ReloadAfterGameChange(string root)
+        {
+            if (this.zip == null || this.zip.IsModified || !string.Equals(GamePaths.FindRoot(this.zip.FilePath), root, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+            string path = this.zip.FilePath;
+            bool folder = this.zip.IsFolder;
+            ForzaZip.Entry selected = this.SelectedEntry;
+            string name = (selected == null) ? null : selected.Name;
+            if (folder ? !Directory.Exists(path) : !File.Exists(path))
+            {
+                this.CloseArchiveCore();
+                this.UpdateTitle();
+                this.SetStatus(path + " is no longer in the game folder (uninstalled): closed.");
+                return;
+            }
+            if (folder)
+            {
+                this.OpenFolder(path);
+            }
+            else
+            {
+                this.OpenArchive(path);
+            }
+            if (name != null && this.zip != null && this.zip.Find(name) != null)
+            {
+                this.SelectEntry(name);
+            }
+            this.SetStatus("Reloaded " + path + " after the port changed the game folder.");
+        }
 
         #region Archive
 
@@ -1142,14 +1191,12 @@
                 return;
             }
             this.modelTimer.Stop();
-            this.SaveMaterialSettings();
             base.OnFormClosing(e);
         }
 
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            this.LoadMaterialSettings();
             this.split.SplitterDistance = 280;
         }
 
@@ -1172,71 +1219,6 @@
                 {
                     this.SelectEntry(args[2]);
                 }
-            }
-        }
-
-        private static string MaterialSettingsPath
-        {
-            get { return Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "materials.txt"); }
-        }
-
-        // One line per material: name, texture source, UV set (1 or 2), tab separated.
-        private void LoadMaterialSettings()
-        {
-            try
-            {
-                if (!File.Exists(MaterialSettingsPath))
-                {
-                    return;
-                }
-                foreach (string line in File.ReadAllLines(MaterialSettingsPath))
-                {
-                    string[] fields = line.Split('\t');
-                    if (fields.Length >= 3)
-                    {
-                        if (fields[1].Length > 0)
-                        {
-                            this.materialTextures[fields[0]] = fields[1];
-                        }
-                        this.materialSecondUV[fields[0]] = fields[2] == "2";
-                    }
-                }
-            }
-            catch (IOException)
-            {
-            }
-        }
-
-        private void SaveMaterialSettings()
-        {
-            try
-            {
-                List<string> names = new List<string>(this.materialTextures.Keys);
-                foreach (string name in this.materialSecondUV.Keys)
-                {
-                    if (!names.Contains(name))
-                    {
-                        names.Add(name);
-                    }
-                }
-                names.Sort(StringComparer.OrdinalIgnoreCase);
-                List<string> lines = new List<string>();
-                foreach (string name in names)
-                {
-                    string source;
-                    bool second;
-                    this.materialTextures.TryGetValue(name, out source);
-                    this.materialSecondUV.TryGetValue(name, out second);
-                    lines.Add(string.Format("{0}\t{1}\t{2}", name, source ?? "", second ? "2" : "1"));
-                }
-                Directory.CreateDirectory(Path.GetDirectoryName(MaterialSettingsPath));
-                File.WriteAllLines(MaterialSettingsPath, lines.ToArray());
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
             }
         }
     }

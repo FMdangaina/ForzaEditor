@@ -25,8 +25,8 @@ Sections:
 
 ## Now
 
-**14.1c** Traffic cars: model tree, new part and move a mesh into another part (regroup merged
-parts by hand).
+Empty. Last closed: **14.1f** generic upgrades + drive type conversions (`Upgrades.ini`), closed by
+the user 2026-10-20. Not committed yet (diff chat).
 
 ---
 
@@ -36,9 +36,10 @@ parts by hand).
 
 Tools > Port Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`).
 
-- [ ] Tyre width on ported cars whose wheel mesh is wider than usual (check pending: 11.6)
+- [ ] Tyre width on ported cars whose wheel mesh is wider than usual: one item with 11.6, maybe tied
+      to the morph table (11.5)
 - [ ] In-game check of a car installed with review fixes
-- [ ] FH1/FH2 ports do not deform in a crash (issue B1)
+- [ ] FH1/FH2 ports do not deform in a crash (issue B1; maybe tied to the morph data, 11.5?)
 - [ ] Big-endian vs little-endian gr2: find the differences before writing a converter
 - Done: model/wheel/brake conversion, DB rows with reference closure, strings in 18 languages, digital
   dash, carattribs, shadersettings, LE gr2 animations, engine sound and banks from the source game, FM4
@@ -50,13 +51,15 @@ Tools > Port Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`).
 Credits: **[Aiden-Piercee](https: //github.com/Aiden-Piercee)** (`fm4dlc` toolchain) and **XTD (@xtd_ac)** (Xenia folder DLC, XLAST
 package, console tests). Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 
-- [ ] 2.1 (was 3.6d) Several Forza Studio packs at once: each pack's string tables built on top of the
-      other installed packs' (today only the highest priority pack shows its car names)
-- [ ] 2.2 (was 3.8) Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (the user's side)
+- [ ] 2.1 ⏸ (was 3.6d) Several Forza Studio packs at once: each pack's string tables built on top of the
+      other installed packs' (today only the highest priority pack shows its car names). Paused until
+      the conversions are 100% OK (user, 2026-10-19)
+- [ ] 2.2 ⏸ (was 3.8) Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (the user's
+      side). Paused like 2.1
 - Done: merge DB from a port, Xenia package folder, DLC pack panel (n cars), STFS package for a real
   Xbox 360 (RGH/JTAG, `StfsPackage.cs`), checked in game and on the console.
 
-## 3. Port from a car DLC (FH1 / FM3) → FM4 ✅ done for FH1, open points (k paused, FM3 DLC)
+## 3. Port from a car DLC (FH1 / FM3) → FM4 ✅ done for FH1, open point FM3 DLC
 
 (Was 3.9.) Port → FM4 from an FH1 or FM3 car DLC (FH2 on 360 has no DLC), STFS `CON`/`LIVE` or its
 extracted folder: base game for shared data, the package's `<offer>000_merge.slt`, string tables,
@@ -107,7 +110,9 @@ Steps, in order:
       StfsReader.cs, Source row **Folder…** / **Package…**; 17 FH1 packages byte-identical to the
       extracted ones, the 2 cut short refused, an FM4 package refused with a message; checked by the
       user in the window 2026-10-18
-- [ ] k. ⏸ paused (user, 2026-10-18). Rear-light materials in front parts: FH1 `brinr` in the Escalade's front bumper became
+- [x] k. Superseded (user, 2026-10-19): materials are now worked on in a separate WIP project (simple
+      decode of the game shaders, in-game-like preview; notes in `docs/internal_traffic_conversion.md`).
+      Was: rear-light materials in front parts: FH1 `brinr` in the Escalade's front bumper became
       `tail_light` and lit red under braking (fixed by hand with Rename Material); also
       MER_CLKGTR_HZN_98 `fogred` in the hood. Automatic rule for `brinl`/`brinr`/`fogred`/`taillight*`
       in `bumperF*`/`headlight*`/`hood*`: waits for the material to use (file from BlackBirdOsaka)
@@ -118,14 +123,17 @@ Steps, in order:
       `fm4dev\DLC_EDIT\tools\pkgedit.exe` on FH1 370Z (0.8 MB), 1000 Club (370 MB, 501 files) and
       our FM4 package (byte-identical). Checked by the user 2026-10-18
 
-## 4. Materials FM4 renders black 🔧
+## 4. Materials FM4 renders black ⏸
 
-- [ ] 4.1 Material suggestions from the car shaders (`MaterialSuggestions.cs`, data from
-      `fm4dev\Shaders\tools\similarity`): ★ recommended, common FM4, ~ unusual. Committed (039aa06); left:
+- [ ] 4.1 ⏸ to review (user, 2026-10-19), for the same reason as 3k: the shader similarity analysis is
+      looked at again with the separate materials project. Material suggestions from the car shaders
+      (`MaterialSuggestions.cs`, data from `fm4dev\Shaders\tools\similarity`): ★ recommended, common
+      FM4, ~ unusual. Committed (039aa06); left:
   - [ ] check in the editor and in game (the "by name" rules and shader scores are untested in game;
         `lights_amber`, the port table's target for indicators, is not in FM4's in-race shader library)
   - [ ] instructions and documentation (`docs/MANUAL.md` sections 5 and 11)
-- Done: port report lists them, model view marks them red, Rename Material… (checked by the user).
+- Done: port report lists them, model view marks them red, Rename Material… (checked by the user);
+  idea C8: Rename Material picks the new name from the `MaterialSuggestions` list.
 
 ## 5. Digital dash (Anark) editor 🔧
 
@@ -143,8 +151,9 @@ Steps, in order:
 
 ## 7. Model editing (FM4) ✅ working, tests pending
 
-- [ ] OBJ import into a wheel zip stops with "LOD 0 and LODs 1+ live in different files"
-      (`CarbinModel.cs`): split the OBJ between the two carbins (@delete.diskord, D3)
+- [ ] OBJ import into a wheel zip (@delete.diskord, D3): fixed in code (60f7d57,
+      `CarbinModel.RebuildLods`: cars keep LOD 0 in `_lod0`, wheels keep LODs 0-5 in one file); in-game
+      test pending (FM3 wheel OBJ onto an FM4 wheel zip)
 - [ ] In-game test of a whole model rebuilt from OBJ, of edited parts and of Merge Into
 - [ ] Effect of the cleared glass A/B arrays on rebuilt parts
 - [ ] See idea C7 (one export/import folder layout)
@@ -160,7 +169,9 @@ Steps, in order:
 - [ ] 9.1 (was 3i) No backfire flames on FM3 ports. Sound side identical (`BackfireLevels` from exhaust
       + cam upgrade); the flame is FM4 only (`Media\Effects\Backfire.xml`, `Flame.tga`,
       `FireDistortion.tga`). To find: where FM4 places the flame (exhaust point in the carbin, DB or
-      fixed) and what FM3 cars lack. Compare an FM4 car with flames and the same car from FM3
+      fixed) and what FM3 cars lack. Plan (user, 2026-10-19): compare TOY_SupraRZ_98 in FM4 and FM3
+      (carbin: points/parts near the exhaust) and the Supra's rows in both `gamedb.slt` (backfire,
+      exhaust position); then test in game
 - [ ] 9.2 Drag tyres added by the port: in-game check pending (issue B2)
 - Done: FM3 carbin converter (3930/3930), FM3 as port source (74/74 trial), X5 and Boxster in game,
   Porsche make, FM3 digital dashes, engine banks rule (FM4's if same name), cockpit camera centred on
@@ -181,13 +192,16 @@ Background: D3.
 - [x] 11.2 Rule: 15" reference LOD0 => morph table + header f8/f10 = target radius; true-size LOD0 =>
       no table, f8 = own radius. Generator `CarbinModel.WheelMorphTable` / `Lod0MorphScale`
       (`CarbinModelMotorsport3.cs`), used by the FM3 port; checked in game on the HKS Genesis (20c0fa2)
-- [ ] 11.3 Same check for every older source game: FM3 done; FM2 and FM1 when their ports come. FH1/FH2
-      are the FM4 engine (but Openroad) and keep their own tables: only if a case shows up
-- [ ] 11.4 Traffic cars' LOD0 wheel rebuilt from LOD 1 (14.1) copies the table from the nearest
-      vertex: not seen as a problem, nothing to do. Keep in mind if a traffic rim looks small up close
-- [ ] 11.5 OBJ import onto a wheel: regenerate the table instead of keeping a stale one (stale =
-      exploded wheel in game). When we work on building parts from scratch
-- [ ] 11.6 Tyre width on ported cars (topic 1): check in game whether 11.1/11.2 already fixed it
+- [ ] 11.5 ⏸ Morph table (user, 2026-10-19: paused). OBJ import onto a wheel: regenerate the table
+      instead of keeping a stale one (stale = exploded wheel in game). To resume by comparing how Forza
+      Studio and Aiden's script (`fm4dev\Aiden-Piercee\carbin_check.py`, read only) process the carbin
+      binaries. Linked: tyre width (11.6, topic 1), maybe B1. Parts of it:
+  - [ ] 11.3 Same check for every older source game: FM3 done; FM2 and FM1 when their ports come.
+        FH1/FH2 are the FM4 engine (but Openroad) and keep their own tables: only if a case shows up
+  - [ ] 11.4 Traffic cars' LOD0 wheel rebuilt from LOD 1 (14.1) copies the table from the nearest
+        vertex: not seen as a problem. Keep in mind if a traffic rim looks small up close
+- [ ] 11.6 Tyre width on ported cars (same item as topic 1): check in game whether 11.1/11.2 already
+      fixed it; maybe tied to 11.5
 
 ## 12. Cleanup, platform and a friendlier UI ⏸
 
@@ -209,7 +223,8 @@ Background: D2.
 
 ## 14. Other model formats 🔧
 
-- [ ] 14.1 FH1/FH2 traffic cars: **to check from scratch** (user, 2026-10-18). Ported cars load and
+- [ ] 14.1 FH1/FH2 traffic cars: **to check from scratch** (user, 2026-10-18; again 2026-10-19: the
+      whole item, and C4 with it, needs a fresh review and a new order). Ported cars load and
       their meshes show in game, but they are full of problems. Code committed (8549e97, 5e9690d,
       aedfdaf): close-up models (`_lod0`, `_cockpit`) rebuilt from LOD 1, wheel LOD0 and tyre header,
       cockpit driver rig, seat, camera part 9, hood, scaled donor brakes, collision, empty parts, wheel
@@ -225,14 +240,14 @@ Background: D2.
           and RTL, in the same part rename together): "only this mesh" option (tree meshes carry
           section/subsection index; this file only; shadersettings untouched); no option preset,
           the user picks. Checked in the editor 2026-10-18
-    - [ ] c. Model tree: new part, move a mesh into another part (FH traffic parts are merged at the
+    - [x] c. Model tree: new part, move a mesh into another part (FH traffic parts are merged at the
           source: lights in one part, bumpers in the body), to regroup by hand. Done in code: drag a
           material onto a part (moved there, same material + LOD joined) or onto a LOD (new part,
           name asked); this file only (`CarbinModel.MoveSubSection`). Harness `fm4dev\Traffic\tools\
           movetest` on Yukon main/lod0/cockpit: geometry kept (max 0.06 mm). Empty parts: right
           click on a LOD > New Empty Part, shown in yellow, tree only (not written while empty),
-          real once a mesh is dropped on it. Check in the editor and in game pending
-    - [ ] c2. `shadersettings.xml` follows the material edits (user, 2026-10-18). Facts (317 FM4 cars,
+          real once a mesh is dropped on it. Checked by the user 2026-10-19
+    - [x] c2. `shadersettings.xml` follows the material edits (user, 2026-10-18). Facts (317 FM4 cars,
           `fm4dev\Traffic\ss_fm4`): entry = technique (main/lod0 material as is, cockpit material with
           `cockpit_`); 61 FM4 cars have no file (shader defaults), 41 list unused techniques
           (harmless). Done in code: `ShaderSettings.cs` (parse/write, techniques of the car models,
@@ -245,17 +260,128 @@ Background: D2.
           = unused entry, grey = no settings (defaults); add (★ = FM4 sets it here; values typed by
           the user), edit, remove, copy missing from another entry, remove unused. Tests: 256/256 FM4
           files read and written back the same (`ssround`; Viper's element after the root kept); 7 cars
-          (3 std FH1 + 4 traffic) give the same file as before. Check in the editor pending
-    - [ ] d. Collision: spheres stick out / touch under the car (Yukon). Check the rebuild, then a
-          collision view in the model preview, then editing
-    - [ ] e. Number plates
-    - [ ] f. Upgrades: traffic cars have none. Generic set from an `.ini` (suspension, anti-roll bars,
-          engine levels 0-3 from FM4 averages, rim size, tyre width stock to +30% in real tyre sizes,
-          clutch / gearbox shift time; gear ratios untouched)
-    - [ ] g. Open a DLC pack folder in the editor as a tree, to check what was built (links to 3b)
-  - [ ] All port settings in clear `.ini` files (user note, with f)
-  - [ ] Traffic cars shown in yellow in the port list (placeholder close-up files)
-  - [ ] Interior very dark; exterior FH material names still black (fixed by hand)
+          (3 std FH1 + 4 traffic) give the same file as before. 2026-10-19: labelled lists, panel
+          grows with its rows, "Settings of car" reads another car's file (Media\cars of the same
+          game folder, or Browse...) with a preview of the values before Copy Missing From. Checked
+          in the editor by the user 2026-10-19
+    - [x] d. Collision editor + rebuild. Model view tab COLLISION (`ArchiveEditorForm.Collision.cs`):
+          box and spheres of `physics/maxdata.xml` over the model (blue body, orange contact, yellow
+          selected), sphere position / radius / type, Add / Delete / Mirror, pending until Save. Lines
+          only while their tab is open (camera too). Found (314 FM4 cars, `fm4dev\Traffic\tools\
+          colsurvey`): the collision's Z is measured from the wheelbase centre
+          (`Misc/BottomCenterWheelbasePos`, = middle of the DB wheels); the view draws it there. Rebuild
+          rule (`CarPort.ReplacePlaceholderCollision` + `StretchSpheresZ`), Z from the whole LOD 1 mesh
+          (an FH traffic body holds the bumpers): box front = mesh front - 0.077, rear = mesh rear +
+          0.095; body spheres front = mesh front - 0.042, rear = mesh rear + 0.047 (FM4 medians, then
+          tuned in game on the Yukon against walls). Trial OK on Yukon, RAV4, XC70. Checked in game by
+          the user 2026-10-20
+    - [x] e. Number plates (only traffic cars have them) and textures per material. Facts (2026-10-20):
+          the plate texture `traffic_numplates_DXT1.xds` is only in FH1's `Media\cars\Shared.zip` (FH1
+          271 files, FM4 267; FH1 only: that, `stitches_NRM.xds`, `shadersettings/matte.xml`); FM4's
+          shaders have no plate at all (FH1 `.fxobj`: `NumplateSampler`, `isNumplate`, `psNumplateUV`).
+          The carbin names no texture: material = shader technique → its samplers (`.fxobj`) → a file
+          by convention (car zip atlases `nodamage` / `damage` / `lights` / `damagelights` /
+          `interior`, `_LOD0` for the close-up files; `Shared.zip` for grilles, normals, plates).
+          Steps:
+      - [x] e.1 Research (2026-10-20, `fm4dev\Shaders\FINDINGS.md` "Textures per material"): the
+            game's own map is `Media\cars\Shared.zip\textures.xml` (sampler → file, `%CARFOLDER%` /
+            `%SHAREDCARFOLDER%` / `%WHEELFOLDER%`, loadFlags LOD15 / LOD0 / SuperLOD / Cockpit;
+            bare `&` inside). Built in: baseSampler → `nodamage(_LOD0)`, damageSampler →
+            `damage(_LOD0)`. Technique → samplers from the pixel shaders' constant tables
+            (`tools\fxsamplers`). FH1 adds NumplateSampler → `traffic_numplates_DXT1.xds` (read by
+            numberplate, body_traffic, and body / undercarriage too). Check (`tools\texcheck`): 10
+            FM4 + 10 FH1 traffic cars, every real material resolves, 0 files missing. Open for e.2:
+            which UV set each sampler reads
+      - [x] e.2 Viewer: textures assigned by themselves per material (`ShaderTextures.cs`: technique →
+            colour samplers → `textures.xml`, car zip + `Shared.zip` of the same game folder; a
+            material's own texture before the `nodamage` atlas; cockpit: `interior` and showroom-only
+            techniques on `Interior_LOD0`). Texture tab: "(auto)" or a file as override, for the
+            session only (`materials.txt` dropped). Toolbar "Textures: on/off". Part tab: shader,
+            samplers, texture source. Port: a source `Shared.zip` texture FM4 lacks that is a
+            material's own colour goes into the car zip (FH1 plates for cars with `numberplate`;
+            the viewer reads it there). UV1 everywhere, no wrong mapping seen. Checked by the user on
+            one FH1 and one FM4 car 2026-10-20
+      - [x] e.3 Plates in game: superseded the same day (user): traffic cars' `numberplate` meshes are
+            removed (see f). `numplate` (plate lamp) → `reflector` kept
+    - [x] f. Closed by the user 2026-10-20 (pack 91 note below: a DLC pack holding the car wins over
+          the install). Upgrades: FH traffic cars have one stock row
+          per part, most at level 3 (FM4 reads it as a race part, nothing to buy; FM4 does the same on
+          purpose for ~100 race cars / supercars). `CarUpgrades.cs` + `Upgrades.ini` next to the exe
+          (written with the defaults when missing): a table whose only row is the stock part gets
+          Street / Sport / Race levels. Defaults = medians of FM4's 503 cars (`fm4dev\Traffic\tools\
+          upgstats`): anti-roll bars, springs/dampers (race = tunable ranges), brakes, chassis,
+          weight, tyre width +10 mm steps up to +30%, rims (if missing) +1/+2", engine parts 0-3
+          (camshaft: new torque curve stretched to the higher redline), clutch, gearbox shift time,
+          differential, driveline. Gear ratios untouched; aspiration / engine swaps by hand (gamedb or
+          DLC merge). `Cars = traffic` (default) / `missing` / `off`.
+          Drive type rule (user 2026-10-20, in the ini): AWD → RWD only, RWD none, FWD → AWD only; a
+          car without its own conversion gets a level-1 `List_UpgradeDrivetrain` row with its own
+          `Data_Drivetrain` (id 100000 + car) and copies of the stock parts, centre diff = rear ×
+          (1 - split) for AWD (FM4's rule), 0 otherwise; +155 kg / -110 kg, 6800 Cr as FM4.
+          Trial 2026-10-20: Yukon (RWD, 24 parts), RAV4 (AWD → RWD), Focus ZX4 (FWD → AWD) OK;
+          FER_458Spider_12 (std) untouched. Checked by the user 2026-10-20: tuning works in game,
+          Uninstall works. Port window (same day, user): the target is the FM4 folder open in the main
+          window (box locked), install / uninstall wait for the main window's unsaved edits and then
+          reload it (selection kept); editor check pending.
+          UPGRADES tab in the port window (user 2026-10-20, layout chosen by the user): the car's engine
+          swaps (the source's can be left out / put back, FM4 engines added with a price) and its drive
+          type (the ini rule, none, or a conversion picked for this car, also for non-traffic cars).
+          Kept with the review's fixes (`swapdel:` / `swapadd:` / `drive`), so trial, install and the
+          DLC pack use them. Trial: Focus + 2JZ swap (+90 kg) and no conversion, 458 without the
+          Enzo swap and RWD → AWD: OK. Editor / in-game check pending.
+          Model view: the side tabs moved to a vertical rail at the right edge (COLLISION was cut;
+          user's choice). Checked by the user 2026-10-20: rail ("bellissimo"), locked target, UPGRADES
+          tab, upgrades in game, main window reload and refusal with unsaved edits; turbo conversions
+          and number plates gone in game (Focus). Then (user): no twin turbo under 6 cylinders
+          (`TwinTurboMinCylinders`); a re-port over an installed car replaced the car's rows only where
+          the source had some, so generated rows (aspiration, conversion, cam curves) of the earlier
+          install stayed and the new choices did not show: now the car's rows always go first and
+          orphans are reused / removed (trial over the installed Focus OK). Xbox 360 package: saved
+          straight in the folder the user picks, no Content\...\00000002 tree.
+          Reinstall check (user 2026-10-20): no twin turbo OK, conversion OK; the Focus still showed old
+          swaps (Focus '06 392, Escort RS Cosworth 732) although the DEV gamedb had the new ones (Aygo
+          821, Ka 818): the Xenia DLC pack 91 (12:25, STFS file 21DAFEBD...) holds the Focus too and
+          its merge wins over gamedb.slt. Install now warns when the car is also in the pack.
+          Aspiration (user 2026-10-20: the FH1 Focus had no turbo swap): an engine with no TurboSingle /
+          TurboTwin / TurboQuad / CSC / DSC row gets `[Aspiration] Types` (default all four) at levels
+          1-3 + intercooler, FM4's fixed values (10 random FM4 engines, user's choice). Trial: Focus
+          all five added; Yukon (own twin turbo + CSC) none added. Checked in game.
+          Number plate: FH traffic cars lose every `numberplate` mesh (user 2026-10-20: "non serve"),
+          also its Shared.zip texture and review line (CarPort.DropMaterial; replaces e.3). Trial:
+          Focus 9 meshes, Yukon 10. Checked in game
+    - [x] g. Open a DLC pack folder in the editor as a tree: done with 3l (Open DLC Package)
+    - [x] h. Steering wheel on traffic cars without a source cockpit: reopened and closed 2026-10-20
+          (closed by the user without a last in-game check of the hands). Seen on FOR_FocusZX4_05 (donor FOR_Fiesta_09): the wheel
+          swings over the roof when steering (Yukon and Corolla always fine). The driver rig is in
+          the `_cockpit.carbin` head 0x1C8-0x2FF (3 grip pairs, wheel pivot 0x228, axis 0x238,
+          shifter, 4 point/dir/value records), zero in FH files; `CarPort.CockpitRig` rebuilt it only
+          when the pivot was 0,0,0. Focus and F350 have no `_cockpit` in FH1, so the rebuilt cockpit
+          takes the donor's head with the donor's pivot: a right-hand drive donor (Fiesta 09, Supra RZ
+          98) left the left-hand wheel turning about a point 75 cm away. Drive side (survey
+          `fm4dev\Traffic\tools\drivesurvey`): sign of the `steering_wheel` x, negative = left; on
+          312 of 313 FM4 cockpits the pivot x has the same sign (McLaren F1 GTR centred), 233 left /
+          80 right; FH1 / FH2 pivots are 0 on all cars; on FH traffic the main model's wheel and the
+          heavier seat give the side, the hands x does not. Fix: the rig is also rebuilt when the
+          pivot is off the car's own wheel (x > 3 cm or 15 cm away), donor points moved and mirrored
+          as for the Yukon; the log says which side each was. Trial: Focus (Fiesta / Supra donor), F350
+          rebuilt; Yukon same as before; 5 FM3 cars and 3 standard FH1 cars untouched. Checked in DEV
+          by the user 2026-10-20: wheel turns right, driver OK; hands were black blobs up by the
+          windscreen. Cause: `DriverHandsOffset` was checked on x only; Focus and F350 share the FH
+          placeholder -0.359, 0.390, -0.019 (x close to the Focus wheel, y 6 cm off). Now on traffic
+          cars x, y and z are checked against wheel + FM4's median (3 cm each). Rebuilt grips: tried at
+          9:15, then FM4's standard 20 degrees above the centre (user's choice). Second check in
+          DEV (user): the hand's grip hole still a little beside the rim. Survey `handsurvey` (289 FM4
+          cars): hands = rig pivot + (0, -0.402, 0.410), within 1 cm for half of them; FM4's pivot sits
+          1.4 cm behind the wheel origin, a rebuilt one on it, so the origin rule left the Focus hands
+          1.5 cm off in z. Now hands from the pivot (origin rule only without a pivot); grips on the
+          measured rim (outer x 0.995, inner x 1.083, tube middle x 1.031, FM4 medians) instead of
+          fixed ratios. Trial: Focus, Yukon (hands 1.5 cm), R8 GT / Focus ST untouched
+  - [ ] 🔧 All port settings in clear `.ini` files (user note, with f): first one `Upgrades.ini` (14.1f)
+  - [x] Traffic cars shown in yellow in the port list. Rule (`CarPort.HasPlaceholderCloseUp`): the
+        `_lod0` or `_cockpit` carbin is missing or smaller than 1/10 of the main carbin (real cars 40%
+        and up, placeholders 3% at most)
+  - [ ] Interior very dark, not fixed; maybe tied to the materials project (internal doc). Exterior FH
+        material names still black (fixed by hand)
   - [ ] Same rebuild for FM1/FM2 cars, only after FH traffic works (see C4)
 - [ ] 14.2 FM2 models (today FM2 is export only)
 
@@ -278,6 +404,8 @@ issue moves to its topic and is removed from here.
 
 ## B1. FH1/FH2 ports do not deform in a crash (open, topic 1)
 
+- User's guess (2026-10-19): maybe tied to the morph data (11.5). To check.
+
 - Seen 2026-10-17 in DEV: FH1/FH2 ports keep their shape after a crash; FM3 ports deform like FM4
   cars. Deformable flag OK on the FH body parts.
 - Still to note: which cars, and whether they were ported before or after 80f5104 (FM4 damage values
@@ -299,8 +427,10 @@ issue moves to its topic and is removed from here.
 - X5 row inserted in DEV (backup `bin\Debug\bak\2026-10-16_drag_bak_DEV_gamedb.slt`).
 - To close: check in game that the X5 offers the Drag compound.
 
-## B3. The tyre looks the same with every compound (on hold)
+## B3. The tyre looks the same with every compound (on hold, uncertain)
 
+- 2026-10-19: no real hardware any more (the user sold the Xbox 360), so the console check cannot be
+  done for now.
 - Not a port bug: FM4's own cars do the same in Xenia. The user checks on a real Xbox 360 later; if
   the tyre changes there, look at what picks `Media\wheels\TireA/B/C.zip` (`List_Wheels`,
   `WheelLayouts`, `Combo_TireBrandCompound`).
@@ -311,11 +441,6 @@ issue moves to its topic and is removed from here.
   `Distortion`, `Compressor`, `DSPScalar`... and no `num_cylinders`), copied as is.
 - Fixed in `CarPort.CompleteEngineTuning`; patched X5 confirmed in game 2026-10-17.
 - To close: an in-game check of a car ported with the new code. Then remove this entry.
-
-## B5. Strange ambient occlusion on some parts (probably closed)
-
-- Seen 2026-10-16 on BMW_X5_09 from FM3: most likely FM3's own vertex bake (the user saw the same
-  patches in FM3). Remove unless it shows up on another port; then note car, parts and a screenshot.
 
 ---
 
@@ -330,11 +455,11 @@ standardise model export/import. Each idea notes what is already known or done t
 | C1 | Better SQL editor and DB schema map | High | 6 |
 | C2 | Fix the automatic Id generation | High | 1, 3, 6 |
 | C3 | Check queries before every `INSERT` | High | 1, 3, 6 |
-| C4 | Build test with traffic cars and FM1/FM2 assets | High | 14 |
+| C4 | Build test with traffic cars and FM1/FM2 assets (to review with 14.1) | High | 14 |
 | C5 | Find the driver position | Medium | 14, 16 |
 | C6 | Missing sounds across generations | Medium | 3, 9 |
 | C7 | One export/import folder layout | High | 7 |
-| C8 | Change a mesh's material from a list | Medium | 3, 4 |
+| C8 | Change a mesh's material from a list (done, see 4) | Medium | 3, 4 |
 
 ## C1. Better SQL editor and understanding of the DB schema
 
@@ -417,7 +542,8 @@ Done when: at least one reproducible test with log and identified source assets;
 whether copying `LOD1` into `LOD0` is enough or what is missing; turning off the cockpit camera is
 checked, not assumed.
 Known today: traffic cars are built and load in game (topic 14.1: close-up models rebuilt from
-LOD 1), but they are full of problems and must be checked from scratch. FM1/FM2 still open (FM1 `.cab` reader in `fm4dev\Fm1_CAB`, FM2 export only).
+LOD 1), but they are full of problems and must be checked from scratch. To be reviewed together with
+14.1 (user, 2026-10-19); the traffic part lives there, not here. FM1/FM2 still open (FM1 `.cab` reader in `fm4dev\Fm1_CAB`, FM2 export only).
 
 ## C5. Find the driver position
 
@@ -478,6 +604,7 @@ relevant object inside:
 In a `.carbin` the mesh name in the model tree is its material (the shader FM4 draws it with), so
 fixing a part means renaming it (Escalade front bumper, 2026-10-18). Instead of typing the name, pick
 it from a list of FM4 materials (★ recommended / common, from `MaterialSuggestions`), one click.
+Done: the Rename Material window offers that list (`ArchiveEditorForm.MaterialCheck.cs`).
 
 ---
 
@@ -522,13 +649,21 @@ Background of topics 11-15: quotes, file names, what is known so far.
   opened an fm4 wheel zip in forzaeditor and attempted to replace the wheel with the obj i exported,
   resulting in the 'LOD 0 and LODs 1+ live in different files' error. however i did try the fm3
   conversion (port car from another forza) in the new commit a little while ago and the wheel zip it
-  output seems to work perfectly in fm4."* An FM4 wheel keeps LOD0 and LOD1+ in two carbins: split
-  the OBJ instead of stopping (topic 7).
+  output seems to work perfectly in fm4."* An FM4 wheel keeps LODs 0-5 in one carbin (cars keep LOD0
+  in `_lod0`): the import now tells the two apart (60f7d57), in-game test pending (topic 7).
 
 ## D4. Other models (topic 14)
 
 - FH1/FH2 traffic models: close-up files are placeholders (17-vertex parts), rebuilt by the port;
   the result loads in game but has many problems (14.1).
+- **Road holding FH vs FM4** (user report 2026-10-20: "tyre grip parameters differ slightly"). Checked
+  on every car both games have (FH1 103, FH2 138; `fm4dev\Traffic\tools\gripcmp`, results
+  `grip_fh1_fm4.txt` / `grip_fh2_fm4.txt`): the car's own values (tyre compound id, widths, chassis
+  friction scales, springs, ride height, anti-roll, aero, CM) are the same as FM4's for the same car
+  (all but 1-7 cars). What differs is game-wide: `List_TireCompound` (same ids 1-9; lateral grip
+  `TorqueFreeLatFrictionScale` FH1 ~1.8 / FH2 ~2.3 vs FM4 ~1.3, wear x12) and half of
+  `List_TireAffectCurve`. The port keeps FM4's rows for those ids (CopyReferences adds only missing
+  ids), so a ported car grips like an FM4 car: nothing to convert per car.
 - FM2 models: out of scope today, export only. FM1: `.cab`/`.ca2` reader verified on 243 archives.
 
 ## D5. Documentation and community (topic 15)
