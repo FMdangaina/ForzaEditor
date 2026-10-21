@@ -23,10 +23,18 @@ namespace ForzaStudio
     // 1337 / 4754; the row ranges are not checked in game yet.
     public static class DbIds
     {
-        // The first car Id (Port.ini [Ids] FirstCar, default 4000).
-        public static long FirstCar
+        // The first car Id of a car installed in the game: the first Id above every car of FM4 and its DLC
+        // (GameIdLimits, 1638 today), like a DLC pack. Port.ini [Ids] InstallFirstCar > 0 overrides it: FOR
+        // DEVELOPMENT / TESTING BUILDS ONLY (user 2026-10-22: the logic is always the DLC one; was 3000,
+        // user 2026-10-21). A DLC pack asks for its own first Id (CarPort.FirstCarId), so packs and
+        // installed cars do not share a range.
+        public static long InstallFirstCar
         {
-            get { return Math.Max(1, PortSettings.GetLong("Ids", "FirstCar", 4000)); }
+            get
+            {
+                long forced = PortSettings.GetLong("Ids", "InstallFirstCar", 0);
+                return (forced > 0) ? forced : Math.Max(1, GameIdLimits.Max(ForzaGame.Motorsport4, "Data_Car", "Id") + 1);
+            }
         }
 
         // In the other tables a car's Id is one of these columns (as CarPort.PortDatabase copies them).
@@ -38,17 +46,21 @@ namespace ForzaStudio
             return Math.Max(0, PortSettings.GetLong("Ids", table, 0));
         }
 
-        // The Id for a new row: the next one in the table's range, else the next after the largest.
+        // The Id for a new row of an FM4 table.
         public static long Next(SqliteDatabase db, string table, string column)
+        {
+            return Next(db, table, column, ForzaGame.Motorsport4);
+        }
+
+        // The Id for a new row: the next one in the table's range, else the next after the largest, and
+        // always above the largest Id the game and its packages use (docs/GameIdLimits.json).
+        public static long Next(SqliteDatabase db, string table, string column, ForzaGame game)
         {
             long start = RangeStart(table);
             string c = SqliteDatabase.Quote(column);
             object max = db.Scalar("SELECT max(" + c + ") FROM " + SqliteDatabase.Quote(table) + (start > 0 ? " WHERE " + c + " >= " + start.ToString(CultureInfo.InvariantCulture) : ""));
-            if (max == null)
-            {
-                return (start > 0) ? start : 1;
-            }
-            return Convert.ToInt64(max) + 1;
+            long next = (max == null || max == DBNull.Value) ? ((start > 0) ? start : 1) : Convert.ToInt64(max) + 1;
+            return Math.Max(next, GameIdLimits.Max(game, table, column) + 1);
         }
 
         #region Cars
@@ -75,11 +87,15 @@ namespace ForzaStudio
         }
 
         // The Id a ported car gets in the target, and why.
-        public static long CarId(SqliteDatabase target, SqliteDatabase source, string mediaName, List<string> packs, out string reason)
+        public static long CarId(SqliteDatabase target, SqliteDatabase source, string mediaName, List<string> packs, long first, bool reuseInstalled, out string reason)
         {
             object installed = target.Scalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", mediaName);
             if (installed != null)
             {
+                if (!reuseInstalled)
+                {
+                    throw new InvalidOperationException(mediaName + " is already in the game database (id " + Convert.ToInt64(installed, CultureInfo.InvariantCulture) + "): a DLC pack car would share its rows. Uninstall it from the game first (Import window > Uninstall) or leave it out of the pack.");
+                }
                 reason = "its id in the target (installed earlier)";
                 return Convert.ToInt64(installed);
             }
@@ -113,19 +129,18 @@ namespace ForzaStudio
                     }
                 }
             }
-            long first = FirstCar;
             for (long id = first; ; id++)
             {
                 if (!taken.Contains(id) && !Taken(target, id) && !Taken(source, id))
                 {
-                    reason = string.Format(CultureInfo.InvariantCulture, "first id from {0} ({1}) free in the target, the source and {2} installed pack(s)", first, PortSettings.FileName, packs.Count);
+                    reason = string.Format(CultureInfo.InvariantCulture, "first free id from {0}: free in the target, the source and {1} installed pack(s)", first, packs.Count);
                     return id;
                 }
             }
         }
 
         // A car Id some row already uses: a car, or its body row (Data_CarBody.Id = car * 1000).
-        private static bool Taken(SqliteDatabase db, long id)
+        public static bool Taken(SqliteDatabase db, long id)
         {
             if (Convert.ToInt64(db.Scalar("SELECT count(*) FROM Data_Car WHERE Id = ?", id)) > 0)
             {
@@ -344,7 +359,7 @@ namespace ForzaStudio
         }
 
         // Every table.column holding a car's Id: the car columns by name, plus the relations into Data_Car.
-        private static List<string[]> CarColumns(Dictionary<string, List<string>> schema)
+        internal static List<string[]> CarColumns(Dictionary<string, List<string>> schema)
         {
             List<string[]> found = new List<string[]>();
             foreach (KeyValuePair<string, List<string>> table in schema)
@@ -375,7 +390,7 @@ namespace ForzaStudio
         }
 
         // The table's single-column key (PRAGMA pk), else a first column named Id; null otherwise.
-        private static string KeyColumn(SqliteDatabase db, string table, List<string> columns)
+        internal static string KeyColumn(SqliteDatabase db, string table, List<string> columns)
         {
             string key = null;
             int count = 0;
@@ -394,7 +409,7 @@ namespace ForzaStudio
             return (count == 0 && columns.Count > 0 && string.Equals(columns[0], "Id", StringComparison.OrdinalIgnoreCase)) ? columns[0] : null;
         }
 
-        private static Dictionary<string, List<string>> Schema(SqliteDatabase db)
+        internal static Dictionary<string, List<string>> Schema(SqliteDatabase db)
         {
             Dictionary<string, List<string>> schema = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             foreach (object[] row in db.Query("SELECT name FROM sqlite_master WHERE type = 'table'").Rows)
@@ -409,7 +424,7 @@ namespace ForzaStudio
             return schema;
         }
 
-        private static bool HasTable(SqliteDatabase db, string table)
+        internal static bool HasTable(SqliteDatabase db, string table)
         {
             return db.Scalar("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", table) != null;
         }

@@ -25,11 +25,11 @@ Sections:
 
 ## Now
 
-**C2 + C3: Id rule and checks before every insert** ✅ closed by the user 2026-10-20: Aveo IE (4000)
-and X5 (4001) work in game once ModelId = Id (the Aveo IE also had FM3's unicorn flag and IsArcade 0,
-source data). Not committed yet.
-
-**Now:** empty.
+**C2 + C3: Id rule and checks before every insert** 🔧 REOPENED by the user 2026-10-21: "to review
+totally, not stable". New plan: survey the max Id of every table in all the DLC files (FH1 / FM3 packs
+and the Forza Studio packs) and start the allocation from those, not from a fixed 4000. The user is
+sending the table; nothing is coded until it arrives. (Before: Aveo IE 4000 and X5 4001 worked in game
+once ModelId = Id; the Aveo IE also had FM3's unicorn flag and IsArcade 0, source data. Not committed.)
 
 **14.1 traffic cars' interior very dark** ✅ closed by the user 2026-10-20 ("sembrerebbe ok", less
 manual work; not committed). Black pieces still fixed by hand: parked under 13 (shader research, an
@@ -168,7 +168,7 @@ package, console tests). Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4de
       the conversions are 100% OK (user, 2026-10-19)
 - [ ] 2.2 ⏸ (was 3.8) Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (the user's
       side). Paused like 2.1
-- [ ] 2.3 Set Generated Thumbnail, coded 2026-10-21, **to test** (Tools > Set Generated Thumbnail...,
+- [x] 2.3 ✅ closed by the user 2026-10-21 ("molto bello"; the notes below are the old test list). Set Generated Thumbnail, coded 2026-10-21 (Tools > Set Generated Thumbnail...,
       `SetThumbnailsForm.cs`, `XeniaThumbnails.cs`, texture view button "Xenia Thumbnail..."). Xenia profile
       `ForzaProfile\Thumbnails\Thumbnail_N.xdc` = deflate + the car's 768x288 xds, replaced byte for byte.
       Only load / assign / layout were checked (screenshots, DLC folder with 6 cars, FM4_Extracted_DEV with
@@ -178,6 +178,8 @@ package, console tests). Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4de
       assumed); Xenia closed before Save; the "Xenia Thumbnail..." picker dialog (not screenshot-checked);
       auto-detected folder when several profiles exist; cars without a thumbnail file are skipped; car
       names "Car <id>" when the merge DB is inside a zip.
+      User 2026-10-21: works on a DLC package (fixed: zips opened as zips, picker no longer filtered by the
+      ported 512x256 size; Xenia thumbs are 768x288). Still to check: game folder Save, thumbnail in game.
 - Done: merge DB from a port, Xenia package folder, DLC pack panel (n cars), STFS package for a real
   Xbox 360 (RGH/JTAG, `StfsPackage.cs`), checked in game and on the console.
 
@@ -318,7 +320,8 @@ Steps, in order:
 ## 10. Music ✅ done
 
 - Done: music and radio for FM2, FM3, FM4, FH1, FH2.
-- 10.1 Add a song (FM4), coded 2026-10-21, **to test**: ♪ > "Add song (FM4)..." (MusicInstaller.cs,
+- 10.1 Add a song (FM4), coded 2026-10-21, **not tested in game yet** (user 2026-10-21: Forza Studio parses
+  the new .xma like a game file): ♪ > "Add song (FM4)..." (MusicInstaller.cs,
   ArchiveEditorForm.SongAdd.cs; ideas from the Fm4 Sound SDK). Any audio file -> vgmstream WAV -> `xma2encode`
   (Xbox 360 SDK, copied to `bin\xma2encode\`, NOT redistributed) -> `Media\audio\Music\<name>.xma` + `<Song>` line
   (playlist kept once as `.orig`). Tried: Digitalism - Pogo installed in FM4_Extracted_DEV (race layer 1), vgmstream
@@ -561,10 +564,46 @@ A make FM4 lacks (or a brand-new one), in the local database and in a DLC pack. 
 - [x] 17.3 Tested (fm4dev\Makes): trial with two makes, in-place on a copy, and a full pack build (P1 under
       the new make: merge has the List_CarMake row, List_CarMake.str in the pack's tables, 6 logos in
       UI\Textures.zip). NOT tried in game yet.
+- [x] 17.6 Port window split in two (user 2026-10-21): Tools > Import Car From Another Forza (cars, options, trial, install, uninstall) and Tools > Create DLC Package (cars, options, pack); offer id is a box the user fills (button Free suggests one), no automatic number.
 - [ ] 17.4 In-game check (local and pack): the make's page, logo in the list, Livery editor with no decals
 - [ ] 17.5 Open: own decals (Livery_DecalsSortOrder), a country not in List_Country, logo with its own
       look for the `_wtbg` folder, edit/remove a created make, per-language names in the dialog.
       Uninstalling the last car of a make removes the make too (CarUninstall).
+
+---
+
+## 18. Duplicate car, car wizard, SQL for every table 🔧 (user 2026-10-22)
+
+Requested together; order below. All with every FM4 DLC present (Ids free in the game AND in all packs).
+
+- [x] 18.1 Ids start above docs/GameIdLimits.json (embedded in the exe; GameIdLimits.cs, DbIds.Next, FM2
+      wheel Id). Parser tested on the real file (FM4 List_Wheels 11209, 18 ms). Formula Ids (car * 1000 + n)
+      unchanged. Car Id: first free above the last FM4 DLC car (1638); Port.ini InstallFirstCar > 0 is a
+      dev/test override only (user 2026-10-22). Full project build + in-game check pending.
+- [x] 18.2 Audit of the .str of the 16 FM4 packs + the 3 model-year / Autovista packs (tools/FM4Audit,
+      strings.cs, report strings_report.txt; ids: idcollisions.cs). FM4 itself is clean on structure:
+      every table has the same keys in all languages, keys sorted, no duplicates, the same key is always
+      the same IDS name in every pack (0 name clashes). Real problems, all FM4's own:
+      (1) 909 of 1088 shared keys are an EMPTY text in one pack and a real text in another (e.g.
+      Data_Car 652 "Nova SS 396" vs "" in the December IGN pack): the pack loaded last can blank a
+      string; (2) 179 keys with different spelling between packs (SKODA/Skoda, Abflug/AB Flug,
+      "Le Mans"/"LeMans"); (3) 1 text with broken characters in br; (4) "Subtitles" 26 empty texts in the
+      three model-year packs. Rule for Forza Studio packs: never ship an empty text for a key another
+      pack/base fills, never change the text of a key that exists (new key = new Id above the maximum).
+- [x] 18.3 Duplicate car, in the game folder (CarDuplicate.cs, GameStringKeys.cs + docs/GameStringKeys.json:
+      every .str key of FM4 + all packs). Tested on a copy (E:\DEV\fm4dev\Duplicate): NSX '97 -> ACU_NSX_97_B,
+      id 1638, 95 rows in 28 tables, new string keys 65534/65533 in 18 languages, 36-file zip renamed,
+      Thumbnail_1638.xds, manifest line added, original car untouched. Open: copy into a DLC pack
+      (only the game folder now), Combo_Engines rows that point at the car are not copied, NOT checked in game.
+- [~] 18.4 Wizard (DuplicateCarForm.cs, Tools > Duplicate Car): car + name, names/year/make, Data_Car numbers,
+      summary with the plan, Create. Rendered and the error path seen; not built in VS, not clicked.
+      Left: own engine from scratch (Bora 1.9 TDI from the V6), colours/textures page, DLC pack target.
+- [x] 18.5 SQL for every table (SqlGuard.cs, SqlConsoleForm.cs, GameDatabase.RunSql, Tools > Database SQL):
+      one statement, SELECT / INSERT / UPDATE / DELETE on any table, nothing else (DROP, ALTER... refused);
+      an INSERT / UPDATE runs on a copy first and is refused when it creates a key <= FM4's largest (message
+      with the next free one). Writes are listed with the DB changes, File > Save writes them. Tested on a
+      copy of the DB (Data_Car Id 5 refused, 1700 accepted, DROP / two statements refused); dialog not
+      rendered, not built in VS.
 
 ---
 

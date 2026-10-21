@@ -293,7 +293,7 @@ namespace ForzaStudio
             using (SqliteDatabase target = SqliteDatabase.FromBytes(File.ReadAllBytes(Path.Combine(Path.Combine(Path.Combine(fm4Root, "Media"), "db"), "gamedb.slt"))))
             {
                 object known = target.Scalar("SELECT ID FROM List_Wheels WHERE MediaName = ? COLLATE NOCASE", wheelMedia);
-                id = (known != null) ? Convert.ToInt64(known) : Convert.ToInt64(target.Scalar("SELECT MAX(ID) FROM List_Wheels")) + 1;
+                id = (known != null) ? Convert.ToInt64(known) : DbIds.Next(target, "List_Wheels", "ID");
             }
             stageDb.Execute("DELETE FROM List_Wheels WHERE MediaName = ? COLLATE NOCASE OR ID = ?", wheelMedia, id);
             stageDb.Execute("INSERT INTO List_Wheels (ID, MediaName, PartManufacturerID, Mass, Price, IsStock, Lip, CenterCap, Logo, RGB, BrakeDrawOffset, IconPath) VALUES (?, ?, 0, ?, 0, 1, 0, 0, 0, 0, 0, ?)", id, wheelMedia, wheel.Rows[0][1] ?? (object) 40.0, wheelMedia);

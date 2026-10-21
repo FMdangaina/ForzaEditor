@@ -161,6 +161,12 @@
     <Compile Include="ForzaStudio\CarUninstall.cs" />
     <Compile Include="ForzaStudio\CarUpgrades.cs" />
     <Compile Include="ForzaStudio\DbIds.cs" />
+    <Compile Include="ForzaStudio\GameIdLimits.cs" />
+    <Compile Include="ForzaStudio\GameStringKeys.cs" />
+    <Compile Include="ForzaStudio\CarDuplicate.cs" />
+    <Compile Include="ForzaStudio\DuplicateCarForm.cs" />
+    <Compile Include="ForzaStudio\SqlGuard.cs" />
+    <Compile Include="ForzaStudio\SqlConsoleForm.cs" />
     <Compile Include="ForzaStudio\Fm2CarData.cs" />
     <Compile Include="ForzaStudio\Fm2CarUpgrades.cs" />
     <Compile Include="ForzaStudio\Fm2CarPowertrain.cs" />
@@ -277,6 +283,12 @@
       <SubType>Component</SubType>
     </Compile>
     <EmbeddedResource Include="ForzaStudio.Properties.Resources.resources" />
+    <EmbeddedResource Include="docs\GameStringKeys.json">
+      <LogicalName>GameStringKeys.json</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="docs\GameIdLimits.json">
+      <LogicalName>GameIdLimits.json</LogicalName>
+    </EmbeddedResource>
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>

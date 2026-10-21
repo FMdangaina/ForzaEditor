@@ -17,7 +17,7 @@ namespace ForzaStudio
             }
             byte[] xds;
             string name;
-            using (XeniaThumbnailPicker picker = new XeniaThumbnailPicker(this.texture.Width, this.texture.Height, this.texture.Codec.ToString()))
+            using (XeniaThumbnailPicker picker = new XeniaThumbnailPicker(768, 288, "A8R8G8B8"))
             {
                 if (picker.ShowDialog(this) != DialogResult.OK)
                 {

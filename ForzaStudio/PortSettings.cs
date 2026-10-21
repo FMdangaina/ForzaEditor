@@ -21,9 +21,11 @@ namespace ForzaStudio
 ; The generic upgrades of ported cars are in Upgrades.ini.
 
 [Ids]
-; A ported car gets the first free Id from this one up, never the source game's (user 2026-10-20).
-; FM4's own cars use 247-1473, FH1 DLC 1519-1568; 4000 and 4001 checked in game.
-FirstCar = 4000
+; A car installed in the game gets the first free Id above every FM4 / DLC car (1638 today), never the
+; source game's (user 2026-10-22). Set InstallFirstCar > 0 ONLY in development / testing builds.
+; A DLC pack asks for its own first Id in the pack window.
+; FM4's own cars use 247-1473, FH1 DLC 1519-1568.
+InstallFirstCar = 0
 ; Ids Forza Studio gives to new rows of these tables: the next free one from this value
 ; (0 = the next after the largest, as before). Not checked in game yet.
 List_Wheels = 9000000

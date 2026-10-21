@@ -249,7 +249,10 @@
             };
 
             ToolStripMenuItem tools = new ToolStripMenuItem("&Tools");
-            tools.DropDownItems.Add(new ToolStripMenuItem("&Port Car From Another Forza...", null, delegate { this.ShowCarPort(); }));
+            tools.DropDownItems.Add(new ToolStripMenuItem("&Import Car From Another Forza...", null, delegate { this.ShowCarPort(PortMode.Import); }));
+            tools.DropDownItems.Add(new ToolStripMenuItem("Create &DLC Package...", null, delegate { this.ShowCarPort(PortMode.Dlc); }));
+            tools.DropDownItems.Add(new ToolStripMenuItem("Duplicate &Car...", null, delegate { this.ShowDuplicateCar(); }));
+            tools.DropDownItems.Add(new ToolStripMenuItem("Database &SQL...", null, delegate { this.ShowSqlConsole(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Set Generated &Thumbnail...", null, delegate { using (SetThumbnailsForm form = new SetThumbnailsForm()) { form.ShowDialog(this); } }));
             tools.DropDownItems.Add(new ToolStripSeparator());
             tools.DropDownItems.Add(new ToolStripMenuItem("&Settings...", null, delegate { this.ShowSettings(); }));
@@ -318,17 +321,69 @@
 
         // The port window works on the FM4 folder open here, if any (its target box locked), and an
         // install or uninstall there reloads this window, so the change shows at once.
-        private void ShowCarPort()
+        private void ShowCarPort(PortMode mode)
         {
             string root = (this.zip == null) ? null : GamePaths.FindRoot(this.zip.FilePath);
             bool fm4 = root != null && GameInfo.Detect(root) == ForzaGame.Motorsport4;
-            CarPortForm port = new CarPortForm(fm4 ? root : null);
+            CarPortForm port = new CarPortForm(fm4 ? root : null, mode);
             if (fm4)
             {
                 port.MainWindowUnsaved = delegate { return this.zip != null && this.zip.IsModified; };
                 port.GameChanged += delegate { this.ReloadAfterGameChange(root); };
             }
             port.Show(this);
+        }
+
+        // Tools > Database SQL: on the gamedb.slt open in the database view.
+        private void ShowSqlConsole()
+        {
+            if (this.gameDb == null)
+            {
+                MessageBox.Show(this, "Open the game database (Media\\db\\gamedb.slt) first.", "Database SQL", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            using (SqlConsoleForm form = new SqlConsoleForm(this.gameDb))
+            {
+                form.Changed += delegate
+                {
+                    this.UpdateDbChanges();
+                    this.SelectDbSection(this.dbSection);
+                };
+                form.ShowDialog(this);
+            }
+        }
+
+        // Tools > Duplicate Car: the FM4 folder of what is open here (or the port window's target folder).
+        private void ShowDuplicateCar()
+        {
+            string root = (this.zip == null) ? null : GamePaths.FindRoot(this.zip.FilePath);
+            if (root == null || GameInfo.Detect(root) != ForzaGame.Motorsport4)
+            {
+                string saved = AppSettings.Get("CarPort.Target", "");
+                root = (saved.Length > 0 && GameInfo.Detect(saved) == ForzaGame.Motorsport4) ? saved : null;
+            }
+            if (root == null)
+            {
+                MessageBox.Show(this, "Open a file of the Forza Motorsport 4 folder first (the copy is made in that folder).", "Duplicate Car", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            string xenia = AppSettings.Get(SettingsForm.XeniaKey, "");
+            string content = null;
+            try
+            {
+                content = (xenia.Length > 0 && Directory.Exists(xenia)) ? DlcPackage.XeniaContent(xenia) : null;
+            }
+            catch (IOException)
+            {
+            }
+            using (DuplicateCarForm form = new DuplicateCarForm(root, content))
+            {
+                form.ShowDialog(this);
+                if (form.CreatedName != null)
+                {
+                    this.ReloadAfterGameChange(root);
+                }
+            }
         }
 
         // What is open here, read again from disk after the port changed the game folder; the same

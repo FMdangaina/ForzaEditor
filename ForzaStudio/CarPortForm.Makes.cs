@@ -44,7 +44,7 @@ namespace ForzaStudio
             NewMakeForm form;
             try
             {
-                form = new NewMakeForm(target, this.XeniaContent(), taken, true);
+                form = new NewMakeForm(target, this.XeniaContent(), taken, this.mode == PortMode.Import, this.mode == PortMode.Dlc);
             }
             catch (Exception ex)
             {

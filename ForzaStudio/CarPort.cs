@@ -45,7 +45,8 @@ namespace ForzaStudio
         public string MediaName;        // the car, e.g. MCL_P1_13
         public string DonorMediaName;   // an FM4 car close to it, e.g. MCL_MP412C_11 (brakes, templates)
         public bool Arcade = true;      // Data_Car.IsArcade
-        public long? MakeId;            // an FM4 make (List_CarMake.ID) to put the car under instead of the source's
+        public long? FirstCarId;        // the first Id to try for the car (a DLC pack's, chosen by the user); null = Port.ini InstallFirstCar (3000)
+        public long? MakeId;          // an FM4 make (List_CarMake.ID) to put the car under instead of the source's
         public string SoundFrom;        // an FM4 car whose engine sound setup to use instead of the source's
         public string OutputRoot;       // trial run: files written here (same layout) instead of TargetRoot;
                                         // a file already there (an earlier car of the same DLC pack) is
@@ -287,7 +288,7 @@ namespace ForzaStudio
                 // to it, so every step below reads and writes that Id.
                 long sourceId = ToLong(this.source.Scalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", this.MediaName), "the source database has no car " + this.MediaName);
                 string reason;
-                this.carId = DbIds.CarId(this.target, this.source, this.MediaName, DbIds.PackDatabases(this.XeniaContent), out reason);
+                this.carId = DbIds.CarId(this.target, this.source, this.MediaName, DbIds.PackDatabases(this.XeniaContent), this.FirstCarId ?? DbIds.InstallFirstCar, !this.FirstCarId.HasValue, out reason);
                 this.donorId = ToLong(this.target.Scalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", this.DonorMediaName), "the target database has no car " + this.DonorMediaName);
                 object existing = this.target.Scalar("SELECT MediaName FROM Data_Car WHERE Id = ?", this.carId);
                 if (existing != null && !string.Equals((string) existing, this.MediaName, StringComparison.OrdinalIgnoreCase))
@@ -2666,16 +2667,21 @@ namespace ForzaStudio
         {
             public int FrontPistons = 2;
             public int RearPistons = 2;
-            public bool FrontCarbon;
-            public bool RearCarbon;
+            public int FrontRotor;      // RotorSlotted, RotorCarbon, RotorSteel or RotorDrilled
+            public int RearRotor;
             public double? FrontAngle;
             public double? RearAngle;
 
-            // "2,2,0,0,-75,90": front pistons, rear pistons, front/rear carbon, front/rear angle (empty = the row's)
+            public const int RotorSlotted = 0;
+            public const int RotorCarbon = 1;
+            public const int RotorSteel = 2;    // the plain disc of a normal car
+            public const int RotorDrilled = 3;
+
+            // "2,2,0,0,-75,90": front pistons, rear pistons, front/rear rotor type, front/rear angle (empty = the row's)
             public override string ToString()
             {
                 return string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3},{4},{5}", this.FrontPistons, this.RearPistons,
-                    this.FrontCarbon ? 1 : 0, this.RearCarbon ? 1 : 0, this.FrontAngle, this.RearAngle);
+                    this.FrontRotor, this.RearRotor, this.FrontAngle, this.RearAngle);
             }
 
             public static BrakeChoice Parse(string text)
@@ -2688,8 +2694,9 @@ namespace ForzaStudio
                 {
                     choice.FrontPistons = (int.TryParse(p[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out pistons) && pistons >= 2 && pistons <= 6) ? pistons : 2;
                     choice.RearPistons = (int.TryParse(p[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out pistons) && pistons >= 2 && pistons <= 6) ? pistons : 2;
-                    choice.FrontCarbon = p[2] == "1";
-                    choice.RearCarbon = p[3] == "1";
+                    int rotor;
+                    choice.FrontRotor = (int.TryParse(p[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out rotor) && rotor >= 0 && rotor <= RotorDrilled) ? rotor : RotorSlotted;
+                    choice.RearRotor = (int.TryParse(p[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out rotor) && rotor >= 0 && rotor <= RotorDrilled) ? rotor : RotorSlotted;
                     choice.FrontAngle = double.TryParse(p[4], NumberStyles.Float, CultureInfo.InvariantCulture, out angle) ? (double?) angle : null;
                     choice.RearAngle = double.TryParse(p[5], NumberStyles.Float, CultureInfo.InvariantCulture, out angle) ? (double?) angle : null;
                 }
@@ -2744,10 +2751,14 @@ namespace ForzaStudio
             bool right = name.Contains("rf_") || name.Contains("rr_");
             bool caliper = name.Contains("_caliper");
             int inches = this.GenericBrakeInches(car, prefix, front);
-            bool carbon = front ? this.Brakes.FrontCarbon : this.Brakes.RearCarbon;
-            string why = string.Format(CultureInfo.InvariantCulture, "chosen: {0} piston{1}", front ? this.Brakes.FrontPistons : this.Brakes.RearPistons, carbon ? ", carbon rotor" : "");
-            string kind = caliper ? "caliper_" + (front ? this.Brakes.FrontPistons : this.Brakes.RearPistons).ToString(CultureInfo.InvariantCulture) : (carbon ? "rotor_carbon" : "rotor_slotted");
-            string file = string.Format(CultureInfo.InvariantCulture, "{0}_{1}_LOD0.rmb.carbin", inches, kind);
+            int rotorType = front ? this.Brakes.FrontRotor : this.Brakes.RearRotor;
+            string rotorKind = (rotorType == BrakeChoice.RotorCarbon) ? "carbon" : (rotorType == BrakeChoice.RotorSteel) ? "steel" : (rotorType == BrakeChoice.RotorDrilled) ? "drilled" : "slotted";
+            string why = string.Format(CultureInfo.InvariantCulture, "chosen: {0} piston{1}", front ? this.Brakes.FrontPistons : this.Brakes.RearPistons, rotorType != BrakeChoice.RotorSlotted ? ", " + rotorKind + " rotor" : "");
+            string kind = caliper ? "caliper_" + (front ? this.Brakes.FrontPistons : this.Brakes.RearPistons).ToString(CultureInfo.InvariantCulture) : "rotor_" + rotorKind;
+            // The game has a LOD0 model of the slotted and carbon rotors and the calipers only; the steel and
+            // drilled ones are LOD models, whose vertices go to the section's LOD0 below (same vertex format).
+            bool lodOnly = !caliper && (rotorType == BrakeChoice.RotorSteel || rotorType == BrakeChoice.RotorDrilled);
+            string file = string.Format(CultureInfo.InvariantCulture, lodOnly ? "{0}_{1}.rmb.carbin" : "{0}_{1}_LOD0.rmb.carbin", inches, kind);
             string path = Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "brakes"), file);
             if (!File.Exists(path))
             {
@@ -2768,6 +2779,15 @@ namespace ForzaStudio
             CarbinModel brake = new CarbinModel(File.ReadAllBytes(path));
             foreach (CarbinModel.Section section in brake.Sections)
             {
+                if (lodOnly)
+                {
+                    section.Lod0 = section.Lod;
+                    section.Lod = new CarbinModel.VertexBuffer();
+                    foreach (CarbinModel.SubSection sub in section.SubSections)
+                    {
+                        sub.Lod = 0;
+                    }
+                }
                 if (!caliper)
                 {
                     brake.RemoveSubSections(section.Name, "caliper");   // the carbon rotor's file carries a caliper too
@@ -4401,6 +4421,12 @@ namespace ForzaStudio
             {
                 reason = "driver rig in the header was empty (wheel pivot 0,0,0)";
             }
+            else if (this.fm2Stage)
+            {
+                // The wheel is the FM2 car's own, the header's rig the donor's: it fits only by chance (AB Flug
+                // Supra, whose wheel is the donor's twin; the Foose IS300's hands floated off the rim).
+                reason = string.Format(CultureInfo.InvariantCulture, "FM2 stage: the header's rig is the donor's (pivot {0:F4}, {1:F4}, {2:F4}), the steering wheel the car's own", old.X, old.Y, old.Z);
+            }
             else if (Math.Abs(old.X - pivot.X) > RigOffWheel || Microsoft.Xna.Framework.Vector3.Distance(old, pivot) > RigOffWheelFar)
             {
                 reason = string.Format(CultureInfo.InvariantCulture, "driver rig in the header is not on this car's steering wheel (pivot {0:F4}, {1:F4}, {2:F4}, {3} drive; wheel at x {4:F4}, {5} drive)", old.X, old.Y, old.Z, DriveSide(old.X), pivot.X, DriveSide(pivot.X));
@@ -4688,7 +4714,7 @@ namespace ForzaStudio
             }
             Microsoft.Xna.Framework.Vector3 hands = (pivot != Microsoft.Xna.Framework.Vector3.Zero) ? pivot + HandsFromPivot : new Microsoft.Xna.Framework.Vector3(wheel.Bounds[0], wheel.Bounds[1], wheel.Bounds[2]) + HandsFromWheel;
             bool off = Math.Abs(x - hands.X) > HandsOffWheel;
-            if (this.traffic)
+            if (this.traffic || this.fm2Stage)   // an FM2 stage's offset is the donor's, whatever its x
             {
                 off |= Math.Abs(y - hands.Y) > HandsOffWheel || Math.Abs(z - hands.Z) > HandsOffWheel;
             }

@@ -438,6 +438,18 @@ namespace ForzaStudio
             return DbIds.Next(this.db, table, column);
         }
 
+        // One typed SQL statement on any table (SqlGuard: the Id rule, only SELECT / INSERT / UPDATE / DELETE).
+        // A write is listed with the changes, so File > Save writes it.
+        public SqlGuard.Outcome RunSql(string sql)
+        {
+            SqlGuard.Outcome outcome = SqlGuard.Run(this.db, sql, ForzaGame.Motorsport4);
+            if (outcome.Table != null)
+            {
+                this.Record(outcome.Table, 0, null, null, "SQL (" + outcome.Changed + " rows): " + sql.Trim());
+            }
+            return outcome;
+        }
+
         public void DeleteRow(string tableName, long rowId)
         {
             this.db.Execute("DELETE FROM " + SqliteDatabase.Quote(tableName) + " WHERE rowid = ?", rowId);

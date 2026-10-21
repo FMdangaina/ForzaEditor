@@ -43,7 +43,7 @@ namespace ForzaStudio
         public bool InGame;
 
         // existingIds: makes already pending in the port window; xeniaContent: for the Id of a DLC make.
-        public NewMakeForm(string target, string xeniaContent, List<long> pendingIds, bool canCreateInGame)
+        public NewMakeForm(string target, string xeniaContent, List<long> pendingIds, bool canCreateInGame, bool canAddToPack)
         {
             this.target = target;
             this.AutoScaleMode = AutoScaleMode.None;
@@ -168,12 +168,13 @@ namespace ForzaStudio
             Button game = new Button();
             game.Text = "Create in the game";
             game.SetBounds(12, y, 150, 30);
-            game.Enabled = canCreateInGame;
+            game.Visible = canCreateInGame;
             game.Click += delegate { this.Accept(true); };
             new ToolTip().SetToolTip(game, "Writes the make into the FM4 folder's database, string tables and Textures.zip now (files backed up to bak\\)");
             Button pack = new Button();
             pack.Text = "Add to the DLC pack";
-            pack.SetBounds(170, y, 150, 30);
+            pack.SetBounds(canCreateInGame ? 170 : 12, y, 150, 30);
+            pack.Visible = canAddToPack;
             pack.Click += delegate { this.Accept(false); };
             new ToolTip().SetToolTip(pack, "Kept in the port window and written into every trial and the DLC pack, so the pack carries the make; the game folder stays untouched");
             Button close = new Button();

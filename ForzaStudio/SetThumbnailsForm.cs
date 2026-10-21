@@ -31,10 +31,14 @@ namespace ForzaStudio
             public string Media;
             public string File;         // the loose file, or the zip holding the entry
             public string Entry;        // the entry in the zip; null for a loose file
-            public XdsTexture Current;      // not read for a game folder (about 500 textures)
+            public XdsTexture Current;      // a game folder reads them a few at a time (about 500 textures)
+            public bool Tried;
             public XeniaThumbnails.Item Assigned;
         }
 
+        private Timer reader;
+        private int readNext;
+        private readonly Dictionary<string, ForzaZip> readZips = new Dictionary<string, ForzaZip>(StringComparer.OrdinalIgnoreCase);
         private readonly TextBox dlcBox;
         private readonly ListView carList;
         private readonly ImageList carImages;
@@ -308,7 +312,7 @@ namespace ForzaStudio
                 }
                 else if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && Path.GetFileName(path).IndexOf("StringTables", StringComparison.OrdinalIgnoreCase) < 0)
                 {
-                    ForzaZip zip = ForzaZip.OpenFile(path);
+                    ForzaZip zip = new ForzaZip(path);
                     foreach (ForzaZip.Entry entry in zip.Entries)
                     {
                         match = ThumbnailName.Match(entry.Name);
@@ -367,6 +371,7 @@ namespace ForzaStudio
             this.root = folder;
             this.dlcBox.Text = folder;
             this.cars.Clear();
+            this.readZips.Clear();
             int missing = 0;
             using (SqliteDatabase game = SqliteDatabase.FromBytes(File.ReadAllBytes(db)))
             {
@@ -418,6 +423,64 @@ namespace ForzaStudio
             }
             this.carList.EndUpdate();
             this.UpdateButtons();
+            this.StartReading();
+        }
+
+        // Game folder: the current thumbnails of the rows are read a few per tick so the window stays alive.
+        private void StartReading()
+        {
+            if (this.reader == null)
+            {
+                this.reader = new Timer();
+                this.reader.Interval = 15;
+                this.reader.Tick += delegate { this.ReadSome(); };
+                this.FormClosed += delegate { this.reader.Stop(); };
+            }
+            this.readNext = 0;
+            this.reader.Enabled = this.gameRoot != null;
+        }
+
+        private void ReadSome()
+        {
+            int done = 0;
+            while (this.readNext < this.carList.Items.Count && done < 6)
+            {
+                ListViewItem row = this.carList.Items[this.readNext++];
+                Car car = (Car) row.Tag;
+                if (car.Current != null || car.Tried)
+                {
+                    continue;
+                }
+                car.Tried = true;
+                done++;
+                try
+                {
+                    byte[] data;
+                    if (car.Entry == null)
+                    {
+                        data = File.ReadAllBytes(car.File);
+                    }
+                    else
+                    {
+                        ForzaZip zip;
+                        if (!this.readZips.TryGetValue(car.File, out zip))
+                        {
+                            zip = new ForzaZip(car.File);
+                            this.readZips[car.File] = zip;
+                        }
+                        data = zip.Read(zip.Find(car.Entry));
+                    }
+                    car.Current = new XdsTexture(data);
+                    this.ShowRow(row);
+                }
+                catch (Exception)
+                {
+                }
+            }
+            if (this.readNext >= this.carList.Items.Count)
+            {
+                this.reader.Stop();
+            }
         }
 
         // The row's picture and state: the assigned thumbnail, else the current one when it was read.
@@ -585,7 +648,7 @@ namespace ForzaStudio
                         ForzaZip zip;
                         if (!zips.TryGetValue(car.File, out zip))
                         {
-                            zip = ForzaZip.OpenFile(car.File);
+                            zip = new ForzaZip(car.File);
                             zips[car.File] = zip;
                         }
                         zip.Replace(zip.Find(car.Entry), car.Assigned.Xds);
