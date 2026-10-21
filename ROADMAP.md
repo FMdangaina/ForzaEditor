@@ -165,6 +165,16 @@ package, console tests). Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4de
       the conversions are 100% OK (user, 2026-10-19)
 - [ ] 2.2 ⏸ (was 3.8) Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (the user's
       side). Paused like 2.1
+- [ ] 2.3 Set Generated Thumbnail, coded 2026-10-21, **to test** (Tools > Set Generated Thumbnail...,
+      `SetThumbnailsForm.cs`, `XeniaThumbnails.cs`, texture view button "Xenia Thumbnail..."). Xenia profile
+      `ForzaProfile\Thumbnails\Thumbnail_N.xdc` = deflate + the car's 768x288 xds, replaced byte for byte.
+      Only load / assign / layout were checked (screenshots, DLC folder with 6 cars, FM4_Extracted_DEV with
+      510). To test: Save never run on (a) an STFS package (repack, original in `bak\`, opens in Xenia /
+      console), (b) a DLC work folder (loose xds or zip), (c) a game folder (Textures.zip + zipmanifest,
+      backups); thumbnail shows in the game menu; Thumbnail_N <-> car mapping (newest = last generated is
+      assumed); Xenia closed before Save; the "Xenia Thumbnail..." picker dialog (not screenshot-checked);
+      auto-detected folder when several profiles exist; cars without a thumbnail file are skipped; car
+      names "Car <id>" when the merge DB is inside a zip.
 - Done: merge DB from a port, Xenia package folder, DLC pack panel (n cars), STFS package for a real
   Xbox 360 (RGH/JTAG, `StfsPackage.cs`), checked in game and on the console.
 
@@ -305,6 +315,13 @@ Steps, in order:
 ## 10. Music ✅ done
 
 - Done: music and radio for FM2, FM3, FM4, FH1, FH2.
+- 10.1 Add a song (FM4), coded 2026-10-21, **to test**: ♪ > "Add song (FM4)..." (MusicInstaller.cs,
+  ArchiveEditorForm.SongAdd.cs; ideas from the Fm4 Sound SDK). Any audio file -> vgmstream WAV -> `xma2encode`
+  (Xbox 360 SDK, copied to `bin\xma2encode\`, NOT redistributed) -> `Media\audio\Music\<name>.xma` + `<Song>` line
+  (playlist kept once as `.orig`). Tried: Digitalism - Pogo installed in FM4_Extracted_DEV (race layer 1), vgmstream
+  decodes it (XMA2, 44.1 kHz stereo, 3:46). To test: it plays in Xenia in race; menu playlists; the dialog; a
+  second song / existing name; mono or 48 kHz input; many songs (limits?); loading without the SDK (path prompt).
+  Release note: the user needs the SDK for this feature.
 
 ## 11. Wheels: morph targets and resizing 🔧
 
@@ -525,6 +542,26 @@ Background: D2.
 ## 16. Car cameras ✅ done (reduced)
 
 - Done: FM3 cockpit camera and the COCKPIT CAMERA panel. Exterior cameras in Maybe later.
+
+## 17. New car makes (from scratch) 🔧
+
+A make FM4 lacks (or a brand-new one), in the local database and in a DLC pack. Code: `CarMake.cs`
+(row + strings + logos), `NewMakeForm.cs` (dialog), `CarPortForm.Makes.cs` (the "+" next to Make).
+
+- [x] 17.1 `CarMake.Create`: List_CarMake row (next free Id, also past the makes of the packs in Xenia),
+      DisplayName/Profile in List_CarMake.str of every language (two free keys, names IDS_DisplayName_n /
+      IDS_Profile_n), the logo as L_MAN_<name>_Logo.xds in the six logo folders of UI\Textures.zip (size,
+      format, mips from Acura's logos in each folder), zipmanifest.xml lines. Local = in place with bak\
+      backups; DLC = into the pack's trial folder (copy-on-write, chains with the cars).
+- [x] 17.2 Port window: "+" next to Make; "Create in the game" or "Add to the DLC pack" (kept, written into
+      every trial; an install writes it into the game when the car goes under it).
+- [x] 17.3 Tested (fm4dev\Makes): trial with two makes, in-place on a copy, and a full pack build (P1 under
+      the new make: merge has the List_CarMake row, List_CarMake.str in the pack's tables, 6 logos in
+      UI\Textures.zip). NOT tried in game yet.
+- [ ] 17.4 In-game check (local and pack): the make's page, logo in the list, Livery editor with no decals
+- [ ] 17.5 Open: own decals (Livery_DecalsSortOrder), a country not in List_Country, logo with its own
+      look for the `_wtbg` folder, edit/remove a created make, per-language names in the dialog.
+      Uninstalling the last car of a make removes the make too (CarUninstall).
 
 ---
 

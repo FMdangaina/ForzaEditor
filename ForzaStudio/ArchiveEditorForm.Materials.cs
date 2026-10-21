@@ -49,8 +49,10 @@ namespace ForzaStudio
         private TabControl tabSide;
         private TabPage tabSideCamera;
         private TabPage tabSideCollision;
+        private TabPage tabSideExhaust;
         private bool cameraTabWanted = true;
         private bool collisionTabWanted = true;
+        private bool exhaustTabWanted = false;
 
         private Panel BuildMeshInfoPanel()
         {
@@ -64,6 +66,8 @@ namespace ForzaStudio
             this.tabSideCamera = this.tabSide.TabPages[2];
             FlowLayoutPanel collision = this.AddSideTab("Collision");
             this.tabSideCollision = this.tabSide.TabPages[3];
+            FlowLayoutPanel exhaust = this.AddSideTab("Exhaust");
+            this.tabSideExhaust = this.tabSide.TabPages[4];
             this.tabSide.SelectedIndexChanged += delegate { this.UpdateViewOverlay(); };
             host.Controls.Add(SideRailHost(this.tabSide));
 
@@ -128,6 +132,7 @@ namespace ForzaStudio
             // Kept in the tabs until a model loads, so the theme reaches it (LoadCockpitCamera hides it).
             this.AddCameraControls(camera);
             this.AddCollisionControls(collision);
+            this.AddExhaustControls(exhaust);
 
             this.tvModel.AfterSelect += delegate { this.UpdateMeshPanel(); };
             return host;
@@ -174,18 +179,26 @@ namespace ForzaStudio
             this.ArrangeCarTabs();
         }
 
-        // CAMERA before COLLISION whichever comes and goes; the open tab stays open when still there.
+        private void SetExhaustTabVisible(bool visible)
+        {
+            this.exhaustTabWanted = visible;
+            this.ArrangeCarTabs();
+        }
+
+        // CAMERA, COLLISION, EXHAUST in that order whichever comes and goes; the open tab stays open when still there.
         private void ArrangeCarTabs()
         {
             bool cameraShown = this.tabSide.TabPages.Contains(this.tabSideCamera);
             bool collisionShown = this.tabSide.TabPages.Contains(this.tabSideCollision);
-            if (cameraShown == this.cameraTabWanted && collisionShown == this.collisionTabWanted)
+            bool exhaustShown = this.tabSide.TabPages.Contains(this.tabSideExhaust);
+            if (cameraShown == this.cameraTabWanted && collisionShown == this.collisionTabWanted && exhaustShown == this.exhaustTabWanted)
             {
                 return;
             }
             TabPage selected = this.tabSide.SelectedTab;
             this.tabSide.TabPages.Remove(this.tabSideCamera);
             this.tabSide.TabPages.Remove(this.tabSideCollision);
+            this.tabSide.TabPages.Remove(this.tabSideExhaust);
             if (this.cameraTabWanted)
             {
                 this.tabSide.TabPages.Add(this.tabSideCamera);
@@ -193,6 +206,10 @@ namespace ForzaStudio
             if (this.collisionTabWanted)
             {
                 this.tabSide.TabPages.Add(this.tabSideCollision);
+            }
+            if (this.exhaustTabWanted)
+            {
+                this.tabSide.TabPages.Add(this.tabSideExhaust);
             }
             if (selected != null && this.tabSide.TabPages.Contains(selected))
             {
@@ -211,7 +228,8 @@ namespace ForzaStudio
             }
             TabPage open = this.tabSide.SelectedTab;
             List<Microsoft.Xna.Framework.Graphics.VertexPositionColor> lines = (open == this.tabSideCamera) ? this.CameraOverlayLines()
-                : (open == this.tabSideCollision) ? this.CollisionOverlayLines() : null;
+                : (open == this.tabSideCollision) ? this.CollisionOverlayLines()
+                : (open == this.tabSideExhaust) ? this.ExhaustOverlayLines() : null;
             this.scene.Overlay = (lines != null && lines.Count >= 2) ? lines.ToArray() : null;
             this.scene.Update(true);
         }

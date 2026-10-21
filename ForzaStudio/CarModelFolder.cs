@@ -353,6 +353,13 @@ namespace ForzaStudio
         // unchanged OBJs are rebuilt too (fresh precalc lighting and UV data).
         public static Plan Prepare(Dictionary<string, string> folders, Dictionary<string, CarbinModel> models, bool rebuildAll)
         {
+            return Prepare(folders, models, rebuildAll, false);
+        }
+
+        // allowAnyMaterial: a model imported from another game (FM2) may use materials the donor model has none of; they
+        // are checked later (CarPort material review), the OBJ names are the game's own.
+        public static Plan Prepare(Dictionary<string, string> folders, Dictionary<string, CarbinModel> models, bool rebuildAll, bool allowAnyMaterial)
+        {
             Plan plan = new Plan();
             plan.Folders = folders;
 
@@ -558,7 +565,7 @@ namespace ForzaStudio
                     }
                     foreach (ObjMesh.Material material in mesh.Materials)
                     {
-                        if (!carMaterials.ContainsKey(material.Name))
+                        if (!allowAnyMaterial && !carMaterials.ContainsKey(material.Name))
                         {
                             plan.Errors.Add(string.Format("{0}: material \"{1}\" is not one of the car's (usemtl names are case-sensitive)", shown, material.Name));
                         }

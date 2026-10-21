@@ -71,6 +71,7 @@ namespace ForzaStudio
             side.Controls.Add(SideLabel(""));
             side.Controls.Add(SideButton("Export Image...", delegate { this.ExportTexturePng(); }));
             side.Controls.Add(SideButton("Import Image...", delegate { this.ImportTextureImage(); }));
+            side.Controls.Add(SideButton("Xenia Thumbnail...", delegate { this.ReplaceWithXeniaThumbnail(); }));
             this.lblImportNote = SideLabel("");
             this.lblImportNote.Size = new Size(210, 110);
             this.lblImportNote.ForeColor = SystemColors.GrayText;

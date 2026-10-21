@@ -622,6 +622,53 @@ namespace ForzaStudio
 
         private double wheelMorph = 1;
 
+        // A wheel whose LOD 0 is a true-size copy of LOD 1 (an FM2 rim, a traffic rim): LOD 0 becomes the
+        // 15-inch reference of FM4 (largest YZ radius 'reference', as the 232 FM4 wheels of Lod0MorphScale) with
+        // the morph table of both buffers (WheelMorphTable), so the game resizes it with the car's rim size
+        // (rule 11.2, ROADMAP). Returns the morph target's radius, the value of header floats 8 and 10.
+        public double MakeWheelMorph(double reference)
+        {
+            double target = 0;
+            foreach (Section section in this.Sections)
+            {
+                double[] lod = Positions(section, section.Lod);
+                double[] lod0 = Positions(section, section.Lod0);
+                // Largest radius of the vertices LOD 0 draws (the buffer also holds the LOD 1 tire's).
+                double radius = 0;
+                foreach (SubSection sub in section.SubSections)
+                {
+                    if (sub.Lod != 0)
+                    {
+                        continue;
+                    }
+                    foreach (int index in sub.Indices)
+                    {
+                        if (!IsRestart(sub, index) && index * 3 < lod0.Length)
+                        {
+                            radius = Math.Max(radius, Math.Sqrt((lod0[(index * 3) + 1] * lod0[(index * 3) + 1]) + (lod0[(index * 3) + 2] * lod0[(index * 3) + 2])));
+                        }
+                    }
+                }
+                if (radius < 1e-6)
+                {
+                    continue;
+                }
+                double fit = reference / radius;
+                for (int i = 0; i < lod0.Length; i += 3)
+                {
+                    lod0[i + 1] *= fit;
+                    lod0[i + 2] *= fit;
+                }
+                double morph = (reference + 0.1301) / reference;
+                section.DamageLod = WheelMorphTable(lod, 1);
+                section.DamageLod0 = WheelMorphTable(lod0, morph);
+                section.Post9[4] = 1;
+                Reencode(section, lod, lod0);
+                target = reference * morph;
+            }
+            return target;
+        }
+
         // Min x, max x and largest YZ radius of a material's vertices (null: every material) at LOD 0
         // (lod0) or 1; the whole LOD when the material is not there.
         private double[] WheelMaterial(Section section, string material, bool lod0, double[] lod, double[] lod0Positions)

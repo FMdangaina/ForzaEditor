@@ -127,6 +127,7 @@ namespace ForzaStudio
             this.btnMusicOptions.DropDownItems.Add(this.mnuMusicShuffle);
             this.btnMusicOptions.DropDownItems.Add(this.mnuMusicAutoPlay);
             this.btnMusicOptions.DropDownItems.Add(new ToolStripSeparator());
+            this.btnMusicOptions.DropDownItems.Add(new ToolStripMenuItem("Add song (FM4)...", null, delegate { this.AddSong(); }));
             this.btnMusicOptions.DropDownItems.Add(new ToolStripMenuItem("Stop", null, delegate { this.StopMusic(); }));
         }
 

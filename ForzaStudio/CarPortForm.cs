@@ -45,6 +45,7 @@ namespace ForzaStudio
             public Car Car;
             public string Donor;
             public bool Arcade;
+            public string Brakes;       // CarPort.BrakeChoice text: what goes on a car with no brakes
             public List<CarPort.Issue> Issues;
             public int Applied;
         }
@@ -58,6 +59,8 @@ namespace ForzaStudio
         private readonly CheckBox arcade;
         private readonly ComboBox makes;    // "the source's" + FM4's makes
         private readonly ComboBox sounds;   // "the source's" + FM4's cars
+        private readonly ComboBox frontCaliper, rearCaliper, frontRotor, rearRotor;   // brakes of a car that has none
+        private readonly TextBox frontAngle, rearAngle;
         private readonly ToolStripStatusLabel details;
         private readonly TextBox report;
         private readonly Panel reviewPanel;
@@ -241,7 +244,7 @@ namespace ForzaStudio
 
             Panel options = new Panel();
             options.Dock = DockStyle.Bottom;
-            options.Height = 124;
+            options.Height = 156;
             Label donorLabel = new Label();
             donorLabel.Text = "FM4 template car, for what the source car lacks (green = most similar: make, layout, drive, year, weight, PI):";
             donorLabel.Location = new Point(8, 8);
@@ -266,7 +269,7 @@ namespace ForzaStudio
             this.makes = new ComboBox();
             this.makes.DropDownStyle = ComboBoxStyle.DropDownList;
             this.makes.Location = new Point(52, 60);
-            this.makes.Width = 180;
+            this.makes.Width = 150;
             this.makes.MaxDropDownItems = 24;
             new ToolTip().SetToolTip(this.makes, "The FM4 make the car goes under (CarPort.MakeId); the source's own make by default");
             Label soundLabel = new Label();
@@ -281,13 +284,31 @@ namespace ForzaStudio
             new ToolTip().SetToolTip(this.sounds, "The FM4 car whose whole engine sound setup the car gets (CarPort.SoundFrom); the source's own sound by default");
             options.Controls.Add(makeLabel);
             options.Controls.Add(this.makes);
+            options.Controls.Add(this.BuildNewMakeButton());
             options.Controls.Add(soundLabel);
             options.Controls.Add(this.sounds);
-            this.trial = ActionButton(options, "Trial Run", 8, 94, 100);
+            // Brakes for a car whose source has none (traffic, FM2...): the game's generic ones, chosen here.
+            Label brakeLabel = new Label();
+            brakeLabel.Text = "Brakes, if the car has none - front:";
+            brakeLabel.Location = new Point(8, 99);
+            brakeLabel.AutoSize = true;
+            this.frontCaliper = BrakeCombo(options, 190, 96, new string[] { "2 pistons", "4 pistons", "6 pistons" });
+            this.frontRotor = BrakeCombo(options, 262, 96, new string[] { "slotted", "carbon" });
+            this.frontAngle = BrakeAngle(options, 330, 96);
+            Label rearLabel = new Label();
+            rearLabel.Text = "rear:";
+            rearLabel.Location = new Point(388, 99);
+            rearLabel.AutoSize = true;
+            this.rearCaliper = BrakeCombo(options, 424, 96, new string[] { "2 pistons", "4 pistons", "6 pistons" });
+            this.rearRotor = BrakeCombo(options, 496, 96, new string[] { "slotted", "carbon" });
+            this.rearAngle = BrakeAngle(options, 564, 96);
+            options.Controls.Add(brakeLabel);
+            options.Controls.Add(rearLabel);
+            this.trial = ActionButton(options, "Trial Run", 8, 126, 100);
             this.trial.Click += delegate { this.Port(false); };
-            this.install = ActionButton(options, "Install In FM4...", 114, 94, 120);
+            this.install = ActionButton(options, "Install In FM4...", 114, 126, 120);
             this.install.Click += delegate { this.Port(true); };
-            this.openTrial = ActionButton(options, "Open Trial Folder", 240, 94, 130);
+            this.openTrial = ActionButton(options, "Open Trial Folder", 240, 126, 130);
             this.openTrial.Click += delegate
             {
                 if (this.trialFolder != null && Directory.Exists(this.trialFolder))
@@ -295,7 +316,7 @@ namespace ForzaStudio
                     Process.Start("explorer.exe", "\"" + this.trialFolder + "\"");
                 }
             };
-            this.uninstall = ActionButton(options, "Uninstall...", 376, 94, 100);
+            this.uninstall = ActionButton(options, "Uninstall...", 376, 126, 100);
             this.uninstall.Click += delegate { this.Uninstall(); };
             new ToolTip().SetToolTip(this.uninstall, "Take a car ported earlier out of the FM4 folder (database rows, strings, zips), e.g. to put it into a DLC pack instead");
             options.Controls.Add(donorLabel);
@@ -937,6 +958,41 @@ namespace ForzaStudio
             get { return (this.packList.SelectedItems.Count == 1) ? (PackEntry) this.packList.SelectedItems[0].Tag : null; }
         }
 
+        private static ComboBox BrakeCombo(Control parent, int x, int y, string[] items)
+        {
+            ComboBox combo = new ComboBox();
+            combo.DropDownStyle = ComboBoxStyle.DropDownList;
+            combo.Location = new Point(x, y);
+            combo.Width = 66;
+            combo.Items.AddRange(items);
+            combo.SelectedIndex = 0;
+            parent.Controls.Add(combo);
+            return combo;
+        }
+
+        private static TextBox BrakeAngle(Control parent, int x, int y)
+        {
+            TextBox box = new TextBox();
+            box.Location = new Point(x, y);
+            box.Width = 50;
+            new ToolTip().SetToolTip(box, "Where the caliper sits around the axle, in degrees, as Data_Car CaliperAngleFront/Rear (about 90 or -90 on most cars). Empty = the value the car's row already has. A value typed here is written to the row.");
+            parent.Controls.Add(box);
+            return box;
+        }
+
+        private CarPort.BrakeChoice CurrentBrakes()
+        {
+            CarPort.BrakeChoice choice = new CarPort.BrakeChoice();
+            choice.FrontPistons = 2 + (this.frontCaliper.SelectedIndex * 2);
+            choice.RearPistons = 2 + (this.rearCaliper.SelectedIndex * 2);
+            choice.FrontCarbon = this.frontRotor.SelectedIndex == 1;
+            choice.RearCarbon = this.rearRotor.SelectedIndex == 1;
+            double angle;
+            choice.FrontAngle = double.TryParse(this.frontAngle.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out angle) ? (double?) angle : null;
+            choice.RearAngle = double.TryParse(this.rearAngle.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out angle) ? (double?) angle : null;
+            return choice;
+        }
+
         // The pack changed: the last pack trial no longer matches it.
         private void PackChanged()
         {
@@ -944,7 +1000,7 @@ namespace ForzaStudio
             List<string> saved = new List<string>();
             foreach (PackEntry entry in this.pack)
             {
-                saved.Add(entry.Car.MediaName + "|" + entry.Donor + "|" + (entry.Arcade ? "1" : "0"));
+                saved.Add(entry.Car.MediaName + "|" + entry.Donor + "|" + (entry.Arcade ? "1" : "0") + "|" + entry.Brakes);
             }
             AppSettings.Set("CarPort.PackCars", string.Join(";", saved.ToArray()));
             AppSettings.Set("CarPort.PackSource", this.sourceBox.Text.Trim());
@@ -1055,6 +1111,7 @@ namespace ForzaStudio
                             entry.Car = car;
                             entry.Donor = parts[1];
                             entry.Arcade = parts[2] == "1";
+                            entry.Brakes = (parts.Length > 3) ? parts[3] : new CarPort.BrakeChoice().ToString();
                             this.pack.Add(entry);
                         }
                     }
@@ -1076,6 +1133,7 @@ namespace ForzaStudio
             entry.Car = car;
             entry.Donor = donor.Car.MediaName;
             entry.Arcade = this.arcade.Checked;
+            entry.Brakes = this.CurrentBrakes().ToString();
             this.pack.Add(entry);
             this.PackChanged();
         }
@@ -1161,6 +1219,7 @@ namespace ForzaStudio
             this.bottomTabs.SelectedIndex = 0;
             this.report.Text = string.Format("Pack trial: {0} cars -> {1}\r\n", entries.Count, folder);
             this.packStatus.Text = "Trial running...";
+            List<CarMakeSpec> newMakes = new List<CarMakeSpec>(this.pendingMakes);
             this.Background(delegate
             {
                 Stopwatch watch = Stopwatch.StartNew();
@@ -1168,6 +1227,18 @@ namespace ForzaStudio
                 List<CarPort> ports = new List<CarPort>();
                 Exception error = null;
                 PackEntry failed = null;
+                try
+                {
+                    WriteMakes(newMakes, target, folder, text);
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                    failed = new PackEntry();
+                    failed.Car = new Car();
+                    failed.Car.Name = "new make";
+                    failed.Car.MediaName = "make";
+                }
                 for (int i = 0; i < entries.Count && error == null; i++)
                 {
                     CarPort port = new CarPort();
@@ -1178,6 +1249,7 @@ namespace ForzaStudio
                     port.MediaName = entries[i].Car.MediaName;
                     port.DonorMediaName = entries[i].Donor;
                     port.Arcade = entries[i].Arcade;
+                    port.Brakes = CarPort.BrakeChoice.Parse(entries[i].Brakes);
                     if (chosen[i] != null)
                     {
                         port.Fixes = chosen[i];
@@ -1547,7 +1619,7 @@ namespace ForzaStudio
                         packageFolder |= StfsReader.IsPackage(file);
                     }
                 }
-                MessageBox.Show(this, string.Format("The source must be Forza Horizon, Forza Horizon 2 or Forza Motorsport 3, or car DLC packages of one of them, and the second folder Forza Motorsport 4.\n\nFound: {0} and {1}.{2}",
+                MessageBox.Show(this, string.Format("The source must be Forza Horizon, Forza Horizon 2, Forza Motorsport 2 or Forza Motorsport 3, or car DLC packages of one of them, and the second folder Forza Motorsport 4.\n\nFound: {0} and {1}.{2}",
                     GameInfo.Name(sourceGame) ?? ((packages != null && packages.Count > 0) ? packages.Count + " DLC packages without usable cars" : "no Forza game"), GameInfo.Name(targetGame) ?? "no Forza game",
                     packageFolder ? "\n\nThe folder holds Xbox 360 package files: choose them with Package..." : ""), this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -1598,6 +1670,7 @@ namespace ForzaStudio
                     this.classColors = colors;
                     this.makes.Items.Clear();
                     this.makes.Items.AddRange(makeList.ToArray());
+                    this.AddPendingMakeChoices();
                     this.makes.SelectedIndex = 0;
                     List<Car> soundCars = new List<Car>(motorsport);
                     soundCars.Sort(delegate(Car a, Car b) { return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase); });
@@ -1654,7 +1727,7 @@ namespace ForzaStudio
 
         private static bool IsSourceGame(ForzaGame game)
         {
-            return game == ForzaGame.Horizon1 || game == ForzaGame.Horizon2 || game == ForzaGame.Motorsport3;
+            return game == ForzaGame.Horizon1 || game == ForzaGame.Horizon2 || game == ForzaGame.Motorsport3 || game == ForzaGame.Motorsport2;
         }
 
         // "the source's" and FM4's makes (List_CarMake), by name, for the make choice.
@@ -1812,7 +1885,10 @@ namespace ForzaStudio
         private static List<Car> Cars(SqliteDatabase db, StringTable names)
         {
             List<Car> cars = new List<Car>();
-            foreach (object[] row in db.Query("SELECT Id, MediaName, DisplayName, Year, MakeID, EnginePlacementID, DriveTypeID, CarTypeID, CurbWeight, PerformanceIndex FROM Data_Car ORDER BY Id").Rows)
+            // FM2 has no DriveTypeID: its drive comes from the car's powertrain.
+            bool drive = db.Query("SELECT * FROM Data_Car LIMIT 1").Columns.Length > 0 && Array.Exists(db.Query("SELECT * FROM Data_Car LIMIT 1").Columns, delegate(string c) { return string.Equals(c, "DriveTypeID", StringComparison.OrdinalIgnoreCase); });
+            string driveColumn = drive ? "DriveTypeID" : "(SELECT DrivetrainId FROM Powertrains WHERE Powertrains.Id = Data_Car.PowertrainID)";
+            foreach (object[] row in db.Query("SELECT Id, MediaName, DisplayName, Year, MakeID, EnginePlacementID, " + driveColumn + ", CarTypeID, CurbWeight, PerformanceIndex FROM Data_Car ORDER BY Id").Rows)
             {
                 if (!(row[1] is string))
                 {
@@ -1970,6 +2046,7 @@ namespace ForzaStudio
             port.MediaName = car.MediaName;
             port.DonorMediaName = donor.Car.MediaName;
             port.Arcade = this.arcade.Checked;
+            port.Brakes = this.CurrentBrakes();
             CarPort.Choice make = this.makes.SelectedItem as CarPort.Choice;
             if (make != null && make.Value != null)
             {
@@ -1994,19 +2071,36 @@ namespace ForzaStudio
             }
             this.bottomTabs.SelectedIndex = 0;
             this.report.Text = string.Format("{0} {1} -> {2}, donor {3}...\r\n", installing ? "Installing" : "Trial run:", car.MediaName, port.TargetRoot, donor.Car.MediaName);
+            // The pack's new makes: all of them into a trial folder; into the game only the one the
+            // installed car goes under.
+            List<CarMakeSpec> newMakes = new List<CarMakeSpec>();
+            if (installing)
+            {
+                CarMakeSpec own = this.PendingMake(port.MakeId);
+                if (own != null)
+                {
+                    newMakes.Add(own);
+                }
+            }
+            else
+            {
+                newMakes.AddRange(this.pendingMakes);
+            }
             this.Background(delegate
             {
                 Stopwatch watch = Stopwatch.StartNew();
                 Exception error = null;
+                System.Text.StringBuilder makeText = new System.Text.StringBuilder();
                 try
                 {
+                    WriteMakes(newMakes, port.TargetRoot, installing ? null : folder, makeText);
                     port.Run();
                 }
                 catch (Exception ex)
                 {
                     error = ex;
                 }
-                string text = port.Report.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n");
+                string text = makeText.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n") + port.Report.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n");
                 return delegate
                 {
                     this.report.Text += text;
@@ -2040,6 +2134,11 @@ namespace ForzaStudio
                     this.report.ScrollToCaret();
                     if (installing && error == null)
                     {
+                        if (newMakes.Count > 0)
+                        {
+                            this.pendingMakes.Remove(newMakes[0]);
+                            this.RefreshMakeChoices(newMakes[0].Id);
+                        }
                         this.OnGameChanged();
                         car.State = Status.Ported;
                         car.Note = "ported (install updates it)";

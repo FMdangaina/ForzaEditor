@@ -143,14 +143,27 @@
     <Compile Include="ForzaStudio\CarbinFile.cs" />
     <Compile Include="ForzaStudio\CarbinModel.cs" />
     <Compile Include="ForzaStudio\CarbinModelMotorsport3.cs" />
+    <Compile Include="ForzaStudio\CarbinExhaust.cs" />
+    <Compile Include="ForzaStudio\Fm2Source.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Exhaust.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.XeniaThumbnail.cs" />
+    <Compile Include="ForzaStudio\XeniaThumbnails.cs" />
+    <Compile Include="ForzaStudio\SetThumbnailsForm.cs" />
     <Compile Include="ForzaStudio\CarModelFolder.cs" />
     <Compile Include="ForzaStudio\GameInfo.cs" />
     <Compile Include="ForzaStudio\GameMusic.cs" />
+    <Compile Include="ForzaStudio\MusicInstaller.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.SongAdd.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="ForzaStudio\StrFile.cs" />
     <Compile Include="ForzaStudio\CarPort.cs" />
     <Compile Include="ForzaStudio\CarUninstall.cs" />
     <Compile Include="ForzaStudio\CarUpgrades.cs" />
     <Compile Include="ForzaStudio\DbIds.cs" />
+    <Compile Include="ForzaStudio\Fm2CarData.cs" />
+    <Compile Include="ForzaStudio\Fm2CarUpgrades.cs" />
+    <Compile Include="ForzaStudio\Fm2CarPowertrain.cs" />
     <Compile Include="ForzaStudio\PortSettings.cs" />
     <Compile Include="ForzaStudio\SettingsForm.cs" />
     <Compile Include="ForzaStudio\CarCamera.cs" />
@@ -164,6 +177,13 @@
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="ForzaStudio\CarPortForm.Upgrades.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\CarPortForm.Makes.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ForzaStudio\CarMake.cs" />
+    <Compile Include="ForzaStudio\NewMakeForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="ForzaStudio\CarPortForm.cs">

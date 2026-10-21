@@ -142,6 +142,13 @@ namespace ForzaStudio
         // (shared aero rows, engine ids, torque curves engine * 1000 + level).
         public static List<string> RenumberCar(SqliteDatabase db, long from, long to)
         {
+            return RenumberCar(db, from, to, false);
+        }
+
+        // replaceExisting: the database already holds a car with the new id that is this very car ported earlier (the stage
+        // database of an FM2 car is a copy of the target): its rows, by car column and by car * 1000 + n key, go first.
+        public static List<string> RenumberCar(SqliteDatabase db, long from, long to, bool replaceExisting)
+        {
             List<string> lines = new List<string>();
             if (from == to)
             {
@@ -194,6 +201,13 @@ namespace ForzaStudio
                 }
             }
 
+            if (replaceExisting)
+            {
+                foreach (string[] car in carColumns)
+                {
+                    db.Execute("DELETE FROM " + SqliteDatabase.Quote(car[0]) + " WHERE " + SqliteDatabase.Quote(car[1]) + " = ?", to);
+                }
+            }
             int moved = 0;
             List<string> movedTables = new List<string>();
             foreach (KeyValuePair<string, List<long>> pair in keys)
@@ -206,7 +220,11 @@ namespace ForzaStudio
                 foreach (long old in pair.Value)
                 {
                     long now = (to * 1000) + (old - low);
-                    if (Convert.ToInt64(db.Scalar("SELECT count(*) FROM " + t + " WHERE " + c + " = ?", now)) > 0)
+                    if (replaceExisting)
+                    {
+                        db.Execute("DELETE FROM " + t + " WHERE " + c + " = ?", now);
+                    }
+                    else if (Convert.ToInt64(db.Scalar("SELECT count(*) FROM " + t + " WHERE " + c + " = ?", now)) > 0)
                     {
                         throw new InvalidOperationException(string.Format(CultureInfo.InvariantCulture, "{0}.{1}: id {2} (car {3}) is already used, the car cannot take id {4}.", table, column, now, from, to));
                     }

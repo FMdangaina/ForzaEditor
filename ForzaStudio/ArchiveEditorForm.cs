@@ -250,6 +250,7 @@
 
             ToolStripMenuItem tools = new ToolStripMenuItem("&Tools");
             tools.DropDownItems.Add(new ToolStripMenuItem("&Port Car From Another Forza...", null, delegate { this.ShowCarPort(); }));
+            tools.DropDownItems.Add(new ToolStripMenuItem("Set Generated &Thumbnail...", null, delegate { using (SetThumbnailsForm form = new SetThumbnailsForm()) { form.ShowDialog(this); } }));
             tools.DropDownItems.Add(new ToolStripSeparator());
             tools.DropDownItems.Add(new ToolStripMenuItem("&Settings...", null, delegate { this.ShowSettings(); }));
             tools.DropDownItems.Add(new ToolStripSeparator());
