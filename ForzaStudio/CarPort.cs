@@ -2706,42 +2706,9 @@ namespace ForzaStudio
 
         public BrakeChoice Brakes = new BrakeChoice();
 
-        // The brake sections use the car's own nodamage texture (technique caliper/rotor: baseSampler), so a
-        // section keeps the UV region of its material in the car's own models. A source without brake art
-        // (FH traffic, FM2) has no such region: the sections take the car's matte_colors (else black)
-        // material and its region, a flat patch of the car's atlas, as FM4's Supra does (matte_colors).
-        private static bool OwnAtlasRegion(ForzaZip car, string prefix, out string material, out float[] uv)
-        {
-            material = null;
-            uv = null;
-            ForzaZip.Entry main = car.Find(prefix + ".carbin");
-            if (main == null)
-            {
-                return false;
-            }
-            CarbinModel model = new CarbinModel(car.Read(main));
-            foreach (string wanted in new string[] { "matte_colors", "black" })
-            {
-                foreach (CarbinModel.Section section in model.Sections)
-                {
-                    foreach (CarbinModel.SubSection sub in section.SubSections)
-                    {
-                        bool finite = true;
-                        foreach (float value in sub.Uv)
-                        {
-                            finite &= !float.IsNaN(value) && !float.IsInfinity(value) && Math.Abs(value) < 100;
-                        }
-                        if (finite && string.Equals(sub.Name, wanted, StringComparison.Ordinal) && sub.Uv[1] >= 0 && sub.Uv[3] >= 0)
-                        {
-                            material = wanted;
-                            uv = (float[]) sub.Uv.Clone();
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
-        }
+        // The generic brake keeps the material and the UV transform of the game's own file (Media\brakes): it
+        // is the model the showroom takes from Shared when a brake upgrade is fitted, and its material reads the
+        // game's shared brake texture. The car's textures are not touched (user 2026-10-22).
 
         // The generic brake for a car file name (prefix_caliperlf_lod0.carbin...), or null without the game file.
         private byte[] GenericBrake(ForzaZip car, string prefix, string name, out string description)
@@ -2773,9 +2740,6 @@ namespace ForzaStudio
                 this.target.Execute("UPDATE Data_Car SET " + angleColumn + " = ? WHERE Id = ?", chosen.Value * Math.PI / 180, this.carId);   // the row follows the model
             }
             double angle = Convert.ToDouble(this.target.Scalar("SELECT " + angleColumn + " FROM Data_Car WHERE Id = ?", this.carId), CultureInfo.InvariantCulture);
-            string material;
-            float[] region;
-            bool atlas = OwnAtlasRegion(car, prefix, out material, out region);
             CarbinModel brake = new CarbinModel(File.ReadAllBytes(path));
             foreach (CarbinModel.Section section in brake.Sections)
             {
@@ -2804,19 +2768,11 @@ namespace ForzaStudio
                 {
                     brake.MirrorSection(section.Name, 0);
                 }
-                if (atlas)
-                {
-                    foreach (CarbinModel.SubSection sub in section.SubSections)
-                    {
-                        sub.Name = material;
-                        sub.Uv = (float[]) region.Clone();
-                    }
-                }
                 string part = name.Substring(name.LastIndexOf('/') + 1);
                 part = part.Substring(prefix.Length + 1, part.IndexOf("_lod0") - prefix.Length - 1);   // caliperlf
                 section.Name = part.Substring(0, part.Length - 2) + part.Substring(part.Length - 2).ToUpperInvariant();
             }
-            description = string.Format(CultureInfo.InvariantCulture, "the game's generic brake {0} ({1}; angle {2:0.00} rad{3})", file, why, angle, atlas ? "; " + material + " of the car's atlas" : "; material kept");
+            description = string.Format(CultureInfo.InvariantCulture, "the game's generic brake {0} ({1}; angle {2:0.00} rad; material and shared texture of the game's file kept)", file, why, angle);
             return brake.ToBytes();
         }
 
