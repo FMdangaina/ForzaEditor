@@ -160,7 +160,10 @@ Tools > Port Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`).
 Credits: **[Aiden-Piercee](https: //github.com/Aiden-Piercee)** (`fm4dlc` toolchain) and **XTD (@xtd_ac)** (Xenia folder DLC, XLAST
 package, console tests). Documentation: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 
-- [ ] 2.1 ⏸ (was 3.6d) Several Forza Studio packs at once: each pack's string tables built on top of the
+- [ ] 2.1 (was 3.6d) CODED 2026-10-22, in-game check pending: a pack's string tables = the game's + EVERY
+      installed FM4 pack layer (STFS or folder, `DlcPackage.StringLayer`) + its own strings; priority above
+      the highest layer; key clashes with an installed pack are reported as WARNING. Test: merged EN
+      Data_Car 1006 -> 1402 keys. Old text: Several Forza Studio packs at once: each pack's string tables built on top of the
       other installed packs' (today only the highest priority pack shows its car names). Paused until
       the conversions are 100% OK (user, 2026-10-19)
 - [ ] 2.2 ⏸ (was 3.8) Transfer to the console: FTP (Aurora/FSD) or Xbox 360 Neighborhood (the user's

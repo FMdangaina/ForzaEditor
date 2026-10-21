@@ -5,6 +5,7 @@ namespace ForzaStudio
     using System.Globalization;
     using System.IO;
     using System.Text;
+    using System.Text.RegularExpressions;
 
     // Ported cars as a Forza Motorsport 4 DLC package, so the game's own files stay untouched.
     //
@@ -39,6 +40,35 @@ namespace ForzaStudio
         //             banks): all loose under <offer>_pri_65\Media, where the game mounts the zip.
         public static string BuildFolder(string cleanRoot, string targetRoot, string trialRoot, string content, int offer, string name, StringBuilder report)
         {
+            return BuildFolder(cleanRoot, targetRoot, trialRoot, content, content, offer, name, report);
+        }
+
+        // installed: the FM4 content folder whose packages' string tables the new tables are built on
+        // (Xenia's; 'content' is a temporary folder when the package is for a console).
+        public static string BuildFolder(string cleanRoot, string targetRoot, string trialRoot, string content, string installed, int offer, string name, StringBuilder report)
+        {
+            string layerTemp = Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "StringLayers_" + DateTime.Now.Ticks.ToString(CultureInfo.InvariantCulture));
+            try
+            {
+                return BuildFolderWith(cleanRoot, targetRoot, trialRoot, content, StringLayer.Installed(installed, layerTemp, report), offer, name, report);
+            }
+            finally
+            {
+                try
+                {
+                    if (Directory.Exists(layerTemp))
+                    {
+                        Directory.Delete(layerTemp, true);
+                    }
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        private static string BuildFolderWith(string cleanRoot, string targetRoot, string trialRoot, string content, List<StringLayer> layers, int offer, string name, StringBuilder report)
+        {
             string package = Path.Combine(content, OfferId(offer));
             if (Directory.Exists(package))
             {
@@ -60,11 +90,16 @@ namespace ForzaStudio
             }
 
             report.AppendLine("strings:");
+            // Above every installed layer (a table of a higher priority replaces the whole table).
             int priority = 50000 + offer;
+            foreach (StringLayer layer in layers)
+            {
+                priority = Math.Max(priority, layer.Priority + 1);
+            }
             string strings = "StringTables_pri_" + priority.ToString(CultureInfo.InvariantCulture) + ".zip";
             int displayKey;
             int descriptionKey;
-            List<string> tables = BuildStrings(cleanRoot, targetRoot, trialRoot, Path.Combine(zips, strings), offer, name, out displayKey, out descriptionKey, report);
+            List<string> tables = BuildStrings(cleanRoot, targetRoot, trialRoot, Path.Combine(zips, strings), offer, name, layers, out displayKey, out descriptionKey, report);
             using (SqliteDatabase patch = SqliteDatabase.FromBytes(merge))
             {
                 patch.Execute("UPDATE ContentOffers SET DisplayName = ?, Description = ?",
@@ -453,8 +488,9 @@ namespace ForzaStudio
         // out). ContentOffers gets the pack's name under keys free in every language. A package's table
         // replaces the game's whole table (official offer 31: EN Data_Car.str = the game's 1006 keys,
         // same hashes, + 186), so it must hold the game's strings too.
-        private static List<string> BuildStrings(string cleanRoot, string targetRoot, string trialRoot, string output, int offer, string name, out int displayKey, out int descriptionKey, StringBuilder report)
+        private static List<string> BuildStrings(string cleanRoot, string targetRoot, string trialRoot, string output, int offer, string name, List<StringLayer> layers, out int displayKey, out int descriptionKey, StringBuilder report)
         {
+            int conflicts = 0;
             SortedDictionary<string, StrFile> files = new SortedDictionary<string, StrFile>(StringComparer.Ordinal);
             Dictionary<string, bool> tables = new Dictionary<string, bool>(StringComparer.Ordinal);
             string cleanTables = Path.Combine(Path.Combine(cleanRoot, "Media"), "StringTables");
@@ -490,6 +526,7 @@ namespace ForzaStudio
                     StrFile ported = new StrFile(trial.Read(entry));
                     StrFile old = (before != null) ? new StrFile(target.Read(before)) : null;
                     StrFile result = new StrFile(clean.Read(original));
+                    StringLayer.Merge(result, layers, language, entry.Name);
                     int added = 0;
                     foreach (StrFile.Entry text in ported.Entries)
                     {
@@ -497,6 +534,17 @@ namespace ForzaStudio
                         if (was != null && was.Text == text.Text && was.Name == text.Name)
                         {
                             continue;
+                        }
+                        StrFile.Entry present = Find(result, text.Key);
+                        if (present != null && present.Name != null && text.Name != null && present.Name != text.Name)
+                        {
+                            // The port chose this key against the game's table alone: an installed pack
+                            // already uses it for another string, which the port's now replaces.
+                            conflicts++;
+                            if (language == "EN")
+                            {
+                                report.AppendLine(string.Format(CultureInfo.InvariantCulture, "  WARNING {0}: key {1:X4} was \"{2}\" in an installed pack, now \"{3}\"", Path.GetFileNameWithoutExtension(entry.Name), text.Key, present.Name, text.Name));
+                            }
                         }
                         result.Set(text.Key, text.Text, text.Name);
                         added++;
@@ -512,9 +560,12 @@ namespace ForzaStudio
                 ForzaZip.Entry offers = clean.Find("ContentOffers.str");
                 if (offers != null)
                 {
-                    files[language + "/ContentOffers"] = new StrFile(clean.Read(offers));
+                    StrFile offerTable = new StrFile(clean.Read(offers));
+                    StringLayer.Merge(offerTable, layers, language, "ContentOffers.str");
+                    files[language + "/ContentOffers"] = offerTable;
                 }
             }
+            report.AppendLine(string.Format(CultureInfo.InvariantCulture, "  built on the game's strings + {0} installed FM4 pack layers{1}", layers.Count, conflicts > 0 ? ", " + conflicts + " key conflicts (see WARNING)" : ""));
             if (model == null)
             {
                 throw new InvalidOperationException("No string tables to build on (clean game: " + cleanRoot + ").");
@@ -553,6 +604,114 @@ namespace ForzaStudio
             List<string> list = new List<string>(tables.Keys);
             list.Sort(StringComparer.Ordinal);
             return list;
+        }
+
+        // The string tables of an installed FM4 package (StringTables_pri_<P>.zip, "<LANG>/<Table>.str").
+        // A table replaces the game's whole table, so a new pack's tables are built on the game's plus
+        // every layer's strings, lowest priority first (user 2026-10-22: a pack must hold ALL the strings,
+        // then its own).
+        private sealed class StringLayer
+        {
+            public int Priority;
+            public string Label;
+            private ForzaZip zip;
+            private Dictionary<string, ForzaZip.Entry> entries;
+
+            // The layers of the packages in an FM4 content folder: STFS files (the console's form) and
+            // extracted folders. Unreadable ones are reported and skipped.
+            public static List<StringLayer> Installed(string content, string temp, StringBuilder report)
+            {
+                List<StringLayer> layers = new List<StringLayer>();
+                if (string.IsNullOrEmpty(content) || !Directory.Exists(content))
+                {
+                    return layers;
+                }
+                Regex layerName = new Regex(@"^StringTables[^\\/]*_pri_(\d+)\.zip$", RegexOptions.IgnoreCase);
+                foreach (string item in Directory.GetFileSystemEntries(content))
+                {
+                    string label = Path.GetFileName(item);
+                    try
+                    {
+                        if (Directory.Exists(item))
+                        {
+                            string zips = Path.Combine(Path.Combine(item, "Media"), "DLCZips");
+                            if (Directory.Exists(zips))
+                            {
+                                foreach (string file in Directory.GetFiles(zips, "StringTables*.zip"))
+                                {
+                                    Match m = layerName.Match(Path.GetFileName(file));
+                                    if (m.Success)
+                                    {
+                                        layers.Add(Open(label, int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture), file));
+                                    }
+                                }
+                            }
+                        }
+                        else if (StfsReader.IsPackage(item))
+                        {
+                            StfsReader package = StfsReader.Open(item);
+                            if (GameInfo.FromTitleId(package.TitleId) != ForzaGame.Motorsport4)
+                            {
+                                continue;
+                            }
+                            foreach (string file in package.Files())
+                            {
+                                string folder = Path.GetDirectoryName(file);
+                                Match m = layerName.Match(Path.GetFileName(file));
+                                if (m.Success && string.Equals(folder, @"Media\DLCZips", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    Directory.CreateDirectory(temp);
+                                    string path = Path.Combine(temp, layers.Count.ToString(CultureInfo.InvariantCulture) + ".zip");
+                                    File.WriteAllBytes(path, package.ReadFile(file));
+                                    layers.Add(Open(package.DisplayName + " (" + label + ")", int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture), path));
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        report.AppendLine("  string layer skipped: " + label + ": " + e.Message);
+                    }
+                }
+                layers.Sort(delegate(StringLayer a, StringLayer b) { return a.Priority.CompareTo(b.Priority); });
+                foreach (StringLayer layer in layers)
+                {
+                    report.AppendLine(string.Format(CultureInfo.InvariantCulture, "  layer {0}: {1}", layer.Priority, layer.Label));
+                }
+                return layers;
+            }
+
+            private static StringLayer Open(string label, int priority, string path)
+            {
+                StringLayer layer = new StringLayer();
+                layer.Label = label;
+                layer.Priority = priority;
+                layer.zip = new ForzaZip(path);
+                layer.entries = new Dictionary<string, ForzaZip.Entry>(StringComparer.OrdinalIgnoreCase);
+                foreach (ForzaZip.Entry entry in layer.zip.Entries)
+                {
+                    layer.entries[entry.Name.Replace('\\', '/')] = entry;
+                }
+                return layer;
+            }
+
+            // The layers' strings of a table into 'result', each key set to the highest layer's text.
+            // file: "Data_Car.str".
+            public static void Merge(StrFile result, List<StringLayer> layers, string language, string file)
+            {
+                foreach (StringLayer layer in layers)
+                {
+                    ForzaZip.Entry entry;
+                    if (!layer.entries.TryGetValue(language + "/" + file, out entry))
+                    {
+                        continue;
+                    }
+                    foreach (StrFile.Entry text in new StrFile(layer.zip.Read(entry)).Entries)
+                    {
+                        result.Set(text.Key, text.Text, text.Name);
+                    }
+                }
+            }
         }
 
         private static StrFile.Entry Find(StrFile file, int key)

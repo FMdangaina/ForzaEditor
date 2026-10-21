@@ -139,6 +139,25 @@ namespace ForzaStudio
             return files;
         }
 
+        // One file's bytes (path relative to the package root, '\' or '/', any case); null when the
+        // package has no such file.
+        public byte[] ReadFile(string relativePath)
+        {
+            string wanted = relativePath.Replace('/', '\\');
+            for (int i = 0; i < this.entries.Count; i++)
+            {
+                if (!this.entries[i].IsFolder && string.Equals(this.RelativePath(i), wanted, StringComparison.OrdinalIgnoreCase))
+                {
+                    Entry entry = this.entries[i];
+                    using (FileStream file = File.OpenRead(this.Path))
+                    {
+                        return this.ReadChain(file, entry.Start, entry.Blocks, entry.Size, entry.Consecutive);
+                    }
+                }
+            }
+            return null;
+        }
+
         private string RelativePath(int index)
         {
             string path = this.entries[index].Name;

@@ -1453,6 +1453,8 @@ namespace ForzaStudio
             int offer = this.packOffer;
             byte[] thumbnail = PackThumbnail(this.Icon);
             this.bottomTabs.SelectedIndex = 0;
+            // The strings of the FM4 packs installed in Xenia (null: the game's alone).
+            string installed = this.XeniaContent();
             this.report.Text = string.Format("Building the Xbox 360 package \"{0}\" (offer {1}) into {2}\r\n", name, offer, output);
             this.packStatus.Text = "Building the Xbox 360 package...";
             this.Background(delegate
@@ -1464,7 +1466,7 @@ namespace ForzaStudio
                 try
                 {
                     string content = Path.Combine(work, "00000002");
-                    string folder = DlcPackage.BuildFolder(target, target, trial, content, offer, name, text);
+                    string folder = DlcPackage.BuildFolder(target, target, trial, content, installed, offer, name, text);
                     file = DlcPackage.BuildConsolePackage(folder, output, name, thumbnail, text);
                 }
                 catch (Exception ex)
