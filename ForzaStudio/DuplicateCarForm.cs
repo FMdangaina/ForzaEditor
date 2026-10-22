@@ -8,12 +8,13 @@ namespace ForzaStudio
     using System.Text;
     using System.Windows.Forms;
 
-    // Tools > Duplicate Car (ROADMAP 18.3 / 18.4): a four-step wizard around CarDuplicate.
+    // Tools > Duplicate Car (ROADMAP 18.3 / 18.4): a five-step wizard around CarDuplicate.
     //   1 Car      the car to copy and the new MediaName
     //   2 Names    DisplayName, ModelShort, year, make
-    //   3 Data     the main Data_Car numbers, editable (the copy keeps the source's engine, wheel and paint
-    //              colours; its own engine is a later step)
-    //   4 Summary  the plan (nothing written), then Create
+    //   3 Data     the main Data_Car numbers, editable (the copy keeps the source's wheel and paint colours)
+    //   4 Engine   shared with the source (as before) or an engine of its own, a copy of the source's that can be
+    //              changed (CarEngine, ROADMAP 2.3.2)
+    //   5 Summary  the plan (nothing written), then Create
     internal sealed class DuplicateCarForm : Form
     {
         private sealed class CarItem
@@ -38,20 +39,93 @@ namespace ForzaStudio
             }
         }
 
-        // The Data_Car numbers worth changing on a copy (the others follow from the engine and the model).
-        private static readonly string[] DataColumns = { "CurbWeight", "WeightDistribution", "BaseCost", "BaseRarity", "FrontTireWidthMM", "RearTireWidthMM", "TopSpeed-mph", "Time:0-60-sec", "IsUnicorn", "IsArcade" };
+        // The Data_Car columns offered for a copy, with what they are (a reference id is checked by the database rules).
+        // Not offered: the ids and names the wizard sets itself, the engine's Sim* numbers (the engine page), the steering and
+        // traction tuning.
+        private static readonly string[][] DataFields =
+        {
+            new string[] { "HasLivery", "1 = the car has the livery editor" },
+            new string[] { "HasRaceLivery", "1 = it has a race livery" },
+            new string[] { "IsUnicorn", "1 = marked as a unicorn (rare) car" },
+            new string[] { "IsArcade", "1 = in the arcade car list" },
+            new string[] { "IsDrivable", "0 = showroom only" },
+            new string[] { "HasCarExperience", "1 = has an Autovista" },
+            new string[] { "IsCarExperienceUnlocked", "1 = its Autovista is unlocked" },
+            new string[] { "IsPurchased", "1 = already owned" },
+            new string[] { "WingMask", "wing mask of the livery" },
+            new string[] { "BaseCost", "price in credits" },
+            new string[] { "BaseRarity", "rarity" },
+            new string[] { "ClassID", "CarClasses.Id (D, C, B, A, S, R...)" },
+            new string[] { "CarClassModifier", "class modifier" },
+            new string[] { "PerformanceIndex", "PI as 0-1 (shown x 1000 + 100)" },
+            new string[] { "CarTypeID", "List_CarType: 1 production, 2 tuned, 3 race" },
+            new string[] { "FamilyModelID", "List_FamilyModel.Id (the Club events)" },
+            new string[] { "FamilyBodyID", "List_FamilyBody.Id (body type)" },
+            new string[] { "FamilySpecialID", "List_FamilySpecial" },
+            new string[] { "EnginePlacementID", "List_EnginePlacement" },
+            new string[] { "MaterialTypeID", "List_MaterialType" },
+            new string[] { "DriveTypeID", "List_DriveType: 1 FWD, 2 RWD, 3 AWD" },
+            new string[] { "RegionID", "List_Region: 1 Asia, 2 Europe, 3 America" },
+            new string[] { "CountryID", "List_Country" },
+            new string[] { "CurbWeight", "kg" },
+            new string[] { "WeightDistribution", "front share, %" },
+            new string[] { "NumGears", "gears" },
+            new string[] { "Displacement", "cc (the engine page sets it for an own engine)" },
+            new string[] { "FrontTireWidthMM", "mm" },
+            new string[] { "FrontTireAspect", "profile, %" },
+            new string[] { "FrontWheelDiameterIN", "inches" },
+            new string[] { "RearTireWidthMM", "mm" },
+            new string[] { "RearTireAspect", "profile, %" },
+            new string[] { "RearWheelDiameterIN", "inches" },
+            new string[] { "TireBrandID", "List_TireBrand" },
+            new string[] { "StockWheelID", "List_Wheels.ID (the stock wheel)" },
+            new string[] { "FrontStockRideHeight", "m" },
+            new string[] { "RearStockRideHeight", "m" },
+            new string[] { "CaliperAngleFront", "brake caliper angle" },
+            new string[] { "CaliperAngleRear", "brake caliper angle" },
+            new string[] { "CaliperRGBFront", "caliper colour (RGB number)" },
+            new string[] { "CaliperRGBRear", "caliper colour (RGB number)" },
+            new string[] { "GaugeID", "List_DigitalGauges.GaugeID" },
+            new string[] { "SteerMaxAngle", "steering lock" },
+            new string[] { "SpeedLimiterID", "speed limiter" },
+            new string[] { "TopSpeed-mph", "shown in the car's stats" },
+            new string[] { "Time:0-60-sec", "shown in the car's stats" },
+            new string[] { "Time:0-100-sec", "shown in the car's stats" },
+            new string[] { "QuarterMileTime-sec", "shown in the car's stats" },
+            new string[] { "QuarterMileSpeed-mph", "shown in the car's stats" },
+            new string[] { "HandlingRating", "rating bar" },
+            new string[] { "SpeedRating", "rating bar" },
+            new string[] { "AccelerationRating", "rating bar" },
+            new string[] { "BrakingRating", "rating bar" },
+            new string[] { "LaunchRating", "rating bar" },
+            new string[] { "GameTorqueScale", "game torque scale" },
+            new string[] { "GameDragScale", "game drag scale" },
+            new string[] { "BodyAeroLongitudinalDrag", "aero" },
+            new string[] { "BodyAeroVerticalDrag", "aero" },
+            new string[] { "BodyAeroForwardDownforceFront", "aero" },
+            new string[] { "BodyAeroForwardDownforceRear", "aero" },
+        };
 
         private readonly string target;
-        private readonly string xeniaContent;
-        private readonly Panel[] pages = new Panel[4];
+        private string xeniaContent;
+        private readonly Panel[] pages = new Panel[5];
         private readonly ComboBox car;
         private readonly TextBox newName;
         private readonly Label problem;
+        private readonly RadioButton toGame;
+        private readonly RadioButton toPack;
+        private readonly TextBox packName;
+        private readonly NumericUpDown packOffer;
         private readonly TextBox displayName;
         private readonly TextBox modelShort;
         private readonly NumericUpDown year;
         private readonly ComboBox make;
         private readonly DataGridView grid;
+        private readonly RadioButton engineShared;
+        private readonly RadioButton engineOwn;
+        private readonly Button engineEdit;
+        private readonly Label engineSummary;
+        private EngineSpec engineSpec;
         private readonly TextBox summary;
         private readonly Button back;
         private readonly Button next;
@@ -63,6 +137,49 @@ namespace ForzaStudio
         private StringTable names;
 
         public string CreatedName;
+        private bool replacePack;
+
+        // The content folder of the packs (null until Xenia's folder is known) and the next free offer.
+        private void UseXeniaContent(string content)
+        {
+            this.xeniaContent = content;
+            if (content == null)
+            {
+                return;
+            }
+            try
+            {
+                this.packOffer.Value = Math.Max(this.packOffer.Minimum, Math.Min(this.packOffer.Maximum, DlcPackage.FreeOffer(this.target, content)));
+            }
+            catch (Exception)
+            {
+                this.packOffer.Value = 91;
+            }
+        }
+
+        // Xenia's folder was not set in Settings: ask for it here and remember it.
+        private bool AskXeniaFolder()
+        {
+            using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+            {
+                dialog.Description = "Xenia's folder (the one with xenia.exe or xenia_canary.exe): the DLC pack is written to its content folder.";
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return false;
+                }
+                try
+                {
+                    this.UseXeniaContent(DlcPackage.XeniaContent(dialog.SelectedPath));
+                }
+                catch (IOException exception)
+                {
+                    MessageBox.Show(this, exception.Message, "Duplicate Car", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    return false;
+                }
+                AppSettings.Set(SettingsForm.XeniaKey, dialog.SelectedPath);
+                return true;
+            }
+        }
 
         public DuplicateCarForm(string target, string xeniaContent)
         {
@@ -134,6 +251,47 @@ namespace ForzaStudio
             this.pages[0].Controls.Add(this.newName);
             this.problem = this.AddLabel(0, "", 12, 130, 576, 40);
 
+            // Where the copy goes: the game folder, or a DLC pack in Xenia's content folder (the game stays as it is).
+            this.AddLabel(0, "Put the copy:", 12, 184, 94, 20);
+            this.toGame = new RadioButton();
+            this.toGame.Text = "in the game folder (installed)";
+            this.toGame.SetBounds(106, 182, 300, 24);
+            this.toGame.Checked = true;
+            this.toPack = new RadioButton();
+            this.toPack.Text = "in a new DLC pack (the game folder is not changed)";
+            this.toPack.SetBounds(106, 208, 420, 24);
+            this.AddLabel(0, "Pack name:", 124, 240, 80, 20);
+            this.packName = new TextBox();
+            this.packName.SetBounds(208, 237, 260, 24);
+            this.AddLabel(0, "Offer:", 124, 270, 80, 20);
+            this.packOffer = new NumericUpDown();
+            this.packOffer.Minimum = 1;
+            this.packOffer.Maximum = 99999;
+            this.packOffer.SetBounds(208, 267, 80, 24);
+            new ToolTip().SetToolTip(this.toPack, "The pack is written to Xenia's content folder (Xenia's folder is set in Settings; if it is not, it is asked when this is chosen).");
+            this.UseXeniaContent(xeniaContent);
+            this.packName.Enabled = false;
+            this.packOffer.Enabled = false;
+            this.toPack.CheckedChanged += delegate
+            {
+                if (this.toPack.Checked && this.xeniaContent == null && !this.AskXeniaFolder())
+                {
+                    this.toGame.Checked = true;
+                    return;
+                }
+                this.packName.Enabled = this.toPack.Checked;
+                this.packOffer.Enabled = this.toPack.Checked;
+                if (this.toPack.Checked && this.packName.Text.Length == 0)
+                {
+                    this.packName.Text = this.displayName.Text.Length > 0 ? this.displayName.Text : this.newName.Text.Trim();
+                }
+                this.Recheck();
+            };
+            this.pages[0].Controls.Add(this.toGame);
+            this.pages[0].Controls.Add(this.toPack);
+            this.pages[0].Controls.Add(this.packName);
+            this.pages[0].Controls.Add(this.packOffer);
+
             // 2 Names
             this.AddLabel(1, "The names the game shows, the same in every language (change a language later in the string tables).", 12, 12, 576, 36);
             this.AddLabel(1, "Display name:", 12, 64, 90, 20);
@@ -160,7 +318,7 @@ namespace ForzaStudio
             this.pages[1].Controls.Add(this.make);
 
             // 3 Data
-            this.AddLabel(2, "Data_Car values of the copy. Change what the copy needs; leave the rest. Paint colours and upgrades are copied with the car; the engine, drivetrain and wheel stay shared with the source.", 12, 12, 576, 48);
+            this.AddLabel(2, "Data_Car values of the copy. Change what the copy needs; leave the rest. Paint colours and upgrades are copied with the car; the drivetrain and wheel stay shared with the source, the engine too unless the next page gives the copy its own.", 12, 12, 576, 48);
             this.grid = new DataGridView();
             this.grid.SetBounds(12, 66, 576, 290);
             this.grid.AllowUserToAddRows = false;
@@ -169,21 +327,53 @@ namespace ForzaStudio
             this.grid.Columns.Add("column", "Column");
             this.grid.Columns.Add("value", "Value");
             this.grid.Columns.Add("source", "Source car");
+            this.grid.Columns.Add("note", "What it is");
             this.grid.Columns[0].ReadOnly = true;
             this.grid.Columns[2].ReadOnly = true;
-            this.grid.Columns[0].Width = 200;
-            this.grid.Columns[1].Width = 170;
-            this.grid.Columns[2].Width = 180;
+            this.grid.Columns[3].ReadOnly = true;
+            this.grid.Columns[0].Width = 175;
+            this.grid.Columns[1].Width = 90;
+            this.grid.Columns[2].Width = 90;
+            this.grid.Columns[3].Width = 200;
             this.pages[2].Controls.Add(this.grid);
 
-            // 4 Summary
-            this.AddLabel(3, "What will be done (nothing is written until Create). Every file is backed up first (bak folder).", 12, 12, 576, 20);
+            // 4 Engine
+            this.AddLabel(3, "The engine of the copy. Shared: the copy uses the source's engine, so any later change to that engine changes both. Its own: a copy of the source's engine, every upgrade level and torque curve included, that you design here: name, sound, turbo boost, idle and redline rpm, torque and the shape of the torque curve.", 12, 8, 576, 64);
+            this.engineShared = new RadioButton();
+            this.engineShared.Text = "Shared with the source car (the engine is not copied)";
+            this.engineShared.Checked = true;
+            this.engineShared.SetBounds(12, 82, 560, 22);
+            this.engineOwn = new RadioButton();
+            this.engineOwn.Text = "An engine of its own";
+            this.engineOwn.SetBounds(12, 108, 300, 22);
+            this.engineEdit = new Button();
+            this.engineEdit.Text = "Design the engine...";
+            this.engineEdit.SetBounds(316, 105, 160, 28);
+            this.engineEdit.Enabled = false;
+            this.engineEdit.Click += delegate { this.EditEngine(); };
+            this.engineSummary = new Label();
+            this.engineSummary.SetBounds(32, 140, 556, 80);
+            this.pages[3].Controls.Add(this.engineShared);
+            this.pages[3].Controls.Add(this.engineOwn);
+            this.pages[3].Controls.Add(this.engineEdit);
+            this.pages[3].Controls.Add(this.engineSummary);
+            this.engineOwn.CheckedChanged += delegate
+            {
+                this.engineEdit.Enabled = this.engineOwn.Checked;
+                if (this.engineOwn.Checked && this.engineSpec == null)
+                {
+                    this.EditEngine();
+                }
+            };
+
+            // 5 Summary
+            this.AddLabel(4, "What will be done (nothing is written until Create). Every file is backed up first (bak folder).", 12, 12, 576, 20);
             this.summary = new TextBox();
             this.summary.Multiline = true;
             this.summary.ReadOnly = true;
             this.summary.ScrollBars = ScrollBars.Vertical;
             this.summary.SetBounds(12, 40, 576, 316);
-            this.pages[3].Controls.Add(this.summary);
+            this.pages[4].Controls.Add(this.summary);
 
             this.back = new Button();
             this.back.Text = "< Back";
@@ -259,15 +449,48 @@ namespace ForzaStudio
                 }
             }
             this.grid.Rows.Clear();
-            foreach (string column in DataColumns)
+            this.engineSpec = null;
+            this.engineSummary.Text = "";
+            this.engineShared.Checked = true;
+            foreach (string[] field in DataFields)
             {
                 object value;
-                if (this.carRow.TryGetValue(column, out value))
+                if (this.carRow.TryGetValue(field[0], out value) && value != null && !(value is DBNull))
                 {
-                    this.grid.Rows.Add(column, Convert.ToString(value, CultureInfo.InvariantCulture), Convert.ToString(value, CultureInfo.InvariantCulture));
+                    this.grid.Rows.Add(field[0], Convert.ToString(value, CultureInfo.InvariantCulture), Convert.ToString(value, CultureInfo.InvariantCulture), field[1]);
                 }
             }
             this.Recheck();
+        }
+
+
+        // The engine dialog on the source car's stock engine; cancelled with no engine yet: back to shared.
+        private void EditEngine()
+        {
+            if (this.SelectedCar == null)
+            {
+                return;
+            }
+            try
+            {
+                using (EngineDialog dialog = new EngineDialog(this.target, this.names, Convert.ToInt64(this.carRow["Id"], CultureInfo.InvariantCulture)))
+                {
+                    if (dialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        this.engineSpec = dialog.Result;
+                        this.engineSummary.Text = "Engine of its own: " + EngineDialog.Describe(this.engineSpec);
+                    }
+                    else if (this.engineSpec == null)
+                    {
+                        this.engineShared.Checked = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                this.engineShared.Checked = true;
+            }
         }
 
         private string FreeName(string source)
@@ -299,9 +522,43 @@ namespace ForzaStudio
             {
                 message = text + " is already a car of this game.";
             }
+            else if (this.toPack.Checked && this.PackHasCar(text))
+            {
+                message = text + " is already a car of an installed DLC pack.";
+            }
+            else if (this.toPack.Checked && this.packName.Text.Trim().Length == 0)
+            {
+                message = "Give the pack a name.";
+            }
             this.problem.ForeColor = ForzaTheme.Yellow;
             this.problem.Text = message ?? "";
             return message == null;
+        }
+
+        // A pack in Xenia's content folder already holds a car of this name.
+        private bool PackHasCar(string mediaName)
+        {
+            if (this.xeniaContent == null)
+            {
+                return false;
+            }
+            foreach (string merge in DbIds.PackDatabases(this.xeniaContent))
+            {
+                try
+                {
+                    using (SqliteDatabase db = SqliteDatabase.FromBytes(File.ReadAllBytes(merge)))
+                    {
+                        if (DbIds.HasTable(db, "Data_Car") && db.Scalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", mediaName) != null)
+                        {
+                            return true;
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+            return false;
         }
 
         private void Go(int index)
@@ -338,7 +595,22 @@ namespace ForzaStudio
             CarDuplicate duplicate = new CarDuplicate();
             duplicate.TargetRoot = this.target;
             duplicate.XeniaContent = this.xeniaContent;
+            if (this.toPack.Checked)
+            {
+                duplicate.PackContent = this.xeniaContent;
+                duplicate.PackOffer = (int) this.packOffer.Value;
+                duplicate.PackName = this.packName.Text.Trim();
+                duplicate.ReplacePack = this.replacePack;
+            }
             duplicate.SourceMediaName = this.SelectedCar.MediaName;
+            if (this.engineOwn.Checked)
+            {
+                if (this.engineSpec == null)
+                {
+                    throw new InvalidOperationException("Design the engine first (page 4), or choose the shared engine.");
+                }
+                duplicate.Engine = this.engineSpec;
+            }
             duplicate.NewMediaName = this.newName.Text.Trim();
             duplicate.DisplayName = this.displayName.Text.Trim();
             duplicate.ModelShort = this.modelShort.Text.Trim();
@@ -396,7 +668,26 @@ namespace ForzaStudio
 
         private void Create()
         {
-            if (MessageBox.Show(this, "Write the copy " + this.newName.Text.Trim() + " into the game folder now? The database, the string tables, Textures.zip and zipmanifest.xml are backed up first.", this.Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
+            string question;
+            this.replacePack = false;
+            if (this.toPack.Checked)
+            {
+                int offer = (int) this.packOffer.Value;
+                if (Directory.Exists(DlcPackage.PackagePath(this.xeniaContent, offer)))
+                {
+                    if (MessageBox.Show(this, "A package with offer " + offer + " is already in Xenia's content folder (it may be another pack). Replace it with this one?", this.Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
+                    {
+                        return;
+                    }
+                    this.replacePack = true;
+                }
+                question = "Build the DLC pack \"" + this.packName.Text.Trim() + "\" (offer " + offer + ") with the copy " + this.newName.Text.Trim() + " in Xenia's content folder now? The game folder is not changed.";
+            }
+            else
+            {
+                question = "Write the copy " + this.newName.Text.Trim() + " into the game folder now? The database, the string tables, Textures.zip and zipmanifest.xml are backed up first.";
+            }
+            if (MessageBox.Show(this, question, this.Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
             {
                 return;
             }

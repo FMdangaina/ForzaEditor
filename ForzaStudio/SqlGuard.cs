@@ -2,15 +2,15 @@ namespace ForzaStudio
 {
     using System;
     using System.Collections.Generic;
-    using System.Globalization;
     using System.Text.RegularExpressions;
 
-    // Runs one SQL statement the user typed (ROADMAP 18.5). SELECT / PRAGMA read; INSERT, UPDATE and
-    // DELETE write, on any table. Before an INSERT or UPDATE touches the database the statement runs on
-    // a copy: every key the statement creates in the table must be above the largest key of that column
-    // in FM4 and its DLC (docs/GameIdLimits.json), so a new row can never take an Id that an official
-    // package uses (rule decided 2026-10-22). The check only reports; DELETE and UPDATE of other columns
-    // are never refused. Anything else (DROP, ALTER, CREATE, ATTACH...) is refused.
+    // Runs one SQL statement the user typed (ROADMAP 18.5, 1.4). SELECT / PRAGMA read; INSERT, UPDATE and
+    // DELETE write, on any table. A write runs first on a copy of the database and DbIntegrity compares
+    // the copy with the database: the statement is refused when it breaks a rule (a new key at or below
+    // FM4's largest, a key twice, an id that points at nothing, a row that others point at going away, a
+    // car without its rows). Plan() does that and returns what the statement would do, per table, without
+    // touching anything; Apply() plans again and then writes inside a transaction, so a failure leaves the
+    // database as it was. Anything else (DROP, ALTER, CREATE, ATTACH...) is refused.
     public static class SqlGuard
     {
         private static readonly Regex Write = new Regex(@"^\s*(INSERT(?:\s+OR\s+\w+)?\s+INTO|REPLACE\s+INTO|UPDATE(?:\s+OR\s+\w+)?|DELETE\s+FROM)\s+[""`\[]?(\w+)[""`\]]?", RegexOptions.IgnoreCase);
@@ -22,24 +22,13 @@ namespace ForzaStudio
             public string Table;                    // the table a write statement changed
             public int Changed;                     // rows it changed
             public string Message;
+            public List<string> Summary = new List<string>();   // a write: what it does, per table, and the warnings
         }
 
-        // Throws InvalidOperationException with the reason when the statement is refused.
-        public static Outcome Run(SqliteDatabase db, string sql, ForzaGame game)
+        // The statement as it will run, or throws InvalidOperationException with the reason it is refused.
+        public static Outcome Plan(SqliteDatabase db, string sql, ForzaGame game)
         {
-            sql = (sql ?? "").Trim();
-            while (sql.EndsWith(";", StringComparison.Ordinal))
-            {
-                sql = sql.Substring(0, sql.Length - 1).TrimEnd();
-            }
-            if (sql.Length == 0)
-            {
-                throw new InvalidOperationException("Type a statement.");
-            }
-            if (sql.IndexOf(';') >= 0)
-            {
-                throw new InvalidOperationException("One statement at a time.");
-            }
+            sql = Clean(sql);
             Outcome outcome = new Outcome();
             if (Read.IsMatch(sql))
             {
@@ -65,64 +54,75 @@ namespace ForzaStudio
                     table = name;
                 }
             }
-            string operation = match.Groups[1].Value.ToUpperInvariant();
-            if (!operation.StartsWith("DELETE", StringComparison.Ordinal))
-            {
-                string problem = CheckKeys(db, table, sql, game);
-                if (problem != null)
-                {
-                    throw new InvalidOperationException(problem);
-                }
-            }
-            outcome.Table = table;
-            outcome.Changed = db.Execute(sql);
-            outcome.Message = outcome.Changed + " rows changed in " + table + ".";
-            return outcome;
-        }
-
-        // The statement on a copy: the keys it adds to the table against FM4's largest.
-        private static string CheckKeys(SqliteDatabase db, string table, string sql, ForzaGame game)
-        {
-            Dictionary<string, List<string>> schema = DbIds.Schema(db);
-            string key = DbIds.KeyColumn(db, table, schema[table]);
-            if (key == null)
-            {
-                return null;
-            }
-            long limit = GameIdLimits.Max(game, table, key);
-            if (limit < 0)
-            {
-                return null;
-            }
-            string select = "SELECT " + SqliteDatabase.Quote(key) + " FROM " + SqliteDatabase.Quote(table);
-            Dictionary<long, bool> before = new Dictionary<long, bool>();
-            foreach (object[] row in db.Query(select).Rows)
-            {
-                if (row[0] is long)
-                {
-                    before[(long) row[0]] = true;
-                }
-            }
             using (SqliteDatabase copy = SqliteDatabase.FromBytes(db.ToBytes()))
             {
                 try
                 {
-                    copy.Execute(sql);
+                    outcome.Changed = copy.Execute(sql);
                 }
                 catch (Exception ex)
                 {
-                    return ex.Message;
+                    throw new InvalidOperationException(ex.Message);
                 }
-                foreach (object[] row in copy.Query(select).Rows)
+                DbIntegrity.Result check = DbIntegrity.Compare(db, copy, game, new string[] { table });
+                if (!check.Ok)
                 {
-                    if (row[0] is long && !before.ContainsKey((long) row[0]) && (long) row[0] <= limit)
-                    {
-                        return string.Format(CultureInfo.InvariantCulture, "{0}.{1} = {2} is not above FM4's largest ({3}, base game and every DLC): use {4} or more (the next free one is {5}).",
-                            table, key, row[0], limit, limit + 1, DbIds.Next(db, table, key, game));
-                    }
+                    throw new InvalidOperationException("Refused, the database would break:\r\n  " + string.Join("\r\n  ", check.Errors.ToArray()));
                 }
+                outcome.Summary.AddRange(check.Summary);
+                outcome.Summary.AddRange(check.Warnings.ConvertAll<string>(delegate(string w) { return "warning: " + w; }));
             }
-            return null;
+            outcome.Table = table;
+            outcome.Message = outcome.Changed + " rows changed in " + table + ".";
+            return outcome;
+        }
+
+        // Plans, then writes in a transaction. Throws when the statement is refused or fails.
+        public static Outcome Apply(SqliteDatabase db, string sql, ForzaGame game)
+        {
+            Outcome outcome = Plan(db, sql, game);
+            if (outcome.Table == null)
+            {
+                return outcome;
+            }
+            sql = Clean(sql);
+            db.Begin();
+            try
+            {
+                outcome.Changed = db.Execute(sql);
+                db.Commit();
+            }
+            catch (Exception)
+            {
+                db.Rollback();
+                throw;
+            }
+            outcome.Message = outcome.Changed + " rows changed in " + outcome.Table + ".";
+            return outcome;
+        }
+
+        public static Outcome Run(SqliteDatabase db, string sql, ForzaGame game)
+        {
+            return Apply(db, sql, game);
+        }
+
+        // One statement, without the closing semicolons.
+        private static string Clean(string sql)
+        {
+            sql = (sql ?? "").Trim();
+            while (sql.EndsWith(";", StringComparison.Ordinal))
+            {
+                sql = sql.Substring(0, sql.Length - 1).TrimEnd();
+            }
+            if (sql.Length == 0)
+            {
+                throw new InvalidOperationException("Type a statement.");
+            }
+            if (sql.IndexOf(';') >= 0)
+            {
+                throw new InvalidOperationException("One statement at a time.");
+            }
+            return sql;
         }
     }
 }

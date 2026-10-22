@@ -230,6 +230,7 @@ namespace ForzaStudio
             this.LoadCockpitCamera();
             this.LoadCollision();
             this.LoadExhaust();
+            this.LoadDriver();
             this.modelTimer.Start();
         }
 

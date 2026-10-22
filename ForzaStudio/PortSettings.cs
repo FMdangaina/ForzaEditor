@@ -48,6 +48,16 @@ FM3.Offset = 0.1668
 DragTires = on
 DragLevel = 4
 DragPrice = 10000
+
+[Damage]
+; EXPERIMENT (ROADMAP B1 tests T2 / T3): how the per-vertex damage words of a ported FH car are written.
+; copy = as they are in the FH file (the old behaviour); normalize = unit direction in FM4's 10:11:11 format.
+Words = copy
+; with Words = normalize: both | main | lod0 (which of the car's two tables is converted)
+Tables = both
+; with Words = normalize: sections whose sign is reversed, comma separated, or * for all
+; (T3 on the Supra: bumperFi, bumperFc, bumperRc, skirtRa, skirtLa, skirtRd)
+FlipSections =
 ";
 
         public static string IniPath

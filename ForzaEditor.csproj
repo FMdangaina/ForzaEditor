@@ -146,6 +146,7 @@
     <Compile Include="ForzaStudio\CarbinExhaust.cs" />
     <Compile Include="ForzaStudio\Fm2Source.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Exhaust.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Driver.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.XeniaThumbnail.cs" />
     <Compile Include="ForzaStudio\XeniaThumbnails.cs" />
     <Compile Include="ForzaStudio\SetThumbnailsForm.cs" />
@@ -165,6 +166,11 @@
     <Compile Include="ForzaStudio\GameStringKeys.cs" />
     <Compile Include="ForzaStudio\CarDuplicate.cs" />
     <Compile Include="ForzaStudio\DuplicateCarForm.cs" />
+    <Compile Include="ForzaStudio\EventRestriction.cs" />
+    <Compile Include="ForzaStudio\CarEngine.cs" />
+    <Compile Include="ForzaStudio\EngineDialog.cs" />
+    <Compile Include="ForzaStudio\DbIntegrity.cs" />
+    <Compile Include="ForzaStudio\SqlDiagnostics.cs" />
     <Compile Include="ForzaStudio\SqlGuard.cs" />
     <Compile Include="ForzaStudio\SqlConsoleForm.cs" />
     <Compile Include="ForzaStudio\Fm2CarData.cs" />

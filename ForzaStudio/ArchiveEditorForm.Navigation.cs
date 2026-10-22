@@ -186,6 +186,14 @@ namespace ForzaStudio
                         return this.tabTrack;
                     case DbSection.Events:
                         return this.tabEvent;
+                    case DbSection.Engines:
+                        return this.tabEngineList;
+                    case DbSection.Makes:
+                        return this.tabMake;
+                    case DbSection.Countries:
+                        return this.tabCountry;
+                    case DbSection.PartMakers:
+                        return this.tabPartMaker;
                 }
                 return null;
             }

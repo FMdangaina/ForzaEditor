@@ -50,9 +50,11 @@ namespace ForzaStudio
         private TabPage tabSideCamera;
         private TabPage tabSideCollision;
         private TabPage tabSideExhaust;
+        private TabPage tabSideDriver;
         private bool cameraTabWanted = true;
         private bool collisionTabWanted = true;
         private bool exhaustTabWanted = false;
+        private bool driverTabWanted = false;
 
         private Panel BuildMeshInfoPanel()
         {
@@ -68,6 +70,8 @@ namespace ForzaStudio
             this.tabSideCollision = this.tabSide.TabPages[3];
             FlowLayoutPanel exhaust = this.AddSideTab("Exhaust");
             this.tabSideExhaust = this.tabSide.TabPages[4];
+            FlowLayoutPanel driver = this.AddSideTab("Driver");
+            this.tabSideDriver = this.tabSide.TabPages[5];
             this.tabSide.SelectedIndexChanged += delegate { this.UpdateViewOverlay(); };
             host.Controls.Add(SideRailHost(this.tabSide));
 
@@ -133,6 +137,7 @@ namespace ForzaStudio
             this.AddCameraControls(camera);
             this.AddCollisionControls(collision);
             this.AddExhaustControls(exhaust);
+            this.AddDriverControls(driver);
 
             this.tvModel.AfterSelect += delegate { this.UpdateMeshPanel(); };
             return host;
@@ -185,13 +190,20 @@ namespace ForzaStudio
             this.ArrangeCarTabs();
         }
 
-        // CAMERA, COLLISION, EXHAUST in that order whichever comes and goes; the open tab stays open when still there.
+        private void SetDriverTabVisible(bool visible)
+        {
+            this.driverTabWanted = visible;
+            this.ArrangeCarTabs();
+        }
+
+        // CAMERA, COLLISION, EXHAUST, DRIVER in that order whichever comes and goes; the open tab stays open when still there.
         private void ArrangeCarTabs()
         {
             bool cameraShown = this.tabSide.TabPages.Contains(this.tabSideCamera);
             bool collisionShown = this.tabSide.TabPages.Contains(this.tabSideCollision);
             bool exhaustShown = this.tabSide.TabPages.Contains(this.tabSideExhaust);
-            if (cameraShown == this.cameraTabWanted && collisionShown == this.collisionTabWanted && exhaustShown == this.exhaustTabWanted)
+            bool driverShown = this.tabSide.TabPages.Contains(this.tabSideDriver);
+            if (cameraShown == this.cameraTabWanted && collisionShown == this.collisionTabWanted && exhaustShown == this.exhaustTabWanted && driverShown == this.driverTabWanted)
             {
                 return;
             }
@@ -199,6 +211,7 @@ namespace ForzaStudio
             this.tabSide.TabPages.Remove(this.tabSideCamera);
             this.tabSide.TabPages.Remove(this.tabSideCollision);
             this.tabSide.TabPages.Remove(this.tabSideExhaust);
+            this.tabSide.TabPages.Remove(this.tabSideDriver);
             if (this.cameraTabWanted)
             {
                 this.tabSide.TabPages.Add(this.tabSideCamera);
@@ -210,6 +223,10 @@ namespace ForzaStudio
             if (this.exhaustTabWanted)
             {
                 this.tabSide.TabPages.Add(this.tabSideExhaust);
+            }
+            if (this.driverTabWanted)
+            {
+                this.tabSide.TabPages.Add(this.tabSideDriver);
             }
             if (selected != null && this.tabSide.TabPages.Contains(selected))
             {
@@ -229,7 +246,8 @@ namespace ForzaStudio
             TabPage open = this.tabSide.SelectedTab;
             List<Microsoft.Xna.Framework.Graphics.VertexPositionColor> lines = (open == this.tabSideCamera) ? this.CameraOverlayLines()
                 : (open == this.tabSideCollision) ? this.CollisionOverlayLines()
-                : (open == this.tabSideExhaust) ? this.ExhaustOverlayLines() : null;
+                : (open == this.tabSideExhaust) ? this.ExhaustOverlayLines()
+                : (open == this.tabSideDriver) ? this.DriverOverlayLines() : null;
             this.scene.Overlay = (lines != null && lines.Count >= 2) ? lines.ToArray() : null;
             this.scene.Update(true);
         }

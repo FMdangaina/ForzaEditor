@@ -37,17 +37,166 @@ namespace ForzaStudio
         public string BackupFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bak");
         public StringBuilder Report = new StringBuilder();
         public long NewId;
+        public EngineSpec Engine;                   // an engine of its own for the copy (CarEngine); null = the source's, shared
+
+        // A DLC pack instead of the game folder: the copy is built on a staged part of the game (the database,
+        // the string tables, the source's zip and thumbnail zip), then DlcPackage.BuildFolder turns what
+        // changed into the pack in Xenia's content folder. The game folder itself is not touched.
+        public string PackContent;                  // Xenia's content folder; null = write into the game folder
+        public int PackOffer;                       // the pack's offer number
+        public string PackName;                     // the name the pack has in the game's store
+        public bool ReplacePack;                    // the offer exists in PackContent: remove it first
 
         private string stamp;
 
         public List<string> Plan()
         {
-            return this.Execute(false);
+            List<string> plan = this.Execute(false);
+            if (this.PackContent != null)
+            {
+                plan.Insert(0, string.Format(CultureInfo.InvariantCulture, "destination: a new DLC pack \"{0}\" (offer {1}) in {2}; the game folder is not changed", this.PackName, this.PackOffer, this.PackContent));
+                this.Report.Insert(0, plan[0] + "\r\n");
+            }
+            return plan;
         }
 
         public void Run()
         {
-            this.Execute(true);
+            if (this.PackContent == null)
+            {
+                this.Execute(true);
+                return;
+            }
+            this.RunPack();
+        }
+
+        private void RunPack()
+        {
+            if (string.IsNullOrEmpty(this.PackName))
+            {
+                throw new InvalidOperationException("The pack needs a name.");
+            }
+            if (this.PackOffer <= 0)
+            {
+                throw new InvalidOperationException("The pack needs an offer number.");
+            }
+            if (Directory.Exists(DlcPackage.PackagePath(this.PackContent, this.PackOffer)))
+            {
+                if (!this.ReplacePack)
+                {
+                    throw new InvalidOperationException("A package with offer " + this.PackOffer + " is already in Xenia's content folder.");
+                }
+                DlcPackage.Remove(this.PackContent, this.PackOffer);
+            }
+            string stage = Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "DuplicatePack_" + DateTime.Now.Ticks.ToString(CultureInfo.InvariantCulture));
+            try
+            {
+                this.Stage(stage);
+                CarDuplicate inner = new CarDuplicate();
+                inner.TargetRoot = stage;
+                inner.SourceMediaName = this.SourceMediaName;
+                inner.NewMediaName = this.NewMediaName;
+                inner.XeniaContent = this.XeniaContent ?? this.PackContent;
+                inner.DisplayName = this.DisplayName;
+                inner.ModelShort = this.ModelShort;
+                inner.Year = this.Year;
+                inner.MakeId = this.MakeId;
+                foreach (KeyValuePair<string, string> pair in this.DisplayNames)
+                {
+                    inner.DisplayNames[pair.Key] = pair.Value;
+                }
+                foreach (KeyValuePair<string, string> pair in this.ModelShorts)
+                {
+                    inner.ModelShorts[pair.Key] = pair.Value;
+                }
+                foreach (KeyValuePair<string, object> pair in this.Data)
+                {
+                    inner.Data[pair.Key] = pair.Value;
+                }
+                inner.Engine = this.Engine;
+                inner.BackupFolder = Path.Combine(stage, "bak");
+                inner.Run();
+                this.NewId = inner.NewId;
+                this.Report.Append(inner.Report.ToString());
+                StringBuilder text = new StringBuilder();
+                List<string> others = DbIds.PackDatabases(this.PackContent);
+                string package = DlcPackage.BuildFolder(this.TargetRoot, this.TargetRoot, stage, this.PackContent, this.PackContent, this.PackOffer, this.PackName, text);
+
+                // The package's database as the game will merge it into its own (and the other packs'): the
+                // same integrity rules, so a pack never leaves a broken database behind.
+                string offerFolder = this.PackOffer.ToString(CultureInfo.InvariantCulture) + "_pri_65";
+                string patch = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.Combine(package, "Media"), "DLCZips"), offerFolder), "Media"), "db"), "patch");
+                string mergeFile = Path.Combine(patch, this.PackOffer.ToString(CultureInfo.InvariantCulture) + "000_merge.slt");
+                DbIntegrity.Result merged = DbIntegrity.CheckMerge(File.ReadAllBytes(Path.Combine(Path.Combine(this.Media, "db"), "gamedb.slt")), others, File.ReadAllBytes(mergeFile), ForzaGame.Motorsport4);
+                if (!merged.Ok)
+                {
+                    throw new InvalidOperationException("The pack's database would break the game's, nothing was left in Xenia:\r\n  " + string.Join("\r\n  ", merged.Errors.ToArray()));
+                }
+                this.Report.AppendLine("pack database check: merged into the game's database the rules hold");
+                foreach (string line in merged.Warnings)
+                {
+                    this.Report.AppendLine("  warning: " + line);
+                }
+                this.Report.AppendLine("DLC package \"" + this.PackName + "\" (offer " + this.PackOffer + ") in " + this.PackContent + ":");
+                this.Report.Append(text.ToString());
+            }
+            catch (Exception)
+            {
+                try
+                {
+                    DlcPackage.Remove(this.PackContent, this.PackOffer);
+                }
+                catch (IOException)
+                {
+                }
+                throw;
+            }
+            finally
+            {
+                try
+                {
+                    if (Directory.Exists(stage))
+                    {
+                        Directory.Delete(stage, true);
+                    }
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        // The files a copy reads or changes, at the same place under a temporary root.
+        private void Stage(string stage)
+        {
+            List<string> files = new List<string>();
+            files.Add(Path.Combine(Path.Combine(this.Media, "db"), "gamedb.slt"));
+            files.Add(ZipManifest.PathFor(this.TargetRoot));
+            files.Add(Path.Combine(Path.Combine(this.Media, "cars"), this.SourceMediaName + ".zip"));
+            files.AddRange(Directory.GetFiles(Path.Combine(this.Media, "StringTables"), "*.zip"));
+            using (SqliteDatabase db = SqliteDatabase.FromBytes(File.ReadAllBytes(files[0])))
+            {
+                string thumbnail = db.Scalar("SELECT Thumbnail FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", this.SourceMediaName) as string;
+                if (!string.IsNullOrEmpty(thumbnail))
+                {
+                    GamePaths.GameFile from = GamePaths.Locate(this.TargetRoot, thumbnail);
+                    if (from != null && from.InZip)
+                    {
+                        files.Add(from.ZipPath);
+                    }
+                }
+            }
+            string root = this.TargetRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            foreach (string file in files)
+            {
+                if (!file.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(file + " is not under the game folder.");
+                }
+                string copy = Path.Combine(stage, file.Substring(root.Length));
+                Directory.CreateDirectory(Path.GetDirectoryName(copy));
+                File.Copy(file, copy, true);
+            }
         }
 
         private string Media
@@ -83,7 +232,9 @@ namespace ForzaStudio
             string dbPath = Path.Combine(Path.Combine(this.Media, "db"), "gamedb.slt");
             string manifestPath = ZipManifest.PathFor(this.TargetRoot);
             SqliteDatabase db = SqliteDatabase.FromBytes(File.ReadAllBytes(dbPath));
+            SqliteDatabase original = SqliteDatabase.FromBytes(File.ReadAllBytes(dbPath));
             SqliteDatabase work = null;
+            bool writing = false;
             try
             {
                 object sourceValue = db.Scalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", this.SourceMediaName);
@@ -105,6 +256,9 @@ namespace ForzaStudio
                 plan.AddRange(DbIds.RenumberCar(work, sourceId, this.NewId));
                 Dictionary<string, List<string>> schema = DbIds.Schema(db);
                 List<string[]> carColumns = DbIds.CarColumns(schema);
+                // Every write to the database is one transaction: an error puts all of it back.
+                db.Begin();
+                writing = true;
                 int inserted = 0;
                 List<string> inserts = new List<string>();
                 List<string> skipped = new List<string>();
@@ -152,6 +306,13 @@ namespace ForzaStudio
                             {
                                 take = take || (index >= 0 && row[index] is long && (long) row[index] == this.NewId);
                             }
+                        }
+                        else if (string.Equals(table.Key, "Combo_Engines", StringComparison.OrdinalIgnoreCase) && keyIndex >= 0 && carIndexes.Exists(delegate(int i) { return i >= 0 && row[i] is long && (long) row[i] == this.NewId; }))
+                        {
+                            // The old engine table has a counter of its own (EngineComboID), not car * 1000 + n: the
+                            // copy's row (same engine, same stock flag) gets the next free key.
+                            row[keyIndex] = DbIds.Next(db, table.Key, key, ForzaGame.Motorsport4);
+                            take = true;
                         }
                         else
                         {
@@ -225,6 +386,32 @@ namespace ForzaStudio
                         throw new InvalidOperationException("Data_Car has no column " + pair.Key + ".");
                     }
                     db.Execute("UPDATE Data_Car SET " + SqliteDatabase.Quote(pair.Key) + " = ? WHERE Id = ?", pair.Value, this.NewId);
+                }
+
+                // The copy's own engine (CarEngine), before the checks.
+                if (this.Engine != null)
+                {
+                    CarEngine.Clone(db, this.NewId, this.Engine, plan);
+                }
+
+                // The integrity rules (DbIntegrity, DbIds.CheckCar): nothing is written when one breaks.
+                List<string> errors = DbIds.CheckCar(db, this.NewId, sourceId, this.NewMediaName);
+                DbIntegrity.Result check = DbIntegrity.Compare(original, db, ForzaGame.Motorsport4, null);
+                errors.AddRange(check.Errors);
+                if (errors.Count > 0)
+                {
+                    throw new InvalidOperationException("Database check failed, nothing was written:\r\n  " + string.Join("\r\n  ", errors.ToArray()));
+                }
+                db.Commit();
+                writing = false;
+                plan.Add("database check: the rules hold (keys above FM4's largest and unique, every id points at a row, the car's Data_CarBody row, ModelId = Id)");
+                foreach (string line in check.Summary)
+                {
+                    plan.Add("  " + line);
+                }
+                foreach (string line in check.Warnings)
+                {
+                    plan.Add("  warning: " + line);
                 }
 
                 // Strings: a key of its own in Data_Car.str of every language.
@@ -408,7 +595,12 @@ namespace ForzaStudio
             }
             finally
             {
+                if (writing)
+                {
+                    db.Rollback();
+                }
                 db.Dispose();
+                original.Dispose();
                 if (work != null)
                 {
                     work.Dispose();

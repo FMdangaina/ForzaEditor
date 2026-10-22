@@ -21,6 +21,10 @@ namespace ForzaStudio
             Wheels,
             Tracks,
             Events,
+            Engines,
+            Makes,
+            Countries,
+            PartMakers,
             Tables
         }
 
@@ -60,6 +64,21 @@ namespace ForzaStudio
         private TabControl tabEvent;
         private PropertyGrid pgEvent;
         private RelatedPanel relEvent;
+        private TabControl tabEngineList;
+        private PropertyGrid pgEngineList;
+        private RelatedPanel relEngineList;
+        private TabControl tabMake;
+        private PropertyGrid pgMake;
+        private RelatedPanel relMake;
+        private TabControl tabCountry;
+        private PropertyGrid pgCountry;
+        private RelatedPanel relCountry;
+        private TabControl tabPartMaker;
+        private PropertyGrid pgPartMaker;
+        private RelatedPanel relPartMaker;
+        private ListHeader hdrMake;
+        private ListHeader hdrCountry;
+        private ListHeader hdrPartMaker;
         private RecordGrid gridTable;
         private Label lblDbHint;
 
@@ -76,7 +95,7 @@ namespace ForzaStudio
 
             ToolStrip bar = new ToolStrip();
             bar.GripStyle = ToolStripGripStyle.Hidden;
-            string[] names = { "Cars", "Wheels", "Tracks", "Events", "Tables" };
+            string[] names = { "Cars", "Wheels", "Tracks", "Events", "Engines", "Makes", "Countries", "Manufacturers", "Tables" };
             this.btnDbSections = new ToolStripButton[names.Length];
             for (int i = 0; i < names.Length; i++)
             {
@@ -213,6 +232,21 @@ namespace ForzaStudio
             this.relEvent = this.NewRelatedPanel();
             this.AddTab(this.tabEvent, "Races and participants", this.relEvent);
 
+            // Engines: the whole Data_Engine list, not only the engines of one car
+            this.tabEngineList = new TabControl();
+            this.tabEngineList.Dock = DockStyle.Fill;
+            this.pgEngineList = this.NewPropertyGrid();
+            this.AddTab(this.tabEngineList, "Engine", this.pgEngineList);
+            this.relEngineList = this.NewRelatedPanel();
+            this.AddTab(this.tabEngineList, "Cars and curves", this.relEngineList);
+
+            this.tabMake = this.NewListTabs(out this.pgMake, out this.relMake, "Make", "Cars and parts");
+            this.tabCountry = this.NewListTabs(out this.pgCountry, out this.relCountry, "Country", "Makes and cars");
+            this.tabPartMaker = this.NewListTabs(out this.pgPartMaker, out this.relPartMaker, "Manufacturer", "Parts");
+            this.hdrMake = new ListHeader(2);
+            this.hdrCountry = new ListHeader(1);
+            this.hdrPartMaker = new ListHeader(1);
+
             // Tables
             this.gridTable = new RecordGrid(true);
             this.gridTable.Dock = DockStyle.Fill;
@@ -233,6 +267,10 @@ namespace ForzaStudio
             this.BuildTrackAndEventHeaders();
             this.pnlDbContent.Controls.Add(TabHost(this.tabTrack, this.trackHeader));
             this.pnlDbContent.Controls.Add(TabHost(this.tabEvent, this.eventHeader));
+            this.pnlDbContent.Controls.Add(TabHost(this.tabEngineList, null));
+            this.pnlDbContent.Controls.Add(TabHost(this.tabMake, this.hdrMake.Panel));
+            this.pnlDbContent.Controls.Add(TabHost(this.tabCountry, this.hdrCountry.Panel));
+            this.pnlDbContent.Controls.Add(TabHost(this.tabPartMaker, this.hdrPartMaker.Panel));
             this.pnlDbContent.Controls.Add(this.gridTable);
             this.pnlDbContent.Controls.Add(this.lblDbHint);
 
@@ -410,6 +448,14 @@ namespace ForzaStudio
                     return DbSection.Tracks;
                 case "Events":
                     return DbSection.Events;
+                case "Data_Engine":
+                    return DbSection.Engines;
+                case "List_CarMake":
+                    return DbSection.Makes;
+                case "List_Country":
+                    return DbSection.Countries;
+                case "List_PartManufacturer":
+                    return DbSection.PartMakers;
             }
             return null;
         }
@@ -758,7 +804,7 @@ namespace ForzaStudio
         #region List
 
         // The table each section needs; a DLC patch database may have only some of them.
-        private static readonly string[] SectionTables = { "Data_Car", "List_Wheels", "Tracks", "Events", null };
+        private static readonly string[] SectionTables = { "Data_Car", "List_Wheels", "Tracks", "Events", "Data_Engine", "List_CarMake", "List_Country", "List_PartManufacturer", null };
 
         private bool HasSection(DbSection section)
         {
@@ -844,6 +890,62 @@ namespace ForzaStudio
                     }
                     break;
 
+                case DbSection.Engines:
+                    this.AddDbColumns(new string[] { "Id", "Engine", "Media name", "Config", "Cars" }, new int[] { 45, 200, 110, 90, 45 });
+                    Dictionary<long, int> users = new Dictionary<long, int>();
+                    if (this.gameDb.HasTable("List_UpgradeEngine"))
+                    {
+                        foreach (object[] row in this.gameDb.Sql.Query("SELECT EngineID, COUNT(DISTINCT Ordinal) FROM List_UpgradeEngine GROUP BY EngineID").Rows)
+                        {
+                            if (row[0] is long && row[1] is long)
+                            {
+                                users[(long) row[0]] = (int) (long) row[1];
+                            }
+                        }
+                    }
+                    bool hasConfig = this.gameDb.HasTable("List_EngineConfig");
+                    string engineSql = hasConfig
+                        ? "SELECT e.EngineID, e.EngineName, e.MediaName, c.EngineConfig FROM Data_Engine e LEFT JOIN List_EngineConfig c ON c.ConfigID = e.ConfigID ORDER BY e.EngineID"
+                        : "SELECT EngineID, EngineName, MediaName, NULL FROM Data_Engine ORDER BY EngineID";
+                    foreach (object[] row in this.gameDb.Sql.Query(engineSql).Rows)
+                    {
+                        int count;
+                        string engineName = this.gameDb.Text("Data_Engine", "EngineName", row[1]) ?? GameDatabase.FormatValue(row[1]);
+                        this.dbItems.Add(NewItem(row[0], engineName, row[2], row[3], (row[0] is long && users.TryGetValue((long) row[0], out count)) ? count : 0));
+                    }
+                    break;
+
+                case DbSection.Makes:
+                    this.AddDbColumns(new string[] { "Id", "Make", "Code", "Country", "Cars" }, new int[] { 45, 170, 110, 110, 45 });
+                    Dictionary<long, int> makeCars = this.CountBy("Data_Car", "MakeID");
+                    foreach (object[] row in this.gameDb.Sql.Query("SELECT m.ID, m.DisplayName, m.ManufacturerCode, c.Country FROM List_CarMake m LEFT JOIN List_Country c ON c.CountryID = m.CountryID ORDER BY m.DisplayName").Rows)
+                    {
+                        int cars;
+                        string makeName = this.gameDb.Text("List_CarMake", "DisplayName", row[1]) ?? GameDatabase.FormatValue(row[1]);
+                        string makeCountry = this.gameDb.Text("List_Country", "Country", row[3]) ?? GameDatabase.FormatValue(row[3]);
+                        this.dbItems.Add(NewItem(row[0], makeName, row[2], makeCountry, (row[0] is long && makeCars.TryGetValue((long) row[0], out cars)) ? cars : 0));
+                    }
+                    break;
+
+                case DbSection.Countries:
+                    this.AddDbColumns(new string[] { "Id", "Country", "Region", "Makes" }, new int[] { 45, 170, 70, 55 });
+                    Dictionary<long, int> countryMakes = this.CountBy("List_CarMake", "CountryID");
+                    foreach (object[] row in this.gameDb.Sql.Query("SELECT CountryID, Country, RegionID FROM List_Country ORDER BY CountryID").Rows)
+                    {
+                        int makes;
+                        string countryName = this.gameDb.Text("List_Country", "Country", row[1]) ?? GameDatabase.FormatValue(row[1]);
+                        this.dbItems.Add(NewItem(row[0], countryName, row[2], (row[0] is long && countryMakes.TryGetValue((long) row[0], out makes)) ? makes : 0));
+                    }
+                    break;
+
+                case DbSection.PartMakers:
+                    this.AddDbColumns(new string[] { "Id", "Manufacturer", "Logo" }, new int[] { 45, 200, 200 });
+                    foreach (object[] row in this.gameDb.Sql.Query("SELECT Id, PartManufacturer, LogoPath FROM List_PartManufacturer ORDER BY PartManufacturer").Rows)
+                    {
+                        this.dbItems.Add(NewItem(row[0], this.gameDb.Text("List_PartManufacturer", "PartManufacturer", row[1]) ?? GameDatabase.FormatValue(row[1]), row[2]));
+                    }
+                    break;
+
                 case DbSection.Tables:
                     this.AddDbColumns(new string[] { "Table", "Rows" }, new int[] { 260, 70 });
                     foreach (string name in this.gameDb.TableNames)
@@ -877,6 +979,10 @@ namespace ForzaStudio
             }
             this.gridTable.ShowRows(this.gameDb, table, filter);
         }
+
+        // A part maker's LogoPath is only the decal's name (decal364): the picture is
+        // GAME:\Media\UI\Textures\UI4\Logos\Car_Parts_Logos\decal364.xds (about 240 of 569 exist in FM4).
+        private const string PartLogoSql = "'GAME:\\Media\\UI\\Textures\\UI4\\Logos\\Car_Parts_Logos\\' || LogoPath || '.xds'";
 
         private const string CarListSql = "SELECT Id, MakeID, MediaName, Year, ClassID, PerformanceIndex, DisplayName FROM Data_Car";
 
@@ -1018,6 +1124,25 @@ namespace ForzaStudio
 
                     case DbSection.Events:
                         this.ShowEvent(long.Parse(item.Text, CultureInfo.InvariantCulture));
+                        break;
+
+                    case DbSection.Engines:
+                        this.ShowEngineListItem(long.Parse(item.Text, CultureInfo.InvariantCulture));
+                        break;
+
+                    case DbSection.Makes:
+                        long makeId = long.Parse(item.Text, CultureInfo.InvariantCulture);
+                        this.ShowListItem(this.tabMake, this.pgMake, this.relMake, this.hdrMake, "List_CarMake", makeId, this.gameDb.MakeRelated(makeId), "DisplayName", "IconPath", "IconPathLight");
+                        break;
+
+                    case DbSection.Countries:
+                        long countryId = long.Parse(item.Text, CultureInfo.InvariantCulture);
+                        this.ShowListItem(this.tabCountry, this.pgCountry, this.relCountry, this.hdrCountry, "List_Country", countryId, this.gameDb.CountryRelated(countryId), "Country", "IconPath");
+                        break;
+
+                    case DbSection.PartMakers:
+                        long partMakerId = long.Parse(item.Text, CultureInfo.InvariantCulture);
+                        this.ShowListItem(this.tabPartMaker, this.pgPartMaker, this.relPartMaker, this.hdrPartMaker, "List_PartManufacturer", partMakerId, this.gameDb.PartMakerRelated(partMakerId), "PartManufacturer", PartLogoSql);
                         break;
 
                     case DbSection.Tables:

@@ -17,6 +17,7 @@ namespace ForzaStudio
         private Label lblTrackInfo;
         private Panel eventHeader;
         private Label lblEventInfo;
+        private PictureBox picEvent;
         private long dbTrackId = -1;
         private long dbEventId = -1;
 
@@ -38,19 +39,22 @@ namespace ForzaStudio
             this.eventHeader = new Panel();
             this.eventHeader.Height = 70;
             this.lblEventInfo = new Label();
-            this.lblEventInfo.Location = new Point(8, 6);
+            this.picEvent = HeaderPicture(4, 110);
+            this.picEvent.Height = 62;
+            this.eventHeader.Controls.Add(this.picEvent);
+            this.lblEventInfo.Location = new Point(122, 6);
             this.lblEventInfo.Size = new Size(600, 22);
             this.lblEventInfo.Font = ForzaTheme.Heading;
             this.lblEventInfo.AutoEllipsis = true;
             FlowLayoutPanel buttons = new FlowLayoutPanel();
-            buttons.Location = new Point(4, 32);
+            buttons.Location = new Point(118, 32);
             buttons.Size = new Size(600, 34);
             buttons.Controls.Add(HeaderButton("New Event (copy of this)", delegate { this.CopyEvent(); }));
             buttons.Controls.Add(HeaderButton("Add Race...", delegate { this.AddRace(); }));
             buttons.Controls.Add(HeaderButton("Add Competitor...", delegate { this.AddCompetitor(); }));
             this.eventHeader.Controls.Add(this.lblEventInfo);
             this.eventHeader.Controls.Add(buttons);
-            this.eventHeader.Resize += delegate { this.lblEventInfo.Width = Math.Max(100, this.eventHeader.Width - 16); };
+            this.eventHeader.Resize += delegate { this.lblEventInfo.Width = Math.Max(100, this.eventHeader.Width - this.lblEventInfo.Left - 6); };
         }
 
         private static PictureBox HeaderPicture(int x, int width)
@@ -96,7 +100,104 @@ namespace ForzaStudio
             long races = this.gameDb.Count("Races", "EventId = " + id.ToString(CultureInfo.InvariantCulture));
             long cars = this.gameDb.Count("EventParticipants", "EventID = " + id.ToString(CultureInfo.InvariantCulture));
             this.lblEventInfo.Text = string.Format("{0}   ·   {1} races, {2} AI competitors", this.gameDb.Text("Events", "Name", name) ?? ("Event " + id), races, cars);
+            this.UpdateEventPicture(id);
             this.ShowDbContent(this.tabEvent);
+        }
+
+        // Events have no picture of their own: the poster of their career type (Club, Showcase...), and
+        // when that has none the logo of the first race's track.
+        private void UpdateEventPicture(long id)
+        {
+            string path = null;
+            if (this.gameDb.HasTable("CareerEventTypes"))
+            {
+                path = this.gameDb.Sql.Scalar("SELECT t.PosterPath FROM CareerEventTypes t JOIN Events e ON e.CareerTypeId = t.id WHERE e.Id = ?", id) as string;
+            }
+            Bitmap image = this.LoadGameImage(path);
+            if (image == null && this.gameDb.HasTable("Races"))
+            {
+                path = this.gameDb.Sql.Scalar("SELECT t.Logo FROM Races r JOIN Tracks t ON t.id = r.TrackId WHERE r.EventId = ? ORDER BY r.RaceNumber LIMIT 1", id) as string;
+                image = this.LoadGameImage(path);
+            }
+            SetPicture(this.picEvent, image);
+        }
+
+        // A section made of one grid with the row and one page of what points at it.
+        private TabControl NewListTabs(out PropertyGrid grid, out RelatedPanel related, string recordTitle, string relatedTitle)
+        {
+            TabControl tabs = new TabControl();
+            tabs.Dock = DockStyle.Fill;
+            grid = this.NewPropertyGrid();
+            this.AddTab(tabs, recordTitle, grid);
+            related = this.NewRelatedPanel();
+            this.AddTab(tabs, relatedTitle, related);
+            return tabs;
+        }
+
+        // Logos on top of a list section: one picture per image column and the name.
+        private class ListHeader
+        {
+            public readonly Panel Panel = new Panel();
+            public readonly PictureBox[] Pictures;
+            public readonly Label Info = new Label();
+
+            public ListHeader(int pictures)
+            {
+                this.Panel.Height = 86;
+                this.Pictures = new PictureBox[pictures];
+                for (int i = 0; i < pictures; i++)
+                {
+                    this.Pictures[i] = HeaderPicture(4 + i * 86, 78);
+                    this.Panel.Controls.Add(this.Pictures[i]);
+                }
+                this.Info.Location = new Point(8 + pictures * 86, 6);
+                this.Info.Size = new Size(400, 30);
+                this.Info.Font = ForzaTheme.Heading;
+                this.Info.AutoEllipsis = true;
+                this.Panel.Controls.Add(this.Info);
+                this.Panel.Resize += delegate { this.Info.Width = Math.Max(100, this.Panel.Width - this.Info.Left - 6); };
+            }
+        }
+
+        // The row in the grid, what points at it, and the name and logos from the given columns
+        // (the first is the name, the others GAME:\ image paths).
+        private void ShowListItem(TabControl tabs, PropertyGrid grid, RelatedPanel related, ListHeader header, string table, long id, List<GameDatabase.Related> items, params string[] columns)
+        {
+            grid.SelectedObject = this.Record(table, id);
+            related.ShowItems(this.gameDb, items);
+            string key = this.gameDb.GetTable(table).Columns[0].Name;
+            SqliteDatabase.Result result = this.gameDb.Sql.Query("SELECT " + string.Join(", ", columns) + " FROM " + SqliteDatabase.Quote(table) + " WHERE " + SqliteDatabase.Quote(key) + " = ?", id);
+            object[] row = (result.Rows.Count > 0) ? result.Rows[0] : new object[columns.Length];
+            header.Info.Text = this.gameDb.Text(table, columns[0], row[0]) ?? GameDatabase.FormatValue(row[0]);
+            for (int i = 0; i < header.Pictures.Length; i++)
+            {
+                SetPicture(header.Pictures[i], this.LoadGameImage(row[i + 1] as string));
+            }
+            this.ShowDbContent(tabs);
+        }
+
+        // Rows of a table per value of a column (cars per make...).
+        private Dictionary<long, int> CountBy(string table, string column)
+        {
+            Dictionary<long, int> counts = new Dictionary<long, int>();
+            if (this.gameDb.HasTable(table))
+            {
+                foreach (object[] row in this.gameDb.Sql.Query("SELECT " + column + ", COUNT(*) FROM " + table + " GROUP BY " + column).Rows)
+                {
+                    if (row[0] is long && row[1] is long)
+                    {
+                        counts[(long) row[0]] = (int) (long) row[1];
+                    }
+                }
+            }
+            return counts;
+        }
+
+        private void ShowEngineListItem(long id)
+        {
+            this.pgEngineList.SelectedObject = this.Record("Data_Engine", id);
+            this.relEngineList.ShowItems(this.gameDb, this.gameDb.EngineRelated(id));
+            this.ShowDbContent(this.tabEngineList);
         }
 
         private void SelectDbItem(DbSection section, long id)

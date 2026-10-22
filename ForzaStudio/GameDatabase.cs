@@ -440,6 +440,32 @@ namespace ForzaStudio
 
         // One typed SQL statement on any table (SqlGuard: the Id rule, only SELECT / INSERT / UPDATE / DELETE).
         // A write is listed with the changes, so File > Save writes it.
+        // The diagnostic queries of the SQL console, built from this database.
+        public List<SqlDiagnostics.Query> Diagnostics()
+        {
+            return SqlDiagnostics.For(this.db, ForzaGame.Motorsport4);
+        }
+
+        // A diagnostic Forza Studio builds in code (SqlDiagnostics.Query.Build), with the game's names.
+        public SqliteDatabase.Result Build(SqlDiagnostics.Builder build)
+        {
+            StringTable names = null;
+            try
+            {
+                names = this.Strings;
+            }
+            catch (Exception)
+            {
+            }
+            return build(this.db, names);
+        }
+
+        // What a statement would do, per table, without doing it (SqlGuard.Plan).
+        public SqlGuard.Outcome PlanSql(string sql)
+        {
+            return SqlGuard.Plan(this.db, sql, ForzaGame.Motorsport4);
+        }
+
         public SqlGuard.Outcome RunSql(string sql)
         {
             SqlGuard.Outcome outcome = SqlGuard.Run(this.db, sql, ForzaGame.Motorsport4);
@@ -1363,6 +1389,68 @@ namespace ForzaStudio
             return this.Counted(list);
         }
 
+        public List<Related> EngineRelated(long engineId)
+        {
+            string id = engineId.ToString(CultureInfo.InvariantCulture);
+            List<Related> list = new List<Related>();
+            Add(list, "Upgrade rows (cars using it)", "List_UpgradeEngine", "EngineID = " + id);
+            Add(list, "Old engine combos", "Combo_Engines", "EngineID = " + id);
+            Add(list, "Torque curves", "List_TorqueCurve", "EngineID = " + id);
+            return this.Counted(list);
+        }
+
+        public List<Related> MakeRelated(long makeId)
+        {
+            string id = makeId.ToString(CultureInfo.InvariantCulture);
+            List<Related> list = new List<Related>();
+            Add(list, "Cars of this make", "Data_Car", "MakeID = " + id);
+            Add(list, "Engine upgrades", "List_UpgradeEngine", "ManufacturerID = " + id);
+            Add(list, "Drivetrain upgrades", "List_UpgradeDrivetrain", "ManufacturerId = " + id);
+            Add(list, "Decal sort order", "Livery_DecalsSortOrder", "MakeID = " + id);
+            Add(list, "Part discounts", "Rewards_CarPartDiscounts", "CarMakeId = " + id);
+            return this.Counted(list);
+        }
+
+        // Part manufacturers (List_PartManufacturer, the brands of the upgrade shop) are not car makes:
+        // the engine and drivetrain upgrade rows name a car make, so they are left out.
+        public List<Related> PartMakerRelated(long makerId)
+        {
+            string id = makerId.ToString(CultureInfo.InvariantCulture);
+            List<Related> list = new List<Related>();
+            foreach (string name in this.TableNames)
+            {
+                Table table = this.GetTable(name);
+                if (name.StartsWith("List_Upgrade", StringComparison.OrdinalIgnoreCase) && table.Find("ManufacturerID") != null
+                    && !string.Equals(name, "List_UpgradeEngine", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(name, "List_UpgradeDrivetrain", StringComparison.OrdinalIgnoreCase))
+                {
+                    list.Add(new Related(name.Substring("List_Upgrade".Length), name, "ManufacturerID = " + id));
+                }
+            }
+            foreach (string[] other in new string[][] {
+                new string[] { "Wheels", "List_Wheels", "PartManufacturerID" },
+                new string[] { "Tire brands", "Combo_TireBrandCompound", "TireBrandId" },
+                new string[] { "Part discounts", "Rewards_CarPartDiscounts", "BrandId" } })
+            {
+                if (this.HasTable(other[1]) && this.GetTable(other[1]).Find(other[2]) != null)
+                {
+                    list.Add(new Related(other[0], other[1], other[2] + " = " + id));
+                }
+            }
+            return this.Counted(list);
+        }
+
+        public List<Related> CountryRelated(long countryId)
+        {
+            string id = countryId.ToString(CultureInfo.InvariantCulture);
+            List<Related> list = new List<Related>();
+            Add(list, "Makes", "List_CarMake", "CountryID = " + id);
+            Add(list, "Cars", "Data_Car", "CountryID = " + id);
+            Add(list, "Environments", "Environments", "CountryId = " + id);
+            Add(list, "AI players", "AIPlayers", "CountryId = " + id);
+            return this.Counted(list);
+        }
+
         public string CarEngines(long carId)
         {
             List<string> ids = new List<string>();
@@ -1411,8 +1499,9 @@ namespace ForzaStudio
                 {
                     related.Count = (int) this.Count(related.Table, related.Where);
                 }
-                catch (InvalidOperationException)
+                catch (Exception)
                 {
+                    // A table of another game version without the column: not listed.
                     continue;
                 }
                 if (related.Count > 0)

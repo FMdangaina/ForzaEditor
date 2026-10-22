@@ -359,7 +359,7 @@ namespace ForzaStudio
         }
 
         // Every table.column holding a car's Id: the car columns by name, plus the relations into Data_Car.
-        internal static List<string[]> CarColumns(Dictionary<string, List<string>> schema)
+        public static List<string[]> CarColumns(Dictionary<string, List<string>> schema)
         {
             List<string[]> found = new List<string[]>();
             foreach (KeyValuePair<string, List<string>> table in schema)
@@ -390,7 +390,7 @@ namespace ForzaStudio
         }
 
         // The table's single-column key (PRAGMA pk), else a first column named Id; null otherwise.
-        internal static string KeyColumn(SqliteDatabase db, string table, List<string> columns)
+        public static string KeyColumn(SqliteDatabase db, string table, List<string> columns)
         {
             string key = null;
             int count = 0;
@@ -409,7 +409,7 @@ namespace ForzaStudio
             return (count == 0 && columns.Count > 0 && string.Equals(columns[0], "Id", StringComparison.OrdinalIgnoreCase)) ? columns[0] : null;
         }
 
-        internal static Dictionary<string, List<string>> Schema(SqliteDatabase db)
+        public static Dictionary<string, List<string>> Schema(SqliteDatabase db)
         {
             Dictionary<string, List<string>> schema = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             foreach (object[] row in db.Query("SELECT name FROM sqlite_master WHERE type = 'table'").Rows)
@@ -424,7 +424,7 @@ namespace ForzaStudio
             return schema;
         }
 
-        internal static bool HasTable(SqliteDatabase db, string table)
+        public static bool HasTable(SqliteDatabase db, string table)
         {
             return db.Scalar("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", table) != null;
         }

@@ -281,7 +281,8 @@ namespace ForzaStudio
             string sourceDbPath = Path.Combine(Path.Combine(Path.Combine(this.SourceRoot, "Media"), "db"), "gamedb.slt");
             string targetDbPath = Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "db"), "gamedb.slt");
             this.source = SqliteDatabase.FromBytes(File.ReadAllBytes(sourceDbPath));
-            this.target = SqliteDatabase.FromBytes(File.ReadAllBytes(this.In(targetDbPath)));
+            byte[] targetBefore = File.ReadAllBytes(this.In(targetDbPath));
+            this.target = SqliteDatabase.FromBytes(targetBefore);
             try
             {
                 // The car gets an Id of its own (DbIds.CarId); the source copy in memory is renumbered
@@ -326,6 +327,22 @@ namespace ForzaStudio
                     throw new InvalidOperationException("Database check failed, nothing was written:\r\n  " + string.Join("\r\n  ", errors.ToArray()));
                 }
                 this.Line("database check: car {0} (Data_Car, Data_CarBody, the keys of its rows) OK", this.carId);
+
+                // The rules of the whole database (DbIntegrity): keys above FM4's largest and unique, a car's
+                // rows complete. Ids that point at nothing are reported only: the rows come from another game.
+                using (SqliteDatabase was = SqliteDatabase.FromBytes(targetBefore))
+                {
+                    DbIntegrity.Result integrity = DbIntegrity.Compare(was, this.target, ForzaGame.Motorsport4, null, false);
+                    if (!integrity.Ok)
+                    {
+                        throw new InvalidOperationException("Database integrity check failed, nothing was written:\r\n  " + string.Join("\r\n  ", integrity.Errors.ToArray()));
+                    }
+                    foreach (string line in integrity.Warnings)
+                    {
+                        this.Line("database warning: {0}", line);
+                    }
+                    this.Line("database integrity: the keys and the car's rows hold ({0} tables changed)", integrity.Summary.Count);
+                }
 
                 // Write everything: backups first, then files, then the manifest.
                 this.Write(targetDbPath, this.target.ToBytes());

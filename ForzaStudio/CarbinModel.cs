@@ -217,10 +217,75 @@ namespace ForzaStudio
                 }
                 section.Lod = WidenVertices(section.Lod);
                 section.Lod0 = WidenVertices(section.Lod0);
+                ConvertDamageWords(section);
                 section.DamageLod.Extra = new byte[0];
                 section.DamageLod0.Extra = new byte[0];
             }
             this.horizon = false;
+        }
+
+        // EXPERIMENT (ROADMAP B1, tests T2 / T3, Port.ini [Damage]): the FH per-vertex damage word is a signed
+        // 11:11:10 vector of length ~90 (a magnitude); FM4's is a unit direction, signed normalised 10:11:11
+        // (x / 511, y / 1023, z / 1023). Words = copy leaves the FH words as they are (what the port always
+        // did); Words = normalize writes normalize(FH) in the FM4 format, the sign of the sections listed in
+        // FlipSections reversed. A zero FH word stays zero. Tables = both | main | lod0 chooses which of the two
+        // tables (main carbin LOD, lod0) is converted. Only the converted tables change.
+        private static void ConvertDamageWords(Section section)
+        {
+            if (PortSettings.Get("Damage", "Words", "copy").ToLowerInvariant() != "normalize")
+            {
+                return;
+            }
+            string tables = PortSettings.Get("Damage", "Tables", "both").ToLowerInvariant();
+            bool flip = false;
+            foreach (string name in PortSettings.Get("Damage", "FlipSections", "").Split(new char[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                flip = flip || string.Equals(name, section.Name, StringComparison.OrdinalIgnoreCase) || name == "*";
+            }
+            if (tables != "lod0")
+            {
+                NormalizeDamage(section.DamageLod, flip);
+            }
+            if (tables != "main")
+            {
+                NormalizeDamage(section.DamageLod0, flip);
+            }
+        }
+
+        // FH 11:11:10 words -> unit direction in the FM4 10:11:11 format (see ConvertDamageWords).
+        public static void NormalizeDamage(Table table, bool flip)
+        {
+            if (table.Stride != 4 || table.Data.Length < 4)
+            {
+                return;
+            }
+            for (int i = 0; i + 4 <= table.Data.Length; i += 4)
+            {
+                uint word = ReadU32(table.Data, i);
+                double x = SignExtend(word >> 21, 11);
+                double y = SignExtend(word >> 10, 11);
+                double z = SignExtend(word, 10);
+                double length = Math.Sqrt((x * x) + (y * y) + (z * z));
+                if (length < 0.5)
+                {
+                    continue;
+                }
+                double sign = flip ? -1.0 : 1.0;
+                uint px = (uint) (int) Math.Round(sign * x / length * 511) & 0x3FF;
+                uint py = (uint) (int) Math.Round(sign * y / length * 1023) & 0x7FF;
+                uint pz = (uint) (int) Math.Round(sign * z / length * 1023) & 0x7FF;
+                uint packed = (px << 22) | (py << 11) | pz;
+                table.Data[i] = (byte) (packed >> 24);
+                table.Data[i + 1] = (byte) (packed >> 16);
+                table.Data[i + 2] = (byte) (packed >> 8);
+                table.Data[i + 3] = (byte) packed;
+            }
+        }
+
+        private static int SignExtend(uint value, int bits)
+        {
+            int v = (int) (value & ((1u << bits) - 1));
+            return (v >= (1 << (bits - 1))) ? v - (1 << bits) : v;
         }
 
         // 28-byte FH vertices -> 32-byte FM4 vertices.

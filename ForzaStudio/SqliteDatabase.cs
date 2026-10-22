@@ -184,6 +184,22 @@ namespace ForzaStudio
             }
         }
 
+        // A transaction around a group of writes: Commit keeps them, Rollback puts every one back.
+        public void Begin()
+        {
+            this.Execute("BEGIN");
+        }
+
+        public void Commit()
+        {
+            this.Execute("COMMIT");
+        }
+
+        public void Rollback()
+        {
+            this.Execute("ROLLBACK");
+        }
+
         public long LastInsertRowId
         {
             get { return sqlite3_last_insert_rowid(this.db); }
