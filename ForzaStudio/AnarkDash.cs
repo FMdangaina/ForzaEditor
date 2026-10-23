@@ -77,6 +77,15 @@ namespace ForzaStudio
             this.Fbf = fbf;
             this.Bgf = bgf;
             this.Bsg = bsg;
+            this.Build();
+        }
+
+        // The node tree from the three files (again after elements were added).
+        private void Build()
+        {
+            AnarkBgf bgf = this.Bgf;
+            this.Nodes.Clear();
+            this.Root = null;
             for (int i = 0; i < bgf.Elements.Count; i++)
             {
                 Node node = new Node();
@@ -84,8 +93,8 @@ namespace ForzaStudio
                 node.Element = bgf.Elements[i];
                 if (node.Element.Type != AnarkBgf.ElementType.Behaviour)
                 {
-                    node.Record = fbf.Find(node.Element.Id);
-                    node.Base = (bsg != null) ? bsg.Find(node.Element.Id) : null;
+                    node.Record = this.Fbf.Find(node.Element.Id);
+                    node.Base = (this.Bsg != null) ? this.Bsg.Find(node.Element.Id) : null;
                 }
                 this.Nodes.Add(node);
             }
@@ -505,6 +514,181 @@ namespace ForzaStudio
             double cos = Math.Cos(d.Rot), sin = Math.Sin(d.Rot);
             float ux = (q.X - d.PivotX) * sx, uy = (q.Y - d.PivotY) * sy;
             return new PointF((float) (d.PosX + cos * ux + sin * uy), (float) (d.PosY - sin * ux + cos * uy));
+        }
+
+        // ---- Duplicate ----
+
+        // Copies a node (a model, a text or a group) with everything under it:
+        //   .fbf  the records, with new ids, next to the originals (same relative order: groups after their children);
+        //   .bgf  the elements and their properties, APPENDED at the end so that no index the slides and animations
+        //         may use changes; strings get their own copy; the header counts are updated;
+        //   .bsg  the base nodes, appended, with new ids.
+        // The meshes and textures are shared. name = the copy's name (the .bgf element hash is built from it);
+        // sameNames keeps every name as it is, so whatever the game does by name (animations, data) may act on the copy too.
+        // Returns the new node, or null (Blocked says why). The node tree is rebuilt: older Node objects are stale.
+        public Node Duplicate(Node root, string name, bool sameNames)
+        {
+            this.Blocked = null;
+            AnarkBgf.ElementType type = root.Element.Type;
+            if (root.Record == null || (type != AnarkBgf.ElementType.Node && type != AnarkBgf.ElementType.Text))
+            {
+                this.Blocked = root.Name + " cannot be duplicated alone (select a model, a text or a group)";
+                return null;
+            }
+            if (string.IsNullOrEmpty(name) || !IsLatin1(name))
+            {
+                this.Blocked = "the name of the copy must be plain text";
+                return null;
+            }
+            List<AnarkBgf.Element> elements = this.Bgf.Elements;
+            bool[] inside = new bool[elements.Count];
+            inside[root.Index] = true;
+            bool grew = true;
+            while (grew)
+            {
+                grew = false;
+                for (int i = 0; i < elements.Count; i++)
+                {
+                    int p = elements[i].Parent;
+                    if (!inside[i] && p >= 0 && p < inside.Length && inside[p])
+                    {
+                        inside[i] = true;
+                        grew = true;
+                    }
+                }
+            }
+
+            for (int i = 0; i < inside.Length; i++)
+            {
+                if (inside[i] && i != root.Index && elements[i].Parent > i)
+                {
+                    this.Blocked = root.Name + " has an element listed before its parent: not supported";
+                    return null;
+                }
+            }
+
+            uint nextId = 0;
+            foreach (AnarkFbf.Record r in this.Fbf.Records)
+            {
+                nextId = Math.Max(nextId, r.Id);
+            }
+            foreach (AnarkBgf.Element e in elements)
+            {
+                nextId = Math.Max(nextId, e.Id);
+            }
+            if (this.Bsg != null)
+            {
+                foreach (AnarkBsg.Node n in this.Bsg.Nodes)
+                {
+                    nextId = Math.Max(nextId, n.Id);
+                }
+            }
+
+            string suffix = sameNames ? "" : "_" + name;
+            Dictionary<int, int> newIndex = new Dictionary<int, int>();
+            Dictionary<uint, uint> newId = new Dictionary<uint, uint>();
+            List<KeyValuePair<int, AnarkFbf.Record>> records = new List<KeyValuePair<int, AnarkFbf.Record>>();
+            int lastRecord = -1;
+            int firstNew = elements.Count;
+            for (int i = 0; i < inside.Length; i++)
+            {
+                if (!inside[i])
+                {
+                    continue;
+                }
+                AnarkBgf.Element old = elements[i];
+                AnarkBgf.Element copy = old.Copy();
+                newIndex[i] = elements.Count;
+                copy.Parent = (i == root.Index) ? old.Parent : newIndex[old.Parent];
+                if (old.Type != AnarkBgf.ElementType.Behaviour)
+                {
+                    copy.Id = ++nextId;
+                    newId[old.Id] = copy.Id;
+                    AnarkFbf.Record rec = this.Fbf.Find(old.Id);
+                    if (rec != null)
+                    {
+                        AnarkFbf.Record recCopy = rec.Copy();
+                        recCopy.Id = copy.Id;
+                        recCopy.Name = sameNames ? rec.Name : (i == root.Index) ? name : rec.Name + suffix;
+                        uint owner;
+                        if (recCopy.Type == AnarkFbf.RecordType.Image && newId.TryGetValue(recCopy.Owner, out owner))
+                        {
+                            recCopy.Owner = owner;
+                        }
+                        copy.Hash = (old.Hash & 0xF8000000u) | AnarkBgf.HashName(recCopy.Name);
+                        records.Add(new KeyValuePair<int, AnarkFbf.Record>(this.Fbf.Records.IndexOf(rec), recCopy));
+                        lastRecord = Math.Max(lastRecord, this.Fbf.Records.IndexOf(rec));
+                    }
+                }
+                foreach (AnarkBgf.Property p in copy.Properties)
+                {
+                    if (p.Kind == AnarkBgf.ValueKind.String && p.Value < this.Bgf.Strings.Count)
+                    {
+                        string text = this.Bgf.Strings[(int) p.Value];
+                        p.Value = (uint) this.Bgf.Strings.Count;
+                        this.Bgf.Strings.Add(text);
+                    }
+                }
+                elements.Add(copy);
+            }
+            if (records.Count > 0)
+            {
+                // the copies go after the last original of the subtree, in the order the originals have (groups after their children)
+                records.Sort(delegate(KeyValuePair<int, AnarkFbf.Record> p, KeyValuePair<int, AnarkFbf.Record> q) { return p.Key.CompareTo(q.Key); });
+                List<AnarkFbf.Record> ordered = new List<AnarkFbf.Record>();
+                foreach (KeyValuePair<int, AnarkFbf.Record> pair in records)
+                {
+                    ordered.Add(pair.Value);
+                }
+                this.Fbf.Records.InsertRange(lastRecord + 1, ordered);
+            }
+
+            if (this.Bsg != null)
+            {
+                // base nodes, appended; the parent of a copy is the copy of the nearest ancestor that has one
+                Dictionary<uint, AnarkBsg.Node> copies = new Dictionary<uint, AnarkBsg.Node>();
+                for (int i = 0; i < inside.Length; i++)
+                {
+                    AnarkBsg.Node b = (inside[i] && elements[i].Type != AnarkBgf.ElementType.Behaviour) ? this.Bsg.Find(elements[i].Id) : null;
+                    if (b == null)
+                    {
+                        continue;
+                    }
+                    AnarkBsg.Node bc = b.Copy();
+                    bc.Id = newId[b.Id];
+                    int parent = b.Parent;
+                    for (int p = elements[i].Parent; i != root.Index && p >= 0; p = elements[p].Parent)
+                    {
+                        AnarkBsg.Node pb = (elements[p].Type != AnarkBgf.ElementType.Behaviour) ? this.Bsg.Find(elements[p].Id) : null;
+                        AnarkBsg.Node pc;
+                        if (pb != null && copies.TryGetValue(pb.Id, out pc))
+                        {
+                            parent = this.Bsg.Nodes.IndexOf(pc);
+                            break;
+                        }
+                    }
+                    bc.Parent = parent;
+                    copies[b.Id] = bc;
+                    this.Bsg.Nodes.Add(bc);
+                }
+            }
+
+            this.Bgf.UpdateHeader();
+            this.FbfChanged = this.BgfChanged = true;
+            this.BsgChanged = this.BsgChanged || this.Bsg != null;
+            this.Build();
+            return this.Nodes[newIndex[root.Index]];
+        }
+
+        public bool MoveBy(Node node, float dx, float dy)
+        {
+            Drag d = this.BeginMove(node, PointF.Empty);
+            if (d == null)
+            {
+                return false;
+            }
+            this.ApplyDrag(d, new PointF(dx, dy), false);
+            return true;
         }
 
         // Moves a node by (dx, dy) in its parent's space.

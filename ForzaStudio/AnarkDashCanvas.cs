@@ -35,15 +35,54 @@ namespace ForzaStudio
         private PointF dragCenter;
         private bool dragging;
         private bool dragged;
-        private AnarkDash.Drag edit;               // move or resize in progress (null while panning)
+        private List<AnarkDash.Drag> edits;        // move (one drag per selected node) or resize (one) in progress; null otherwise
         private bool pickedForEdit;                // the mouse went down on an element or a handle
+        private bool banding;                      // a rubber band is being drawn on the background
+        private Rectangle band;                    // in screen pixels
+        private bool bandAdds;
 
         private const int HandleSize = 7;
 
-        public AnarkDash.Node Selected;
+        // The selection: the last node is the main one (shown in the inspector, resized by the handles).
+        public readonly List<AnarkDash.Node> Selection = new List<AnarkDash.Node>();
+
+        public AnarkDash.Node Selected
+        {
+            get { return (this.Selection.Count > 0) ? this.Selection[this.Selection.Count - 1] : null; }
+            set
+            {
+                this.Selection.Clear();
+                if (value != null)
+                {
+                    this.Selection.Add(value);
+                }
+            }
+        }
+
+        private bool IsSelected(AnarkDash.Node node)
+        {
+            foreach (AnarkDash.Node s in this.Selection)
+            {
+                if (node == s || IsInside(node, s))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void RaiseSelectionChanged()
+        {
+            this.Invalidate();
+            if (this.SelectionChanged != null)
+            {
+                this.SelectionChanged(this, EventArgs.Empty);
+            }
+        }
         public bool ShowOutlines;
         public event EventHandler SelectionChanged;
-        public event EventHandler Dragging;                   // while a move / resize is going on
+        public event EventHandler DuplicateRequested;         // Ctrl+D
+        public event EventHandler Dragging;                  // while a move / resize is going on
         public event EventHandler<DashEditEventArgs> Edited;  // after one (What: "position", "size")
         public event EventHandler<DashEditEventArgs> EditBlocked;
 
@@ -171,7 +210,7 @@ namespace ForzaStudio
             }
             foreach (AnarkDash.Item item in this.dash.Items)
             {
-                bool selected = this.Selected != null && (item.Node == this.Selected || IsInside(item.Node, this.Selected));
+                bool selected = this.IsSelected(item.Node);
                 if (!selected && !this.ShowOutlines)
                 {
                     continue;
@@ -188,6 +227,15 @@ namespace ForzaStudio
                 }
             }
             this.DrawHandles(g, client);
+            if (this.banding)
+            {
+                using (Pen pen = new Pen(Color.FromArgb(200, 120, 160, 220)))
+                using (SolidBrush fill = new SolidBrush(Color.FromArgb(40, 120, 160, 220)))
+                {
+                    g.FillRectangle(fill, this.band);
+                    g.DrawRectangle(pen, this.band);
+                }
+            }
         }
 
         // The 8 handles (corners and edge middles) of the selected rectangle, as fractions of its mesh rectangle.
@@ -199,7 +247,7 @@ namespace ForzaStudio
 
         private AnarkDash.Item SelectedRectangle()
         {
-            AnarkDash.Item item = (this.dash != null && this.Selected != null) ? this.dash.ItemOf(this.Selected) : null;
+            AnarkDash.Item item = (this.dash != null && this.Selection.Count == 1) ? this.dash.ItemOf(this.Selected) : null;
             return (item != null && item.Kind == AnarkDash.ItemKind.Rectangle) ? item : null;
         }
 
@@ -412,54 +460,113 @@ namespace ForzaStudio
             return null;
         }
 
+        private bool panning;                     // the drag pans (middle / right button)
+
+        // Selected nodes that move: the ones not inside another selected node (those follow their parent).
+        public List<AnarkDash.Node> TopSelection()
+        {
+            List<AnarkDash.Node> top = new List<AnarkDash.Node>();
+            foreach (AnarkDash.Node node in this.Selection)
+            {
+                bool inside = false;
+                for (AnarkDash.Node p = node.Parent; p != null && !inside; p = p.Parent)
+                {
+                    inside = this.Selection.Contains(p);
+                }
+                if (!inside)
+                {
+                    top.Add(node);
+                }
+            }
+            return top;
+        }
+
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
             this.Focus();
             this.dragging = true;
             this.dragged = false;
-            this.edit = null;
+            this.edits = null;
             this.pickedForEdit = false;
+            this.banding = false;
+            this.bandAdds = false;
+            this.panning = this.dash == null || e.Button != MouseButtons.Left;
             this.dragStart = e.Location;
             this.dragCenter = this.center;
-            if (this.dash == null || e.Button != MouseButtons.Left)
+            if (this.panning)
             {
                 return;
             }
+            bool ctrl = (Control.ModifierKeys & Keys.Control) != 0;
             int handle = this.HandleAt(e.Location);
             if (handle >= 0)
             {
                 this.pickedForEdit = true;
-                this.edit = this.dash.BeginResize(this.Selected, Handles[handle][0], Handles[handle][1]);
-                this.ReportBlocked(this.edit);
+                AnarkDash.Drag resize = this.dash.BeginResize(this.Selected, Handles[handle][0], Handles[handle][1]);
+                if (resize != null)
+                {
+                    this.edits = new List<AnarkDash.Drag>();
+                    this.edits.Add(resize);
+                }
+                else
+                {
+                    this.ReportBlocked(this.dash.Blocked);
+                }
                 return;
             }
             PointF world = this.ToWorld(e.Location);
             AnarkDash.Node hit = this.Pick(world);
             if (hit == null)
             {
+                this.bandAdds = ctrl;              // background: a rubber band (Ctrl adds to the selection)
                 return;
             }
             this.pickedForEdit = true;
-            // a drag inside the selected group moves the group; anything else is selected first
-            if (this.Selected == null || (hit != this.Selected && !IsInside(hit, this.Selected)))
+            if (ctrl)
+            {
+                if (!this.Selection.Remove(hit))
+                {
+                    this.Selection.Add(hit);
+                }
+                this.RaiseSelectionChanged();
+                return;
+            }
+            // a drag on a selected element (or inside a selected group) moves the whole selection
+            if (!this.IsSelected(hit))
             {
                 this.Selected = hit;
-                this.Invalidate();
-                if (this.SelectionChanged != null)
+                this.RaiseSelectionChanged();
+            }
+            List<AnarkDash.Drag> moves = new List<AnarkDash.Drag>();
+            string blocked = null;
+            foreach (AnarkDash.Node node in this.TopSelection())
+            {
+                AnarkDash.Drag move = this.dash.BeginMove(node, world);
+                if (move != null)
                 {
-                    this.SelectionChanged(this, EventArgs.Empty);
+                    moves.Add(move);
+                }
+                else if (this.dash.Blocked != null)
+                {
+                    blocked = this.dash.Blocked;
                 }
             }
-            this.edit = this.dash.BeginMove(this.Selected, world);
-            this.ReportBlocked(this.edit);
+            if (moves.Count > 0)
+            {
+                this.edits = moves;
+            }
+            else
+            {
+                this.ReportBlocked(blocked);
+            }
         }
 
-        private void ReportBlocked(AnarkDash.Drag drag)
+        private void ReportBlocked(string message)
         {
-            if (drag == null && this.dash.Blocked != null && this.EditBlocked != null)
+            if (message != null && this.EditBlocked != null)
             {
-                this.EditBlocked(this, new DashEditEventArgs(this.dash.Blocked));
+                this.EditBlocked(this, new DashEditEventArgs(message));
             }
         }
 
@@ -477,18 +584,29 @@ namespace ForzaStudio
                 return;
             }
             this.dragged = true;
-            if (this.edit != null)
+            if (this.edits != null)
             {
-                this.dash.ApplyDrag(this.edit, this.ToWorld(e.Location), (Control.ModifierKeys & Keys.Shift) != 0);
+                PointF world = this.ToWorld(e.Location);
+                bool keep = (Control.ModifierKeys & Keys.Shift) != 0;
+                foreach (AnarkDash.Drag d in this.edits)
+                {
+                    this.dash.ApplyDrag(d, world, keep);
+                }
                 this.Invalidate();
                 if (this.Dragging != null)
                 {
                     this.Dragging(this, EventArgs.Empty);
                 }
             }
-            else if (!this.pickedForEdit)
+            else if (this.panning)
             {
                 this.center = new PointF(this.dragCenter.X - (e.X - this.dragStart.X) / this.zoom, this.dragCenter.Y + (e.Y - this.dragStart.Y) / this.zoom);
+                this.Invalidate();
+            }
+            else if (!this.pickedForEdit)
+            {
+                this.banding = true;
+                this.band = Rectangle.FromLTRB(Math.Min(this.dragStart.X, e.X), Math.Min(this.dragStart.Y, e.Y), Math.Max(this.dragStart.X, e.X), Math.Max(this.dragStart.Y, e.Y));
                 this.Invalidate();
             }
         }
@@ -497,24 +615,173 @@ namespace ForzaStudio
         {
             base.OnMouseUp(e);
             this.dragging = false;
-            AnarkDash.Drag finished = this.edit;
-            this.edit = null;
+            List<AnarkDash.Drag> finished = this.edits;
+            this.edits = null;
+            if (this.banding)
+            {
+                this.banding = false;
+                this.SelectInBand();
+                return;
+            }
             if (finished != null && this.dragged)
             {
                 if (this.Edited != null)
                 {
-                    this.Edited(this, new DashEditEventArgs(finished.What));
+                    this.Edited(this, new DashEditEventArgs(finished[0].What));
                 }
                 return;
             }
-            if (!this.dragged && e.Button == MouseButtons.Left && !this.pickedForEdit)
+            if (!this.dragged && e.Button == MouseButtons.Left && !this.pickedForEdit && !this.bandAdds && this.Selection.Count > 0)
             {
-                this.Selected = null;
-                this.Invalidate();
-                if (this.SelectionChanged != null)
+                this.Selection.Clear();
+                this.RaiseSelectionChanged();
+            }
+        }
+
+        // Selects every drawn element the rubber band touches.
+        private void SelectInBand()
+        {
+            PointF a = this.ToWorld(new Point(this.band.Left, this.band.Bottom)), b = this.ToWorld(new Point(this.band.Right, this.band.Top));
+            RectangleF area = RectangleF.FromLTRB(a.X, a.Y, b.X, b.Y);
+            if (!this.bandAdds)
+            {
+                this.Selection.Clear();
+            }
+            foreach (AnarkDash.Item item in this.dash.Items)
+            {
+                if (item.Color.A > 0 && area.IntersectsWith(this.ItemBounds(item)) && !this.Selection.Contains(item.Node))
                 {
-                    this.SelectionChanged(this, EventArgs.Empty);
+                    this.Selection.Add(item.Node);
                 }
+            }
+            this.RaiseSelectionChanged();
+        }
+
+        public void SelectAll()
+        {
+            if (this.dash == null)
+            {
+                return;
+            }
+            this.Selection.Clear();
+            foreach (AnarkDash.Item item in this.dash.Items)
+            {
+                if (!this.Selection.Contains(item.Node))
+                {
+                    this.Selection.Add(item.Node);
+                }
+            }
+            this.RaiseSelectionChanged();
+        }
+
+        // world bounds of a node: its own item and the items under it; null when it draws nothing
+        private RectangleF? NodeBounds(AnarkDash.Node node)
+        {
+            RectangleF? all = null;
+            foreach (AnarkDash.Item item in this.dash.Items)
+            {
+                if (item.Node == node || IsInside(item.Node, node))
+                {
+                    RectangleF r = this.ItemBounds(item);
+                    all = all.HasValue ? RectangleF.Union(all.Value, r) : r;
+                }
+            }
+            return all;
+        }
+
+        // Aligns the selection to its outer edges / centre, or spreads it evenly:
+        // left, hcenter, right, top, vcenter, bottom, hspread, vspread.
+        public void Align(string mode)
+        {
+            if (this.dash == null)
+            {
+                return;
+            }
+            List<AnarkDash.Node> nodes = new List<AnarkDash.Node>();
+            List<RectangleF> boxes = new List<RectangleF>();
+            foreach (AnarkDash.Node node in this.TopSelection())
+            {
+                RectangleF? box = this.NodeBounds(node);
+                if (box.HasValue)
+                {
+                    nodes.Add(node);
+                    boxes.Add(box.Value);
+                }
+            }
+            bool spread = mode == "hspread" || mode == "vspread";
+            if (nodes.Count < (spread ? 3 : 2))
+            {
+                this.ReportBlocked(spread ? "select at least 3 elements to spread them" : "select at least 2 elements to align them");
+                return;
+            }
+            RectangleF all = boxes[0];
+            foreach (RectangleF box in boxes)
+            {
+                all = RectangleF.Union(all, box);
+            }
+            float[] dx = new float[nodes.Count], dy = new float[nodes.Count];
+            for (int k = 0; k < nodes.Count; k++)
+            {
+                RectangleF b = boxes[k];
+                switch (mode)
+                {
+                    case "left": dx[k] = all.Left - b.Left; break;
+                    case "right": dx[k] = all.Right - b.Right; break;
+                    case "hcenter": dx[k] = (all.Left + all.Width / 2) - (b.Left + b.Width / 2); break;
+                    case "top": dy[k] = all.Bottom - b.Bottom; break;         // world Y points up: Bottom is the largest Y
+                    case "bottom": dy[k] = all.Top - b.Top; break;
+                    case "vcenter": dy[k] = (all.Top + all.Height / 2) - (b.Top + b.Height / 2); break;
+                }
+            }
+            if (spread)
+            {
+                bool horizontal = mode == "hspread";
+                List<int> order = new List<int>();
+                float sizes = 0;
+                for (int k = 0; k < nodes.Count; k++)
+                {
+                    order.Add(k);
+                    sizes += horizontal ? boxes[k].Width : boxes[k].Height;
+                }
+                order.Sort(delegate(int p, int q)
+                {
+                    return horizontal ? boxes[p].Left.CompareTo(boxes[q].Left) : boxes[p].Top.CompareTo(boxes[q].Top);
+                });
+                float gap = ((horizontal ? all.Width : all.Height) - sizes) / (nodes.Count - 1);
+                float at = horizontal ? all.Left : all.Top;
+                foreach (int k in order)
+                {
+                    if (horizontal)
+                    {
+                        dx[k] = at - boxes[k].Left;
+                        at += boxes[k].Width + gap;
+                    }
+                    else
+                    {
+                        dy[k] = at - boxes[k].Top;
+                        at += boxes[k].Height + gap;
+                    }
+                }
+            }
+            bool moved = false;
+            for (int k = 0; k < nodes.Count; k++)
+            {
+                if (Math.Abs(dx[k]) > 1e-4f || Math.Abs(dy[k]) > 1e-4f)
+                {
+                    if (this.dash.MoveBy(nodes[k], dx[k], dy[k]))
+                    {
+                        moved = true;
+                    }
+                    else
+                    {
+                        this.ReportBlocked(nodes[k].Name + " has no editable position");
+                    }
+                }
+            }
+            this.Invalidate();
+            if (moved && this.Edited != null)
+            {
+                this.Edited(this, new DashEditEventArgs("align"));
             }
         }
 
@@ -531,12 +798,34 @@ namespace ForzaStudio
             return base.IsInputKey(keyData);
         }
 
-        // Arrows move the selected element by 1 unit of its parent (Shift: 10).
+        // Arrows move the selection by 1 unit of the parent (Shift: 10); Ctrl+A selects all, Esc clears.
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
-            if (this.dash == null || this.Selected == null)
+            if (this.dash == null)
             {
+                return;
+            }
+            if (e.Control && e.KeyCode == Keys.A)
+            {
+                e.Handled = true;
+                this.SelectAll();
+                return;
+            }
+            if (e.Control && e.KeyCode == Keys.D)
+            {
+                e.Handled = true;
+                if (this.DuplicateRequested != null)
+                {
+                    this.DuplicateRequested(this, EventArgs.Empty);
+                }
+                return;
+            }
+            if (e.KeyCode == Keys.Escape && this.Selection.Count > 0)
+            {
+                e.Handled = true;
+                this.Selection.Clear();
+                this.RaiseSelectionChanged();
                 return;
             }
             float step = e.Shift ? 10 : 1, dx = 0, dy = 0;
@@ -549,7 +838,20 @@ namespace ForzaStudio
                 default: return;
             }
             e.Handled = true;
-            if (this.dash.Nudge(this.Selected, dx, dy))
+            bool moved = false;
+            string blocked = null;
+            foreach (AnarkDash.Node node in this.TopSelection())
+            {
+                if (this.dash.Nudge(node, dx, dy))
+                {
+                    moved = true;
+                }
+                else
+                {
+                    blocked = node.Name + " has no editable position";
+                }
+            }
+            if (moved)
             {
                 this.Invalidate();
                 if (this.Edited != null)
@@ -557,9 +859,9 @@ namespace ForzaStudio
                     this.Edited(this, new DashEditEventArgs("position"));
                 }
             }
-            else if (this.EditBlocked != null)
+            else
             {
-                this.EditBlocked(this, new DashEditEventArgs(this.Selected.Name + " has no editable position"));
+                this.ReportBlocked(blocked);
             }
         }
 

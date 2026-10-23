@@ -51,6 +51,21 @@ namespace ForzaStudio
             public uint Owner;
             public string Path;
 
+            public Record Copy()
+            {
+                Record r = (Record) this.MemberwiseClone();
+                r.Body = Dup(this.Body);
+                r.TextHead = Dup(this.TextHead);
+                r.TextMiddle = Dup(this.TextMiddle);
+                r.TextTail = Dup(this.TextTail);
+                return r;
+            }
+
+            private static byte[] Dup(byte[] b)
+            {
+                return (b == null) ? null : (byte[]) b.Clone();
+            }
+
             public override string ToString()
             {
                 return this.Type + " " + this.Id + " " + this.Name;

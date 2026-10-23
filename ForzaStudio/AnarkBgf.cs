@@ -87,9 +87,61 @@ namespace ForzaStudio
                 return (p != null) ? (int) p.Value : fallback;
             }
 
+            public Element Copy()
+            {
+                Element e = (Element) this.MemberwiseClone();
+                if (this.ComponentPrefix != null)
+                {
+                    e.ComponentPrefix = (byte[]) this.ComponentPrefix.Clone();
+                }
+                e.Properties = new List<Property>();
+                foreach (Property p in this.Properties)
+                {
+                    Property c = new Property();
+                    c.Hash = p.Hash;
+                    c.Value = p.Value;
+                    e.Properties.Add(c);
+                }
+                return e;
+            }
+
             public override string ToString()
             {
                 return this.Type + " " + this.Id;
+            }
+        }
+
+        // The counts the header keeps (checked on the 233 dashes of FM4): nodes (elements that are not components) at
+        // 0x24 and 0x70, components 0x28 / 0x74, properties 0x2C / 0x78, behaviours 0x30 / 0x7C, strings 0x3C.
+        // Call it after elements, properties or strings were added.
+        public void UpdateHeader()
+        {
+            int components = 0, behaviours = 0, properties = 0;
+            foreach (Element e in this.Elements)
+            {
+                properties += e.Properties.Count;
+                if (e.Type == ElementType.Component)
+                {
+                    components++;
+                }
+                else if (e.Type == ElementType.Behaviour)
+                {
+                    behaviours++;
+                }
+            }
+            int nodes = this.Elements.Count - components;
+            int[][] fields = new int[][]
+            {
+                new int[] { 0x24, nodes }, new int[] { 0x70, nodes }, new int[] { 0x28, components }, new int[] { 0x74, components },
+                new int[] { 0x2C, properties }, new int[] { 0x78, properties }, new int[] { 0x30, behaviours }, new int[] { 0x7C, behaviours },
+                new int[] { 0x3C, this.Strings.Count },
+            };
+            foreach (int[] f in fields)
+            {
+                this.Header[f[0]] = (byte) (f[1] >> 24);
+                this.Header[f[0] + 1] = (byte) (f[1] >> 16);
+                this.Header[f[0] + 2] = (byte) (f[1] >> 8);
+                this.Header[f[0] + 3] = (byte) f[1];
             }
         }
 

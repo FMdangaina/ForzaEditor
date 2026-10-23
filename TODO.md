@@ -258,7 +258,10 @@ Background C3 (research). Paused by the user 2026-10-19.
 
 - [ ] 12.1 Slides (pages shown one at a time)
 - [ ] 12.2 Behaviour parameter names
-- [ ] 12.3 💤 Simpler edit panel (user: "to simplify, fine for now")
+- [ ] 12.3 🔧 Property inspector (PropertyGrid: lists, check boxes, numbers, text, colour) + drag on the preview (move, 8 resize handles, arrows); coded 2026-10-23, not tested. Next: text size by handle, undo, snapping, material properties
+- [ ] 12.5 🔧 Multi-selection: Ctrl+click, rubber band on the background, Ctrl+A; move together, arrows, shared properties (position, scale, opacity, color, alignment), Align menu (6 aligns, spread H/V); coded 2026-10-23, not tested. Missing: group scale, tree multi-select
+- [ ] 12.6 🧪 Duplicate (toolbar or Ctrl+D): a node with everything under it; .fbf records next to the originals, .bgf elements + strings appended at the END, .bsg nodes appended, new ids, header counts updated (formula checked on 233 FM4 dashes); name for the copy, or "keep original names" so the game may animate / feed it too. Tested without the game: duplications reread cleanly (header, parents, ids, strings, copy on the original). In game pending: do slides / animations ignore the extra elements? Next: insert a new text / image from scratch
+- [ ] 12.7 ⬜ Hide (opacity 0) instead of delete: slides may reference the node
 
 ### 13. Music 🔧
 

@@ -23,6 +23,13 @@ namespace ForzaStudio
 
             public const int Position = 0, Rotation = 3, Scale = 6, Pivot = 9, BoundsMin = 12, BoundsMax = 15, Opacity = 18;
 
+            public Node Copy()
+            {
+                Node n = (Node) this.MemberwiseClone();
+                n.Values = (float[]) this.Values.Clone();
+                return n;
+            }
+
             public override string ToString()
             {
                 return string.Format("{0} type {1:X}", this.Id, this.Type >> 24);

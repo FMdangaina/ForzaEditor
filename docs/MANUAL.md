@@ -424,10 +424,22 @@ Select a dash file (`.fbf`, `.bgf` or `.bsg`) to see the car's digital dash:
 On the preview, the wheel zooms, a drag pans, a click selects an element and a double-click fits
 the dash to the view. **Outlines** shows the element borders.
 
-Select an element to edit it in the panel: position, rotation, scale, pivot, opacity, color, text,
-font and texture. Each value is changed where the dash already keeps it, so nothing is added to the
-files; a value the element does not have is greyed out. Edits are pending until **File > Save**
+Select an element to edit it in the property list (on the right, grouped as Element, Transform,
+Appearance and Graph properties): numbers for positions and sizes, drop-down lists for choices
+(alignment, font, texture), check boxes-style True/False for flags, text for strings and a color
+picker for colors. Each value is changed where the dash already keeps it, so nothing is added to
+the files; a value the element does not have is greyed out. Edits are pending until **File > Save**
 writes the car's zip.
+
+On the preview: drag an element to move it, drag one of the 8 handles of the selected element to
+resize it (Shift keeps the shape), and use the arrow keys to nudge it (Shift: 10). Ctrl+click adds or
+removes an element, a drag on the background draws a rubber band, Ctrl+A selects all; several
+selected elements move together, share the property list and can be aligned or spread with the
+**Align** menu. **Duplicate** (Ctrl+D) copies the selected elements with everything under them; the copy
+shares meshes and textures, is added at the end of the dash and sits 20 units off the original. Give
+it a new name, or keep the original names if you want the game to animate or feed it like the
+original. To pan, use
+the middle or right mouse button.
 
 ## 11. Porting cars from Forza Horizon or Forza Motorsport 3 to FM4
 
