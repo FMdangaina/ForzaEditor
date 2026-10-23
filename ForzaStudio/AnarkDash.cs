@@ -373,6 +373,17 @@ namespace ForzaStudio
 
         public bool SetTransform(Node node, string name, float value)
         {
+            if (!this.WriteTransform(node, name, value))
+            {
+                return false;
+            }
+            this.Update();
+            return true;
+        }
+
+        // The write alone, for edits that change several values before one Update.
+        private bool WriteTransform(Node node, string name, float value)
+        {
             string source = this.TransformSource(node, name);
             if (source == SourceGraph)
             {
@@ -389,6 +400,212 @@ namespace ForzaStudio
             {
                 return false;
             }
+            return true;
+        }
+
+        // ---- Mouse editing (move and resize on the preview) ----
+
+        // A drag in progress. Every Apply works from the values the drag started with, so nothing drifts.
+        public class Drag
+        {
+            internal Node Node;
+            internal bool Resize;
+            internal float Hx, Hy;                  // handle position in the mesh rectangle: 0, 0.5 or 1
+            internal PointF StartParent;            // cursor in the parent's space when the drag began
+            internal float PosX, PosY, ScaleX, ScaleY, Rot, PivotX, PivotY;
+            internal RectangleF Local;
+            internal PointF Fixed;                  // resize: the opposite handle in the parent's space
+            public string What { get { return this.Resize ? "size" : "position"; } }
+        }
+
+        // Why the last BeginMove / BeginResize returned null.
+        public string Blocked;
+
+        // Cursor (world) to the space of the node's parent, where position and pivot live.
+        private static PointF ToParent(Node node, PointF world)
+        {
+            Node p = node.Parent;
+            if (p == null)
+            {
+                return world;
+            }
+            float det = p.A * p.D - p.B * p.C;
+            if (Math.Abs(det) < 1e-9f)
+            {
+                return PointF.Empty;
+            }
+            float dx = world.X - p.X, dy = world.Y - p.Y;
+            return new PointF((p.D * dx - p.C * dy) / det, (-p.B * dx + p.A * dy) / det);
+        }
+
+        public Drag BeginMove(Node node, PointF world)
+        {
+            this.Blocked = null;
+            if (!IsSpatial(node))
+            {
+                return null;
+            }
+            if (this.TransformSource(node, "position.x") == null || this.TransformSource(node, "position.y") == null)
+            {
+                this.Blocked = node.Name + " has no editable position";
+                return null;
+            }
+            Drag d = new Drag();
+            d.Node = node;
+            d.StartParent = ToParent(node, world);
+            d.PosX = this.GetTransform(node, "position.x");
+            d.PosY = this.GetTransform(node, "position.y");
+            return d;
+        }
+
+        // Resize by a handle of the mesh rectangle: scale x / y and position change so that the opposite handle stays.
+        public Drag BeginResize(Node node, float hx, float hy)
+        {
+            this.Blocked = null;
+            Item item = this.ItemOf(node);
+            if (item == null || item.Kind != ItemKind.Rectangle)
+            {
+                return null;
+            }
+            string[] needed = new string[] { "position.x", "position.y", "scale.x", "scale.y" };
+            foreach (string name in needed)
+            {
+                if (this.TransformSource(node, name) == null)
+                {
+                    this.Blocked = node.Name + " has no editable " + name;
+                    return null;
+                }
+            }
+            if (Math.Abs(this.GetTransform(node, "rotation.x")) > 1e-4f || Math.Abs(this.GetTransform(node, "rotation.y")) > 1e-4f)
+            {
+                this.Blocked = node.Name + " is turned around X or Y, set its scale in the property list";
+                return null;
+            }
+            Drag d = new Drag();
+            d.Node = node;
+            d.Resize = true;
+            d.Hx = hx;
+            d.Hy = hy;
+            d.Local = item.LocalRect;
+            d.PosX = this.GetTransform(node, "position.x");
+            d.PosY = this.GetTransform(node, "position.y");
+            d.ScaleX = this.GetTransform(node, "scale.x");
+            d.ScaleY = this.GetTransform(node, "scale.y");
+            d.Rot = this.GetTransform(node, "rotation.z");
+            d.PivotX = this.GetTransform(node, "pivot.x");
+            d.PivotY = this.GetTransform(node, "pivot.y");
+            PointF fixedLocal = new PointF(d.Local.Left + (1 - hx) * d.Local.Width, d.Local.Top + (1 - hy) * d.Local.Height);
+            d.Fixed = ParentPoint(d, d.ScaleX, d.ScaleY, fixedLocal);
+            return d;
+        }
+
+        // A point of the node's own space in the parent's space: position + R * S * (q - pivot).
+        private static PointF ParentPoint(Drag d, float sx, float sy, PointF q)
+        {
+            double cos = Math.Cos(d.Rot), sin = Math.Sin(d.Rot);
+            float ux = (q.X - d.PivotX) * sx, uy = (q.Y - d.PivotY) * sy;
+            return new PointF((float) (d.PosX + cos * ux + sin * uy), (float) (d.PosY - sin * ux + cos * uy));
+        }
+
+        public Item ItemOf(Node node)
+        {
+            foreach (Item item in this.Items)
+            {
+                if (item.Node == node)
+                {
+                    return item;
+                }
+            }
+            return null;
+        }
+
+        // Follows the cursor (world). keepRatio: corner handles keep the shape.
+        public void ApplyDrag(Drag d, PointF world, bool keepRatio)
+        {
+            PointF t = ToParent(d.Node, world);
+            if (!d.Resize)
+            {
+                this.WriteTransform(d.Node, "position.x", d.PosX + t.X - d.StartParent.X);
+                this.WriteTransform(d.Node, "position.y", d.PosY + t.Y - d.StartParent.Y);
+                this.Update();
+                return;
+            }
+            double cos = Math.Cos(d.Rot), sin = Math.Sin(d.Rot);
+            float dx = t.X - d.Fixed.X, dy = t.Y - d.Fixed.Y;
+            // back into the node's axes (undo the rotation)
+            float vx = (float) (cos * dx - sin * dy), vy = (float) (sin * dx + cos * dy);
+            float sx = d.ScaleX, sy = d.ScaleY;
+            float hw = (d.Hx - (1 - d.Hx)) * d.Local.Width, hh = (d.Hy - (1 - d.Hy)) * d.Local.Height;
+            if (d.Hx != 0.5f && Math.Abs(hw) > 1e-6f)
+            {
+                sx = SafeScale(vx / hw);
+            }
+            if (d.Hy != 0.5f && Math.Abs(hh) > 1e-6f)
+            {
+                sy = SafeScale(vy / hh);
+            }
+            if (keepRatio && d.Hx != 0.5f && d.Hy != 0.5f)
+            {
+                float fx = sx / d.ScaleX, fy = sy / d.ScaleY;
+                float f = (Math.Abs(fx - 1) > Math.Abs(fy - 1)) ? fx : fy;
+                sx = SafeScale(d.ScaleX * f);
+                sy = SafeScale(d.ScaleY * f);
+            }
+            PointF fixedLocal = new PointF(d.Local.Left + (1 - d.Hx) * d.Local.Width, d.Local.Top + (1 - d.Hy) * d.Local.Height);
+            // position that keeps the fixed handle where it was: F - R * S' * (q - pivot)
+            float ux = (fixedLocal.X - d.PivotX) * sx, uy = (fixedLocal.Y - d.PivotY) * sy;
+            this.WriteTransform(d.Node, "scale.x", sx);
+            this.WriteTransform(d.Node, "scale.y", sy);
+            this.WriteTransform(d.Node, "position.x", (float) (d.Fixed.X - (cos * ux + sin * uy)));
+            this.WriteTransform(d.Node, "position.y", (float) (d.Fixed.Y - (-sin * ux + cos * uy)));
+            this.Update();
+        }
+
+        private static float SafeScale(float s)
+        {
+            if (float.IsNaN(s) || float.IsInfinity(s))
+            {
+                return 1;
+            }
+            return (Math.Abs(s) < 0.001f) ? (s < 0 ? -0.001f : 0.001f) : s;
+        }
+
+        // ---- Any other graph property ----
+
+        public bool SetFloat(Node node, AnarkBgf.Property p, float value)
+        {
+            if (p.Kind != AnarkBgf.ValueKind.Float || float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return false;
+            }
+            p.Float = value;
+            this.BgfChanged = true;
+            this.Update();
+            return true;
+        }
+
+        // Int, bool (0 / 1) and enum-like properties: the raw value.
+        public bool SetRaw(Node node, AnarkBgf.Property p, uint value)
+        {
+            if (p.Kind == AnarkBgf.ValueKind.Float || p.Kind == AnarkBgf.ValueKind.String)
+            {
+                return false;
+            }
+            p.Value = value;
+            this.BgfChanged = true;
+            this.Update();
+            return true;
+        }
+
+        // A string property in place (one string belongs to one property only).
+        public bool SetStringProperty(Node node, AnarkBgf.Property p, string value)
+        {
+            if (p.Kind != AnarkBgf.ValueKind.String || value == null || !IsLatin1(value) || p.Value >= this.Bgf.Strings.Count)
+            {
+                return false;
+            }
+            this.Bgf.Strings[(int) p.Value] = value;
+            this.BgfChanged = true;
             this.Update();
             return true;
         }

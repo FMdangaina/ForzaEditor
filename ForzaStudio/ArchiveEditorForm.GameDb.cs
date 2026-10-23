@@ -106,6 +106,11 @@ namespace ForzaStudio
             for (int i = 0; i < names.Length; i++)
             {
                 DbSection section = (DbSection) i;
+                // Groups: the game's main content | its id lists | the raw tables.
+                if (section == DbSection.Engines || section == DbSection.Tables)
+                {
+                    bar.Items.Add(new ToolStripSeparator());
+                }
                 this.btnDbSections[i] = new ToolStripButton(names[i], null, delegate { this.SelectDbSection(section); });
                 bar.Items.Add(this.btnDbSections[i]);
             }

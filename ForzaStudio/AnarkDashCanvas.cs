@@ -7,8 +7,21 @@ using System.Windows.Forms;
 
 namespace ForzaStudio
 {
+    public class DashEditEventArgs : EventArgs
+    {
+        public readonly string What;
+
+        public DashEditEventArgs(string what)
+        {
+            this.What = what;
+        }
+    }
+
     // Draws an AnarkDash: textured or coloured rectangles and texts, far to near.
-    // Wheel = zoom at the cursor, drag = pan, click = select (SelectionChanged), double-click = fit.
+    // Wheel = zoom at the cursor, click = select (SelectionChanged), double-click = fit.
+    // Drag on an element = move it, drag a handle of the selected one = resize (Shift keeps the shape), arrows nudge
+    // (Shift = 10); a drag on the background, or with the middle / right button, pans. The edits go to the AnarkDash
+    // and are announced by Edited when the mouse is released.
     public class AnarkDashCanvas : Control
     {
         public delegate Bitmap TextureLoader(string gamePath);
@@ -22,10 +35,17 @@ namespace ForzaStudio
         private PointF dragCenter;
         private bool dragging;
         private bool dragged;
+        private AnarkDash.Drag edit;               // move or resize in progress (null while panning)
+        private bool pickedForEdit;                // the mouse went down on an element or a handle
+
+        private const int HandleSize = 7;
 
         public AnarkDash.Node Selected;
         public bool ShowOutlines;
         public event EventHandler SelectionChanged;
+        public event EventHandler Dragging;                   // while a move / resize is going on
+        public event EventHandler<DashEditEventArgs> Edited;  // after one (What: "position", "size")
+        public event EventHandler<DashEditEventArgs> EditBlocked;
 
         public AnarkDashCanvas()
         {
@@ -166,6 +186,82 @@ namespace ForzaStudio
                 {
                     g.DrawPolygon(pen, screen);
                 }
+            }
+            this.DrawHandles(g, client);
+        }
+
+        // The 8 handles (corners and edge middles) of the selected rectangle, as fractions of its mesh rectangle.
+        private static readonly float[][] Handles = new float[][]
+        {
+            new float[] { 0, 0 }, new float[] { 0.5f, 0 }, new float[] { 1, 0 }, new float[] { 1, 0.5f },
+            new float[] { 1, 1 }, new float[] { 0.5f, 1 }, new float[] { 0, 1 }, new float[] { 0, 0.5f },
+        };
+
+        private AnarkDash.Item SelectedRectangle()
+        {
+            AnarkDash.Item item = (this.dash != null && this.Selected != null) ? this.dash.ItemOf(this.Selected) : null;
+            return (item != null && item.Kind == AnarkDash.ItemKind.Rectangle) ? item : null;
+        }
+
+        private PointF HandleWorld(AnarkDash.Item item, float[] h)
+        {
+            RectangleF r = item.LocalRect;
+            return item.Node.Transform(r.Left + h[0] * r.Width, r.Top + h[1] * r.Height);
+        }
+
+        // index in Handles under a screen point, or -1
+        private int HandleAt(Point screen)
+        {
+            AnarkDash.Item item = this.SelectedRectangle();
+            if (item == null)
+            {
+                return -1;
+            }
+            for (int k = 0; k < Handles.Length; k++)
+            {
+                PointF p = this.ToScreen(this.HandleWorld(item, Handles[k]), this.ClientSize);
+                if (Math.Abs(p.X - screen.X) <= HandleSize && Math.Abs(p.Y - screen.Y) <= HandleSize)
+                {
+                    return k;
+                }
+            }
+            return -1;
+        }
+
+        private void DrawHandles(Graphics g, Size client)
+        {
+            AnarkDash.Item item = this.SelectedRectangle();
+            if (item == null)
+            {
+                return;
+            }
+            using (Pen pen = new Pen(Color.FromArgb(226, 38, 30)))
+            {
+                foreach (float[] h in Handles)
+                {
+                    PointF p = this.ToScreen(this.HandleWorld(item, h), client);
+                    RectangleF box = new RectangleF(p.X - HandleSize / 2f, p.Y - HandleSize / 2f, HandleSize, HandleSize);
+                    g.FillRectangle(Brushes.White, box);
+                    g.DrawRectangle(pen, box.X, box.Y, box.Width, box.Height);
+                }
+            }
+        }
+
+        private static Cursor HandleCursor(int k)
+        {
+            switch (k)
+            {
+                case 0:
+                case 4:
+                    return Cursors.SizeNESW;
+                case 2:
+                case 6:
+                    return Cursors.SizeNWSE;
+                case 1:
+                case 5:
+                    return Cursors.SizeNS;
+                default:
+                    return Cursors.SizeWE;
             }
         }
 

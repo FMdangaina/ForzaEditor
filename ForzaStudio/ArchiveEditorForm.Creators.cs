@@ -235,6 +235,9 @@ namespace ForzaStudio
             bar.Items.Insert(bar.Items.IndexOf(this.txtDbSearch) + 1, this.btnDbList);
         }
 
+        // The rows of the chosen list. Columns: the key, then up to five that say something: ids of other
+        // lists show the name of the row they point to, localized texts their text; paths, long texts
+        // and columns that are empty everywhere are left out (the row's page has every column).
         private void FillGenericList()
         {
             if (!this.gameDb.HasTable(this.dbListTable))
@@ -242,24 +245,59 @@ namespace ForzaStudio
                 this.dbListTable = "Data_Drivetrain";
             }
             string table = this.dbListTable;
-            this.btnDbList.Text = "List: " + this.GenericListTitle(table);
             GameDatabase.Table info = this.gameDb.GetTable(table);
-            int shown = Math.Min(6, info.Columns.Count);
-            string[] names = new string[shown];
-            int[] widths = new int[shown];
-            for (int i = 0; i < shown; i++)
+            List<object[]> rows = this.gameDb.Sql.Query("SELECT * FROM " + SqliteDatabase.Quote(table) + " ORDER BY 1").Rows;
+            this.btnDbList.Text = string.Format("List: {0} ({1})", this.GenericListTitle(table), rows.Count);
+
+            List<int> shown = new List<int>();
+            shown.Add(0);
+            for (int c = 1; c < info.Columns.Count && shown.Count < 6; c++)
             {
-                names[i] = info.Columns[i].Name;
-                widths[i] = (i == 0) ? 50 : 110;
+                bool useful = false;
+                bool noise = false;
+                foreach (object[] row in rows)
+                {
+                    string text = row[c] as string;
+                    if (row[c] != null && (text == null || text.Length > 0))
+                    {
+                        useful = true;
+                    }
+                    if (text != null && (text.Length > 60 || text.StartsWith("GAME:", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        noise = true;
+                        break;
+                    }
+                }
+                if (useful && !noise)
+                {
+                    shown.Add(c);
+                }
+            }
+            string[] names = new string[shown.Count];
+            int[] widths = new int[shown.Count];
+            GameDatabase.Lookup[] lookups = new GameDatabase.Lookup[shown.Count];
+            for (int i = 0; i < shown.Count; i++)
+            {
+                names[i] = info.Columns[shown[i]].Name;
+                widths[i] = (i == 0) ? 55 : 120;
+                lookups[i] = (i == 0) ? null : this.gameDb.GetLookup(table, names[i]);
             }
             this.AddDbColumns(names, widths);
-            string columns = string.Join(", ", Array.ConvertAll<string, string>(names, delegate(string name) { return SqliteDatabase.Quote(name); }));
-            foreach (object[] row in this.gameDb.Sql.Query("SELECT " + columns + " FROM " + SqliteDatabase.Quote(table) + " ORDER BY 1").Rows)
+            foreach (object[] row in rows)
             {
-                object[] values = new object[shown];
-                for (int i = 0; i < shown; i++)
+                object[] values = new object[shown.Count];
+                for (int i = 0; i < shown.Count; i++)
                 {
-                    values[i] = (i > 0 && row[i] is string) ? (this.gameDb.Text(table, names[i], row[i]) ?? row[i]) : row[i];
+                    object value = row[shown[i]];
+                    if (i > 0 && value is long && lookups[i] != null)
+                    {
+                        value = lookups[i].Name((long) value) ?? value;
+                    }
+                    else if (i > 0 && value is string)
+                    {
+                        value = this.gameDb.Text(table, names[i], value) ?? value;
+                    }
+                    values[i] = value;
                 }
                 this.dbItems.Add(NewItem(values));
             }
