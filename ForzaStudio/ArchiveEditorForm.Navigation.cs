@@ -194,6 +194,8 @@ namespace ForzaStudio
                         return this.tabCountry;
                     case DbSection.PartMakers:
                         return this.tabPartMaker;
+                    case DbSection.Lists:
+                        return this.tabGeneric;
                 }
                 return null;
             }

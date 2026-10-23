@@ -25,6 +25,7 @@ namespace ForzaStudio
             Makes,
             Countries,
             PartMakers,
+            Lists,
             Tables
         }
 
@@ -76,6 +77,11 @@ namespace ForzaStudio
         private TabControl tabPartMaker;
         private PropertyGrid pgPartMaker;
         private RelatedPanel relPartMaker;
+        private TabControl tabGeneric;
+        private PropertyGrid pgGeneric;
+        private RelatedPanel relGeneric;
+        private ToolStripDropDownButton btnDbList;
+        private string dbListTable = "Data_Drivetrain";
         private ListHeader hdrMake;
         private ListHeader hdrCountry;
         private ListHeader hdrPartMaker;
@@ -95,7 +101,7 @@ namespace ForzaStudio
 
             ToolStrip bar = new ToolStrip();
             bar.GripStyle = ToolStripGripStyle.Hidden;
-            string[] names = { "Cars", "Wheels", "Tracks", "Events", "Engines", "Makes", "Countries", "Manufacturers", "Tables" };
+            string[] names = { "Cars", "Wheels", "Tracks", "Events", "Engines", "Makes", "Countries", "Manufacturers", "Lists", "Tables" };
             this.btnDbSections = new ToolStripButton[names.Length];
             for (int i = 0; i < names.Length; i++)
             {
@@ -243,6 +249,8 @@ namespace ForzaStudio
             this.tabMake = this.NewListTabs(out this.pgMake, out this.relMake, "Make", "Cars and parts");
             this.tabCountry = this.NewListTabs(out this.pgCountry, out this.relCountry, "Country", "Makes and cars");
             this.tabPartMaker = this.NewListTabs(out this.pgPartMaker, out this.relPartMaker, "Manufacturer", "Parts");
+            this.tabGeneric = this.NewListTabs(out this.pgGeneric, out this.relGeneric, "Row", "Used by");
+            this.BuildListPicker(bar);
             this.hdrMake = new ListHeader(2);
             this.hdrCountry = new ListHeader(1);
             this.hdrPartMaker = new ListHeader(1);
@@ -271,6 +279,7 @@ namespace ForzaStudio
             this.pnlDbContent.Controls.Add(TabHost(this.tabMake, this.hdrMake.Panel));
             this.pnlDbContent.Controls.Add(TabHost(this.tabCountry, this.hdrCountry.Panel));
             this.pnlDbContent.Controls.Add(TabHost(this.tabPartMaker, this.hdrPartMaker.Panel));
+            this.pnlDbContent.Controls.Add(TabHost(this.tabGeneric, null));
             this.pnlDbContent.Controls.Add(this.gridTable);
             this.pnlDbContent.Controls.Add(this.lblDbHint);
 
@@ -457,6 +466,13 @@ namespace ForzaStudio
                 case "List_PartManufacturer":
                     return DbSection.PartMakers;
             }
+            foreach (string[] list in GenericLists)
+            {
+                if (string.Equals(list[1], table, StringComparison.OrdinalIgnoreCase))
+                {
+                    return DbSection.Lists;
+                }
+            }
             return null;
         }
 
@@ -474,6 +490,10 @@ namespace ForzaStudio
             bool byId = section != null && key != null && value is long && info.Columns.Count > 0 && string.Equals(info.Columns[0].Name, key, StringComparison.OrdinalIgnoreCase);
             if (byId)
             {
+                if (section == DbSection.Lists)
+                {
+                    this.dbListTable = table;
+                }
                 this.SelectDbItem(section.Value, (long) value);
             }
             else
@@ -823,6 +843,7 @@ namespace ForzaStudio
             }
             this.dbSection = section;
             this.btnWheelFilter.Visible = section == DbSection.Wheels;
+            this.btnDbList.Visible = section == DbSection.Lists;
             for (int i = 0; i < this.btnDbSections.Length; i++)
             {
                 this.btnDbSections[i].Checked = i == (int) section;
@@ -944,6 +965,10 @@ namespace ForzaStudio
                     {
                         this.dbItems.Add(NewItem(row[0], this.gameDb.Text("List_PartManufacturer", "PartManufacturer", row[1]) ?? GameDatabase.FormatValue(row[1]), row[2]));
                     }
+                    break;
+
+                case DbSection.Lists:
+                    this.FillGenericList();
                     break;
 
                 case DbSection.Tables:
@@ -1143,6 +1168,10 @@ namespace ForzaStudio
                     case DbSection.PartMakers:
                         long partMakerId = long.Parse(item.Text, CultureInfo.InvariantCulture);
                         this.ShowListItem(this.tabPartMaker, this.pgPartMaker, this.relPartMaker, this.hdrPartMaker, "List_PartManufacturer", partMakerId, this.gameDb.PartMakerRelated(partMakerId), "PartManufacturer", PartLogoSql);
+                        break;
+
+                    case DbSection.Lists:
+                        this.ShowGenericItem(long.Parse(item.Text, CultureInfo.InvariantCulture));
                         break;
 
                     case DbSection.Tables:

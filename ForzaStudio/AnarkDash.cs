@@ -53,6 +53,7 @@ namespace ForzaStudio
             public ItemKind Kind;
             public Node Node;
             public PointF[] Corners;               // world: bottom-left, bottom-right, top-right, top-left
+            public RectangleF LocalRect;           // rectangles: the mesh bounds in the node's own space (y up)
             public Color Color = Color.White;      // material diffuse or text colour, with the opacity in alpha
             public string Texture;                 // GAME:\ path of the image, or null
             public string Text;
@@ -208,6 +209,7 @@ namespace ForzaStudio
                 item.Kind = ItemKind.Rectangle;
                 item.Node = node;
                 item.Corners = new PointF[] { node.Transform(minX, minY), node.Transform(maxX, minY), node.Transform(maxX, maxY), node.Transform(minX, maxY) };
+                item.LocalRect = RectangleF.FromLTRB(minX, minY, maxX, maxY);
                 float opacity = node.Opacity;
                 Color color = Color.White;
                 Node material = MaterialOf(node);

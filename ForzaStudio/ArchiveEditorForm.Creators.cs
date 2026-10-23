@@ -176,6 +176,104 @@ namespace ForzaStudio
             this.ShowDbContent(tabs);
         }
 
+        // The "Lists" section: the game's small id lists, one at a time (name shown, table). Each shows
+        // its rows with their text, the row's own page and what points at it.
+        private static readonly string[][] GenericLists = {
+            new string[] { "Drivetrains", "Data_Drivetrain" },
+            new string[] { "Motors (electric)", "Data_Motor" },
+            new string[] { "Car bodies", "Data_CarBody" },
+            new string[] { "Aspirations", "List_Aspiration" },
+            new string[] { "Cylinders", "List_Cylinders" },
+            new string[] { "Engine layouts", "List_EngineConfig" },
+            new string[] { "Engine placements", "List_EnginePlacement" },
+            new string[] { "Drive types", "List_DriveType" },
+            new string[] { "Variable timing", "List_VariableTiming" },
+            new string[] { "Powertrains", "Powertrains" },
+            new string[] { "Car types", "List_CarType" },
+            new string[] { "Car classes", "CarClasses" },
+            new string[] { "Tire compounds", "List_TireCompound" },
+            new string[] { "Regions", "List_Region" },
+            new string[] { "Upgrade types", "UpgradeTypes" }
+        };
+
+        private string GenericListTitle(string table)
+        {
+            foreach (string[] list in GenericLists)
+            {
+                if (string.Equals(list[1], table, StringComparison.OrdinalIgnoreCase))
+                {
+                    return list[0];
+                }
+            }
+            return table;
+        }
+
+        private void BuildListPicker(ToolStrip bar)
+        {
+            this.btnDbList = new ToolStripDropDownButton("List: " + this.GenericListTitle(this.dbListTable));
+            this.btnDbList.Visible = false;
+            this.btnDbList.DropDownOpening += delegate
+            {
+                this.btnDbList.DropDownItems.Clear();
+                foreach (string[] list in GenericLists)
+                {
+                    if (this.gameDb == null || !this.gameDb.HasTable(list[1]))
+                    {
+                        continue;
+                    }
+                    string table = list[1];
+                    ToolStripMenuItem entry = new ToolStripMenuItem(string.Format("{0}   ({1})", list[0], table), null, delegate
+                    {
+                        this.dbListTable = table;
+                        this.dbSearches[DbSection.Lists] = "";
+                        this.SelectDbSection(DbSection.Lists);
+                    });
+                    entry.Checked = string.Equals(table, this.dbListTable, StringComparison.OrdinalIgnoreCase);
+                    this.btnDbList.DropDownItems.Add(entry);
+                }
+            };
+            bar.Items.Insert(bar.Items.IndexOf(this.txtDbSearch) + 1, this.btnDbList);
+        }
+
+        private void FillGenericList()
+        {
+            if (!this.gameDb.HasTable(this.dbListTable))
+            {
+                this.dbListTable = "Data_Drivetrain";
+            }
+            string table = this.dbListTable;
+            this.btnDbList.Text = "List: " + this.GenericListTitle(table);
+            GameDatabase.Table info = this.gameDb.GetTable(table);
+            int shown = Math.Min(6, info.Columns.Count);
+            string[] names = new string[shown];
+            int[] widths = new int[shown];
+            for (int i = 0; i < shown; i++)
+            {
+                names[i] = info.Columns[i].Name;
+                widths[i] = (i == 0) ? 50 : 110;
+            }
+            this.AddDbColumns(names, widths);
+            string columns = string.Join(", ", Array.ConvertAll<string, string>(names, delegate(string name) { return SqliteDatabase.Quote(name); }));
+            foreach (object[] row in this.gameDb.Sql.Query("SELECT " + columns + " FROM " + SqliteDatabase.Quote(table) + " ORDER BY 1").Rows)
+            {
+                object[] values = new object[shown];
+                for (int i = 0; i < shown; i++)
+                {
+                    values[i] = (i > 0 && row[i] is string) ? (this.gameDb.Text(table, names[i], row[i]) ?? row[i]) : row[i];
+                }
+                this.dbItems.Add(NewItem(values));
+            }
+        }
+
+        private void ShowGenericItem(long id)
+        {
+            string table = this.dbListTable;
+            this.pgGeneric.SelectedObject = this.Record(table, id);
+            object[] row = this.gameDb.ReadRow(table, this.gameDb.RowIdOf(table, id));
+            this.relGeneric.ShowItems(this.gameDb, this.gameDb.ReferencesTo(table, row));
+            this.ShowDbContent(this.tabGeneric);
+        }
+
         // Rows of a table per value of a column (cars per make...).
         private Dictionary<long, int> CountBy(string table, string column)
         {

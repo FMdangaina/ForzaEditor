@@ -24,7 +24,7 @@ Last review: 2026-10-23. Everything below marked 🔧/🧪 is committed (HEAD of
 
 | # | What to look at | Coded | Tested |
 |---|---|---|---|
-| T-ED1 | Database view: sections **Engines, Makes, Countries, Manufacturers** (list columns, record tab, related tab, search, sort, Back, Go to / Used by from a car's engine, a make, a country, a wheel's manufacturer) | 2026-10-23 | – |
+| T-ED1 | Database view: sections **Engines, Makes, Countries, Manufacturers, Lists** (Lists: the picker, 15 lists) (list columns, record tab, related tab, search, sort, Back, Go to / Used by from a car's engine, a make, a country, a wheel's manufacturer) | 2026-10-23 | – |
 | T-ED2 | Logos on Makes (dark + light), Countries (flag), Manufacturers (`Car_Parts_Logos\decalNNN`; 337 of 569 have no file in FM4 = empty box is normal) | 2026-10-23 | – |
 | T-ED3 | **Events** header picture (poster of the career type; 17 of 32 types have none, the first race's track logo is used) | 2026-10-23 | – |
 | T-ED4 | Manufacturers > Parts tab: no more engine / drivetrain rows (those point at CarMake); wheels, tire brands, discounts listed | 2026-10-23 | – |
@@ -61,7 +61,7 @@ Last review: 2026-10-23. Everything below marked 🔧/🧪 is committed (HEAD of
 |---|---|---|---|
 | D-1 | **Duplicate Car wizard: usability pass** (user 2026-10-23: "tutto il wizard sarà da migliorare nell'utilizzo"). Needs the user's list of what is awkward; to collect while testing T-ED6 / T-ED8 | 2.3 | ⬜ asked 2026-10-23 |
 | D-2 | Makes: light logo falls back to the dark one when the file is missing (Chrysler, Infiniti, Jaguar, Mitsubishi) | – | ⬜ offered 2026-10-23 |
-| D-3 | More list sections like Engines (Drivetrains, Motors, Bodies, aspirations, cylinders, tire compounds...) - same helper `NewListTabs` / `ShowListItem`; the user picks which | – | ⬜ asked 2026-10-23 |
+| D-3 | More list sections: one **Lists** section with a picker (15 id lists: drivetrains, motors, bodies, aspirations, cylinders, engine layouts / placements, drive types, variable timing, powertrains, car types, classes, tire compounds, regions, upgrade types); row page + Used by | 18 | 🔧 coded 2026-10-23, not tested |
 | D-4 | Push the commit of 2026-10-23 (when the user says so) | – | ⬜ |
 | D-5 | `docs/MANUAL.md`: the new database sections, engine paste, DLC-pack choice in the wizard | 16.1 | ⬜ |
 | D-6 | Engine designer: paste of the CV column / a whole rpm+N.m+CV block; status line telling how many rows were set | 2.3.2 | 💤 |
