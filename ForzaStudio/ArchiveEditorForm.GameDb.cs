@@ -829,11 +829,11 @@ namespace ForzaStudio
         #region List
 
         // The table each section needs; a DLC patch database may have only some of them.
-        private static readonly string[] SectionTables = { "Data_Car", "List_Wheels", "Tracks", "Events", "Data_Engine", "List_CarMake", "List_Country", "List_PartManufacturer", null };
+        private static readonly string[] SectionTables = { "Data_Car", "List_Wheels", "Tracks", "Events", "Data_Engine", "List_CarMake", "List_Country", "List_PartManufacturer", null, null };
 
         private bool HasSection(DbSection section)
         {
-            string table = SectionTables[(int) section];
+            string table = ((int) section < SectionTables.Length) ? SectionTables[(int) section] : null;
             return table == null || this.gameDb.HasTable(table);
         }
 

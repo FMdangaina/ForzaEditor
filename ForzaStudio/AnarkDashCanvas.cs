@@ -418,16 +418,76 @@ namespace ForzaStudio
             this.Focus();
             this.dragging = true;
             this.dragged = false;
+            this.edit = null;
+            this.pickedForEdit = false;
             this.dragStart = e.Location;
             this.dragCenter = this.center;
+            if (this.dash == null || e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+            int handle = this.HandleAt(e.Location);
+            if (handle >= 0)
+            {
+                this.pickedForEdit = true;
+                this.edit = this.dash.BeginResize(this.Selected, Handles[handle][0], Handles[handle][1]);
+                this.ReportBlocked(this.edit);
+                return;
+            }
+            PointF world = this.ToWorld(e.Location);
+            AnarkDash.Node hit = this.Pick(world);
+            if (hit == null)
+            {
+                return;
+            }
+            this.pickedForEdit = true;
+            // a drag inside the selected group moves the group; anything else is selected first
+            if (this.Selected == null || (hit != this.Selected && !IsInside(hit, this.Selected)))
+            {
+                this.Selected = hit;
+                this.Invalidate();
+                if (this.SelectionChanged != null)
+                {
+                    this.SelectionChanged(this, EventArgs.Empty);
+                }
+            }
+            this.edit = this.dash.BeginMove(this.Selected, world);
+            this.ReportBlocked(this.edit);
+        }
+
+        private void ReportBlocked(AnarkDash.Drag drag)
+        {
+            if (drag == null && this.dash.Blocked != null && this.EditBlocked != null)
+            {
+                this.EditBlocked(this, new DashEditEventArgs(this.dash.Blocked));
+            }
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
-            if (this.dragging && (Math.Abs(e.X - this.dragStart.X) > 3 || Math.Abs(e.Y - this.dragStart.Y) > 3 || this.dragged))
+            if (!this.dragging)
             {
-                this.dragged = true;
+                int handle = this.HandleAt(e.Location);
+                this.Cursor = (handle >= 0) ? HandleCursor(handle) : Cursors.Default;
+                return;
+            }
+            if (!this.dragged && Math.Abs(e.X - this.dragStart.X) <= 3 && Math.Abs(e.Y - this.dragStart.Y) <= 3)
+            {
+                return;
+            }
+            this.dragged = true;
+            if (this.edit != null)
+            {
+                this.dash.ApplyDrag(this.edit, this.ToWorld(e.Location), (Control.ModifierKeys & Keys.Shift) != 0);
+                this.Invalidate();
+                if (this.Dragging != null)
+                {
+                    this.Dragging(this, EventArgs.Empty);
+                }
+            }
+            else if (!this.pickedForEdit)
+            {
                 this.center = new PointF(this.dragCenter.X - (e.X - this.dragStart.X) / this.zoom, this.dragCenter.Y + (e.Y - this.dragStart.Y) / this.zoom);
                 this.Invalidate();
             }
@@ -437,14 +497,69 @@ namespace ForzaStudio
         {
             base.OnMouseUp(e);
             this.dragging = false;
-            if (!this.dragged && e.Button == MouseButtons.Left)
+            AnarkDash.Drag finished = this.edit;
+            this.edit = null;
+            if (finished != null && this.dragged)
             {
-                this.Selected = this.Pick(this.ToWorld(e.Location));
+                if (this.Edited != null)
+                {
+                    this.Edited(this, new DashEditEventArgs(finished.What));
+                }
+                return;
+            }
+            if (!this.dragged && e.Button == MouseButtons.Left && !this.pickedForEdit)
+            {
+                this.Selected = null;
                 this.Invalidate();
                 if (this.SelectionChanged != null)
                 {
                     this.SelectionChanged(this, EventArgs.Empty);
                 }
+            }
+        }
+
+        protected override bool IsInputKey(Keys keyData)
+        {
+            switch (keyData & Keys.KeyCode)
+            {
+                case Keys.Left:
+                case Keys.Right:
+                case Keys.Up:
+                case Keys.Down:
+                    return true;
+            }
+            return base.IsInputKey(keyData);
+        }
+
+        // Arrows move the selected element by 1 unit of its parent (Shift: 10).
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            if (this.dash == null || this.Selected == null)
+            {
+                return;
+            }
+            float step = e.Shift ? 10 : 1, dx = 0, dy = 0;
+            switch (e.KeyCode)
+            {
+                case Keys.Left: dx = -step; break;
+                case Keys.Right: dx = step; break;
+                case Keys.Up: dy = step; break;
+                case Keys.Down: dy = -step; break;
+                default: return;
+            }
+            e.Handled = true;
+            if (this.dash.Nudge(this.Selected, dx, dy))
+            {
+                this.Invalidate();
+                if (this.Edited != null)
+                {
+                    this.Edited(this, new DashEditEventArgs("position"));
+                }
+            }
+            else if (this.EditBlocked != null)
+            {
+                this.EditBlocked(this, new DashEditEventArgs(this.Selected.Name + " has no editable position"));
             }
         }
 

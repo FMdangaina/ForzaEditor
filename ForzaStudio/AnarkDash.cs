@@ -507,6 +507,19 @@ namespace ForzaStudio
             return new PointF((float) (d.PosX + cos * ux + sin * uy), (float) (d.PosY - sin * ux + cos * uy));
         }
 
+        // Moves a node by (dx, dy) in its parent's space.
+        public bool Nudge(Node node, float dx, float dy)
+        {
+            if (!IsSpatial(node) || this.TransformSource(node, "position.x") == null || this.TransformSource(node, "position.y") == null)
+            {
+                return false;
+            }
+            this.WriteTransform(node, "position.x", this.GetTransform(node, "position.x") + dx);
+            this.WriteTransform(node, "position.y", this.GetTransform(node, "position.y") + dy);
+            this.Update();
+            return true;
+        }
+
         public Item ItemOf(Node node)
         {
             foreach (Item item in this.Items)
