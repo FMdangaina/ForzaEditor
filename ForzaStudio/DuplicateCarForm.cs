@@ -123,6 +123,7 @@ namespace ForzaStudio
         private readonly NumericUpDown year;
         private readonly ComboBox make;
         private readonly DataGridView grid;
+        private readonly CheckBox showAll;
         private readonly RadioButton engineShared;
         private readonly RadioButton engineOwn;
         private readonly Button engineEdit;
@@ -332,9 +333,9 @@ namespace ForzaStudio
             this.pages[1].Controls.Add(this.make);
 
             // 3 Data
-            this.AddLabel(2, "Data_Car values of the copy. Change what the copy needs; leave the rest. Paint colours and upgrades are copied with the car; the drivetrain and wheel stay shared with the source, the engine too unless the next page gives the copy its own.", 12, 12, 576, 48);
+            this.AddLabel(2, "The values that usually change for a copy; everything else is copied from the source. Paint colours and upgrades are copied with the car; the drivetrain and wheel stay shared with the source, the engine too unless the next page gives the copy its own.", 12, 12, 576, 48);
             this.grid = new DataGridView();
-            this.grid.SetBounds(12, 66, 576, 290);
+            this.grid.SetBounds(12, 66, 576, 262);
             this.grid.AllowUserToAddRows = false;
             this.grid.AllowUserToDeleteRows = false;
             this.grid.RowHeadersVisible = false;
@@ -350,6 +351,11 @@ namespace ForzaStudio
             this.grid.Columns[2].Width = 90;
             this.grid.Columns[3].Width = 200;
             this.pages[2].Controls.Add(this.grid);
+            this.showAll = new CheckBox();
+            this.showAll.Text = "Show every value of the car (stats, aero, tyres, calipers...)";
+            this.showAll.SetBounds(12, 334, 576, 22);
+            this.showAll.CheckedChanged += delegate { this.ShowDataRows(); };
+            this.pages[2].Controls.Add(this.showAll);
 
             // 4 Engine
             this.AddLabel(3, "The engine of the copy. Shared: the copy uses the source's engine, so any later change to that engine changes both. Its own: a copy of the source's engine, every upgrade level and torque curve included, that you design here: name, sound, turbo boost, idle and redline rpm, torque and the shape of the torque curve.", 12, 8, 576, 64);
@@ -456,6 +462,25 @@ namespace ForzaStudio
             get { return this.car.SelectedItem as CarItem; }
         }
 
+        // The columns a copy usually needs changed; the rest of DataFields shows with "Show every value", and any row the
+        // user already changed stays visible.
+        private static readonly string[] BasicFields =
+        {
+            "BaseCost", "CurbWeight", "WeightDistribution", "DriveTypeID", "EnginePlacementID", "CarTypeID", "CountryID", "RegionID",
+            "IsDrivable", "IsArcade", "IsUnicorn", "HasLivery", "StockWheelID",
+        };
+
+        private void ShowDataRows()
+        {
+            this.grid.CurrentCell = null;
+            foreach (DataGridViewRow row in this.grid.Rows)
+            {
+                string column = Convert.ToString(row.Cells[0].Value, CultureInfo.InvariantCulture);
+                bool changed = !string.Equals(Convert.ToString(row.Cells[1].Value, CultureInfo.InvariantCulture), Convert.ToString(row.Cells[2].Value, CultureInfo.InvariantCulture), StringComparison.Ordinal);
+                row.Visible = this.showAll.Checked || changed || Array.IndexOf(BasicFields, column) >= 0;
+            }
+        }
+
         // The source car's current values into the name, year, make and data pages.
         private void CarChanged()
         {
@@ -500,6 +525,7 @@ namespace ForzaStudio
                     this.grid.Rows.Add(field[0], Convert.ToString(value, CultureInfo.InvariantCulture), Convert.ToString(value, CultureInfo.InvariantCulture), field[1]);
                 }
             }
+            this.ShowDataRows();
             this.Recheck();
         }
 
