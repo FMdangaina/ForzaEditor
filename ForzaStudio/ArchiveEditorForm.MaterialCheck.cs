@@ -13,6 +13,8 @@ namespace ForzaStudio
     {
         private ToolStripLabel lblMaterialWarning;
         private int modelType;                                   // carbin type of the shown model, 0 if not checked
+        private string materialFile = "";                        // file name and kind of the shown model, for Fm4MaterialUse
+        private bool materialWheels;
         private readonly List<string> unknownMaterials = new List<string>();
 
         private ToolStripLabel BuildMaterialWarning()
@@ -51,6 +53,19 @@ namespace ForzaStudio
                 return;
             }
             this.modelType = (int) model.Type;
+            // A file holding LOD 0 and the others together is a wheel set (cars keep LOD 0 in _lod0 / _cockpit files);
+            // the check uses the FM4 list of its kind and LOD (Fm4MaterialUse).
+            bool lodZero = false;
+            bool lodOther = false;
+            foreach (CarbinModel.Section section in model.Sections)
+            {
+                foreach (CarbinModel.SubSection sub in section.SubSections)
+                {
+                    if (sub.Lod == 0) { lodZero = true; } else { lodOther = true; }
+                }
+            }
+            this.materialFile = root.Text;
+            this.materialWheels = lodZero && lodOther;
             this.MarkUnknownMaterials(root.Nodes);
             if (this.unknownMaterials.Count > 0)
             {
@@ -67,7 +82,9 @@ namespace ForzaStudio
             {
                 if (node.Tag is ForzaMesh)
                 {
-                    if (!CarPort.IsFm4Material(node.Text, this.modelType))
+                    bool used = this.IsUsedByFm4(node);
+                    ((ForzaMesh) node.Tag).Unused = !used;   // magenta in the viewport, as the game's black
+                    if (!used)
                     {
                         if (!this.unknownMaterials.Contains(node.Text))
                         {
@@ -81,6 +98,50 @@ namespace ForzaStudio
                     continue;
                 }
                 this.MarkUnknownMaterials(node.Nodes);
+            }
+        }
+
+        // True when FM4 uses the mesh's material in a model of this kind and LOD (the tree is file > LODn > part > material).
+        private bool IsUsedByFm4(TreeNode mesh)
+        {
+            if (this.modelType == 1)
+            {
+                return CarPort.IsFm4Material(mesh.Text, 1);
+            }
+            uint lod = 0;
+            TreeNode lodNode = (mesh.Parent != null) ? mesh.Parent.Parent : null;
+            if (lodNode != null && lodNode.Text.StartsWith("LOD"))
+            {
+                uint.TryParse(lodNode.Text.Substring(3), out lod);
+            }
+            return Fm4MaterialUse.IsUsed(Fm4MaterialUse.ListName(this.materialWheels, this.materialFile, lod), mesh.Text);
+        }
+
+        // Selecting a node lights up its meshes in the viewport (a part, a LOD or one material); the file node lights none.
+        private void HighlightSelection()
+        {
+            TreeNode selected = this.tvModel.SelectedNode;
+            foreach (ForzaMesh mesh in GetMeshes(this.tvModel.Nodes, false))
+            {
+                mesh.Selected = false;
+            }
+            if (selected != null && selected.Parent != null)
+            {
+                if (selected.Tag is ForzaMesh)
+                {
+                    ((ForzaMesh) selected.Tag).Selected = true;
+                }
+                else
+                {
+                    foreach (ForzaMesh mesh in GetMeshes(selected.Nodes, false))
+                    {
+                        mesh.Selected = true;
+                    }
+                }
+            }
+            if (this.scene != null)
+            {
+                this.scene.Update(true);
             }
         }
 
@@ -150,9 +211,9 @@ namespace ForzaStudio
             label.Text = string.Format("Rename the material {0} of {1} to:", material, section);
             label.AutoSize = true;
             label.Location = new Point(0, 4);
-            // Green: recommended (port table, name, most similar shaders), then the common FM4 materials, then
+            // Green: what FM4 cars give this part (with the number of cars), then the most similar shaders; then the common FM4 materials, then
             // ~ the unusual ones (an FM4 shader no or few FM4 cars use: for something different on purpose).
-            List<MaterialSuggestions.Entry> choices = MaterialSuggestions.For(material, this.currentEntry.Name, this.modelType);
+            List<MaterialSuggestions.Entry> choices = MaterialSuggestions.For(material, this.currentEntry.Name, this.modelType, new List<string>(new string[] { section }));
             ComboBox name = new ComboBox();
             name.DropDownStyle = ComboBoxStyle.DropDown;
             name.Width = 420;

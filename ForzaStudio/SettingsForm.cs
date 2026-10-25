@@ -26,6 +26,7 @@ namespace ForzaStudio
             new string[] { "Folder.FH1", "Forza Horizon:" },
             new string[] { "Folder.FH2", "Forza Horizon 2:" },
             new string[] { "Folder.FM3", "Forza Motorsport 3:" },
+            new string[] { "Folder.FM2", "Forza Motorsport 2:" },
         };
 
         // The FM4 string table languages (Media\StringTables\<language>.zip).
@@ -54,6 +55,9 @@ namespace ForzaStudio
         private ComboBox language;
         private CheckBox musicAutoPlay;
         private CheckBox musicShuffle;
+        private Color bodyColor;
+        private Button bodySwatch;
+        private IniEditorPanel allPanel;
 
         public SettingsForm()
             : this(null)
@@ -93,6 +97,7 @@ namespace ForzaStudio
             tabs.TabPages.Add(this.PortPage());
             tabs.TabPages.Add(this.UpgradesPage());
             tabs.TabPages.Add(this.ViewerPage());
+            tabs.TabPages.Add(this.AllPage());
             foreach (TabPage page in tabs.TabPages)
             {
                 if (string.Equals(page.Text, tab, StringComparison.OrdinalIgnoreCase))
@@ -277,24 +282,30 @@ namespace ForzaStudio
 
         private void ResetIni(string path, string defaults, bool port)
         {
-            if (MessageBox.Show(this, "Write " + Path.GetFileName(path) + " again with the default values? Your changes in it are lost (a copy is kept as " + Path.GetFileName(path) + ".bak).",
+            if (MessageBox.Show(this, "Put the " + (port ? "port" : "upgrade") + " sections of " + Path.GetFileName(path) + " back to their default values? Your changes in them are lost (the other sections stay; a copy of the file is kept in bak\\).",
                 this.Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
             {
                 return;
             }
             try
             {
+                AppIni.Ensure();
                 if (File.Exists(path))
                 {
-                    File.Copy(path, path + ".bak", true);
+                    string bak = Path.Combine(Path.GetDirectoryName(path), "bak");
+                    Directory.CreateDirectory(bak);
+                    File.Copy(path, Path.Combine(bak, Path.GetFileName(path) + ".bak"), true);
                 }
+                IniFile.ResetSections(path, defaults);
             }
-            catch (IOException)
+            catch (IOException exception)
             {
+                MessageBox.Show(this, "Cannot write " + path + ": " + exception.Message, this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
             }
-            if (!IniFile.WriteDefaults(path, defaults))
+            catch (UnauthorizedAccessException exception)
             {
-                MessageBox.Show(this, "Cannot write " + path + ".", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "Cannot write " + path + ": " + exception.Message, this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             if (port)
@@ -309,6 +320,7 @@ namespace ForzaStudio
             {
                 this.LoadUpgrades();
             }
+            this.allPanel.Reload();
         }
 
         #endregion
@@ -418,6 +430,9 @@ namespace ForzaStudio
                 IniFile.WriteDefaults(path, CarUpgrades.DefaultIni);
             }
             this.upgradeLayout = IniFile.Layout(File.Exists(path) ? File.ReadAllText(path) : CarUpgrades.DefaultIni);
+            // the file also holds the port and [App] sections: only the upgrade ones are listed here
+            Dictionary<string, Dictionary<string, string>> own = CarUpgrades.ParseIni(CarUpgrades.DefaultIni);
+            this.upgradeLayout.RemoveAll(delegate(IniFile.Section s) { return !own.ContainsKey(s.Name); });
             this.upgradeEdits.Clear();
             string selected = this.upgradeSections.SelectedItem as string;
             this.upgradeSections.Items.Clear();
@@ -455,6 +470,22 @@ namespace ForzaStudio
 
         #endregion
 
+        // Every section and key of ForzaStudio.ini, the port flags and the [App] values included.
+        private TabPage AllPage()
+        {
+            TabPage page = new TabPage("All");
+            page.Padding = new Padding(8);
+            Label note = new Label();
+            note.Text = AppIni.FileName + " next to the exe, whole: edit any value here. The other tabs are shortcuts to the same file; a value changed in two places keeps the last one saved (this tab last).";
+            note.ForeColor = SystemColors.GrayText;
+            note.Dock = DockStyle.Top;
+            note.Height = 36;
+            this.allPanel = new IniEditorPanel();
+            page.Controls.Add(this.allPanel);
+            page.Controls.Add(note);
+            return page;
+        }
+
         #region Viewer
 
         private TabPage ViewerPage()
@@ -485,6 +516,34 @@ namespace ForzaStudio
             this.language.Width = 80;
             page.Controls.Add(label);
             page.Controls.Add(this.language);
+            y += 40;
+            Label colourLabel = new Label();
+            colourLabel.Text = "Body colour of the car in the model viewport (paint materials):";
+            colourLabel.AutoSize = true;
+            colourLabel.Location = new Point(12, y + 5);
+            int[] rgb = AppSettings.GetRgb("Viewer.BodyColor", "8C8C8C");
+            this.bodyColor = Color.FromArgb(rgb[0], rgb[1], rgb[2]);
+            this.bodySwatch = new Button();
+            this.bodySwatch.Location = new Point(420, y);
+            this.bodySwatch.Size = new Size(80, 26);
+            this.bodySwatch.FlatStyle = FlatStyle.Flat;
+            this.bodySwatch.BackColor = this.bodyColor;
+            this.bodySwatch.Text = "";
+            this.bodySwatch.Click += delegate
+            {
+                using (ColorDialog dialog = new ColorDialog())
+                {
+                    dialog.Color = this.bodyColor;
+                    dialog.FullOpen = true;
+                    if (dialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        this.bodyColor = dialog.Color;
+                        this.bodySwatch.BackColor = this.bodyColor;
+                    }
+                }
+            };
+            page.Controls.Add(colourLabel);
+            page.Controls.Add(this.bodySwatch);
             y += 40;
             this.musicAutoPlay = new CheckBox();
             this.musicAutoPlay.Text = "Music: play when a game folder opens";
@@ -593,6 +652,16 @@ namespace ForzaStudio
             AppSettings.Set("Language", (string) this.language.SelectedItem);
             AppSettings.Set("MusicAutoPlay", this.musicAutoPlay.Checked ? "1" : "0");
             AppSettings.Set("MusicShuffle", this.musicShuffle.Checked ? "1" : "0");
+            AppSettings.Set("Viewer.BodyColor", string.Format(CultureInfo.InvariantCulture, "{0:X2}{1:X2}{2:X2}", this.bodyColor.R, this.bodyColor.G, this.bodyColor.B));
+            try
+            {
+                this.allPanel.Apply();
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, "Cannot write " + AppIni.Path + ": " + exception.Message, this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
             return true;
         }
     }

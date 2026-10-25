@@ -362,7 +362,7 @@ namespace ForzaStudio
         // to the 40s).
         public static int FreeOffer(string targetRoot, string content)
         {
-            int offer = 90;
+            int offer = (int) Math.Max(90, GameIdLimits.Max(ForzaGame.Motorsport4, "ContentOffers", "PubOfferingID"));
             using (SqliteDatabase game = SqliteDatabase.FromBytes(File.ReadAllBytes(GameDb(targetRoot))))
             {
                 object max = game.Scalar("SELECT max(PubOfferingID) FROM ContentOffers");

@@ -119,6 +119,19 @@ namespace ForzaStudio
         public List<Change> Changes = new List<Change>();
         public List<string> TableNames = new List<string>();
 
+        // The game plus its installed DLC packages (InstalledDlc.Merge): a view, never written to the game's file.
+        public bool ReadOnly;
+        public readonly Dictionary<long, string> DlcCars = new Dictionary<long, string>();
+        public readonly Dictionary<long, string> DlcTracks = new Dictionary<long, string>();
+
+        private void CheckWritable()
+        {
+            if (this.ReadOnly)
+            {
+                throw new InvalidOperationException("This view holds the game plus its installed DLC packages and is read-only. Turn the DLC button off in the toolbar to edit the game's own database.");
+            }
+        }
+
         public GameDatabase(byte[] data)
         {
             this.db = SqliteDatabase.FromBytes(data);
@@ -320,6 +333,7 @@ namespace ForzaStudio
         // Writes one value; returns the row's rowid afterwards (it changes when the primary key is edited).
         public long Update(string tableName, long rowId, string columnName, object value)
         {
+            this.CheckWritable();
             Table table = this.GetTable(tableName);
             Column column = table.Find(columnName);
             object newValue = Normalize(column, value);
@@ -337,6 +351,7 @@ namespace ForzaStudio
         // Copies a row; the copy gets the next free id. Returns its rowid.
         public long DuplicateRow(string tableName, long rowId)
         {
+            this.CheckWritable();
             Table table = this.GetTable(tableName);
             List<string> columns = new List<string>();
             foreach (Column column in table.Columns)
@@ -358,6 +373,7 @@ namespace ForzaStudio
         // every other value of a real game row). Returns the new rowid.
         public long CopyRow(string tableName, long templateRowId, Dictionary<string, object> values, string description)
         {
+            this.CheckWritable();
             Table table = this.GetTable(tableName);
             List<string> columns = new List<string>();
             List<string> select = new List<string>();
@@ -407,6 +423,7 @@ namespace ForzaStudio
         // Several columns of one row in one change (a whole torque curve, for example).
         public void UpdateColumns(string tableName, long rowId, Dictionary<string, object> values, string description)
         {
+            this.CheckWritable();
             Table table = this.GetTable(tableName);
             List<string> sets = new List<string>();
             List<object> args = new List<object>();
@@ -468,6 +485,7 @@ namespace ForzaStudio
 
         public SqlGuard.Outcome RunSql(string sql)
         {
+            this.CheckWritable();
             SqlGuard.Outcome outcome = SqlGuard.Run(this.db, sql, ForzaGame.Motorsport4);
             if (outcome.Table != null)
             {
@@ -478,6 +496,7 @@ namespace ForzaStudio
 
         public void DeleteRow(string tableName, long rowId)
         {
+            this.CheckWritable();
             this.db.Execute("DELETE FROM " + SqliteDatabase.Quote(tableName) + " WHERE rowid = ?", rowId);
             this.Record(tableName, rowId, null, null, "deleted");
         }

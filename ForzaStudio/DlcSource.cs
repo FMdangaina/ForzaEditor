@@ -45,6 +45,7 @@ namespace ForzaStudio
         public uint TitleId;            // the source game's, from the merge database's ContentOffers.ID
         public ForzaGame Game;
         public string Problem;          // why the package can't be used, or null
+        public string Title;            // the package's display name (STFS header), when it was read from a package file
 
         private readonly List<Layer> layers = new List<Layer>();
 
@@ -97,6 +98,12 @@ namespace ForzaStudio
         // it can't be used: an FM4 package, an incomplete file, no cars.
         public static DlcSource OpenPackage(string file)
         {
+            return OpenPackage(file, false);
+        }
+
+        // sameGame: an FM4 package is accepted too (the packages installed for the game being viewed, not a port source).
+        public static DlcSource OpenPackage(string file, bool sameGame)
+        {
             DlcSource failed = new DlcSource();
             failed.Folder = file;
             try
@@ -104,7 +111,8 @@ namespace ForzaStudio
                 StfsReader package = StfsReader.Open(file);
                 failed.TitleId = package.TitleId;
                 failed.Game = GameInfo.FromTitleId(package.TitleId);
-                if (failed.Game == ForzaGame.Motorsport4)
+                failed.Title = package.DisplayName;
+                if (failed.Game == ForzaGame.Motorsport4 && !sameGame)
                 {
                     failed.Problem = "a Forza Motorsport 4 package (" + package.DisplayName + "): a port takes cars from FH, FH2 or FM3 packages";
                     return failed;
@@ -144,6 +152,7 @@ namespace ForzaStudio
                     failed.Problem = "not a car pack (no Media\\DLCZips): " + package.DisplayName;
                     return failed;
                 }
+                source.Title = package.DisplayName;
                 if (source.TitleId == 0)
                 {
                     source.TitleId = package.TitleId;
@@ -181,8 +190,40 @@ namespace ForzaStudio
                         return offer;
                     }
                 }
+                // FM2: DLC<n>_pri_<priority> (DLC1_pri_60 = the Nissan pack), the offer is n.
+                List<string> fm2 = new List<string>(Directory.GetFiles(zips, "DLC*_pri_*.zip"));
+                foreach (string layer in fm2)
+                {
+                    string name = Path.GetFileNameWithoutExtension(layer);
+                    int end = name.IndexOf('_');
+                    if (end > 3 && int.TryParse(name.Substring(3, end - 3), NumberStyles.None, CultureInfo.InvariantCulture, out offer))
+                    {
+                        return offer;
+                    }
+                }
             }
             return -1;
+        }
+
+        // The car folders an FM2 package holds (media/cars/<NAME>/ with a .carbin), by layer.
+        private List<string> Fm2CarFolders()
+        {
+            List<string> cars = new List<string>();
+            foreach (Layer layer in this.layers)
+            {
+                string prefix = (layer.Mount.Length > 0) ? layer.Mount.Replace('\\', '/') + "/" : string.Empty;
+                foreach (KeyValuePair<string, Reader> file in Files(layer))
+                {
+                    string name = (prefix + file.Key).Replace('\\', '/');
+                    string[] part = name.Split('/');
+                    if (part.Length == 4 && part[0].Equals("media", StringComparison.OrdinalIgnoreCase) && part[1].Equals("cars", StringComparison.OrdinalIgnoreCase)
+                        && part[3].EndsWith(".carbin", StringComparison.OrdinalIgnoreCase) && cars.FindIndex(delegate(string c) { return string.Equals(c, part[2], StringComparison.OrdinalIgnoreCase); }) < 0)
+                    {
+                        cars.Add(part[2]);
+                    }
+                }
+            }
+            return cars;
         }
 
         // Every package below a folder (a content folder, 00000002, or a folder of extracted packages).
@@ -206,6 +247,13 @@ namespace ForzaStudio
         public static bool IsStage(string root)
         {
             return root != null && File.Exists(Path.Combine(root, Marker));
+        }
+
+        // True for the stage of an FM2 package (cars still in FM2's form): CarPort lays each car out on an FM4 donor
+        // (Fm2Source) from it, with the FM2 game as the rest. The FM2 game folder staged by Fm2Source is not one.
+        public static bool IsFm2Raw(string root)
+        {
+            return IsStage(root) && Array.IndexOf(File.ReadAllLines(Path.Combine(root, Marker)), "raw=fm2") >= 0;
         }
 
         // The title id written in a staged folder, 0 when it is not one.
@@ -292,6 +340,25 @@ namespace ForzaStudio
         private void ReadTitle()
         {
             byte[] merge = this.MergeDatabase();
+            if (merge == null && (this.TitleId == Fm2Source.TitleId || this.TitleId == 0))
+            {
+                // FM2: no database in the package, the cars are loose folders (media\cars\<NAME>\); the rows come
+                // from the FM2 game set in Tools > Settings (gamedb) merged with the package (Stage).
+                if (this.Fm2CarFolders().Count > 0)
+                {
+                    this.TitleId = Fm2Source.TitleId;
+                    this.Game = ForzaGame.Motorsport2;
+                    if (GameInfo.ConfiguredFolder(ForzaGame.Motorsport2) == null)
+                    {
+                        throw new InvalidDataException("An FM2 package needs the Forza Motorsport 2 game for its database: set the folder in Tools > Settings > Folders.");
+                    }
+                    return;
+                }
+                if (this.TitleId == Fm2Source.TitleId)
+                {
+                    throw new InvalidDataException("The package has no cars (a track or other content).");
+                }
+            }
             if (merge == null)
             {
                 throw new InvalidDataException("The package has no cars (no db\\patch\\*_merge.slt): rims or other content only.");
@@ -315,12 +382,20 @@ namespace ForzaStudio
                     throw new InvalidDataException("The merge database has no ContentOffers id: the source game is unknown.");
                 }
                 this.Game = GameInfo.FromTitleId(this.TitleId);
+                if (this.Game == ForzaGame.Motorsport2 && this.Fm2CarFolders().Count == 0)
+                {
+                    throw new InvalidDataException("The package has no cars (a track or other content).");
+                }
             }
         }
 
         // The cars of the pack (Data_Car.MediaName of the merge database).
         public List<string> Cars()
         {
+            if (this.Game == ForzaGame.Motorsport2)
+            {
+                return this.Fm2CarFolders();
+            }
             List<string> cars = new List<string>();
             byte[] merge = this.MergeDatabase();
             if (merge == null)
@@ -338,6 +413,36 @@ namespace ForzaStudio
                 }
             }
             return cars;
+        }
+
+        // The package's merge database (db\patch\*_merge.slt), or null.
+        public byte[] Merge()
+        {
+            return this.MergeDatabase();
+        }
+
+        // The package's string tables of a language (StringTables_pri_<P>.zip, "<LANG>/<Table>.str"): table name and
+        // file, lowest priority first so that applying them in order leaves the highest priority's text.
+        public List<KeyValuePair<string, byte[]>> StringFiles(string language)
+        {
+            List<KeyValuePair<string, byte[]>> found = new List<KeyValuePair<string, byte[]>>();
+            foreach (Layer layer in this.layers)
+            {
+                if (!Path.GetFileName(layer.Path).StartsWith("StringTables", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                string prefix = language + "/";
+                foreach (KeyValuePair<string, Reader> file in Files(layer))
+                {
+                    string name = file.Key.Replace('\\', '/');
+                    if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && name.EndsWith(".str", StringComparison.OrdinalIgnoreCase))
+                    {
+                        found.Add(new KeyValuePair<string, byte[]>(Path.GetFileNameWithoutExtension(name), file.Value()));
+                    }
+                }
+            }
+            return found;
         }
 
         // The highest priority db\patch\*_merge.slt of the package.
@@ -440,12 +545,20 @@ namespace ForzaStudio
 
             // The merge database as the game's.
             string patch = Path.Combine(Path.Combine(media, "db"), "patch");
-            string[] merges = Directory.Exists(patch) ? Directory.GetFiles(patch, "*_merge.slt") : new string[0];
-            if (merges.Length != 1)
+            bool fm2 = this.Game == ForzaGame.Motorsport2;
+            if (fm2)
             {
-                throw new InvalidDataException(string.Format(CultureInfo.InvariantCulture, "The package has {0} merge databases; one is needed.", merges.Length));
+                this.MergeFm2Database(media, report);
             }
-            File.Copy(merges[0], Path.Combine(Path.Combine(media, "db"), "gamedb.slt"));
+            else
+            {
+                string[] merges = Directory.Exists(patch) ? Directory.GetFiles(patch, "*_merge.slt") : new string[0];
+                if (merges.Length != 1)
+                {
+                    throw new InvalidDataException(string.Format(CultureInfo.InvariantCulture, "The package has {0} merge databases; one is needed.", merges.Length));
+                }
+                File.Copy(merges[0], Path.Combine(Path.Combine(media, "db"), "gamedb.slt"));
+            }
 
             // Folders the port opens as zips.
             int zips = 0;
@@ -474,7 +587,32 @@ namespace ForzaStudio
                 }
             }
             string tables = Path.Combine(media, "StringTables");
-            if (Directory.Exists(tables))
+            if (fm2)
+            {
+                // The package's Data_Car.str (the car names) overrides one table of the game's string zip of each
+                // language: the game's files fill in what the package lacks.
+                Directory.CreateDirectory(tables);
+                foreach (string zip in Directory.GetFiles(Path.Combine(Path.Combine(GameInfo.ConfiguredFolder(ForzaGame.Motorsport2), "Media"), "StringTables"), "*.zip"))
+                {
+                    string language = Path.Combine(tables, Path.GetFileNameWithoutExtension(zip).ToUpperInvariant());
+                    Directory.CreateDirectory(language);
+                    ForzaZip baseZip = new ForzaZip(zip);
+                    foreach (ForzaZip.Entry entry in baseZip.Entries)
+                    {
+                        string path = Path.Combine(language, entry.Name.Replace('/', '\\'));
+                        if (!entry.IsDirectory && !File.Exists(path))
+                        {
+                            Directory.CreateDirectory(Path.GetDirectoryName(path));
+                            File.WriteAllBytes(path, baseZip.Read(entry));
+                        }
+                    }
+                }
+                foreach (string language in Directory.GetDirectories(tables))
+                {
+                    zips += ToZip(language);
+                }
+            }
+            else if (Directory.Exists(tables))
             {
                 foreach (string language in Directory.GetDirectories(tables))
                 {
@@ -495,12 +633,134 @@ namespace ForzaStudio
                 "title=" + this.TitleId.ToString("X8", CultureInfo.InvariantCulture),
                 "offer=" + this.Offer.ToString(CultureInfo.InvariantCulture),
                 "package=" + this.Folder,
+                fm2 ? "raw=fm2" : "raw=",
             });
             if (report != null)
             {
                 report.AppendLine(string.Format(CultureInfo.InvariantCulture, "DLC {0} (offer {1}, {2}): {3} files in {4}, {5} zips", Path.GetFileName(this.Folder), this.Offer, GameInfo.Tag(this.Game), count, root, zips));
             }
             return root;
+        }
+
+        // FM2: the game's gamedb (Tools > Settings > Folders) with the package's SQL run over it (Media\db\patch\*.sql,
+        // Media\LicenseMasks\*.sql: unlocks and garage rows), statement by statement; a statement the old schema can't run
+        // is counted and left out. The cars' own rows are the game database's: a car it lacks is named in the report.
+        private void MergeFm2Database(string media, StringBuilder report)
+        {
+            string baseRoot = GameInfo.ConfiguredFolder(ForzaGame.Motorsport2);
+            if (baseRoot == null)
+            {
+                throw new InvalidDataException("Set the Forza Motorsport 2 folder in Tools > Settings > Folders.");
+            }
+            string dbDir = Path.Combine(media, "db");
+            Directory.CreateDirectory(dbDir);
+            string db = Path.Combine(dbDir, "gamedb.slt");
+            File.Copy(Path.Combine(Path.Combine(Path.Combine(baseRoot, "Media"), "DB"), "gamedb.slt"), db, true);
+            // db\patch\<n>_merge.slt (the new rows, the game's schema) and <n>_execute.sql in the order of n, then the
+            // unlocks of Media\LicenseMasks.
+            List<string> scripts = new List<string>();
+            string patch = Path.Combine(dbDir, "patch");
+            if (Directory.Exists(patch))
+            {
+                List<string> files = new List<string>(Directory.GetFiles(patch, "*_merge.slt"));
+                files.AddRange(Directory.GetFiles(patch, "*_execute.sql"));
+                files.Sort(delegate(string a, string b)
+                {
+                    int x, y;
+                    int.TryParse(Path.GetFileName(a).Substring(0, Path.GetFileName(a).IndexOf('_')), NumberStyles.None, CultureInfo.InvariantCulture, out x);
+                    int.TryParse(Path.GetFileName(b).Substring(0, Path.GetFileName(b).IndexOf('_')), NumberStyles.None, CultureInfo.InvariantCulture, out y);
+                    return x.CompareTo(y);
+                });
+                scripts.AddRange(files);
+            }
+            string masks = Path.Combine(media, "LicenseMasks");
+            if (Directory.Exists(masks))
+            {
+                scripts.AddRange(Directory.GetFiles(masks, "*.sql"));
+            }
+            int done = 0;
+            int failed = 0;
+            int rows = 0;
+            using (SqliteDatabase merged = SqliteDatabase.FromBytes(File.ReadAllBytes(db)))
+            {
+                foreach (string script in scripts)
+                {
+                    if (script.EndsWith(".slt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        rows += MergeRows(merged, script);
+                        continue;
+                    }
+                    foreach (string statement in File.ReadAllText(script).Split(';'))
+                    {
+                        if (statement.Trim().Length == 0)
+                        {
+                            continue;
+                        }
+                        try
+                        {
+                            merged.Execute(statement);
+                            done++;
+                        }
+                        catch (Exception)
+                        {
+                            failed++;
+                        }
+                    }
+                }
+                File.WriteAllBytes(db, merged.ToBytes());
+                List<string> missing = new List<string>();
+                foreach (string car in this.Fm2CarFolders())
+                {
+                    if (merged.Scalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", car) == null)
+                    {
+                        missing.Add(car);
+                    }
+                }
+                if (report != null)
+                {
+                    report.AppendLine(string.Format(CultureInfo.InvariantCulture, "DLC {0}: FM2 gamedb + {4} rows of the package's merge database + {1} SQL statements ({2} skipped){3}", Path.GetFileName(this.Folder), done, failed,
+                        (missing.Count > 0) ? "; no row in the merged database: " + string.Join(" ", missing.ToArray()) : "", rows));
+                }
+            }
+        }
+
+        // The rows of a package's merge database put into the game's (same table, the columns both have), a row with the
+        // same key replaced; the number of rows.
+        private static int MergeRows(SqliteDatabase target, string mergePath)
+        {
+            int count = 0;
+            using (SqliteDatabase patch = SqliteDatabase.FromBytes(File.ReadAllBytes(mergePath)))
+            {
+                foreach (object[] table in patch.Query("SELECT name FROM sqlite_master WHERE type = 'table'").Rows)
+                {
+                    string name = (string) table[0];
+                    List<string> have = new List<string>();
+                    foreach (object[] column in target.Query("PRAGMA table_info(" + SqliteDatabase.Quote(name) + ")").Rows)
+                    {
+                        have.Add((string) column[1]);
+                    }
+                    List<string> columns = new List<string>();
+                    foreach (object[] column in patch.Query("PRAGMA table_info(" + SqliteDatabase.Quote(name) + ")").Rows)
+                    {
+                        if (have.Contains((string) column[1]))
+                        {
+                            columns.Add(SqliteDatabase.Quote((string) column[1]));
+                        }
+                    }
+                    if (columns.Count == 0)
+                    {
+                        continue;
+                    }
+                    string list = string.Join(", ", columns.ToArray());
+                    string marks = string.Join(", ", new List<string>(columns).ConvertAll<string>(delegate(string c) { return "?"; }).ToArray());
+                    foreach (object[] row in patch.Query("SELECT " + list + " FROM " + SqliteDatabase.Quote(name)).Rows)
+                    {
+                        target.Execute("INSERT OR REPLACE INTO " + SqliteDatabase.Quote(name) + " (" + list + ") VALUES (" + marks + ")", row);
+                        count++;
+                    }
+                }
+            }
+            return count;
         }
 
         // A folder replaced by <folder>.zip of its files.

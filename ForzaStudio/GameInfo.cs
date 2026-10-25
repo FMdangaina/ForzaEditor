@@ -88,6 +88,22 @@ namespace ForzaStudio
             }
         }
 
+        // The game folder set in Tools > Settings > Folders for a source game (its gamedb, wheels and strings
+        // complete the DLC packages of that game), or null when it is not set or holds another game.
+        public static string ConfiguredFolder(ForzaGame game)
+        {
+            string key = null;
+            switch (game)
+            {
+                case ForzaGame.Horizon1: key = "Folder.FH1"; break;
+                case ForzaGame.Horizon2: key = "Folder.FH2"; break;
+                case ForzaGame.Motorsport3: key = "Folder.FM3"; break;
+                case ForzaGame.Motorsport2: key = "Folder.FM2"; break;
+            }
+            string folder = (key == null) ? "" : AppSettings.Get(key, "");
+            return (folder.Length > 0 && Directory.Exists(folder) && Detect(folder) == game) ? folder : null;
+        }
+
         // Short tag for the status bar and music label.
         public static string Tag(ForzaGame game)
         {

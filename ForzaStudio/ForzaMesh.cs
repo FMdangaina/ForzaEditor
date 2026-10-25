@@ -35,6 +35,7 @@ namespace ForzaStudio
     {
         public int[] Indices;
         public string MaterialName;
+        public string Technique;   // shader technique the game runs it with (cockpit files add cockpit_), null = MaterialName
         public string Name;
         public ForzaVertex[] Vertices;
         // Position in the carbin (section, subsection in file order), -1 if unknown: lets an edit
@@ -66,6 +67,8 @@ namespace ForzaStudio
         // highlighted. The vertices themselves are untouched until the edit is applied.
         public Matrix PreviewTransform = Matrix.Identity;
         public bool Highlight;
+        public bool Unused;         // no FM4 model of this kind and LOD uses the material (Fm4MaterialUse): drawn magenta
+        public bool Selected;      // the node selected in the model tree (or one under it): lit up in the viewport
         public bool Hidden;     // "show only this part": the other parts are not drawn
         private ForzaVertex[] displayVertices;
         private bool displaySecondUV;

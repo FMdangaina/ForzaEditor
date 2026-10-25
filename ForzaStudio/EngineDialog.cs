@@ -52,6 +52,8 @@ namespace ForzaStudio
         private double[] shape = new double[0];         // the curve being designed
         private double stockScale;                      // List_TorqueCurve.TorqueScale of the stock curve
         private double stockMaxRpm;
+        private double stockFactor = 1;                // what the game multiplies the stock curve by: the stock parts' TorqueScale (CarEngine.StockMultipliers)
+        private double stockBoost = 1;                 // ... and the stock turbo's MaxScale (counts only for a boosted engine)
         private double stockRedline;
         private double stockDisplacement;
         private double stockIdle;
@@ -59,7 +61,8 @@ namespace ForzaStudio
 
         public EngineSpec Result;
 
-        public EngineDialog(string target, StringTable names, long carId)
+        // initial = what was designed before (the wizard reopens the dialog with it), or null for the source's stock engine.
+        public EngineDialog(string target, StringTable names, long carId, EngineSpec initial)
         {
             this.names = names;
             this.AutoScaleMode = AutoScaleMode.None;
@@ -205,8 +208,13 @@ namespace ForzaStudio
             this.AcceptButton = ok;
 
             this.Fill();
+            if (initial != null)
+            {
+                this.LoadSpec(initial);
+            }
             this.torque.ValueChanged += delegate { this.Rebuild(); };
             this.redline.ValueChanged += delegate { this.Rebuild(); };
+            this.aspiration.SelectedIndexChanged += delegate { this.Rebuild(); };
             this.displacement.ValueChanged += delegate
             {
                 if (!this.filling && this.stockDisplacement > 0 && this.displacement.Value > 0)
@@ -293,6 +301,7 @@ namespace ForzaStudio
             {
                 throw new InvalidOperationException("The car has no stock engine.");
             }
+            CarEngine.StockMultipliers(db, engine, out this.stockFactor, out this.stockBoost);
             SqliteDatabase.Result row = db.Query("SELECT * FROM Data_Engine WHERE EngineID = ?", engine);
             for (int i = 0; i < row.Columns.Length; i++)
             {
@@ -348,6 +357,91 @@ namespace ForzaStudio
             this.Rebuild();
         }
 
+        // The numbers shown are what the game shows for the car (its torque and power screen = the stock curve times the stock parts'
+        // scale and, for a boosted engine, the turbo's MaxScale), so a torque typed or pasted here is the torque seen in game.
+        private double Multiplier()
+        {
+            Choice picked = this.aspiration.SelectedItem as Choice;
+            return this.stockFactor * ((picked != null && picked.Id > 1) ? this.stockBoost : 1.0);
+        }
+
+        // The controls as an earlier Accept left them: the source's values with the spec's changes on top.
+        private void LoadSpec(EngineSpec spec)
+        {
+            this.filling = true;
+            if (spec.Name != null)
+            {
+                this.name.Text = spec.Name;
+            }
+            object value;
+            if (spec.Data.TryGetValue("MediaName", out value))
+            {
+                for (int i = 0; i < this.sound.Items.Count; i++)
+                {
+                    Choice item = this.sound.Items[i] as Choice;
+                    if (item != null && item.Media != null && item.Media == Convert.ToString(value, CultureInfo.InvariantCulture))
+                    {
+                        this.sound.SelectedIndex = i;
+                    }
+                }
+            }
+            if (spec.Data.TryGetValue("ConfigID", out value))
+            {
+                Select(this.layout, Convert.ToInt64(value, CultureInfo.InvariantCulture));
+            }
+            if (spec.Data.TryGetValue("CylinderID", out value))
+            {
+                Select(this.cylinders, Convert.ToInt64(value, CultureInfo.InvariantCulture));
+            }
+            if (spec.Data.TryGetValue("AspirationID_Stock", out value))
+            {
+                Select(this.aspiration, Convert.ToInt64(value, CultureInfo.InvariantCulture));
+            }
+            if (spec.Data.TryGetValue("StockBoost-bar", out value))
+            {
+                Set(this.boost, Real(value));
+            }
+            if (spec.Data.TryGetValue("Compression", out value))
+            {
+                Set(this.compression, Real(value));
+            }
+            if (spec.Data.TryGetValue("EngineMass-kg", out value))
+            {
+                Set(this.mass, Real(value));
+            }
+            if (spec.Data.TryGetValue("Diesel", out value))
+            {
+                this.diesel.Checked = Convert.ToInt64(value, CultureInfo.InvariantCulture) != 0;
+            }
+            if (spec.Data.TryGetValue("Carbureted", out value))
+            {
+                this.carbureted.Checked = Convert.ToInt64(value, CultureInfo.InvariantCulture) != 0;
+            }
+            if (spec.Data.TryGetValue("Rotary", out value))
+            {
+                this.rotary.Checked = Convert.ToInt64(value, CultureInfo.InvariantCulture) != 0;
+            }
+            if (spec.DisplacementCc.HasValue)
+            {
+                Set(this.displacement, spec.DisplacementCc.Value);
+            }
+            if (spec.IdleRpm.HasValue)
+            {
+                Set(this.idle, spec.IdleRpm.Value);
+            }
+            if (spec.RedlineRpm.HasValue)
+            {
+                Set(this.redline, spec.RedlineRpm.Value);
+            }
+            this.torque.Value = Math.Max(this.torque.Minimum, Math.Min(this.torque.Maximum, (decimal) spec.TorqueScale));
+            if (spec.Shape != null && spec.Shape.Length == this.shape.Length)
+            {
+                this.shape = (double[]) spec.Shape.Clone();
+            }
+            this.filling = false;
+            this.Rebuild();
+        }
+
         // The graph from the curve shape, the torque factor and the redline (the curve's rpm stretch with it).
         private void Rebuild()
         {
@@ -360,7 +454,7 @@ namespace ForzaStudio
             if (count >= 2)
             {
                 double ratio = (this.stockRedline > 0) ? (double) this.redline.Value / this.stockRedline : 1.0;
-                power.CurveScale = this.stockScale * (double) this.torque.Value;
+                power.CurveScale = this.stockScale * (double) this.torque.Value * this.Multiplier();
                 power.Redline = (double) this.redline.Value;
                 power.Rpm = new double[count];
                 power.Normalized = (double[]) this.shape.Clone();
@@ -422,7 +516,7 @@ namespace ForzaStudio
         // of the neighbours leak into it) so that every row shows exactly what was typed and the others keep theirs.
         private void ApplyDeltas(double[] delta)
         {
-            double scale = this.stockScale * (double) this.torque.Value;
+            double scale = this.stockScale * (double) this.torque.Value * this.Multiplier();
             int count = this.current.Rpm.Length;
             int rows = delta.Length;
             if (scale <= 0 || count < 2)
@@ -492,7 +586,7 @@ namespace ForzaStudio
         }
 
         // Ctrl+V from Excel/CSV: two columns rpm + N.m at any rpm (the curve between is interpolated onto the table's rows;
-        // rows outside the pasted rpm range stay), or one column of N.m from the selected row down. A header line is skipped.
+        // the redline becomes the last pasted rpm; rows below the first pasted rpm stay), or one column of N.m from the selected row down. A header line is skipped.
         private void PasteTorque()
         {
             if (!Clipboard.ContainsText() || this.table.CurrentRow == null)
@@ -519,6 +613,21 @@ namespace ForzaStudio
                 else if (numbers.Count == 1)
                 {
                     column.Add(numbers[0]);
+                }
+            }
+            if (pairs.Count >= 2)
+            {
+                // The pasted curve ends where the engine ends: the redline becomes its last rpm, so no row of the old curve
+                // is left above it (the table follows the redline).
+                double top = 0;
+                foreach (double[] pair in pairs)
+                {
+                    top = Math.Max(top, pair[0]);
+                }
+                decimal wanted = Math.Max(this.redline.Minimum, Math.Min(this.redline.Maximum, Math.Round((decimal) top / 100m) * 100m));
+                if (wanted != this.redline.Value)
+                {
+                    this.redline.Value = wanted;
                 }
             }
             double[] delta = new double[this.knotTorque.Length];

@@ -473,7 +473,7 @@ namespace ForzaStudio
             }
             try
             {
-                using (EngineDialog dialog = new EngineDialog(this.target, this.names, Convert.ToInt64(this.carRow["Id"], CultureInfo.InvariantCulture)))
+                using (EngineDialog dialog = new EngineDialog(this.target, this.names, Convert.ToInt64(this.carRow["Id"], CultureInfo.InvariantCulture), this.engineSpec))
                 {
                     if (dialog.ShowDialog(this) == DialogResult.OK)
                     {

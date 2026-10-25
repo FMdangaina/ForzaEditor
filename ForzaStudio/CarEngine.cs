@@ -270,31 +270,11 @@ namespace ForzaStudio
             {
                 return;
             }
-            double factor = 1;
-            foreach (string part in new string[] { "Intake", "FuelSystem", "Ignition", "Exhaust", "Valves", "PistonsCompression", "Displacement", "Manifold", "OilCooling", "RestrictorPlate" })
+            double factor, boost;
+            StockMultipliers(db, engine, out factor, out boost);
+            if (Real(db.Scalar("SELECT AspirationID_Stock FROM Data_Engine WHERE EngineID = ?", engine)) <= 1)
             {
-                string table = "List_UpgradeEngine" + part;
-                if (DbIds.HasTable(db, table))
-                {
-                    double s = Real(db.Scalar("SELECT TorqueScale FROM " + table + " WHERE EngineID = ? AND IsStock = 1 LIMIT 1", engine));
-                    factor *= (s > 0) ? s : 1;
-                }
-            }
-            double boost = 1;
-            if (Real(db.Scalar("SELECT AspirationID_Stock FROM Data_Engine WHERE EngineID = ?", engine)) > 1)
-            {
-                foreach (string turbo in new string[] { "TurboSingle", "TurboTwin", "TurboQuad" })
-                {
-                    string table = "List_UpgradeEngine" + turbo;
-                    if (DbIds.HasTable(db, table))
-                    {
-                        double m = Real(db.Scalar("SELECT MaxScale FROM " + table + " WHERE EngineID = ? AND IsStock = 1 LIMIT 1", engine));
-                        if (m > 0)
-                        {
-                            boost = m;
-                        }
-                    }
-                }
+                boost = 1;
             }
             double bestTorque = 0, torqueSpeed = 0, bestPower = 0, powerSpeed = 0;
             for (int i = 0; i < count; i++)
@@ -321,6 +301,36 @@ namespace ForzaStudio
                 bestTorque / 100, torqueSpeed, bestPower / 100, powerSpeed, redline * 2 * Math.PI / 60, carId);
             plan.Add(string.Format(CultureInfo.InvariantCulture, "engine: Data_Car Sim numbers: peak torque {0:0} N.m at {1:0} rpm, peak power {2:0} kW at {3:0} rpm, redline {4:0} rpm",
                 bestTorque, torqueSpeed * 60 / (2 * Math.PI), bestPower / 1000, powerSpeed * 60 / (2 * Math.PI), redline));
+        }
+
+        // What the game multiplies the stock torque curve by to show the car's torque: factor = the TorqueScale of the
+        // engine's stock parts, boost = the stock turbo's MaxScale (1 when the engine has none). The boost only counts
+        // for a turbocharged / supercharged engine (AspirationID_Stock above 1).
+        public static void StockMultipliers(SqliteDatabase db, long engine, out double factor, out double boost)
+        {
+            factor = 1;
+            foreach (string part in new string[] { "Intake", "FuelSystem", "Ignition", "Exhaust", "Valves", "PistonsCompression", "Displacement", "Manifold", "OilCooling", "RestrictorPlate" })
+            {
+                string table = "List_UpgradeEngine" + part;
+                if (DbIds.HasTable(db, table))
+                {
+                    double s = Real(db.Scalar("SELECT TorqueScale FROM " + table + " WHERE EngineID = ? AND IsStock = 1 LIMIT 1", engine));
+                    factor *= (s > 0) ? s : 1;
+                }
+            }
+            boost = 1;
+            foreach (string turbo in new string[] { "TurboSingle", "TurboTwin", "TurboQuad" })
+            {
+                string table = "List_UpgradeEngine" + turbo;
+                if (DbIds.HasTable(db, table))
+                {
+                    double m = Real(db.Scalar("SELECT MaxScale FROM " + table + " WHERE EngineID = ? AND IsStock = 1 LIMIT 1", engine));
+                    if (m > 0)
+                    {
+                        boost = m;
+                    }
+                }
+            }
         }
 
         private static double Real(object value)

@@ -1127,7 +1127,7 @@ namespace ForzaStudio
                 string basis;
                 string best = MaterialSuggestions.BestFor(material.Key, this.MediaName + ".carbin", material.Value, out basis);
                 issue.Problem = string.Format("KO: material {0} has no compatible FM4 material (renders black){1}", material.Key, (best != null) ? string.Format("; best choice {0} ({1})", best, basis) : "");
-                if (best != null && MaterialSuggestions.For(material.Key, this.MediaName + ".carbin", 2).FindIndex(delegate(MaterialSuggestions.Entry e) { return e.Name == best; }) < 0)
+                if (best != null && MaterialSuggestions.For(material.Key, this.MediaName + ".carbin", 2, material.Value).FindIndex(delegate(MaterialSuggestions.Entry e) { return e.Name == best; }) < 0)
                 {
                     Choice c = new Choice();
                     c.Value = best;
@@ -1136,7 +1136,7 @@ namespace ForzaStudio
                     issue.Choices.Add(c);
                 }
                 // Recommended first (green in the review), then the common FM4 materials, then ~ the unusual ones
-                foreach (MaterialSuggestions.Entry entry in MaterialSuggestions.For(material.Key, this.MediaName + ".carbin", 2))
+                foreach (MaterialSuggestions.Entry entry in MaterialSuggestions.For(material.Key, this.MediaName + ".carbin", 2, material.Value))
                 {
                     Choice c = new Choice();
                     c.Value = entry.Name;

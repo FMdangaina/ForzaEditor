@@ -67,6 +67,12 @@ namespace ForzaStudio
         }
 
         // Display images per mesh; GPU copies are rebuilt whenever the device is recreated.
+        // Materials drawn from the game's shader classes (ShaderLook) instead of one flat grey.
+        public bool UseShaderLook = true;
+        private bool drawGlass;
+        private EnvReflection env;
+        private Vector3 bodyColor = new Vector3(140f / 255f, 140f / 255f, 140f / 255f);   // paint materials without a texture
+
         private Dictionary<ForzaMesh, Bitmap> meshImages = new Dictionary<ForzaMesh, Bitmap>();
         private Dictionary<Bitmap, Texture2D> gpuTextures = new Dictionary<Bitmap, Texture2D>();
 
@@ -125,6 +131,11 @@ namespace ForzaStudio
         public void Dispose()
         {
             this.ReleaseGpuTextures();
+            if (this.env != null)
+            {
+                this.env.Dispose();
+                this.env = null;
+            }
             if (this.Graphics != null)
             {
                 this.Graphics.Dispose();
@@ -159,13 +170,41 @@ namespace ForzaStudio
                 if ((node.Checked && (node.Tag != null)) && (node.Tag.GetType() == typeof(ForzaMesh)) && !(node.Tag as ForzaMesh).Hidden)
                 {
                     ForzaMesh mesh = node.Tag as ForzaMesh;
-                    Texture2D texture = (fill == FillMode.Solid) ? this.GetMeshTexture(mesh) : null;
+                    ShaderLookValues look = default(ShaderLookValues);
+                    bool styled = fill == FillMode.Solid && this.UseShaderLook;
+                    if (styled)
+                    {
+                        // engine passes (shadow, depth...) and the black fallback stay visible as plain parts
+                        look = ShaderLook.Look(ShaderLook.For(mesh.Technique ?? mesh.MaterialName));
+                        if (look.Kind == ShaderKind.Pass) { look = ShaderLook.Look(ShaderKind.Generic); }
+                        if (mesh.Unused) { look = ShaderLook.Look(ShaderKind.Missing); }
+                        if ((look.Alpha < 1f) != this.drawGlass) { continue; }
+                    }
+                    else if (this.drawGlass)
+                    {
+                        continue;
+                    }
+                    Texture2D texture = (fill == FillMode.Solid && (!styled || look.UseTexture)) ? this.GetMeshTexture(mesh) : null;
                     this.Ambiance.TextureEnabled = texture != null;
                     this.Ambiance.Texture = texture;
+                    this.Ambiance.Alpha = styled ? look.Alpha : 1f;
+                    this.Ambiance.EmissiveColor = styled ? new Vector3(look.Emissive.X, look.Emissive.Y, look.Emissive.Z) : Vector3.Zero;
+                    this.Ambiance.SpecularColor = styled ? new Vector3(look.Specular.X, look.Specular.Y, look.Specular.Z) : new Vector3(0.55f, 0.55f, 0.55f);
+                    this.Ambiance.SpecularPower = styled ? look.SpecularPower : 25f;
                     if (fill == FillMode.Solid)
                     {
                         this.Ambiance.VertexColorEnabled = false;
-                        this.Ambiance.DiffuseColor = (texture != null) ? Vector3.One : new Vector3(140f / 255f, 140f / 255f, 140f / 255f);
+                        this.Ambiance.DiffuseColor = (texture != null) ? Vector3.One : ((styled && look.Kind == ShaderKind.Paint) ? this.bodyColor : new Vector3(140f / 255f, 140f / 255f, 140f / 255f));
+                        if (styled)
+                        {
+                            this.Ambiance.DiffuseColor *= new Vector3(look.Diffuse.X, look.Diffuse.Y, look.Diffuse.Z);
+                        }
+                        if (mesh.Selected)
+                        {
+                            // Selected in the tree: orange and glowing, whatever the material looks like.
+                            this.Ambiance.DiffuseColor = this.Ambiance.DiffuseColor * new Vector3(1f, 0.6f, 0.2f) + new Vector3(0.25f, 0.1f, 0f);
+                            this.Ambiance.EmissiveColor = new Vector3(0.55f, 0.22f, 0f);
+                        }
                         if (mesh.Highlight)
                         {
                             // Part being edited: Forza red tint.
@@ -181,6 +220,18 @@ namespace ForzaStudio
                         pass.End();
                     }
                     this.Ambiance.End();
+                    float reflect = styled ? ShaderLook.Reflectivity(look.Kind) : 0f;
+                    if (reflect > 0f && this.env != null && this.env.Ready)
+                    {
+                        this.Graphics.RenderState.DepthBias = -0.00005f;
+                        this.env.Draw(this.Graphics, mesh, this.Ambiance.World, this.Camera.View, this.Camera.Projection, reflect);
+                        this.Graphics.RenderState.DepthBias = 0f;
+                        // back to the state the pass was running with (opaque, or the translucent pass)
+                        this.Graphics.RenderState.AlphaBlendEnable = this.drawGlass;
+                        this.Graphics.RenderState.SourceBlend = Blend.SourceAlpha;
+                        this.Graphics.RenderState.DestinationBlend = Blend.InverseSourceAlpha;
+                        this.Graphics.RenderState.DepthBufferWriteEnable = !this.drawGlass;
+                    }
                     this.Ambiance.World = this.Camera.World;
                 }
             }
@@ -258,6 +309,13 @@ namespace ForzaStudio
                     AutoDepthStencilFormat = DepthFormat.Depth24Stencil8,
                     PresentationInterval = PresentInterval.Default
                 };
+                // 4x antialiasing when the card supports it
+                int quality;
+                if (GraphicsAdapter.DefaultAdapter.CheckDeviceMultiSampleType(DeviceType.Hardware, SurfaceFormat.Bgr32, false, MultiSampleType.FourSamples, out quality))
+                {
+                    presentationParameters.MultiSampleType = MultiSampleType.FourSamples;
+                    presentationParameters.MultiSampleQuality = 0;
+                }
                 this.Graphics = new GraphicsDevice(GraphicsAdapter.DefaultAdapter, DeviceType.Hardware, this.Viewport.Handle, presentationParameters);
                 this.Graphics.RenderState.CullMode = CullMode.CullClockwiseFace;
                 this.Ambiance = new BasicEffect(this.Graphics, null);
@@ -276,6 +334,7 @@ namespace ForzaStudio
                 this.Ambiance.DirectionalLight1.DiffuseColor = Vector3.One;
                 this.Ambiance.DirectionalLight1.SpecularColor = new Vector3(0.6f, 0.6f, 0.6f);
                 this.Ambiance.DirectionalLight1.Direction = new Vector3(0f, -1f, 0f);
+                this.env = new EnvReflection(this.Graphics);
                 this.ColoredVertices = new BasicEffect(this.Graphics, null);
                 this.ColoredVertices.Alpha = 1f;
                 this.ColoredVertices.DiffuseColor = Vector3.One;
@@ -300,6 +359,8 @@ namespace ForzaStudio
                     this.Camera.Update((float) this.Viewport.Width, (float) this.Viewport.Height);
                     if (forceRedraw || this.Camera.HasChanged)
                     {
+                        int[] rgb = AppSettings.GetRgb("Viewer.BodyColor", "8C8C8C");   // ForzaStudio.ini [App], Tools > Settings > Viewer
+                        this.bodyColor = new Vector3(rgb[0] / 255f, rgb[1] / 255f, rgb[2] / 255f);
                         this.Ambiance.View = this.Camera.View;
                         this.Ambiance.Projection = this.Camera.Projection;
                         this.Ambiance.World = this.Camera.World;
@@ -309,7 +370,21 @@ namespace ForzaStudio
                         this.ColoredVertices.World = this.Camera.World;
                         this.Graphics.Clear(new Color(75, 75, 70, 255));
                         this.DrawGrid(10, 1f);
+                        this.drawGlass = false;
                         this.DrawCheckedModels(this.Models.Nodes, FillMode.Solid);
+                        if (this.UseShaderLook)
+                        {
+                            // translucent parts last, without writing depth
+                            this.drawGlass = true;
+                            this.Graphics.RenderState.AlphaBlendEnable = true;
+                            this.Graphics.RenderState.SourceBlend = Blend.SourceAlpha;
+                            this.Graphics.RenderState.DestinationBlend = Blend.InverseSourceAlpha;
+                            this.Graphics.RenderState.DepthBufferWriteEnable = false;
+                            this.DrawCheckedModels(this.Models.Nodes, FillMode.Solid);
+                            this.Graphics.RenderState.DepthBufferWriteEnable = true;
+                            this.Graphics.RenderState.AlphaBlendEnable = false;
+                            this.drawGlass = false;
+                        }
                         if (this.ShowWireframe)
                         {
                             this.DrawCheckedModels(this.Models.Nodes, FillMode.WireFrame);

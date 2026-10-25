@@ -9,14 +9,14 @@ namespace ForzaStudio
     // Generic upgrades for a ported car that has none (ROADMAP 14.1f). FH traffic cars come with one
     // stock row per part, most at level 3: FM4 reads that as a race part already fitted, with nothing
     // to buy (FM4 does the same on purpose for its race cars and a few supercars). A part table whose
-    // only row for the car is the stock part gets FM4's Street / Sport / Race levels from the rules in
-    // Upgrades.ini, next to the exe (written with the defaults below when missing). FM4 builds its own
+    // only row for the car is the stock part gets FM4 Street / Sport / Race levels from the rules in
+    // the upgrade sections of ForzaStudio.ini, next to the exe (AppIni; the defaults below when missing). FM4 builds its own
     // upgrades from fixed rules: the defaults are the medians of its 503 cars (fm4dev\Traffic\tools\
     // upgstats). Gear ratios are never changed; engine swaps are made by hand (gamedb or the DLC merge).
     // Drive type conversions follow the user's rule (2026-10-20): AWD -> RWD, FWD -> AWD, RWD none.
     internal sealed class CarUpgrades
     {
-        public const string FileName = "Upgrades.ini";
+        public const string FileName = AppIni.FileName;
 
         public const string DefaultIni =
 @"; Forza Studio - generic upgrades for ported cars (ROADMAP 14.1f)
@@ -24,7 +24,7 @@ namespace ForzaStudio
 ; A ported car whose part table holds only the stock part gets FM4's Street / Sport / Race levels
 ; from these rules. FH traffic cars come that way: one stock row per part, most at level 3, which
 ; FM4 reads as a race part with nothing to buy. FM4 builds its own upgrades from fixed rules; the
-; values below are the medians of its 503 cars. Edit them freely; delete this file to get the
+; values below are the medians of its 503 cars. Edit them freely; Tools > Settings > UPGRADES, Restore, gets the
 ; defaults back. Gear ratios are never changed. Engine swaps are not made here: edit the gamedb
 ; (or the DLC merge file) by hand.
 ;
@@ -441,25 +441,17 @@ MomentInertia = stock, x0.9, x0.8, x0.7
         {
             string path = IniPath;
             string text = DefaultIni;
+            if (!File.Exists(path) && AppIni.Ensure())
+            {
+                notes.Add("upgrades: " + FileName + " written (" + path + ")");
+            }
             if (File.Exists(path))
             {
                 text = File.ReadAllText(path);
             }
             else
             {
-                try
-                {
-                    File.WriteAllText(path, DefaultIni.Replace("\r\n", "\n").Replace("\n", "\r\n"), Encoding.UTF8);
-                    notes.Add("upgrades: " + FileName + " written with the defaults (" + path + ")");
-                }
-                catch (IOException)
-                {
-                    notes.Add("upgrades: " + FileName + " could not be written, defaults used");
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    notes.Add("upgrades: " + FileName + " could not be written, defaults used");
-                }
+                notes.Add("upgrades: " + FileName + " could not be written, defaults used");
             }
             // Sections an older file lacks (added to the defaults later) come from the defaults.
             Dictionary<string, Dictionary<string, string>> sections = ParseIni(text);

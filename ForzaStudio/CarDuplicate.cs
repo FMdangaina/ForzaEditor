@@ -174,6 +174,14 @@ namespace ForzaStudio
             files.Add(ZipManifest.PathFor(this.TargetRoot));
             files.Add(Path.Combine(Path.Combine(this.Media, "cars"), this.SourceMediaName + ".zip"));
             files.AddRange(Directory.GetFiles(Path.Combine(this.Media, "StringTables"), "*.zip"));
+            string audio = Path.Combine(Path.Combine(this.Media, "audio"), "cars");
+            foreach (string tuning in new string[] { Path.Combine(audio, "CarModelTuning.zip"), Path.Combine(Path.Combine(audio, "Engines"), "enginetuning.zip") })
+            {
+                if (File.Exists(tuning))
+                {
+                    files.Add(tuning);
+                }
+            }
             using (SqliteDatabase db = SqliteDatabase.FromBytes(File.ReadAllBytes(files[0])))
             {
                 string thumbnail = db.Scalar("SELECT Thumbnail FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", this.SourceMediaName) as string;
@@ -388,10 +396,21 @@ namespace ForzaStudio
                     db.Execute("UPDATE Data_Car SET " + SqliteDatabase.Quote(pair.Key) + " = ? WHERE Id = ?", pair.Value, this.NewId);
                 }
 
-                // The copy's own engine (CarEngine), before the checks.
+                string soundSource = null, ownEngineMedia = null;
+                // The copy's own engine (CarEngine), before the checks. Its sound is set up the way the port does it: the
+                // engine keeps a MediaName of its own (the car's) and gets an engine tuning file of that name, a copy of the
+                // chosen engine's (or the source's) one, written below.
                 if (this.Engine != null)
                 {
-                    CarEngine.Clone(db, this.NewId, this.Engine, plan);
+                    long engineId = CarEngine.Clone(db, this.NewId, this.Engine, plan);
+                    CarPerformance.Update(db, original, sourceId, this.NewId, this.Data.Keys, plan);
+                    soundSource = Convert.ToString(db.Scalar("SELECT MediaName FROM Data_Engine WHERE EngineID = ?", engineId), CultureInfo.InvariantCulture);
+                    ownEngineMedia = this.NewMediaName;
+                    while (db.Scalar("SELECT EngineID FROM Data_Engine WHERE MediaName = ? COLLATE NOCASE", ownEngineMedia) != null)
+                    {
+                        ownEngineMedia += "_E";
+                    }
+                    db.Execute("UPDATE Data_Engine SET MediaName = ? WHERE EngineID = ?", ownEngineMedia, engineId);
                 }
 
                 // The integrity rules (DbIntegrity, DbIds.CheckCar): nothing is written when one breaks.
@@ -529,6 +548,15 @@ namespace ForzaStudio
                     }
                 }
 
+                // Sound: the game looks a car's audio up by its own name (audio\cars\CarModelTuning.zip: <car>_CMT.xml, where its
+                // engine, exhaust and transmission sit) and its engine's by the engine's MediaName (Engines\enginetuning.zip:
+                // <engine>_ET.xml). The copy gets both; the harmonic tunings and sound banks the tuning names stay the game's.
+                string audioFolder = Path.Combine(Path.Combine(this.Media, "audio"), "cars");
+                string modelPath = Path.Combine(audioFolder, "CarModelTuning.zip");
+                string tuningPath = Path.Combine(Path.Combine(audioFolder, "Engines"), "enginetuning.zip");
+                ForzaZip modelZip = AddCopy(modelPath, this.SourceMediaName + "_CMT.xml", this.NewMediaName + "_CMT.xml", plan, "sound: car model tuning");
+                ForzaZip tuningZip = (ownEngineMedia != null) ? AddCopy(tuningPath, soundSource + "_ET.xml", ownEngineMedia + "_ET.xml", plan, "sound: engine tuning (the engine's setup is " + soundSource + "'s)") : null;
+
                 if (apply)
                 {
                     List<string> locked = new List<string>();
@@ -536,6 +564,14 @@ namespace ForzaStudio
                     targets.Add(dbPath);
                     targets.Add(manifestPath);
                     targets.AddRange(files.Keys);
+                    if (modelZip != null)
+                    {
+                        targets.Add(modelPath);
+                    }
+                    if (tuningZip != null)
+                    {
+                        targets.Add(tuningPath);
+                    }
                     if (thumbnailZipPath != null)
                     {
                         targets.Add(thumbnailZipPath);
@@ -575,6 +611,18 @@ namespace ForzaStudio
                         thumbnailZip.Save(thumbnailZipPath);
                         changed.Add(thumbnailZipPath);
                     }
+                    if (modelZip != null)
+                    {
+                        this.Backup(modelPath);
+                        modelZip.Save(modelPath);
+                        changed.Add(modelPath);
+                    }
+                    if (tuningZip != null)
+                    {
+                        this.Backup(tuningPath);
+                        tuningZip.Save(tuningPath);
+                        changed.Add(tuningPath);
+                    }
                     this.Backup(dbPath);
                     string temp = dbPath + ".tmp";
                     File.WriteAllBytes(temp, db.ToBytes());
@@ -611,6 +659,31 @@ namespace ForzaStudio
                 this.Report.AppendLine(line);
             }
             return plan;
+        }
+
+        // The zip with a copy of one of its files under another name (in memory; null and a plan line when it has no such file).
+        private static ForzaZip AddCopy(string zipPath, string from, string to, List<string> plan, string what)
+        {
+            if (!File.Exists(zipPath))
+            {
+                plan.Add(what + ": " + Path.GetFileName(zipPath) + " not found, nothing added");
+                return null;
+            }
+            ForzaZip zip = new ForzaZip(zipPath);
+            ForzaZip.Entry entry = zip.Find(from);
+            if (entry == null)
+            {
+                plan.Add(what + ": " + from + " is not in " + Path.GetFileName(zipPath) + ", nothing added");
+                return null;
+            }
+            if (zip.Find(to) != null)
+            {
+                plan.Add(what + ": " + to + " is already in " + Path.GetFileName(zipPath));
+                return null;
+            }
+            zip.Add(to, zip.Read(entry));
+            plan.Add(what + ": " + to + " added to " + Path.GetFileName(zipPath) + " (copy of " + from + ")");
+            return zip;
         }
 
         // A row as text, to tell the rows a copy added from the ones it had.

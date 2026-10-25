@@ -57,11 +57,10 @@ namespace ForzaStudio
             }
             ForzaZip carZip = new ForzaZip(carZipPath);
             ForzaZip.Entry logEntry = carZip.Find("port_log.txt");
-            if (logEntry == null)
-            {
-                throw new InvalidOperationException(this.MediaName + " has no port_log.txt: it is not a car Forza Studio ported, so it is not uninstalled.");
-            }
-            string log = Encoding.UTF8.GetString(carZip.Read(logEntry));
+            // A ported car has the port's log; a car made by Duplicate Car has none (its rows are found by its Id, its own engine by
+            // an EngineID above FM4's). Either way only a car above FM4's own ids goes (checked below).
+            bool ported = logEntry != null;
+            string log = ported ? Encoding.UTF8.GetString(carZip.Read(logEntry)) : "";
             string dbPath = Path.Combine(Path.Combine(this.Media, "db"), "gamedb.slt");
             if (apply)
             {
@@ -76,6 +75,10 @@ namespace ForzaStudio
                     throw new InvalidOperationException("The database has no car " + this.MediaName + ".");
                 }
                 long carId = Convert.ToInt64(idValue);
+                if (!ported && carId <= GameIdLimits.Max(ForzaGame.Motorsport4, "Data_Car", "Id"))
+                {
+                    throw new InvalidOperationException(this.MediaName + " has no port_log.txt and its Id " + carId + " is not above FM4's: it is a car of the game itself, so it is not deleted.");
+                }
                 plan.Add(string.Format(CultureInfo.InvariantCulture, "car {0}, id {1}", this.MediaName, carId));
 
                 // What the car points at, read before its rows go.
@@ -175,6 +178,23 @@ namespace ForzaStudio
                     }
                     shared += this.Delete(db, table, SqliteDatabase.Quote(column) + " = " + id, apply, plan);
                 }
+                if (!ported)
+                {
+                    // The own engine of a copy (Data_Engine above FM4's ids, no car left on it).
+                    long lastEngine = GameIdLimits.Max(ForzaGame.Motorsport4, "Data_Engine", "EngineID");
+                    foreach (long engine in engines)
+                    {
+                        string user = StillUsed(db, "EngineID", engine);
+                        if (engine > lastEngine && user == null)
+                        {
+                            shared += this.Delete(db, "Data_Engine", "EngineID = " + engine, apply, plan);
+                        }
+                        else if (user != null)
+                        {
+                            plan.Add(string.Format(CultureInfo.InvariantCulture, "  kept Data_Engine EngineID = {0}: {1}", engine, user));
+                        }
+                    }
+                }
                 // Engine part rows the log does not list (the aspiration conversions CarUpgrades adds to
                 // a naturally aspirated engine, 14.1f): every List_UpgradeEngine* row of an engine whose
                 // Data_Engine row went above.
@@ -252,12 +272,15 @@ namespace ForzaStudio
                 string engines4 = Path.Combine(Path.Combine(Path.Combine(Path.Combine(this.Media, "audio"), "Cars"), "Engines"), "enginetuning.zip");
                 foreach (KeyValuePair<long, string> engine in engineMedia)
                 {
-                    if (engine.Value != null && db.Scalar("SELECT EngineID FROM Data_Engine WHERE EngineID = ?", engine.Key) == null)
+                    // Only when the engine went AND no other engine has that MediaName (a copy made to play another car's
+                    // sound has its MediaName: that tuning file is the other car's).
+                    if (engine.Value != null && db.Scalar("SELECT EngineID FROM Data_Engine WHERE EngineID = ?", engine.Key) == null
+                        && Convert.ToInt64(db.Scalar("SELECT count(*) FROM Data_Engine WHERE MediaName = ? COLLATE NOCASE", engine.Value)) == 0)
                     {
                         this.RemoveEntry(engines4, engine.Value + "_ET.xml", changed, plan);
                     }
                 }
-                if (Regex.IsMatch(log, "^car model tuning " + Regex.Escape(this.MediaName) + "_CMT.xml added", RegexOptions.Multiline | RegexOptions.IgnoreCase))
+                if (!ported || Regex.IsMatch(log, "^car model tuning " + Regex.Escape(this.MediaName) + "_CMT.xml added", RegexOptions.Multiline | RegexOptions.IgnoreCase))
                 {
                     this.RemoveEntry(Path.Combine(Path.Combine(Path.Combine(this.Media, "audio"), "Cars"), "CarModelTuning.zip"), this.MediaName + "_CMT.xml", changed, plan);
                 }
@@ -270,7 +293,17 @@ namespace ForzaStudio
                         this.RemoveEntry(Path.Combine(this.TargetRoot, thumb.Groups[2].Value), thumb.Groups[1].Value, changed, plan);
                     }
                 }
-                plan.Add("kept: harmonic tunings and sound banks the port brought (other engine tunings may play them)");
+                if (!ported && thumbnail != null)
+                {
+                    // A copy's thumbnail (Thumbnail_<id>.xds in the zip the source's is in), when no other car shows the same file.
+                    GamePaths.GameFile from = GamePaths.Locate(this.TargetRoot, thumbnail);
+                    string file = Path.GetFileName(thumbnail.Replace('\\', '/'));
+                    if (from != null && from.InZip && Convert.ToInt64(db.Scalar("SELECT count(*) FROM Data_Car WHERE Thumbnail LIKE ?", "%" + file)) == 0)
+                    {
+                        this.RemoveEntry(from.ZipPath, from.EntryName, changed, plan);
+                    }
+                }
+                plan.Add("kept: harmonic tunings and sound banks (other engine tunings may play them)");
 
                 if (!apply)
                 {

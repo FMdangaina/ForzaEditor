@@ -44,6 +44,12 @@ namespace ForzaStudio
         // brake materials only: the shader table covers car models.
         public static List<Entry> For(string material, string fileName, int type)
         {
+            return For(material, fileName, type, null);
+        }
+
+        // parts: the sections (parts) the material sits on; the materials FM4 cars give those parts are offered first, with their number of cars.
+        public static List<Entry> For(string material, string fileName, int type, List<string> parts)
+        {
             List<Entry> entries = new List<Entry>();
             if (type == 1)
             {
@@ -55,8 +61,8 @@ namespace ForzaStudio
             }
             List<string> similar = new List<string>();   // most similar first, as in the table
             Dictionary<string, int> scores = Scores(material, similar);
-            Add(entries, CarPort.SuggestMaterial(material, fileName), Group.Recommended, "port table", fileName);
-            Add(entries, ByName(material), Group.Recommended, "by name", fileName);
+            // no hand-made table or name rule (user 2026-10-25): what FM4 cars give the part(s), by count, then the similar shaders
+            AddPartUse(entries, material, fileName, parts);
             int shown = 0;
             foreach (string name in similar)
             {
@@ -80,6 +86,46 @@ namespace ForzaStudio
                 Add(entries, name, Group.Unusual, (score != null) ? score + ", " + rare : rare, fileName);
             }
             return entries;
+        }
+
+        // The materials FM4 car models give the part(s) in this kind of file (Fm4MaterialUse.PartMaterials), most used
+        // first, as green suggestions; nothing is chosen for the user.
+        private static void AddPartUse(List<Entry> entries, string material, string fileName, List<string> parts)
+        {
+            if (parts == null || parts.Count == 0)
+            {
+                return;
+            }
+            string file = (fileName ?? "").ToLowerInvariant();
+            string list = file.EndsWith("_cockpit.carbin") ? "car_cockpit" : (file.EndsWith("_lod0.carbin") ? "car_LOD0" : "car_LOD1-5");
+            Dictionary<string, int> total = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (string part in parts)
+            {
+                foreach (KeyValuePair<string, int> use in Fm4MaterialUse.PartMaterials(list, part))
+                {
+                    int cars;
+                    total.TryGetValue(use.Key, out cars);
+                    total[use.Key] = cars + use.Value;
+                }
+            }
+            List<KeyValuePair<string, int>> order = new List<KeyValuePair<string, int>>(total);
+            order.Sort(delegate(KeyValuePair<string, int> a, KeyValuePair<string, int> b)
+            {
+                int c = b.Value.CompareTo(a.Value);
+                return (c != 0) ? c : string.CompareOrdinal(a.Key, b.Key);
+            });
+            int shown = 0;
+            foreach (KeyValuePair<string, int> use in order)
+            {
+                if (shown == 8)
+                {
+                    break;
+                }
+                if (use.Key != material && Add(entries, use.Key, Group.Recommended, use.Value + " FM4 models on " + string.Join(" ", parts.ToArray()), fileName))
+                {
+                    shown++;
+                }
+            }
         }
 
         // The name a choice stands for: an Entry's name, or the first word of a typed or listed text.
@@ -179,7 +225,7 @@ namespace ForzaStudio
             }
             if (name.Contains("orange"))
             {
-                return "lights_amber";   // as the port table's indicators and drlinlorange
+                return "detail_glass_amber";   // as the port table's indicators and drlinlorange
             }
             if (Regex.IsMatch(name, "^(fullbeam|hidhead|oldhead|xenonhead|fogwhite|drl.*white.*)$"))
             {
@@ -206,12 +252,11 @@ namespace ForzaStudio
             return Array.IndexOf(Candidates.Split(' '), material) >= 0;
         }
 
-        // The best choice for a material the port table does not cover, with why: the name rule, the most
-        // similar shader (score 50 and up), else the material FM4 uses most on its parts (BySection; for a
-        // material on several parts, the one most of them agree on). Null when there is none.
+        // The first suggestion for a material, with why: what FM4 cars give the part(s) it sits on, else the most similar
+        // shader (score 50 and up). Only shown, never applied (the port decides nothing). Null when there is none.
         public static string BestFor(string material, string fileName, List<string> sections, out string basis)
         {
-            foreach (Entry entry in For(material, fileName, 2))
+            foreach (Entry entry in For(material, fileName, 2, sections))
             {
                 if (entry.Group == Group.Recommended)
                 {
@@ -220,60 +265,9 @@ namespace ForzaStudio
                 }
                 break;
             }
-            Dictionary<string, List<string>> votes = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-            string best = null;
-            foreach (string section in sections)
-            {
-                string name;
-                if (!BySection.TryGetValue(section, out name))
-                {
-                    continue;
-                }
-                if (!votes.ContainsKey(name))
-                {
-                    votes[name] = new List<string>();
-                }
-                votes[name].Add(section);
-                if (best == null || votes[name].Count > votes[best].Count)
-                {
-                    best = name;
-                }
-            }
-            if (best == null)
-            {
-                basis = null;
-                return null;
-            }
-            basis = "the FM4 cars' most used on " + string.Join(" ", votes[best].ToArray());
-            return CarPort.LodVariant(best, fileName);
+            basis = null;
+            return null;
         }
-
-        // The material FM4 cars use most on each part (section name), in all their models: sections with
-        // at least 150 section/material pairs in the 313 cars' main, _lod0 and _cockpit files (2026-10-18).
-        private static readonly Dictionary<string, string> BySection = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            { "a_pillar", "body" }, { "body", "body" }, { "bumperFa", "body" }, { "bumperFb", "body" },
-            { "bumperFc", "body" }, { "bumperFd", "body" }, { "bumperFe", "body" }, { "bumperFf", "body" },
-            { "bumperFrace", "chrome" }, { "bumperFrameF", "bumper_frame" }, { "bumperFrameR", "bumper_frame" },
-            { "bumperRa", "body" }, { "bumperRb", "body" }, { "bumperRc", "body" }, { "bumperRd", "body" },
-            { "bumperRrace", "chrome" }, { "cagerace", "rubber_trim" }, { "exhausta", "black" },
-            { "exhaustLa", "black" }, { "exhaustRa", "black" }, { "fuel_max", "gauge_needle" },
-            { "fuel_mid", "gauge_needle" }, { "fuel_min", "gauge_needle" }, { "glassF", "window" },
-            { "glassLF", "window" }, { "glassLHL", "glass" }, { "glassLR", "window" },
-            { "glassLTL", "detail_glass_red" }, { "glassR", "window" }, { "glassRF", "window" },
-            { "glassRHL", "glass" }, { "glassRR", "window" }, { "glassRTL", "detail_glass_red" },
-            { "headlightL", "head_light" }, { "headlightLdown", "body" }, { "headlightLup", "body" },
-            { "headlightR", "head_light" }, { "headlightRdown", "body" }, { "headlightRup", "body" },
-            { "hooda", "body" }, { "hoodb", "body" }, { "hoodCIrace", "body" }, { "hoodPSrace", "black" },
-            { "interior", "chrome" }, { "mirrorL", "body" }, { "mirrorR", "body" }, { "seatL", "interior" },
-            { "seatR", "interior" }, { "skirtLa", "body" }, { "skirtLb", "body" }, { "skirtLc", "body" },
-            { "skirtRa", "body" }, { "skirtRb", "body" }, { "skirtRc", "body" }, { "speed_max", "gauge_needle" },
-            { "speed_mid", "gauge_needle" }, { "speed_min", "gauge_needle" }, { "steering_wheel", "interior" },
-            { "tach_max", "gauge_needle" }, { "tach_mid", "gauge_needle" }, { "tach_min", "gauge_needle" },
-            { "taillightL", "textured_reflector" }, { "taillightR", "textured_reflector" }, { "trunk", "body" },
-            { "undercarriagea", "undercarriage" }, { "wheel", "inner_rim" }, { "winga", "body_2" },
-            { "wingb", "body" }, { "wingrace", "chrome" },
-        };
 
         // Every material name of FM4's car shader library (shaders_v16), cockpit_ taken off (a cockpit model
         // names leather, the game draws cockpit_leather), render passes and debug views left out.

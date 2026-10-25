@@ -25,13 +25,16 @@ namespace ForzaStudio
             Makes,
             Countries,
             PartMakers,
-            Lists,
             Tables
         }
 
         private Panel pnlGameDb;
         private ToolStripLabel lblDbReference;
         private ToolStripButton btnDbOpenPath;
+        private ToolStripButton btnDbDlc;
+        // The DLC packages installed for a game, read once per session (turning the DLC button on again rescans).
+        private static readonly Dictionary<ForzaGame, List<InstalledDlc>> dlcCache = new Dictionary<ForzaGame, List<InstalledDlc>>();
+        private List<InstalledDlc> dlcMerged;       // the packages merged into the database shown, or null
         private string focusedGamePath;
         private ToolStripLabel lblDbLanguage;
         private ToolStripDropDownButton cmbDbLanguage;
@@ -77,11 +80,6 @@ namespace ForzaStudio
         private TabControl tabPartMaker;
         private PropertyGrid pgPartMaker;
         private RelatedPanel relPartMaker;
-        private TabControl tabGeneric;
-        private PropertyGrid pgGeneric;
-        private RelatedPanel relGeneric;
-        private ToolStripDropDownButton btnDbList;
-        private string dbListTable = "Data_Drivetrain";
         private ListHeader hdrMake;
         private ListHeader hdrCountry;
         private ListHeader hdrPartMaker;
@@ -101,12 +99,12 @@ namespace ForzaStudio
 
             ToolStrip bar = new ToolStrip();
             bar.GripStyle = ToolStripGripStyle.Hidden;
-            string[] names = { "Cars", "Wheels", "Tracks", "Events", "Engines", "Makes", "Countries", "Manufacturers", "Lists", "Tables" };
+            string[] names = { "Cars", "Wheels", "Tracks", "Events", "Engines", "Makes", "Countries", "Manufacturers", "Tables" };
             this.btnDbSections = new ToolStripButton[names.Length];
             for (int i = 0; i < names.Length; i++)
             {
                 DbSection section = (DbSection) i;
-                // Groups: the game's main content | its id lists | the raw tables.
+                // Groups: the game's main content | the raw tables.
                 if (section == DbSection.Engines || section == DbSection.Tables)
                 {
                     bar.Items.Add(new ToolStripSeparator());
@@ -135,6 +133,11 @@ namespace ForzaStudio
             this.btnDbOpenPath = new ToolStripButton("Open Linked File", null, delegate { this.OpenGamePath(this.focusedGamePath); });
             this.btnDbOpenPath.Enabled = false;
             bar.Items.Add(this.btnDbOpenPath);
+            this.btnDbDlc = new ToolStripButton("DLC", null, delegate { this.ToggleDbDlc(); });
+            this.btnDbDlc.CheckOnClick = true;
+            this.btnDbDlc.Checked = AppSettings.Get("Db.Dlc", "1") != "0";
+            this.btnDbDlc.ToolTipText = "Shows the DLC packages installed for this game (Xenia content folder, Tools > Settings): their cars and tracks join the lists. The view is read-only; turn it off to edit the game's own database.";
+            bar.Items.Add(this.btnDbDlc);
             ToolStripButton check = new ToolStripButton("Check References", null, delegate { this.CheckDbReferences(); });
             check.ToolTipText = "Checks that every id column points at an existing row (cars, engines, bodies, upgrades, tracks, events...)";
             bar.Items.Add(check);
@@ -254,8 +257,6 @@ namespace ForzaStudio
             this.tabMake = this.NewListTabs(out this.pgMake, out this.relMake, "Make", "Cars and parts");
             this.tabCountry = this.NewListTabs(out this.pgCountry, out this.relCountry, "Country", "Makes and cars");
             this.tabPartMaker = this.NewListTabs(out this.pgPartMaker, out this.relPartMaker, "Manufacturer", "Parts");
-            this.tabGeneric = this.NewListTabs(out this.pgGeneric, out this.relGeneric, "Row", "Used by");
-            this.BuildListPicker(bar);
             this.hdrMake = new ListHeader(2);
             this.hdrCountry = new ListHeader(1);
             this.hdrPartMaker = new ListHeader(1);
@@ -284,7 +285,6 @@ namespace ForzaStudio
             this.pnlDbContent.Controls.Add(TabHost(this.tabMake, this.hdrMake.Panel));
             this.pnlDbContent.Controls.Add(TabHost(this.tabCountry, this.hdrCountry.Panel));
             this.pnlDbContent.Controls.Add(TabHost(this.tabPartMaker, this.hdrPartMaker.Panel));
-            this.pnlDbContent.Controls.Add(TabHost(this.tabGeneric, null));
             this.pnlDbContent.Controls.Add(this.gridTable);
             this.pnlDbContent.Controls.Add(this.lblDbHint);
 
@@ -471,13 +471,6 @@ namespace ForzaStudio
                 case "List_PartManufacturer":
                     return DbSection.PartMakers;
             }
-            foreach (string[] list in GenericLists)
-            {
-                if (string.Equals(list[1], table, StringComparison.OrdinalIgnoreCase))
-                {
-                    return DbSection.Lists;
-                }
-            }
             return null;
         }
 
@@ -495,10 +488,6 @@ namespace ForzaStudio
             bool byId = section != null && key != null && value is long && info.Columns.Count > 0 && string.Equals(info.Columns[0].Name, key, StringComparison.OrdinalIgnoreCase);
             if (byId)
             {
-                if (section == DbSection.Lists)
-                {
-                    this.dbListTable = table;
-                }
                 this.SelectDbItem(section.Value, (long) value);
             }
             else
@@ -623,9 +612,128 @@ namespace ForzaStudio
                 this.dbClassColors = this.gameDb.ClassColors();
                 this.UpdateDbChanges();
                 this.SelectDbSection(this.dbSection);
+                this.StartDlcMerge(entry, opened);
             }
             this.ShowView(this.pnlGameDb);
         }
+
+        #region Installed DLC
+
+        // The game's own gamedb.slt (not a patch) of a known game: its installed DLC packages are read in the
+        // background and merged into the view when done (InstalledDlc).
+        private void StartDlcMerge(ForzaZip.Entry entry, GameDatabase opened)
+        {
+            this.dlcMerged = null;
+            this.btnDbDlc.Text = "DLC";
+            if (!this.btnDbDlc.Checked || entry.IsModified || this.GameRoot == null)
+            {
+                return;
+            }
+            string name = (entry.FullPath ?? entry.Name).Replace('\\', '/');
+            if (!name.EndsWith("/db/gamedb.slt", StringComparison.OrdinalIgnoreCase) || name.IndexOf("/patch/", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return;
+            }
+            ForzaGame game = GameInfo.Detect(this.GameRoot);
+            string folder = (game == ForzaGame.Unknown) ? null : InstalledDlc.ContentFolder(game);
+            if (folder == null)
+            {
+                return;
+            }
+            List<InstalledDlc> cached;
+            if (dlcCache.TryGetValue(game, out cached))
+            {
+                this.FinishDlcMerge(opened, cached);
+                return;
+            }
+            this.SetStatus("Reading the DLC packages installed for " + GameInfo.Name(game) + "...");
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                List<InstalledDlc> list = null;
+                try
+                {
+                    list = InstalledDlc.Scan(game, folder, delegate(string package)
+                    {
+                        this.PostToForm(delegate { this.SetStatus("Reading DLC package " + package + "..."); });
+                    });
+                }
+                catch (Exception)
+                {
+                }
+                if (list != null)
+                {
+                    this.PostToForm(delegate
+                    {
+                        dlcCache[game] = list;
+                        this.FinishDlcMerge(opened, list);
+                    });
+                }
+            });
+        }
+
+        private void PostToForm(MethodInvoker action)
+        {
+            try
+            {
+                this.BeginInvoke(action);
+            }
+            catch (InvalidOperationException)
+            {
+                // the window is closed
+            }
+        }
+
+        // Merges the packages into the database the user is looking at, if it is still the one scanned for and has no edits.
+        private void FinishDlcMerge(GameDatabase opened, List<InstalledDlc> list)
+        {
+            if (this.gameDb != opened || opened.Changes.Count != 0 || this.gameDbEntry == null || this.gameDbEntry.IsModified)
+            {
+                return;
+            }
+            StringBuilder report = new StringBuilder();
+            int merged = InstalledDlc.Apply(opened, list, report);
+            this.btnDbDlc.ToolTipText = "Installed DLC packages (the view is read-only, turn the button off to edit):\n" + report.ToString().TrimEnd();
+            if (merged == 0)
+            {
+                this.SetStatus("No installed DLC package with database rows was found for this game.");
+                return;
+            }
+            this.dlcMerged = list;
+            this.btnDbDlc.Text = "DLC (" + merged + ")";
+            this.ApplyStrings(this.cmbDbLanguage.Visible ? this.cmbDbLanguage.Text : null, false);
+            DbView view = this.CaptureDbView();
+            this.SelectDbSection(this.dbSection);
+            this.RestoreDbView(view);
+            this.SetStatus(string.Format(CultureInfo.InvariantCulture, "{0} DLC package{1} merged into the view: {2} cars, {3} tracks (read-only; turn the DLC button off to edit the game's database).",
+                merged, (merged == 1) ? "" : "s", opened.DlcCars.Count, opened.DlcTracks.Count));
+        }
+
+        private void ToggleDbDlc()
+        {
+            AppSettings.Set("Db.Dlc", this.btnDbDlc.Checked ? "1" : "0");
+            if (this.btnDbDlc.Checked)
+            {
+                dlcCache.Clear();
+            }
+            if (this.gameDb == null || this.gameDbEntry == null)
+            {
+                return;
+            }
+            if (this.gameDb.Changes.Count > 0)
+            {
+                this.btnDbDlc.Checked = !this.btnDbDlc.Checked;
+                AppSettings.Set("Db.Dlc", this.btnDbDlc.Checked ? "1" : "0");
+                MessageBox.Show(this, "The database has pending changes. Save them (File > Save) before switching the DLC view.", "DLC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            // The same file again, from the bytes the view was opened with.
+            ForzaZip.Entry entry = this.gameDbEntry;
+            byte[] data = this.gameDbBytes;
+            this.gameDbEntry = null;
+            this.ShowGameDb(entry, data);
+        }
+
+        #endregion
 
         // The languages found in GAME:\Media\StringTables; the last one picked (IT first) is used.
         private void LoadDbStrings()
@@ -675,12 +783,16 @@ namespace ForzaStudio
             StringTable table = null;
             if (language != null)
             {
-                string key = this.GameRoot + "|" + language;
+                string key = this.GameRoot + "|" + language + ((this.dlcMerged != null) ? "|dlc" : "");
                 if (!this.stringTables.TryGetValue(key, out table))
                 {
                     try
                     {
                         table = StringTable.Load(this.GameRoot, language);
+                        if (this.dlcMerged != null)
+                        {
+                            InstalledDlc.ApplyStrings(table, this.dlcMerged, language);
+                        }
                     }
                     catch (Exception)
                     {
@@ -765,7 +877,7 @@ namespace ForzaStudio
         // Every edit: the database file becomes the pending content of its entry (saved with File > Save).
         private void OnGameDbEdited(object sender, EventArgs e)
         {
-            if (this.gameDb == null || this.zip == null)
+            if (this.gameDb == null || this.zip == null || this.gameDb.ReadOnly)
             {
                 return;
             }
@@ -829,7 +941,7 @@ namespace ForzaStudio
         #region List
 
         // The table each section needs; a DLC patch database may have only some of them.
-        private static readonly string[] SectionTables = { "Data_Car", "List_Wheels", "Tracks", "Events", "Data_Engine", "List_CarMake", "List_Country", "List_PartManufacturer", null, null };
+        private static readonly string[] SectionTables = { "Data_Car", "List_Wheels", "Tracks", "Events", "Data_Engine", "List_CarMake", "List_Country", "List_PartManufacturer", null };
 
         private bool HasSection(DbSection section)
         {
@@ -848,7 +960,6 @@ namespace ForzaStudio
             }
             this.dbSection = section;
             this.btnWheelFilter.Visible = section == DbSection.Wheels;
-            this.btnDbList.Visible = section == DbSection.Lists;
             for (int i = 0; i < this.btnDbSections.Length; i++)
             {
                 this.btnDbSections[i].Checked = i == (int) section;
@@ -865,6 +976,7 @@ namespace ForzaStudio
             {
                 case DbSection.Cars:
                     this.AddDbColumns(new string[] { "Id", "Make", "Model", "Media name", "Year", "Class" }, new int[] { 40, 70, 110, 125, 38, 55 });
+                    this.AddDlcColumn(this.gameDb.DlcCars);
                     foreach (object[] row in this.gameDb.Sql.Query(CarListSql).Rows)
                     {
                         this.dbItems.Add(this.CarItem(row));
@@ -883,10 +995,11 @@ namespace ForzaStudio
 
                 case DbSection.Tracks:
                     this.AddDbColumns(new string[] { "Id", "Track", "Layout", "Media name", "Length (m)", "Reverse" }, new int[] { 40, 120, 110, 85, 60, 50 });
+                    this.AddDlcColumn(this.gameDb.DlcTracks);
                     foreach (object[] row in this.gameDb.Sql.Query("SELECT id, MediaName, Length, IsReverse, ShortDisplayName, DisplayName FROM Tracks ORDER BY MediaName, id").Rows)
                     {
                         string track = this.gameDb.Text("Tracks", "ShortDisplayName", row[4]) ?? GameDatabase.FormatValue(row[1]);
-                        this.dbItems.Add(NewItem(row[0], track, this.gameDb.Text("Tracks", "DisplayName", row[5]) ?? "", row[1], row[2], YesNoText(row[3])));
+                        this.dbItems.Add(NewItem(row[0], track, this.gameDb.Text("Tracks", "DisplayName", row[5]) ?? "", row[1], row[2], YesNoText(row[3]), DlcName(this.gameDb.DlcTracks, row[0])));
                     }
                     break;
 
@@ -972,9 +1085,6 @@ namespace ForzaStudio
                     }
                     break;
 
-                case DbSection.Lists:
-                    this.FillGenericList();
-                    break;
 
                 case DbSection.Tables:
                     this.AddDbColumns(new string[] { "Table", "Rows" }, new int[] { 260, 70 });
@@ -1022,7 +1132,22 @@ namespace ForzaStudio
             string make = this.gameDb.LookupName("make.short", row[1]) ?? GameDatabase.FormatValue(row[1]);
             string pi = (row[5] is double || row[5] is long) ? " " + Math.Round((Convert.ToDouble(row[5]) * 1000) + 100).ToString(CultureInfo.InvariantCulture) : "";
             string model = this.gameDb.Text("Data_Car", "DisplayName", row[6]) ?? "";
-            return NewItem(row[0], make, model, row[2], row[3], (this.gameDb.LookupName("class.short", row[4]) ?? "") + pi);
+            return NewItem(row[0], make, model, row[2], row[3], (this.gameDb.LookupName("class.short", row[4]) ?? "") + pi, DlcName(this.gameDb.DlcCars, row[0]));
+        }
+
+        // The "DLC" column of the cars and tracks lists, only when a package added rows.
+        private void AddDlcColumn(Dictionary<long, string> marks)
+        {
+            if (marks.Count > 0)
+            {
+                this.lvDb.Columns.Add("DLC", 130);
+            }
+        }
+
+        private static string DlcName(Dictionary<long, string> marks, object id)
+        {
+            string pack;
+            return (id is long && marks.TryGetValue((long) id, out pack)) ? pack : "";
         }
 
         private void RefreshCarItem(long id)
@@ -1175,10 +1300,6 @@ namespace ForzaStudio
                         this.ShowListItem(this.tabPartMaker, this.pgPartMaker, this.relPartMaker, this.hdrPartMaker, "List_PartManufacturer", partMakerId, this.gameDb.PartMakerRelated(partMakerId), "PartManufacturer", PartLogoSql);
                         break;
 
-                    case DbSection.Lists:
-                        this.ShowGenericItem(long.Parse(item.Text, CultureInfo.InvariantCulture));
-                        break;
-
                     case DbSection.Tables:
                         string filter;
                         this.ShowTableRows((string) item.Tag, this.tableFilters.TryGetValue((string) item.Tag, out filter) ? filter : null);
@@ -1295,6 +1416,7 @@ namespace ForzaStudio
         private PictureBox picCarLogo;
         private Label lblCarFiles;
         private Button btnCarFiles;
+        private Button btnCarDelete;
         private ToolTip carHeaderTip = new ToolTip();
 
         // Thumbnail and make logo (from their GAME:\ paths) and the way to the car's model files.
@@ -1331,7 +1453,18 @@ namespace ForzaStudio
             this.btnCarWheel.AutoSize = true;
             this.btnCarWheel.Click += delegate { this.JumpToWheel(); };
             header.Controls.Add(this.btnCarWheel);
-            header.Layout += delegate { this.btnCarWheel.Location = new Point(this.btnCarFiles.Right + 6, this.btnCarFiles.Top); };
+            this.btnCarDelete = new Button();
+            this.btnCarDelete.Text = "Delete Car...";
+            this.btnCarDelete.AutoSize = true;
+            this.btnCarDelete.Enabled = false;
+            this.btnCarDelete.Click += delegate { this.DeleteCar(); };
+            this.carHeaderTip.SetToolTip(this.btnCarDelete, "Takes a car that was added to this game (ported or duplicated) out of it: rows, strings and files. Cars of FM4 itself cannot be deleted.");
+            header.Controls.Add(this.btnCarDelete);
+            header.Layout += delegate
+            {
+                this.btnCarWheel.Location = new Point(this.btnCarFiles.Right + 6, this.btnCarFiles.Top);
+                this.btnCarDelete.Location = new Point(this.btnCarWheel.Right + 6, this.btnCarFiles.Top);
+            };
             header.Resize += delegate { this.lblCarFiles.Width = Math.Max(100, header.Width - this.lblCarFiles.Left - 6); };
             return header;
         }
@@ -1344,6 +1477,7 @@ namespace ForzaStudio
             string root = this.GameRoot;
             object wheel = this.gameDb.Sql.Scalar("SELECT StockWheelID FROM Data_Car WHERE Id = ?", id);
             this.btnCarWheel.Enabled = wheel is long && this.gameDb.HasTable("List_Wheels");
+            this.btnCarDelete.Enabled = false;
             SetPicture(this.picCarThumb, this.LoadGameImage(row[0] as string));
             SetPicture(this.picCarLogo, this.LoadGameImage(row[1] as string));
             string media = row[2] as string;
@@ -1358,6 +1492,7 @@ namespace ForzaStudio
                 (car != null) ? car.Substring(root.Length).TrimStart('\\') : "Media\\Cars\\" + media + " not found (.zip or folder)");
             this.carHeaderTip.SetToolTip(this.lblCarFiles, this.lblCarFiles.Text);
             this.btnCarFiles.Enabled = car != null;
+            this.btnCarDelete.Enabled = car != null && id > GameIdLimits.Max(ForzaGame.Motorsport4, "Data_Car", "Id");
         }
 
         private static void SetPicture(PictureBox box, Bitmap image)
@@ -1547,6 +1682,108 @@ namespace ForzaStudio
             }
             this.SelectEntry(entry.Name);
             return true;
+        }
+
+        // Takes a car that was added to the game (ported, or made by Duplicate Car) out of the open game folder again
+        // (CarUninstall): the plan first, in a window, then the user confirms; every file is backed up first.
+        private void DeleteCar()
+        {
+            string root = this.GameRoot;
+            string media = (this.gameDb == null || this.dbCarId < 0) ? null : this.gameDb.Sql.Scalar("SELECT MediaName FROM Data_Car WHERE Id = ?", this.dbCarId) as string;
+            if (root == null || media == null)
+            {
+                return;
+            }
+            if (this.zip != null && this.zip.IsModified)
+            {
+                MessageBox.Show(this, "This window has changes not saved yet. Save or discard them first: deleting the car rewrites the game's database and string tables.", "Delete Car", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            CarUninstall uninstall = new CarUninstall();
+            uninstall.TargetRoot = root;
+            uninstall.MediaName = media;
+            List<string> plan;
+            try
+            {
+                plan = uninstall.Plan();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Delete Car", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            string intro = "Delete " + media + " from\n" + root + "\n\nThis is what goes (only what belongs to this car and no other car uses). Every file is backed up first to\n" + uninstall.BackupFolder;
+            if (!ConfirmText("Delete Car", intro, string.Join("\r\n", plan.ToArray())))
+            {
+                return;
+            }
+            if (CarPortForm.XeniaRunning())
+            {
+                MessageBox.Show(this, "Close Xenia first: it keeps the game's files open.", "Delete Car", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            try
+            {
+                uninstall.Report = new StringBuilder();
+                uninstall.Run();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Delete Car", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            MessageBox.Show(this, media + " was deleted.", "Delete Car", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            this.ReloadAfterGameChange(root);
+        }
+
+        // A window with a text (a plan) to read and OK / Cancel; true on OK.
+        private bool ConfirmText(string title, string intro, string text)
+        {
+            using (Form form = new Form())
+            {
+                form.Text = title;
+                form.ClientSize = new Size(760, 520);
+                form.StartPosition = FormStartPosition.CenterParent;
+                form.FormBorderStyle = FormBorderStyle.Sizable;
+                form.MinimizeBox = false;
+                form.ShowInTaskbar = false;
+                Label label = new Label();
+                label.Dock = DockStyle.Top;
+                label.Height = 96;
+                label.Padding = new Padding(8);
+                label.Text = intro;
+                TextBox box = new TextBox();
+                box.Multiline = true;
+                box.ReadOnly = true;
+                box.ScrollBars = ScrollBars.Both;
+                box.WordWrap = false;
+                box.Dock = DockStyle.Fill;
+                box.Font = new Font(FontFamily.GenericMonospace, 8.5f);
+                box.Text = text;
+                box.Select(0, 0);
+                // A flow panel from the right: no coordinates, so the buttons stay in view whatever the window's size.
+                FlowLayoutPanel buttons = new FlowLayoutPanel();
+                buttons.Dock = DockStyle.Bottom;
+                buttons.Height = 48;
+                buttons.FlowDirection = FlowDirection.RightToLeft;
+                buttons.Padding = new Padding(8, 8, 8, 0);
+                Button cancel = new Button();
+                cancel.Text = "Cancel";
+                cancel.DialogResult = DialogResult.Cancel;
+                cancel.Size = new Size(90, 28);
+                Button ok = new Button();
+                ok.Text = "Delete";
+                ok.DialogResult = DialogResult.OK;
+                ok.Size = new Size(90, 28);
+                buttons.Controls.Add(cancel);
+                buttons.Controls.Add(ok);
+                form.Controls.Add(box);
+                form.Controls.Add(buttons);
+                form.Controls.Add(label);
+                form.CancelButton = cancel;
+                ForzaTheme.Apply(form);
+                return form.ShowDialog(this) == DialogResult.OK;
+            }
         }
 
         private void OpenCarFiles()

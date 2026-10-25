@@ -40,10 +40,52 @@ namespace ForzaStudio
         // In the other tables a car's Id is one of these columns (as CarPort.PortDatabase copies them).
         private static readonly string[] CarColumnNames = { "Ordinal", "CarId", "CarID", "CarOrdinal" };
 
-        // The first Id of the table's reserved range (Port.ini [Ids] <table>), or 0 when it has none.
-        public static long RangeStart(string table)
+        // Xenia's FM4 content folder whose installed packs' Ids stay taken. Null = the one of the Xenia folder in the settings.
+        public static string PackContent;
+
+        private static string PackFolder()
         {
-            return Math.Max(0, PortSettings.GetLong("Ids", table, 0));
+            if (!string.IsNullOrEmpty(PackContent))
+            {
+                return PackContent;
+            }
+            try
+            {
+                string xenia = AppSettings.Get(SettingsForm.XeniaKey, "");
+                return (xenia.Length > 0 && Directory.Exists(xenia)) ? DlcPackage.XeniaContent(xenia) : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        // The largest value of table.column in the installed packs' merge databases (0 when none).
+        private static long PackMax(string content, string table, string column)
+        {
+            long max = 0;
+            foreach (string pack in PackDatabases(content))
+            {
+                try
+                {
+                    using (SqliteDatabase merge = SqliteDatabase.FromBytes(File.ReadAllBytes(pack)))
+                    {
+                        if (!HasTable(merge, table))
+                        {
+                            continue;
+                        }
+                        object top = merge.Scalar("SELECT max(" + SqliteDatabase.Quote(column) + ") FROM " + SqliteDatabase.Quote(table));
+                        if (top != null && top != DBNull.Value)
+                        {
+                            max = Math.Max(max, Convert.ToInt64(top, CultureInfo.InvariantCulture));
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+            return max;
         }
 
         // The Id for a new row of an FM4 table.
@@ -52,15 +94,19 @@ namespace ForzaStudio
             return Next(db, table, column, ForzaGame.Motorsport4);
         }
 
-        // The Id for a new row: the next one in the table's range, else the next after the largest, and
-        // always above the largest Id the game and its packages use (docs/GameIdLimits.json).
+        // The Id for a new row: one above the largest Id of the table in the database, in FM4 and its official DLC
+        // (docs/GameIdLimits.json) and in the packs installed in Xenia's content folder. No fixed start (user 2026-10-25).
         public static long Next(SqliteDatabase db, string table, string column, ForzaGame game)
         {
-            long start = RangeStart(table);
-            string c = SqliteDatabase.Quote(column);
-            object max = db.Scalar("SELECT max(" + c + ") FROM " + SqliteDatabase.Quote(table) + (start > 0 ? " WHERE " + c + " >= " + start.ToString(CultureInfo.InvariantCulture) : ""));
-            long next = (max == null || max == DBNull.Value) ? ((start > 0) ? start : 1) : Convert.ToInt64(max) + 1;
-            return Math.Max(next, GameIdLimits.Max(game, table, column) + 1);
+            object max = db.Scalar("SELECT max(" + SqliteDatabase.Quote(column) + ") FROM " + SqliteDatabase.Quote(table));
+            long top = (max == null || max == DBNull.Value) ? 0 : Convert.ToInt64(max, CultureInfo.InvariantCulture);
+            top = Math.Max(top, GameIdLimits.Max(game, table, column));
+            string content = PackFolder();
+            if (content != null)
+            {
+                top = Math.Max(top, PackMax(content, table, column));
+            }
+            return top + 1;
         }
 
         #region Cars
@@ -84,6 +130,36 @@ namespace ForzaStudio
             {
             }
             return found;
+        }
+
+        // The first car Id for a DLC pack: above every car of FM4 and its official DLC (GameIdLimits), of the target
+        // database (cars installed in it) and of the packs already in Xenia's content folder.
+        public static long FirstPackCar(SqliteDatabase target, string content)
+        {
+            long max = GameIdLimits.Max(ForzaGame.Motorsport4, "Data_Car", "Id");
+            object own = target.Scalar("SELECT max(Id) FROM Data_Car");
+            if (own != null && own != DBNull.Value)
+            {
+                max = Math.Max(max, Convert.ToInt64(own));
+            }
+            foreach (string pack in PackDatabases(content))
+            {
+                try
+                {
+                    using (SqliteDatabase merge = SqliteDatabase.FromBytes(File.ReadAllBytes(pack)))
+                    {
+                        object top = HasTable(merge, "Data_Car") ? merge.Scalar("SELECT max(Id) FROM Data_Car") : null;
+                        if (top != null && top != DBNull.Value)
+                        {
+                            max = Math.Max(max, Convert.ToInt64(top));
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+            return max + 1;
         }
 
         // The Id a ported car gets in the target, and why.

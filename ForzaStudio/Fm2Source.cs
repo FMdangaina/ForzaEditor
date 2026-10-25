@@ -31,7 +31,9 @@ namespace ForzaStudio
         private const int ThumbnailHeight = 288;
 
         // The stage folder of one FM2 car; log gets one line per step.
-        public static void Stage(string fm2Root, string fm4Root, string car, string donor, string stageDir, List<string> log)
+        // overlay: the stage of an FM2 DLC package (DlcSource), whose car zip, merged database and wheels come before the
+        // game's (fm2Root); null for the game itself.
+        public static void Stage(string fm2Root, string fm4Root, string car, string donor, string stageDir, List<string> log, string overlay)
         {
             string carLow = car.ToLowerInvariant();
             string donorLow = donor.ToLowerInvariant();
@@ -48,6 +50,15 @@ namespace ForzaStudio
             }
             string fm2Zip = Path.Combine(Path.Combine(Path.Combine(fm2Root, "Media"), "cars"), carLow + ".zip");
             string fm2DbPath = Path.Combine(Path.Combine(Path.Combine(fm2Root, "Media"), "DB"), "gamedb.slt");
+            if (overlay != null)
+            {
+                string overlayZip = Path.Combine(Path.Combine(Path.Combine(overlay, "Media"), "cars"), carLow + ".zip");
+                if (File.Exists(overlayZip))
+                {
+                    fm2Zip = overlayZip;
+                }
+                fm2DbPath = Path.Combine(Path.Combine(Path.Combine(overlay, "Media"), "db"), "gamedb.slt");
+            }
             string fm4DbPath = Path.Combine(Path.Combine(Path.Combine(fm4Root, "Media"), "db"), "gamedb.slt");
             ForzaZip source = new ForzaZip(fm2Zip);
             ForzaZip.Entry carbinEntry = source.Find(carLow + ".carbin");
@@ -120,8 +131,48 @@ namespace ForzaStudio
                     donorRide = ToDouble(fm4Db.Scalar("SELECT FrontStockRideHeight FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", donor));
                     ride = ToDouble(fm2Db.Scalar("SELECT ModelFrontStockRideHeight FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", car));
                 }
-                if (donorTips.Count > 0)
+                // The points come from the car's own exhaust parts: the centre of the rear end of each pipe that reaches the
+                // rear (within 0.25 m of the rearmost one). The donor's are only the fallback for a car without exhaust parts.
+                List<float[]> modelTips = new List<float[]>();
+                float pipesEnd = float.MinValue;
+                foreach (CarbinModel.Section section in main.Sections)
                 {
+                    if (section.Name.ToLowerInvariant().StartsWith("exhaust"))
+                    {
+                        pipesEnd = Math.Max(pipesEnd, section.Bounds[2] + section.Bounds[5]);
+                    }
+                }
+                foreach (CarbinModel.Section section in main.Sections)
+                {
+                    if (section.Name.ToLowerInvariant().StartsWith("exhaust") && section.Bounds[2] + section.Bounds[5] > pipesEnd - 0.25f)
+                    {
+                        float[] tip = { section.Bounds[0], section.Bounds[1], section.Bounds[2] + section.Bounds[5] };
+                        bool same = false;
+                        foreach (float[] other in modelTips)
+                        {
+                            same |= Math.Abs(other[0] - tip[0]) < 0.05f && Math.Abs(other[1] - tip[1]) < 0.05f;
+                        }
+                        if (!same)
+                        {
+                            modelTips.Add(tip);
+                        }
+                    }
+                }
+                if (modelTips.Count > 0)
+                {
+                    StringBuilder tips = new StringBuilder();
+                    tips.AppendLine("# backfire points, x y z (model axes): the rear end of each of the car's own exhaust pipes.");
+                    tips.AppendLine("# Edit them in the EXHAUST tab of the model view or here (one line per pipe).");
+                    foreach (float[] tip in modelTips)
+                    {
+                        tips.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0:0.####} {1:0.####} {2:0.####}", tip[0], tip[1], tip[2]));
+                    }
+                    File.WriteAllText(Path.Combine(stageDir, "exhaust.txt"), tips.ToString());
+                    log.Add(string.Format(CultureInfo.InvariantCulture, "exhaust.txt: {0} point(s) computed from the car's exhaust parts", modelTips.Count));
+                }
+                else if (donorTips.Count > 0)
+                {
+                    log.Add("exhaust: the car has no exhaust parts; the donor's points moved to its rear end and ride height (an estimate)");
                     StringBuilder tips = new StringBuilder();
                     tips.AppendLine("# backfire points, x y z (model axes): the donor's moved to this car's rear end (z) and ride height (y).");
                     tips.AppendLine("# An estimate: edit them in the EXHAUST tab of the model view or here (one line per pipe).");
@@ -185,15 +236,16 @@ namespace ForzaStudio
                     string thumbnail = "game:\\Media\\UI\\Textures\\Thumbnails\\Thumbnail_" + fm2Id.ToString(CultureInfo.InvariantCulture) + ".xds";
                     stageDb.Execute("UPDATE Data_Car SET MediaName = ?, DisplayName = ?, ModelShort = ?, Year = ?, Thumbnail = ? WHERE MediaName = ? COLLATE NOCASE", car, fm2Row[1], fm2Row[2], fm2Row[3], thumbnail, donor);
                     log.Add(string.Format("database: donor row renamed to {0} ({1} / {2}, {3})", car, fm2Row[1], fm2Row[2], fm2Row[3]));
-                    StageWheel(fm2Root, fm4Root, fm2Db, stageDb, media, work, car, donor, fm2Row[4], log);
+                    StageWheel(overlay, fm2Root, fm4Root, fm2Db, stageDb, media, work, car, donor, fm2Row[4], log);
                     File.WriteAllBytes(db, stageDb.ToBytes());
-                    Thumbnail(fm2Root, media, fm2Id, log);
+                    Thumbnail(overlay, fm2Root, media, fm2Id, log);
                 }
 
                 // --- strings (FM2's), empty audio zips, marker
                 string tables = Path.Combine(media, "StringTables");
                 Directory.CreateDirectory(tables);
-                foreach (string zip in Directory.GetFiles(Path.Combine(Path.Combine(fm2Root, "Media"), "StringTables"), "*.zip"))
+                string tablesRoot = (overlay != null && Directory.Exists(Path.Combine(Path.Combine(overlay, "Media"), "StringTables"))) ? overlay : fm2Root;
+                foreach (string zip in Directory.GetFiles(Path.Combine(Path.Combine(tablesRoot, "Media"), "StringTables"), "*.zip"))
                 {
                     File.Copy(zip, Path.Combine(tables, Path.GetFileName(zip).ToUpperInvariant().Replace(".ZIP", ".zip")));
                 }
@@ -221,7 +273,7 @@ namespace ForzaStudio
         // The car's own wheel: FM2 StockWheelID -> List_Wheels.MediaName, rebuilt on the FM4 donor's wheel (its LOD 0 is
         // dropped, the port rebuilds it from LOD 1), a List_Wheels row (the id of the same wheel in the target, else the
         // next free one) and its WheelNormOffsets. A car without a findable wheel keeps the donor's.
-        private static void StageWheel(string fm2Root, string fm4Root, SqliteDatabase fm2Db, SqliteDatabase stageDb, string media, string work, string car, string donor, object stockWheel, List<string> log)
+        private static void StageWheel(string overlay, string fm2Root, string fm4Root, SqliteDatabase fm2Db, SqliteDatabase stageDb, string media, string work, string car, string donor, object stockWheel, List<string> log)
         {
             SqliteDatabase.Result wheel = fm2Db.Query("SELECT MediaName, Mass FROM List_Wheels WHERE ID = ?", stockWheel);
             SqliteDatabase.Result donorWheel = stageDb.Query("SELECT w.MediaName FROM Data_Car c JOIN List_Wheels w ON w.ID = c.StockWheelID WHERE c.MediaName = ? COLLATE NOCASE", car);
@@ -234,6 +286,10 @@ namespace ForzaStudio
             string wheelLow = wheelMedia.ToLowerInvariant();
             string donorWheelMedia = (string) donorWheel.Rows[0][0];
             string fm2WheelZip = Path.Combine(Path.Combine(Path.Combine(fm2Root, "Media"), "wheels"), wheelLow + ".zip");
+            if (overlay != null && File.Exists(Path.Combine(Path.Combine(Path.Combine(overlay, "Media"), "wheels"), wheelLow + ".zip")))
+            {
+                fm2WheelZip = Path.Combine(Path.Combine(Path.Combine(overlay, "Media"), "wheels"), wheelLow + ".zip");
+            }
             string donorWheelZip = Path.Combine(Path.Combine(Path.Combine(fm4Root, "Media"), "wheels"), donorWheelMedia + ".zip");
             if (!File.Exists(fm2WheelZip) || !File.Exists(donorWheelZip))
             {
@@ -251,6 +307,7 @@ namespace ForzaStudio
             CarModelFolder.ExportLegacy(wheelSource.Read(wheelCarbin), wheelLow + ".carbin", objDir, "FM2");
             ForzaZip wheelDonor = new ForzaZip(donorWheelZip);
             CarbinModel model = new CarbinModel(wheelDonor.Read(wheelDonor.Find(donorWheelMedia.ToLowerInvariant() + ".carbin")));
+            DonorTires(objDir, model, log);
             // The donor's LOD 0 (a different mesh) is dropped, the port rebuilds it from LOD 1.
             File.AppendAllText(Path.Combine(objDir, CarModelFolder.ManifestName), "obj 0 lod0/" + model.Sections[0].Name + ".obj\r\n");
             Dictionary<string, CarbinModel> models = new Dictionary<string, CarbinModel>();
@@ -309,8 +366,19 @@ namespace ForzaStudio
 
         // FM2's thumbnail (Media\UI\Textures.zip, Thumbnails\Thumbnail_<id>.xds) in FM4's format, loose in the stage where
         // the database row points.
-        private static void Thumbnail(string fm2Root, string media, long fm2Id, List<string> log)
+        private static void Thumbnail(string overlay, string fm2Root, string media, long fm2Id, List<string> log)
         {
+            // An FM2 DLC package has its pictures loose (Media\UI\Textures\Thumbnails\Thumbnail_<id>.xds).
+            string loose = (overlay == null) ? null : Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.Combine(overlay, "Media"), "UI"), "Textures"), "Thumbnails"), "Thumbnail_" + fm2Id.ToString(CultureInfo.InvariantCulture) + ".xds");
+            if (loose != null && File.Exists(loose))
+            {
+                byte[] picture = ThumbnailToMotorsport4(File.ReadAllBytes(loose));
+                string target = Path.Combine(Path.Combine(Path.Combine(media, "UI"), "Textures"), "Thumbnails");
+                Directory.CreateDirectory(target);
+                File.WriteAllBytes(Path.Combine(target, "Thumbnail_" + fm2Id.ToString(CultureInfo.InvariantCulture) + ".xds"), picture);
+                log.Add("thumbnail: from the DLC package, " + new XdsTexture(picture));
+                return;
+            }
             string zipPath = Path.Combine(Path.Combine(Path.Combine(fm2Root, "Media"), "UI"), "Textures.zip");
             if (!File.Exists(zipPath))
             {
@@ -362,6 +430,150 @@ namespace ForzaStudio
 
         // The model's rear end: the largest z of its parts' boxes (Section.Bounds = centre x y z, half extents x y z; z
         // points to the rear), wheels and brakes left out.
+        // FM2's tire (LOD 1-5) has UV for FM2's tire texture, which FM4's tire technique does not read (the UV land
+        // at random). The tire of each LOD is the donor's own FM4 tire of the same LOD, stretched onto the FM2 tire:
+        // radially from the FM2 tire's inner to its outer radius, along the axle (X) over its width. The OBJ files of
+        // the FM2 wheel are rewritten before the wheel is built on the donor (the donor's other materials stay out).
+        private static void DonorTires(string objDir, CarbinModel donor, List<string> log)
+        {
+            CarbinModel.Section section = donor.Sections[0];
+            foreach (string lodDir in Directory.GetDirectories(objDir))
+            {
+                string folder = Path.GetFileName(lodDir).ToLowerInvariant();
+                uint lod;
+                if (!folder.StartsWith("lod") || !uint.TryParse(folder.Substring(3), out lod) || lod == 0)
+                {
+                    continue;
+                }
+                foreach (string file in Directory.GetFiles(lodDir, "*.obj"))
+                {
+                    string temp = Path.Combine(Path.GetTempPath(), "ForzaStudio_tire_" + Guid.NewGuid().ToString("N") + ".obj");
+                    try
+                    {
+                        ObjMesh fm2 = ObjMesh.Load(file);
+                        ObjMesh.Material own = FindTire(fm2);
+                        if (own == null)
+                        {
+                            log.Add("wheel LOD " + lod + ": the FM2 wheel has no tire material (" + MaterialNames(fm2) + "), left as it is");
+                            continue;
+                        }
+                        if (ObjMesh.ExportLod(section, lod, temp, "donor tire", "x.mtl") == 0)
+                        {
+                            log.Add("wheel LOD " + lod + ": the donor's wheel has no LOD " + lod + ", the FM2 tire stays");
+                            continue;
+                        }
+                        ObjMesh.Material from = FindTire(ObjMesh.Load(temp));
+                        if (from == null)
+                        {
+                            log.Add("wheel LOD " + lod + ": the donor's wheel has no tire in this LOD, the FM2 tire stays");
+                            continue;
+                        }
+                        float[] a = TireRange(own), b = TireRange(from);      // radius min, radius max, x min, x max
+                        if (b[1] - b[0] < 1e-4f || b[3] - b[2] < 1e-4f)
+                        {
+                            continue;
+                        }
+                        float radial = (a[1] - a[0]) / (b[1] - b[0]), axial = (a[3] - a[2]) / (b[3] - b[2]);
+                        List<ObjMesh.Corner[]> scaled = new List<ObjMesh.Corner[]>();
+                        foreach (ObjMesh.Corner[] triangle in from.Triangles)
+                        {
+                            ObjMesh.Corner[] copy = new ObjMesh.Corner[3];
+                            for (int i = 0; i < 3; i++)
+                            {
+                                ObjMesh.Corner c = triangle[i], d = new ObjMesh.Corner();
+                                float r = (float) Math.Sqrt((c.Position.Y * c.Position.Y) + (c.Position.Z * c.Position.Z));
+                                float factor = (r < 1e-6f) ? 1f : (a[0] + ((r - b[0]) * radial)) / r;
+                                d.Position = new Microsoft.Xna.Framework.Vector3(((c.Position.X - ((b[2] + b[3]) / 2)) * axial) + ((a[2] + a[3]) / 2), c.Position.Y * factor, c.Position.Z * factor);
+                                d.Uv = c.Uv;
+                                d.HasUv = c.HasUv;
+                                d.Normal = c.Normal;
+                                d.HasNormal = c.HasNormal;
+                                copy[i] = d;
+                            }
+                            scaled.Add(copy);
+                        }
+                        own.Triangles = scaled;
+                        WriteObj(fm2, file);
+                        log.Add(string.Format(CultureInfo.InvariantCulture, "wheel LOD {0}: tire = the donor's, radius {1:0.###}..{2:0.###} -> {3:0.###}..{4:0.###} (x{5:0.##}), width x{6:0.##}", lod, b[0], b[1], a[0], a[1], radial, axial));
+                    }
+                    finally
+                    {
+                        if (File.Exists(temp))
+                        {
+                            File.Delete(temp);
+                        }
+                    }
+                }
+            }
+        }
+
+        private static ObjMesh.Material FindTire(ObjMesh mesh)
+        {
+            foreach (ObjMesh.Material material in mesh.Materials)
+            {
+                string name = material.Name.ToLowerInvariant();
+                if (name == "tire" || name == "tyre")
+                {
+                    return material;
+                }
+            }
+            return null;
+        }
+
+        private static string MaterialNames(ObjMesh mesh)
+        {
+            List<string> names = new List<string>();
+            foreach (ObjMesh.Material material in mesh.Materials)
+            {
+                names.Add(material.Name);
+            }
+            return string.Join(" ", names.ToArray());
+        }
+
+        // Radius about the axle (min, max) and x (min, max) of a material's vertices.
+        private static float[] TireRange(ObjMesh.Material material)
+        {
+            float[] range = { float.MaxValue, 0f, float.MaxValue, float.MinValue };
+            foreach (ObjMesh.Corner[] triangle in material.Triangles)
+            {
+                foreach (ObjMesh.Corner c in triangle)
+                {
+                    float r = (float) Math.Sqrt((c.Position.Y * c.Position.Y) + (c.Position.Z * c.Position.Z));
+                    range[0] = Math.Min(range[0], r);
+                    range[1] = Math.Max(range[1], r);
+                    range[2] = Math.Min(range[2], c.Position.X);
+                    range[3] = Math.Max(range[3], c.Position.X);
+                }
+            }
+            return range;
+        }
+
+        // A plain OBJ (one vertex, uv and normal per triangle corner, one group per material).
+        private static void WriteObj(ObjMesh mesh, string path)
+        {
+            CultureInfo inv = CultureInfo.InvariantCulture;
+            using (StreamWriter obj = new StreamWriter(path, false, new UTF8Encoding(false)))
+            {
+                int index = 1;
+                foreach (ObjMesh.Material material in mesh.Materials)
+                {
+                    obj.WriteLine("g " + material.Name);
+                    obj.WriteLine("usemtl " + material.Name);
+                    foreach (ObjMesh.Corner[] triangle in material.Triangles)
+                    {
+                        foreach (ObjMesh.Corner c in triangle)
+                        {
+                            obj.WriteLine(string.Format(inv, "v {0:R} {1:R} {2:R}", c.Position.X, c.Position.Y, c.Position.Z));
+                            obj.WriteLine(string.Format(inv, "vt {0:R} {1:R}", c.Uv.X, c.Uv.Y));
+                            obj.WriteLine(string.Format(inv, "vn {0:R} {1:R} {2:R}", c.Normal.X, c.Normal.Y, c.Normal.Z));
+                        }
+                        obj.WriteLine("f {0}/{0}/{0} {1}/{1}/{1} {2}/{2}/{2}", index, index + 1, index + 2);
+                        index += 3;
+                    }
+                }
+            }
+        }
+
         private static float RearEnd(CarbinModel model)
         {
             float rear = float.MinValue;

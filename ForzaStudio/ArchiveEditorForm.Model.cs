@@ -171,6 +171,7 @@ namespace ForzaStudio
                             ForzaMesh forzaMesh = new ForzaMesh(section.Name + "_" + sub.Name, sub.Name, sub.Indices, sub.Vertices);
                             forzaMesh.SectionIndex = s;
                             forzaMesh.SubIndex = k;
+                            forzaMesh.Technique = ShaderSettings.TechniqueName(sub.Name, name);
                             mesh.Tag = forzaMesh;
                             part.Nodes.Add(mesh);
                         }

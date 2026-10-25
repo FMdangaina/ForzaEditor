@@ -58,6 +58,21 @@ namespace ForzaStudio
             return table;
         }
 
+        // A DLC package's .str file of a table on top of the game's: its keys replace the game's.
+        public void Overlay(string table, byte[] strFile)
+        {
+            Dictionary<int, string> own;
+            if (!this.files.TryGetValue(table, out own))
+            {
+                own = new Dictionary<int, string>();
+                this.files[table] = own;
+            }
+            foreach (KeyValuePair<int, string> text in Parse(strFile))
+            {
+                own[text.Key] = text.Value;
+            }
+        }
+
         public static Dictionary<int, string> Parse(byte[] data)
         {
             if (data.Length < 44 || Encoding.ASCII.GetString(data, 0, 4) != "LSB2")
@@ -107,55 +122,29 @@ namespace ForzaStudio
         }
     }
 
-    // A few preferences in settings.txt next to the exe (key=value lines).
+    // The tool's preferences: the [App] section of ForzaStudio.ini next to the exe (AppIni), key=value lines.
     public static class AppSettings
     {
-        private static string FilePath
-        {
-            get { return Path.Combine(Path.GetDirectoryName(System.Windows.Forms.Application.ExecutablePath), "settings.txt"); }
-        }
-
         public static string Get(string key, string fallback)
         {
-            try
-            {
-                if (File.Exists(FilePath))
-                {
-                    foreach (string line in File.ReadAllLines(FilePath))
-                    {
-                        int equals = line.IndexOf('=');
-                        if (equals > 0 && string.Equals(line.Substring(0, equals).Trim(), key, StringComparison.OrdinalIgnoreCase))
-                        {
-                            return line.Substring(equals + 1).Trim();
-                        }
-                    }
-                }
-            }
-            catch (IOException)
-            {
-            }
-            return fallback;
+            return AppIni.GetApp(key, fallback);
         }
 
         public static void Set(string key, string value)
         {
-            try
+            AppIni.SetApp(key, value);
+        }
+
+        // A colour stored as RRGGBB (hex): its three channels, or the fallback's when the value is not one.
+        public static int[] GetRgb(string key, string fallback)
+        {
+            string text = Get(key, fallback).TrimStart('#');
+            int value;
+            if (text.Length != 6 || !int.TryParse(text, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out value))
             {
-                List<string> lines = new List<string>(File.Exists(FilePath) ? File.ReadAllLines(FilePath) : new string[0]);
-                lines.RemoveAll(delegate(string line)
-                {
-                    int equals = line.IndexOf('=');
-                    return equals > 0 && string.Equals(line.Substring(0, equals).Trim(), key, StringComparison.OrdinalIgnoreCase);
-                });
-                lines.Add(key + "=" + value);
-                File.WriteAllLines(FilePath, lines.ToArray());
+                value = int.Parse(fallback.TrimStart('#'), System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture);
             }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
+            return new int[] { (value >> 16) & 255, (value >> 8) & 255, value & 255 };
         }
     }
 }

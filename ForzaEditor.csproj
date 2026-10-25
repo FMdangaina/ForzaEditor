@@ -168,6 +168,7 @@
     <Compile Include="ForzaStudio\DuplicateCarForm.cs" />
     <Compile Include="ForzaStudio\EventRestriction.cs" />
     <Compile Include="ForzaStudio\CarEngine.cs" />
+    <Compile Include="ForzaStudio\CarPerformance.cs" />
     <Compile Include="ForzaStudio\EngineDialog.cs" />
     <Compile Include="ForzaStudio\DbIntegrity.cs" />
     <Compile Include="ForzaStudio\SqlDiagnostics.cs" />
@@ -181,6 +182,8 @@
     <Compile Include="ForzaStudio\CarCamera.cs" />
     <Compile Include="ForzaStudio\MaterialSuggestions.cs" />
     <Compile Include="ForzaStudio\ShaderSettings.cs" />
+    <Compile Include="ForzaStudio\ShaderLook.cs" />
+    <Compile Include="ForzaStudio\ShaderLookNames.cs" />
     <Compile Include="ForzaStudio\ShaderTextures.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Camera.cs">
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
@@ -250,6 +253,7 @@
     <Compile Include="ForzaStudio\SqliteDatabase.cs" />
     <Compile Include="ForzaStudio\DlcPackage.cs" />
     <Compile Include="ForzaStudio\DlcSource.cs" />
+    <Compile Include="ForzaStudio\InstalledDlc.cs" />
     <Compile Include="ForzaStudio\StfsPackage.cs" />
     <Compile Include="ForzaStudio\StfsReader.cs" />
     <Compile Include="ForzaStudio\GameDatabase.cs" />
@@ -295,6 +299,19 @@
     </EmbeddedResource>
     <EmbeddedResource Include="docs\GameIdLimits.json">
       <LogicalName>GameIdLimits.json</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\EnvMap.png">
+      <LogicalName>EnvMap.png</LogicalName>
+    </EmbeddedResource>
+    <Compile Include="ForzaStudio\EnvReflection.cs" />
+    <Compile Include="ForzaStudio\Fm4MaterialUse.cs" />
+    <Compile Include="ForzaStudio\AppIni.cs" />
+    <Compile Include="ForzaStudio\IniEditorPanel.cs" />
+    <EmbeddedResource Include="docs\Fm4MaterialUse.txt">
+      <LogicalName>Fm4MaterialUse.txt</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="docs\Fm4PartMaterials.txt">
+      <LogicalName>Fm4PartMaterials.txt</LogicalName>
     </EmbeddedResource>
     <Reference Include="System.Xml" />
   </ItemGroup>

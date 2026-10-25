@@ -139,7 +139,7 @@ namespace ForzaStudio
             this.AddExhaustControls(exhaust);
             this.AddDriverControls(driver);
 
-            this.tvModel.AfterSelect += delegate { this.UpdateMeshPanel(); };
+            this.tvModel.AfterSelect += delegate { this.UpdateMeshPanel(); this.HighlightSelection(); };
             return host;
         }
 

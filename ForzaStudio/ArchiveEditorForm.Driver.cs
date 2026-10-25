@@ -201,7 +201,7 @@ namespace ForzaStudio
                 return;
             }
             string text = Encoding.UTF8.GetString(this.zip.Read(attributes));
-            Match hands = Regex.Match(text, "<DriverHandsOffset value\\.x=\"([^\"]*)\" value\\.y=\"([^\"]*)\" value\\.z=\"([^\"]*)\"");
+            Match hands = Regex.Match(text, "<DriverHandsOffset\\b[^>]*/>");
             if (hands.Success)
             {
                 DriverItem item = new DriverItem();
@@ -209,7 +209,8 @@ namespace ForzaStudio
                 item.Attribute = "Hands";
                 for (int i = 0; i < 3; i++)
                 {
-                    item.Value[i] = ParseFloat(hands.Groups[i + 1].Value);
+                    // The attributes come in any order (FM4 writes w, z, y, x).
+                    item.Value[i] = ParseFloat(Regex.Match(hands.Value, "value\\." + "xyz"[i] + "=\"([^\"]*)\"").Groups[1].Value);
                     item.Original[i] = item.Value[i];
                 }
                 items.Add(item);
@@ -408,9 +409,14 @@ namespace ForzaStudio
         {
             if (item.Attribute == "Hands")
             {
-                return Regex.Replace(text, "(<DriverHandsOffset value\\.x=\")[^\"]*(\" value\\.y=\")[^\"]*(\" value\\.z=\")[^\"]*\"", delegate(Match m)
+                return Regex.Replace(text, "<DriverHandsOffset\\b[^>]*/>", delegate(Match m)
                 {
-                    return m.Groups[1].Value + FloatText(item.Value[0]) + m.Groups[2].Value + FloatText(item.Value[1]) + m.Groups[3].Value + FloatText(item.Value[2]) + "\"";
+                    string result = m.Value;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        result = Regex.Replace(result, "(value\\." + "xyz"[i] + "=\")[^\"]*\"", "${1}" + FloatText(item.Value[i]) + "\"");
+                    }
+                    return result;
                 });
             }
             Match driver = Regex.Match(text, "<Driver [^>]*/>");
