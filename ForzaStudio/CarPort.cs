@@ -329,6 +329,7 @@ namespace ForzaStudio
                     }
                     this.source.Execute("UPDATE Data_Car SET MediaName = ? WHERE Id = ?", this.RenameTo, sourceId);
                 }
+                DbIds.PackContent = this.XeniaContent;
                 this.carId = DbIds.CarId(this.target, this.source, this.CarName, DbIds.PackDatabases(this.XeniaContent), this.FirstCarId ?? DbIds.InstallFirstCar, !this.FirstCarId.HasValue, out reason);
                 this.donorId = ToLong(this.target.Scalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", this.DonorMediaName), "the target database has no car " + this.DonorMediaName);
                 object existing = this.target.Scalar("SELECT MediaName FROM Data_Car WHERE Id = ?", this.carId);

@@ -23,18 +23,11 @@ namespace ForzaStudio
     // 1337 / 4754; the row ranges are not checked in game yet.
     public static class DbIds
     {
-        // The first car Id of a car installed in the game: the first Id above every car of FM4 and its DLC
-        // (GameIdLimits, 1638 today), like a DLC pack. Port.ini [Ids] InstallFirstCar > 0 overrides it: FOR
-        // DEVELOPMENT / TESTING BUILDS ONLY (user 2026-10-22: the logic is always the DLC one; was 3000,
-        // user 2026-10-21). A DLC pack asks for its own first Id (CarPort.FirstCarId), so packs and
-        // installed cars do not share a range.
+        // The first car Id to try for a car installed in the game: above every car of FM4 and its DLC (GameIdLimits);
+        // CarId then skips every Id the target, the source and the installed packs use. No ini override any more.
         public static long InstallFirstCar
         {
-            get
-            {
-                long forced = PortSettings.GetLong("Ids", "InstallFirstCar", 0);
-                return (forced > 0) ? forced : Math.Max(1, GameIdLimits.Max(ForzaGame.Motorsport4, "Data_Car", "Id") + 1);
-            }
+            get { return Math.Max(1, GameIdLimits.Max(ForzaGame.Motorsport4, "Data_Car", "Id") + 1); }
         }
 
         // In the other tables a car's Id is one of these columns (as CarPort.PortDatabase copies them).

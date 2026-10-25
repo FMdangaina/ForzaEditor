@@ -35,11 +35,6 @@ namespace ForzaStudio
         // Port.ini values shown in the PORT tab: section, key, caption.
         private static readonly string[][] PortValues =
         {
-            new string[] { "Ids", "InstallFirstCar", "First car Id of installed cars (0 = after FM4 DLC; >0 for dev/test builds only)" },
-            new string[] { "Ids", "List_Wheels", "First wheel Id (0 = after the largest)" },
-            new string[] { "Ids", "Events", "First event Id" },
-            new string[] { "Ids", "Races", "First race Id" },
-            new string[] { "Ids", "EventParticipants", "First AI participant Id" },
             new string[] { "PI", "FH1.Slope", "FH1 DLC PI line: slope" },
             new string[] { "PI", "FH1.Offset", "FH1 DLC PI line: offset" },
             new string[] { "PI", "FM3.Slope", "FM3 DLC PI line: slope" },

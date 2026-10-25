@@ -21,17 +21,9 @@ namespace ForzaStudio
 ; generic upgrades of ported cars.
 
 [Ids]
-; A car installed in the game gets the first free Id above every FM4 / DLC car (1638 today), never the
-; source game's (user 2026-10-22). Set InstallFirstCar > 0 ONLY in development / testing builds.
-; A DLC pack asks for its own first Id in the pack window.
-; FM4's own cars use 247-1473, FH1 DLC 1519-1568.
-InstallFirstCar = 0
-; Ids Forza Studio gives to new rows of these tables: the next free one from this value
-; (0 = the next after the largest, as before). Not checked in game yet.
-List_Wheels = 9000000
-Events = 40000
-Races = 400000
-EventParticipants = 4000000
+; No fixed Ids here any more: every new Id (cars and rows) is one above the largest the database, FM4 + its DLC
+; (GameIdLimits) and the packs installed in Xenia's content folder use (user 2026-10-25).
+; A DLC pack asks for its own first car Id in the pack window.
 
 [PI]
 ; Car DLC packages come without their base game to compare with: FM4 PI = Slope x source PI + Offset,

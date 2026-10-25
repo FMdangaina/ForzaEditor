@@ -256,6 +256,7 @@ namespace ForzaStudio
                 }
                 long sourceId = Convert.ToInt64(sourceValue, CultureInfo.InvariantCulture);
                 string reason;
+                DbIds.PackContent = this.XeniaContent;
                 this.NewId = DbIds.CarId(db, db, this.NewMediaName, DbIds.PackDatabases(this.XeniaContent), DbIds.InstallFirstCar, false, out reason);
                 plan.Add(string.Format(CultureInfo.InvariantCulture, "{0} (id {1}) -> {2}: id {3}, {4}", this.SourceMediaName, sourceId, this.NewMediaName, this.NewId, reason));
 
