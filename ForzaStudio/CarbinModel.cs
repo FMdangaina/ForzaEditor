@@ -232,7 +232,7 @@ namespace ForzaStudio
         // tables (main carbin LOD, lod0) is converted. Only the converted tables change.
         private static void ConvertDamageWords(Section section)
         {
-            if (PortSettings.Get("Damage", "Words", "copy").ToLowerInvariant() != "normalize")
+            if (PortSettings.Get("Damage", "Words", "donor").ToLowerInvariant() != "normalize")
             {
                 return;
             }
@@ -279,6 +279,132 @@ namespace ForzaStudio
                 table.Data[i + 1] = (byte) (packed >> 16);
                 table.Data[i + 2] = (byte) (packed >> 8);
                 table.Data[i + 3] = (byte) packed;
+            }
+        }
+
+        // EXPERIMENT (ROADMAP B1, test T4, Port.ini [Damage] Words = donor): this model is in FM4 form; each
+        // deformable section takes the damage word of every vertex from the nearest vertex of the same section
+        // in 'reference', the same car's FM4 file (FH and FM4 positions are identical). The reference decides how
+        // FM4 deforms the car: if the port still does not deform with these words, the words are not the cause.
+        // Returns a line for the report.
+        public bool DamageByShape;     // set on a reference of ANOTHER car (BorrowDamageWords): vertices match by place in the section box, not by position
+
+        public string BorrowDamageWords(CarbinModel reference)
+        {
+            return this.BorrowDamageWords(reference, null);
+        }
+
+        // only: the one section to do, or null for every deformable section.
+        public string BorrowDamageWords(CarbinModel reference, string only)
+        {
+            int vertices = 0;
+            int sections = 0;
+            double worst = 0;
+            List<string> missing = new List<string>();
+            foreach (Section section in this.Sections)
+            {
+                Section from = reference.Find(section.Name);
+                if (!section.IsDeformable || (only != null && section.Name != only))
+                {
+                    continue;
+                }
+                if (from == null || !from.IsDeformable)
+                {
+                    missing.Add(section.Name);
+                    continue;
+                }
+                bool any = false;
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    VertexBuffer buffer = (pass == 0) ? section.Lod : section.Lod0;
+                    VertexBuffer other = (pass == 0) ? from.Lod : from.Lod0;
+                    Table table = (pass == 0) ? section.DamageLod : section.DamageLod0;
+                    Table otherTable = (pass == 0) ? from.DamageLod : from.DamageLod0;
+                    if (buffer.Count == 0 || other.Count == 0 || table.Stride != 4 || otherTable.Stride != 4 || table.Count != buffer.Count || otherTable.Count != other.Count)
+                    {
+                        continue;
+                    }
+                    double[] mine = Positions(section, buffer);
+                    double[] theirs = Positions(from, other);
+                    if (reference.DamageByShape)
+                    {
+                        // Another car: place in the section's box (0..1 on each axis), so a longer or wider part still maps onto the same corner.
+                        BoxCoordinates(section, mine);
+                        BoxCoordinates(from, theirs);
+                    }
+                    int[] order = new int[other.Count];
+                    for (int i = 0; i < order.Length; i++)
+                    {
+                        order[i] = i;
+                    }
+                    Array.Sort(order, delegate(int a, int b) { return theirs[a * 3].CompareTo(theirs[b * 3]); });
+                    for (int v = 0; v < buffer.Count; v++)
+                    {
+                        double x = mine[v * 3];
+                        double y = mine[(v * 3) + 1];
+                        double z = mine[(v * 3) + 2];
+                        int lo = 0;
+                        int hi = order.Length;
+                        while (lo < hi)
+                        {
+                            int mid = (lo + hi) / 2;
+                            if (theirs[order[mid] * 3] < x)
+                            {
+                                lo = mid + 1;
+                            }
+                            else
+                            {
+                                hi = mid;
+                            }
+                        }
+                        int best = -1;
+                        double bestDistance = double.MaxValue;
+                        for (int step = 0; step < 2; step++)
+                        {
+                            for (int i = (step == 0) ? lo : lo - 1; i >= 0 && i < order.Length; i += (step == 0) ? 1 : -1)
+                            {
+                                double dx = theirs[order[i] * 3] - x;
+                                if (dx * dx >= bestDistance)
+                                {
+                                    break;
+                                }
+                                double dy = theirs[(order[i] * 3) + 1] - y;
+                                double dz = theirs[(order[i] * 3) + 2] - z;
+                                double distance = (dx * dx) + (dy * dy) + (dz * dz);
+                                if (distance < bestDistance)
+                                {
+                                    bestDistance = distance;
+                                    best = order[i];
+                                }
+                            }
+                        }
+                        if (best >= 0)
+                        {
+                            Buffer.BlockCopy(otherTable.Data, best * 4, table.Data, v * 4, 4);
+                            vertices++;
+                            worst = Math.Max(worst, Math.Sqrt(bestDistance));
+                            any = true;
+                        }
+                    }
+                }
+                sections += any ? 1 : 0;
+            }
+            return string.Format(System.Globalization.CultureInfo.InvariantCulture, "damage words from the FM4 file (Port.ini Damage Words = donor){3}: {0} vertices in {1} deformable sections, farthest match {2:0.0000}{4}{5}", vertices, sections, worst,
+                reference.DamageByShape ? " of another car, matched by place in the section box" : "", reference.DamageByShape ? " (box units)" : " m",
+                (missing.Count > 0) ? "; sections the FM4 file lacks, source words kept: " + string.Join(", ", missing.ToArray()) : "");
+        }
+
+        // Positions (3 per vertex) -> 0..1 on each axis of the section's own box.
+        private static void BoxCoordinates(Section section, double[] positions)
+        {
+            for (int c = 0; c < 3; c++)
+            {
+                double lo = section.Bounds[c] + section.Bounds[3 + c];
+                double size = section.Bounds[6 + c] - section.Bounds[3 + c];
+                for (int i = c; i < positions.Length; i += 3)
+                {
+                    positions[i] = (size > 1e-6) ? (positions[i] - lo) / size : 0.5;
+                }
             }
         }
 

@@ -24,7 +24,7 @@ Last review: 2026-10-23. Everything below marked 🔧/🧪 is committed (HEAD of
 
 | # | What to look at | Coded | Tested |
 |---|---|---|---|
-| T-ED1 | Database view: sections **Engines, Makes, Countries, Manufacturers, Lists** (Lists: the picker, 15 lists) (list columns, record tab, related tab, search, sort, Back, Go to / Used by from a car's engine, a make, a country, a wheel's manufacturer) | 2026-10-23 | – |
+| T-ED1 | Database view: sections **Engines, Makes, Countries, Manufacturers** (list columns, record tab, related tab, search, sort, Back, Go to / Used by from a car's engine, a make, a country, a wheel's manufacturer) | 2026-10-23 | – |
 | T-ED2 | Logos on Makes (dark + light), Countries (flag), Manufacturers (`Car_Parts_Logos\decalNNN`; 337 of 569 have no file in FM4 = empty box is normal) | 2026-10-23 | – |
 | T-ED3 | **Events** header picture (poster of the career type; 17 of 32 types have none, the first race's track logo is used) | 2026-10-23 | – |
 | T-ED4 | Manufacturers > Parts tab: no more engine / drivetrain rows (those point at CarMake); wheels, tire brands, discounts listed | 2026-10-23 | – |
@@ -61,11 +61,12 @@ Last review: 2026-10-23. Everything below marked 🔧/🧪 is committed (HEAD of
 |---|---|---|---|
 | D-1 | **Duplicate Car wizard: usability pass** (user 2026-10-23: "tutto il wizard sarà da migliorare nell'utilizzo"). Needs the user's list of what is awkward; to collect while testing T-ED6 / T-ED8 | 2.3 | ⬜ asked 2026-10-23 |
 | D-2 | Makes: light logo falls back to the dark one when the file is missing (Chrysler, Infiniti, Jaguar, Mitsubishi) | – | ⬜ offered 2026-10-23 |
-| D-3 | More list sections: one **Lists** section with a picker (15 id lists: drivetrains, motors, bodies, aspirations, cylinders, engine layouts / placements, drive types, variable timing, powertrains, car types, classes, tire compounds, regions, upgrade types); row page + Used by | 18 | 🔧 coded 2026-10-23, not tested |
+| D-3 | ~~Lists section with a picker (15 id lists)~~ removed 2026-10-24: the user found it useless | 18 | ✅ removed |
 | D-4 | Push the commit of 2026-10-23 (when the user says so) | – | ⬜ |
 | D-5 | `docs/MANUAL.md`: the new database sections, engine paste, DLC-pack choice in the wizard | 16.1 | ⬜ |
 | D-6 | Engine designer: paste of the CV column / a whole rpm+N.m+CV block; status line telling how many rows were set | 2.3.2 | 💤 |
 | D-7 | `docs/GAMEDB_SCHEMA.md` regenerated if the DB structure notes change (`tools/DbRulesTest/schemadoc.cs`) | 1.4.3 | 💤 |
+| D-8 | **Game path opens the installed DLCs** (user 2026-10-24): once the configuration paths are complete (full game), opening the game path must find the DLCs present, MERGE their databases into the view and show the DLC cars / tracks data. All games; see 7.3 | 7.3 | 🔧 CODED 2026-10-24 (InstalledDlc.cs + DLC button in the database view), FH1 checked on the real files, FM2/FM3/FM4 run pending, in-app check pending |
 
 ## 2b. Open work by topic (from the roadmap, details kept)
 
@@ -204,6 +205,17 @@ console tests). Docs: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 - [ ] 7.1 Several Forza Studio packs at once. CODED 2026-10-22: a pack's string tables = the game's + EVERY installed FM4 pack layer (STFS or
       folder, `DlcPackage.StringLayer`) + its own strings; priority above the highest layer; key clashes with an installed pack reported as
       WARNING (merged EN Data_Car 1006 → 1402 keys). In-game check pending. Follows the string audit rules in D, 2.1.
+- [ ] 7.3 Read the installed DLCs of the opened game (user 2026-10-24, all games: FM2/FM3/FM4/FH1/FH2). Starts when the configuration paths
+      are complete. Needs: (a) find DLC content for each game (folder DLC, STFS packages, `DlcSource.cs` already reads FH1/FM3 STFS);
+      (b) merge each DLC gamedb into the in-memory view (cars, tracks; ids from the DLC kept, clashes reported, game files never written);
+      (c) show DLC cars / tracks in the car list and database views with a "DLC" mark and the pack name; (d) check per game what a DLC
+      holds (FM2 / FH2 may have none, see topic 7 notes).
+      CODED 2026-10-24: the DLC packages are STFS files in Xenia's content folder (`CarPort.Xenia\<title id>\00000002`), not inside the game
+      folder. Opening the game's own gamedb.slt scans them in the background (extracted once to %TEMP%), merges every `*_merge.slt` in offer
+      order into the in-memory view (key clash: first row kept, reported in the button tooltip), adds a DLC column to Cars and Tracks, and
+      overlays the packages' .str names. The view is READ-ONLY (GameDatabase.ReadOnly); the toolbar button DLC turns it off to edit the game's
+      own database. FH1: 21 packages, 15 merged, 69 DLC cars; "Rally Expansion Pack" zip is damaged in the file itself. Open: FM2 packs without
+      a merge database (cars as loose folders, rows come from `_execute.sql`) are listed but not merged; FH2 has no content here.
 - [ ] 7.2 ⏸ Transfer to the console: FTP (Aurora / FSD) or Xbox 360 Neighborhood (the user's side; no console now)
 
 ### 8. New car makes 🔧
@@ -313,6 +325,17 @@ Each has its own folder and notes file.
 Problems seen in game, cause unknown or check pending. When fixed they move to their topic.
 
 ### B1. FH1 / FH2 ports do not deform in a crash (topic 3.1)
+
+- **SOLVED in game 2026-10-25** (user: "adesso si deformano"; MP4-12C `_FH` copy beside FM4's own, P1 with the MP4 as donor). Two causes, two fixes, both now default:
+  1. the per-vertex damage words: 170 053 vertex pairs FH1 / FM4 of 6 cars (`E:\DEV\fm4dev\Rename\dmgpairs.cs`) show NO fixed axis / sign / bit-layout rule
+     (best 35 %), so no formula. `Port.ini [Damage] Words = donor` (default): the words of the same car's FM4 file (nearest vertex, same section), else of
+     the chosen donor car (place in the section box, `CarbinModel.BorrowDamageWords`, `CarPort.DamageReference`); `donorcar` forces the donor car. Sections the
+     donor lacks keep the FH words (listed in the report). Same idea as the Veilside OBJ import (nearest-vertex words, perfect damage).
+  2. FH keeps the LOD 0 of the headlights in `_cockpit.carbin`; FM4 has them in `_lod0.carbin`, the file that deforms when the car is alone. The port moves every
+     part the donor's `_lod0` has, the car's `_lod0` lacks and the car's cockpit has (headlightL / R) into the `_lod0` (`CarPort.MoveSectionsToLod0`, `Port.ini
+     [Lod0] MoveSections = off` to disable). Checked on the MP4-12C FH1 only.
+  carattribs.xml damage values were already FM4's standard (checked on the Countach: identical Damage block).
+  Left: other cars (FH2, FM3 sources, cars without the sections in the donor), a light-weight check of the draw order of the moved sections.
 
 - Seen 2026-10-17 in DEV: FH1 / FH2 ports keep their shape after a crash; FM3 ports deform like FM4. Deformable flag OK on the FH body parts.
   User's guess: maybe the morph data (10.1). To note: which cars, ported before or after 80f5104 (FM4 damage values in `carattribs.xml` for soft source cars).

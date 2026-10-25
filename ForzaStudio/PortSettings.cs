@@ -6,19 +6,19 @@ namespace ForzaStudio
     using System.IO;
     using System.Text;
 
-    // Port.ini next to the exe: the port's own rules in a plain file (ROADMAP 14.1 "all port settings
-    // in clear .ini files", 12.3 Settings window, user 2026-10-20): car and row Ids, the PI line of car
-    // DLC packages, the drag tyre row. Written with the defaults when missing; Tools > Settings > PORT
-    // edits it. Upgrades.ini (CarUpgrades) holds the generic upgrade rules.
+    // The port's own rules, sections [Ids] [PI] [Tires] [Damage] [Lod0] of ForzaStudio.ini (AppIni; it was Port.ini
+    // before 2026-10-25; ROADMAP 14.1 "all port settings in clear .ini files", 12.3 Settings window): car and row
+    // Ids, the PI line of car DLC packages, the drag tyre row. Tools > Settings > PORT edits them. The generic
+    // upgrade rules (CarUpgrades) are in the same file.
     internal static class PortSettings
     {
-        public const string FileName = "Port.ini";
+        public const string FileName = AppIni.FileName;
 
         public const string DefaultIni =
 @"; Forza Studio - port settings (ROADMAP C2, 14.1)
 ;
-; Edit freely, here or in Tools > Settings > PORT; delete this file to get the defaults back.
-; The generic upgrades of ported cars are in Upgrades.ini.
+; Edit freely, here or in Tools > Settings > PORT. The sections [General] ... [List_Upgrade...] below are the
+; generic upgrades of ported cars.
 
 [Ids]
 ; A car installed in the game gets the first free Id above every FM4 / DLC car (1638 today), never the
@@ -50,14 +50,23 @@ DragLevel = 4
 DragPrice = 10000
 
 [Damage]
-; EXPERIMENT (ROADMAP B1 tests T2 / T3): how the per-vertex damage words of a ported FH car are written.
-; copy = as they are in the FH file (the old behaviour); normalize = unit direction in FM4's 10:11:11 format.
-Words = copy
+; How the per-vertex damage words (crash deformation) of a ported FH car are written (ROADMAP B1, checked in game 2026-10-25).
+; donor = the words of an FM4 car, vertex by vertex: the same car's own FM4 file when FM4 has it (nearest vertex of the same
+; section), else the chosen donor car's, matched by place in each section's box. The default: FH's own words are another
+; quantity and FM4 deforms the car only a little with them.
+; donorcar = always the donor car, even when FM4 has the car itself (to try that approximation on a car both games have).
+; copy = the words as they are in the FH file (the old behaviour); normalize = unit direction in FM4's 10:11:11 format (experiment).
+Words = donor
 ; with Words = normalize: both | main | lod0 (which of the car's two tables is converted)
 Tables = both
 ; with Words = normalize: sections whose sign is reversed, comma separated, or * for all
 ; (T3 on the Supra: bumperFi, bumperFc, bumperRc, skirtRa, skirtLa, skirtRd)
 FlipSections =
+
+[Lod0]
+; on = a part the donor's _lod0 file has, the car's _lod0 lacks and its cockpit file has (the headlights, which FH keeps
+; in the cockpit file) moves into the _lod0 file, where FM4 keeps it and where it deforms; off = the FH layout.
+MoveSections = on
 ";
 
         public static string IniPath
@@ -196,8 +205,13 @@ FlipSections =
         }
 
         // Writes the defaults (Windows line ends); false when the folder is read-only.
+        // The tool's one file (ForzaStudio.ini) is built whole by AppIni (the old files folded in, else the defaults of every part).
         public static bool WriteDefaults(string path, string defaults)
         {
+            if (string.Equals(path, AppIni.Path, StringComparison.OrdinalIgnoreCase))
+            {
+                return AppIni.Ensure();
+            }
             try
             {
                 File.WriteAllText(path, defaults.Replace("\r\n", "\n").Replace("\n", "\r\n"), Encoding.UTF8);
@@ -211,6 +225,63 @@ FlipSections =
             {
                 return false;
             }
+        }
+
+        // The sections the defaults text holds are put back to their default lines (the rest of the file is untouched);
+        // a section the file lacks is added at its end. Used by the Restore Defaults buttons of the one-file ini.
+        public static void ResetSections(string path, string defaults)
+        {
+            AppIni.Ensure();
+            List<string> lines = new List<string>(File.ReadAllText(path).Replace("\r\n", "\n").TrimEnd('\n').Split('\n'));
+            List<string> source = new List<string>(defaults.TrimStart('﻿').Replace("\r\n", "\n").TrimEnd('\n').Split('\n'));
+            for (int i = 0; i < source.Count; i++)
+            {
+                string head = source[i].Trim();
+                if (!(head.StartsWith("[", StringComparison.Ordinal) && head.EndsWith("]", StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+                int stop = source.Count;
+                for (int j = i + 1; j < source.Count; j++)
+                {
+                    string next = source[j].Trim();
+                    if (next.StartsWith("[", StringComparison.Ordinal) && next.EndsWith("]", StringComparison.Ordinal))
+                    {
+                        stop = j;
+                        break;
+                    }
+                }
+                List<string> block = source.GetRange(i, stop - i);
+                while (block.Count > 1 && block[block.Count - 1].Trim().Length == 0)
+                {
+                    block.RemoveAt(block.Count - 1);
+                }
+                int start = lines.FindIndex(delegate(string line) { return string.Equals(line.Trim(), head, StringComparison.OrdinalIgnoreCase); });
+                if (start < 0)
+                {
+                    lines.Add("");
+                    lines.AddRange(block);
+                    continue;
+                }
+                int end = lines.Count;
+                for (int j = start + 1; j < lines.Count; j++)
+                {
+                    string next = lines[j].Trim();
+                    if (next.StartsWith("[", StringComparison.Ordinal) && next.EndsWith("]", StringComparison.Ordinal))
+                    {
+                        end = j;
+                        break;
+                    }
+                }
+                bool blankAfter = end < lines.Count;
+                lines.RemoveRange(start, end - start);
+                if (blankAfter)
+                {
+                    block.Add("");
+                }
+                lines.InsertRange(start, block);
+            }
+            File.WriteAllText(path, string.Join("\r\n", lines.ToArray()) + "\r\n", Encoding.UTF8);
         }
 
         // One value changed in place: the comments and the order of the file stay; a key the section
