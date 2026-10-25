@@ -126,7 +126,7 @@ Engine designer and the turbo rules were checked in game on the Brera 2.4 JTDm c
 
 - [ ] Aspiration menu in game for the copy's turbo: stock turbo + 2 levels + stock intercooler; what the menu shows (a single -> single swap was seen before the intercooler fix); the turbo upgrade must raise the power.
 - [x] NA copy made turbo and turbo copy made NA (stock / upgrade turbo and intercooler rows, conversions with no supercharger on a diesel): in game. Confirmed in game 2026-10-26 (petrol and diesel).
-- [ ] Supercharged copy (natural or turbo engine made positive-displacement / centrifugal supercharger, and back): the aspiration menu shows the supercharger, power and torque in game; engine graph draws the margin past the redline dotted (2026-10-26, TODO D-9).
+- [x] Supercharged copy (natural or turbo engine made positive-displacement / centrifugal supercharger, and back): the aspiration menu shows the supercharger, power and torque in game; engine graph draws the margin past the redline dotted (2026-10-26, TODO D-9). Confirmed in game 2026-10-26 (8C supercharged: perfect).
 - [x] New gearbox in the wizard (page 4, "A gearbox of its own"): 5 gears and other counts, reverse, final drive; the copy's top speed and 0-100 in the menu; the source car keeps its own. Confirmed in game 2026-10-26.
 - [ ] Tab "Transmission" of the Game Database on a Supra RZ (checked by the user: ok) and on a copy with its own gearbox.
 - [~] "As a DLC package file (STFS)": the file built in a chosen folder, loaded in Xenia (done once on the Brera) and on the console (not done). Xenia ok; console STFS left for the future.
