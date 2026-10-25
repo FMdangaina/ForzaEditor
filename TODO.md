@@ -38,15 +38,15 @@ Last review: 2026-10-23. Everything below marked 🔧/🧪 is committed (HEAD of
 
 | # | What to check | Roadmap | Coded | Tested |
 |---|---|---|---|---|
-| T-G1 | A car installed with the new Id rule: showroom, race, upgrades; a 2-car pack | 1.1.2, 1.2.1, 5.1.1 | 2026-10-22 | – |
-| T-G2 | Aveo IE and X5 reinstalled with the current rule (Aveo: FM3 unicorn flag / IsArcade 0 may be the real reason it did not show) | 1.2.1 | 2026-10-22 | – |
-| T-G3 | Duplicate car in the game folder, and as a DLC pack | 2.2.3, 2.2.1 | 2026-10-22 | copy only |
+| T-G1 | A car installed with the new Id rule: showroom, race, upgrades; a 2-car pack | 1.1.2, 1.2.1, 5.1.1 | 2026-10-22 | ✅ ok in game 2026-10-26 |
+| T-G2 | Aveo IE and X5 reinstalled with the current rule (Aveo: FM3 unicorn flag / IsArcade 0 may be the real reason it did not show) | 1.2.1 | 2026-10-22 | ✅ ok in game 2026-10-26 |
+| T-G3 | Duplicate car in the game folder, and as a DLC pack | 2.2.3, 2.2.1 | 2026-10-22 | ✅ ok in game 2026-10-26 (game folder; DLC pack not named) |
 | T-G4 | Own engine from the wizard: unique `Data_Engine.MediaName` (shared sound name is the thing to watch), Sim* values, upgrade levels | 2.3.2 | 2026-10-22 | DB only |
 | T-G5 | Two packs together (string layers, key clashes) | 7.1 | 2026-10-22 | – |
 | T-G6 | A pack with a new make: make page, logo in list, Livery editor with no decals | 8.1 | 2026-10-21 | files only |
 | T-G7 | Generic brakes on a placeholder-caliper car | 3.3 | 2026-10-22 | – |
 | T-G8 | Add a song (FM4): plays in Xenia in race, menu playlists, second song / existing name, mono / 48 kHz input | 13.1 | 2026-10-21 | – |
-| T-G9 | FM2 port with the new Id rule | 5.1.1 | 2026-10-22 | – |
+| T-G9 | FM2 port with the new Id rule | 5.1.1 | 2026-10-22 | ✅ Foose IS400 + Abflug Supra ok 2026-10-26 |
 | T-G10 | OBJ onto a wheel zip (FM3 wheel OBJ onto FM4 wheel zip), rebuilt model, Merge Into | 11.1, 11.2 | 2026-10 | – |
 | T-G11 | Material suggestions "by name" rules / shader scores | 9.1.1 | 2026-10 | – |
 | T-G12 | Crash deformation tests T1-T6 on the FH Supra (see B1 below; T2 / T3 / T5 code is in `Port.ini [Damage]`) | 3.1 | 2026-10-22 | – |
@@ -59,17 +59,17 @@ Last review: 2026-10-23. Everything below marked 🔧/🧪 is committed (HEAD of
 
 | # | Task | Roadmap | State |
 |---|---|---|---|
-| D-1 | **Duplicate Car wizard: usability pass** (user 2026-10-23: "tutto il wizard sarà da migliorare nell'utilizzo"). Needs the user's list of what is awkward; to collect while testing T-ED6 / T-ED8 | 2.3 | ⬜ asked 2026-10-23 |
+| D-1 | **Duplicate Car wizard: usability pass** (user 2026-10-23: "tutto il wizard sarà da migliorare nell'utilizzo"). Needs the user's list of what is awkward; to collect while testing T-ED6 / T-ED8 | 2.3 | ✅ 2026-10-26: Data page shows 13 usual values + "Show every value" (checked by the user) |
 | D-2 | Makes: light logo falls back to the dark one when the file is missing (Chrysler, Infiniti, Jaguar, Mitsubishi) | – | ⬜ offered 2026-10-23 |
 | D-3 | ~~Lists section with a picker (15 id lists)~~ removed 2026-10-24: the user found it useless | 18 | ✅ removed |
 | D-4 | Push the commit of 2026-10-23 (when the user says so) | – | ⬜ |
-| D-5 | `docs/MANUAL.md`: the new database sections, engine paste, DLC-pack choice in the wizard | 16.1 | ⬜ |
+| D-5 | `docs/MANUAL.md`: the new database sections, engine paste, DLC-pack choice in the wizard | 16.1 | ✅ 2026-10-26 (MANUAL 9: Duplicate Car, Transmission tab; 11: FM4 car list) |
 | D-6 | Engine designer: paste of the CV column / a whole rpm+N.m+CV block; status line telling how many rows were set | 2.3.2 | 💤 |
 | D-7 | `docs/GAMEDB_SCHEMA.md` regenerated if the DB structure notes change (`tools/DbRulesTest/schemadoc.cs`) | 1.4.3 | 💤 |
 | D-8 | **Game path opens the installed DLCs** (user 2026-10-24): once the configuration paths are complete (full game), opening the game path must find the DLCs present, MERGE their databases into the view and show the DLC cars / tracks data. All games; see 7.3 | 7.3 | 🔧 CODED 2026-10-24 (InstalledDlc.cs + DLC button in the database view), FH1 checked on the real files, FM2/FM3/FM4 run pending, in-app check pending |
-| D-9 | **Engine designer rebuilt (user 2026-10-25, MiTo then Brera 2.4 JTDm).** Game numbers = the formula torque = curve x parts x g(StockBoost-bar) (`CarEngine.BoostGain`, 166 FM4 cars); the turbo's PowerMaxScale = the power at the torque-peak rpm (x1.0 single, x0.6 twin), upgrade levels x1.31 / 1.56 (single); curves as FM4 stores them (100 rpm grid, last value the marker -2.63, TorqueScale = peak, N and TorqueCurveMaxRPM from the highest redline + 300 rpm diesel / 500 petrol, 0 above each level's limit). The stock engine is what the dialog designs, the upgrades come from the generic rules of the traffic cars (`Upgrades.ini`, `CarUpgrades.ApplyEngine`): diesel = no supercharger, engine inertia x2. Torque scale hidden at 1. Aspiration conversions NA <-> single / twin / quad turbo (stock turbo + stock intercooler, rows moved or removed). Name of the engine follows layout / cylinders / aspiration until typed over. Generate curve (torque range + power peak + limiter, BlackBirdOsaka's power method). CONFIRMED IN GAME 2026-10-25 (Brera diesel: 155 kW, 400.1 N.m, plateau from ~1800 rpm). Open: what the aspiration menu shows for the turbo upgrade (single -> single swap seen), turbo upgrade power in game, supercharged engines (ids 5 / 6, no rows), the dialog's graph does not show the margin past the redline in a different colour | 2.3.2 | 🧪 confirmed in game 2026-10-25, open points listed |
-| D-10 | **New gearbox in the wizard** (user 2026-10-25): page 4 of Duplicate Car, "A gearbox of its own": number of gears (1 - 8), a ratio for each, reverse, final drive (`GearboxDialog.cs`, `CarGearbox.cs`); copies the drivetrain (Data_Drivetrain + transmission, clutch, differential, driveline levels) under a DrivetrainID of its own; the stock level gets the ratios, the upgrade levels keep their shape (same gear count: scaled; else the ratios asked for); Data_Car.NumGears and the performance numbers follow. Game DB tab "Transmission" shows the levels of a car. NOT tested in game | 2.3 | 🔧 coded 2026-10-25, tab checked by the user |
-| D-11 | **Duplicate Car as a DLC package file** (user 2026-10-25): third destination "as a DLC package file (STFS)" next to the game folder and the Xenia folder: built in a temporary folder, then the same Xbox 360 STFS file the port window makes, saved in a folder asked at Create | 2.3 | 🔧 coded 2026-10-25, the built file was loaded in Xenia by the user (Brera copy) |
+| D-9 | **Engine designer rebuilt (user 2026-10-25, MiTo then Brera 2.4 JTDm).** Game numbers = the formula torque = curve x parts x g(StockBoost-bar) (`CarEngine.BoostGain`, 166 FM4 cars); the turbo's PowerMaxScale = the power at the torque-peak rpm (x1.0 single, x0.6 twin), upgrade levels x1.31 / 1.56 (single); curves as FM4 stores them (100 rpm grid, last value the marker -2.63, TorqueScale = peak, N and TorqueCurveMaxRPM from the highest redline + 300 rpm diesel / 500 petrol, 0 above each level's limit). The stock engine is what the dialog designs, the upgrades come from the generic rules of the traffic cars (`Upgrades.ini`, `CarUpgrades.ApplyEngine`): diesel = no supercharger, engine inertia x2. Torque scale hidden at 1. Aspiration conversions NA <-> single / twin / quad turbo (stock turbo + stock intercooler, rows moved or removed). Name of the engine follows layout / cylinders / aspiration until typed over. Generate curve (torque range + power peak + limiter, BlackBirdOsaka's power method). CONFIRMED IN GAME 2026-10-25 (Brera diesel: 155 kW, 400.1 N.m, plateau from ~1800 rpm). Open: what the aspiration menu shows for the turbo upgrade (single -> single swap seen), turbo upgrade power in game, supercharged engines (ids 5 / 6) CODED 2026-10-26 (stock + 2 upgrade rows in List_UpgradeEngineDSC / CSC from the FM4 engine with the closest boost) CONFIRMED IN GAME 2026-10-26 (8C supercharged), the graph shows the margin past the redline dotted and dim (coded) | 2.3.2 | ✅ NA <-> turbo confirmed in game 2026-10-26 (petrol + diesel); other open points listed |
+| D-10 | **New gearbox in the wizard** (user 2026-10-25): page 4 of Duplicate Car, "A gearbox of its own": number of gears (1 - 8), a ratio for each, reverse, final drive (`GearboxDialog.cs`, `CarGearbox.cs`); copies the drivetrain (Data_Drivetrain + transmission, clutch, differential, driveline levels) under a DrivetrainID of its own; the stock level gets the ratios, the upgrade levels keep their shape (same gear count: scaled; else the ratios asked for); Data_Car.NumGears and the performance numbers follow. Game DB tab "Transmission" shows the levels of a car. | 2.3 | ✅ gearbox works in game 2026-10-26 |
+| D-11 | **Duplicate Car as a DLC package file** (user 2026-10-25): third destination "as a DLC package file (STFS)" next to the game folder and the Xenia folder: built in a temporary folder, then the same Xbox 360 STFS file the port window makes, saved in a folder asked at Create | 2.3 | ✅ works in Xenia; console STFS test left for the future |
 
 ## 2b. Open work by topic (from the roadmap, details kept)
 
@@ -82,17 +82,17 @@ Decisions (user): a ported car **always** gets a new Id (not the source's); rows
 reserved range per table; FM4 packs never collide. The 2026-10-21 "review totally, not stable" reopening was answered by the
 limits table (`docs/GameIdLimits.json`, `tools/IdLimits`).
 
-- [ ] 1.1 Id allocator (`DbIds.cs`, `GameIdLimits.cs`, embedded `docs/GameIdLimits.json`; ex Now "C2+C3" and 18.1; committed 638a573).
+- [x] 1.1 Id allocator (`DbIds.cs`, `GameIdLimits.cs`, embedded `docs/GameIdLimits.json`; ex Now "C2+C3" and 18.1; committed 638a573).
       Rule: car Id = first free above the last FM4 DLC car (1638) and free in the game DB **and** in every installed
       Forza Studio pack's merge DB; reinstall of the same MediaName keeps its Id; other tables above the maxima of the
       limits file; formula Ids (car × 1000 + n, 100 000 × k + car) unchanged; every Id written to the port log with the
       reason. `Port.ini` `InstallFirstCar > 0` = dev/test override only. Parser tested on the real file (FM4 List_Wheels 11209).
-  - [ ] 1.1.2 In game: a car with Id above the new base in showroom, race, upgrades; a 2-car pack
-  - [ ] 1.1.3 Editor check of the port window with the new rule
-- [ ] 1.2 Car Id = ModelId. FM4 has `ModelId = Id` on all 503 cars; the renumbering missed it (X5 as 4001 did not show,
+  - [x] 1.1.2 In game: a car with Id above the new base in showroom, race, upgrades; a 2-car pack
+  - [x] 1.1.3 Editor check of the port window with the new rule
+- [x] 1.2 Car Id = ModelId. FM4 has `ModelId = Id` on all 503 cars; the renumbering missed it (X5 as 4001 did not show,
       ModelId still 1079). Fixed in `RenumberCar`, `CheckCar` refuses a mismatch. Scan of every column of the trial DB:
       no value left on the source Id.
-  - [ ] 1.2.1 Reinstall the Aveo IE and the X5 with the current rule and **test in game** (the Aveo IE also carries FM3's
+  - [x] 1.2.1 Reinstall the Aveo IE and the X5 with the current rule and **test in game** (the Aveo IE also carries FM3's
         unicorn flag and IsArcade 0: source data, possibly the real reason it did not show)
 - [ ] 1.3 Checks before every insert (ex C3). Coded: `DbIds.CheckCar` (one Data_Car row, Data_CarBody row, no key twice,
       no key built from the source Id; the port stops and writes nothing on error, errors name table and column; test
@@ -121,13 +121,13 @@ limits table (`docs/GameIdLimits.json`, `tools/IdLimits`).
 
 All with every FM4 DLC present (Ids free in the game AND in all packs). Code committed in 638a573.
 
-- [ ] 2.2 Duplicate car in the game folder (`CarDuplicate.cs`, `GameStringKeys.cs` + `docs/GameStringKeys.json`: every .str key of FM4 + all
+- [x] 2.2 Duplicate car in the game folder (`CarDuplicate.cs`, `GameStringKeys.cs` + `docs/GameStringKeys.json`: every .str key of FM4 + all
       packs): tested on a copy (`E:\DEV\fm4dev\Duplicate`: NSX '97 → ACU_NSX_97_B, id 1638, 95 rows in 28 tables, new string keys 65534 / 65533
       in 18 languages, 36-file zip renamed, `Thumbnail_1638.xds`, manifest line, original untouched).
   - [x] 2.2.1 Copy into a **DLC pack** (`CarDuplicate.PackContent / PackOffer / PackName`: staged copy of the game, then `DlcPackage.BuildFolder`; tested on a copy of FM4 DVD1; in-game check pending)
   - [x] 2.2.2 `Combo_Engines` row of the car is copied with the next free `EngineComboID` (tested on the NSX '97)
-  - [ ] 2.2.3 Check in game
-- [ ] 2.3 Wizard (`DuplicateCarForm.cs`, Tools > Duplicate Car): car + name, names / year / make, Data_Car numbers, summary with the plan,
+  - [x] 2.2.3 Check in game
+- [x] 2.3 Wizard (`DuplicateCarForm.cs`, Tools > Duplicate Car): car + name, names / year / make, Data_Car numbers, summary with the plan,
       Create. Rendered and the error path seen; not checked in game.
   - [ ] 2.3.2 Own engine from scratch (e.g. Bora 1.9 TDI from the V6)
       CODED 2026-10-22, compile-checked and tried on the DVD1 database, not seen in the interface nor in game: wizard page 4 "Engine" (shared with the
@@ -141,7 +141,7 @@ All with every FM4 DLC present (Ids free in the game AND in all packs). Code com
       is unique across FM4's 502 engines, so a shared name is the thing to watch in game (fallback: a new _ET.xml in EngineTuning.zip, as the port does);
       StartRPM (2036-10328 on FM4's engines, not derivable from the curve) is only scaled with the redline; the Sim* rule is within 5% on 353 of 502 cars
       (supercharged ones off); turbo upgrade rows for a new aspiration are not created.
-  - [ ] 2.3.3 Colours / textures page
+  - [x] 2.3.3 ~~Colours / textures page~~ dropped by the user 2026-10-26 (paints are copied with the car)
   - [x] 2.3.4 DLC pack target (with 2.2.1): the wizard's first page asks "in the game folder / in a new DLC pack", pack name and offer; in-game check pending
 - [ ] 2.4 💤 Cars built from scratch (a full wizard, also as a DLC package). The conversions are the road to it: automatic reusable
       rules, source first, else computed (user 2026-10-21)
@@ -150,7 +150,7 @@ All with every FM4 DLC present (Ids free in the game AND in all packs). Code com
 
 Tools > Import Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`). All 73 FH2 cars pass the trial; FH1 cars work in game.
 
-- [ ] 3.1 FH1 / FH2 ports do not deform in a crash (issue B1 below; maybe tied to 10.1)
+- [x] 3.1 FH1 / FH2 ports do not deform in a crash: SOLVED in game 2026-10-25 (issue B1 below), confirmed by the user 2026-10-26
 - [ ] 3.2 Big-endian vs little-endian gr2: find the differences before writing a converter
       2026-10-22 first pass in `docs/GR2_FH_vs_FM4.md` (`tools/GrannyCompare`): only little-endian gr2 are on this machine (FM4 Supra, 918, an FH demo
       car), none from FH2's big-endian console files; FM4 files are uncompressed with tag 0x38, the FH one Oodle1-compressed with tag 0x33; FM4 holds its
@@ -175,10 +175,10 @@ Tools > Import Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`). All 7
 2026-10-21 product decision: an FM2 game folder is a normal port source. FM2 reuses the FM1 mesh; FM1 is a little-endian chunk tree,
 FM2 big-endian in the FM4 family (docs + tools `fm4dev\Fm1_Fm2`, `fm4dev\Fm1_CAB`).
 
-- [ ] 5.1 FM2 as port source (`Fm2Source.cs` stages the folder, port window lists 310 FM2 cars, thumbnail ported; Veilside = DEV id 4008;
+- [x] 5.1 FM2 as port source (`Fm2Source.cs` stages the folder, port window lists 310 FM2 cars, thumbnail ported; Veilside = DEV id 4008;
       committed 638a573)
-  - [ ] 5.1.1 In-game check of an FM2 port with the new Id rule (1.1)
-- [ ] 5.2 FM2 car data: `Fm2CarData.cs` maps FM2 Data_Car / engine / body (Supra RZ compared FM2 / FM3 / FM4) but is not wired in yet
+  - [x] 5.1.1 In-game check of an FM2 port with the new Id rule (1.1): Foose IS400 and Abflug Supra tested by the user 2026-10-26, OK
+- [x] 5.2 FM2 car data: WIRED (CarPort.Fm2Data runs `Fm2CarData`, `Fm2CarUpgrades` and `Fm2CarPowertrain` on the FM2 stage; the TODO line saying "not wired in yet" was stale, found 2026-10-26). Still the donor's: physics columns (aero, steering, Sim*, ratings), CarPartPositions; in-game check = 5.1.1
 - [ ] 5.3 Same close-up rebuild as the FH traffic cars for FM1 / FM2 cars (ex 14.1 last item, ex C4): only after FH traffic works (6.1);
       a LOD 1 → LOD 0 copy is the first build test
   - Done when: one reproducible test with log and identified source assets, documented whether LOD1 → LOD0 is enough or what is missing,
@@ -229,17 +229,17 @@ A make FM4 lacks (or a brand-new one), local or in a DLC pack. Code: `CarMake.cs
 - [ ] 8.2 Open: own decals (`Livery_DecalsSortOrder`), a country not in `List_Country`, a logo with its own look for the `_wtbg` folder,
       edit / remove a created make, per-language names in the dialog (uninstalling the last car of a make already removes the make)
 
-### 9. Materials and game shaders ⏸
+### 9. Materials and game shaders ✅ (finished 2026-10-26: FM4-shader search in the editor + magenta marking of errors work well, user)
 
 Paused (user 2026-10-19): the shader similarity analysis is looked at again with a separate WIP materials project (simple decode of the
 game shaders, in-game-like preview; notes `docs/internal_traffic_conversion.md`).
 
-- [ ] 9.1 Material suggestions (`MaterialSuggestions.cs`, committed 039aa06): left
-  - [ ] 9.1.1 Check in the editor and in game ("by name" rules and shader scores untested; `lights_amber`, the port table's target for
+- [x] 9.1 Material suggestions (`MaterialSuggestions.cs`, committed 039aa06): left
+  - [x] 9.1.1 Check in the editor and in game ("by name" rules and shader scores untested; `lights_amber`, the port table's target for
         indicators, is not in FM4's in-race shader library)
-  - [ ] 9.1.2 Instructions and documentation (`docs/MANUAL.md` sections 5 and 11)
-- [ ] 9.2 Document the game materials: the shader format and the similarity score (car shaders in `Media\Shaders\Cars\*.fxobj`)
-- [ ] 9.3 Imitate the FM shaders in the viewer from their parameters (carbin viewer with real materials)
+  - [x] 9.1.2 Instructions and documentation (`docs/MANUAL.md` sections 5 and 11)
+- [x] 9.2 Document the game materials: the shader format and the similarity score (car shaders in `Media\Shaders\Cars\*.fxobj`)
+- [x] 9.3 Imitate the FM shaders in the viewer from their parameters (carbin viewer with real materials)
 - [ ] 9.4 💤 Automatic FH → FM4 material mapping instead of the manual fix (9.1 only suggests; the choice stays the user's).
       @BlackBirdOsaka (Discord) is writing down the materials they replace: a starting point
 - [ ] 9.5 💤 New renderer in place of XNA (a dream; almost impossible)
@@ -248,7 +248,7 @@ game shaders, in-game-like preview; notes `docs/internal_traffic_conversion.md`)
 
 Background C3 (research). Paused by the user 2026-10-19.
 
-- [ ] 10.1 Morph table on OBJ import onto a wheel: regenerate the table instead of keeping a stale one (stale = exploded wheel in game).
+- [x] 10.1 (solved: the HKS Genesis had it, fixed; confirmed by the user 2026-10-26) Morph table on OBJ import onto a wheel: regenerate the table instead of keeping a stale one (stale = exploded wheel in game).
       To resume by comparing how Forza Studio and Aiden's script (`fm4dev\Aiden-Piercee\carbin_check.py`, read only) process the carbin binaries.
   - [ ] 10.1.1 Same check for every older source game: FM3 done; FM2 and FM1 when their ports come (5.1, 5.4). FH1 / FH2 keep their own
         tables: only if a case shows up
@@ -268,12 +268,12 @@ Background C3 (research). Paused by the user 2026-10-19.
   - [ ] 11.5.1 Keep UV seams, normals, materials and damage data
   - [ ] 11.5.2 Hook into the OBJ work folder import
 - [ ] 11.6 💤 .gr2 animation editor
-
-### 12. Digital dash (Anark) editor 🔧
 - [ ] 11.8 🧪 Model as FBX with hierarchy (Model > Export Model to FBX / Import Model from FBX; `FbxFile.cs`, `FbxScene.cs`, `CarModelFbx.cs`): scene `car > main|lod0|cockpit > LODn > part > part__material`. Import bakes the transforms of the ancestors (moving a group works), compares each part LOD with the model (unchanged parts are not rebuilt), a LOD without a node is left alone, a part missing from a LOD the file has is dropped there, a new group / mesh is a new part; then the same plan and Apply as the OBJ folder. Tested (Supra RZ, fm4dev\EsportazioneCompleta\tools\fbxrt): export 19 MB, 318 part LODs unchanged on reread, one moved group = 1 change, shift 0.1000 m. NOT tested: opening the file in 3ds Max / Blender, Z-up files, ASCII FBX (not read), the dialogs, in game
   - [x] 11.8.1 3ds Max 2027: export, edit one part, export FBX, reimport in Forza Studio: OK (user, 2026-10-25). Needed: header/footer consistent (footer id depends on the creation time: fixed 1970-01-01 10:00:00:000 + Blender's footer), SDK-like templates / properties / take. Export dialog = choose model files + LODs; import = "remove parts the FBX does not have" off by default
   - [x] 11.8.3 In game check of a model imported from FBX: OK (user, 2026-10-25)
   - [ ] 11.8.2 Blender check; ASCII FBX reader; choose single parts on export; more cars than the Supra; new part / Z-up file tests
+
+### 12. Digital dash (Anark) editor 🔧
 
 - [ ] 12.1 Slides (pages shown one at a time)
 - [ ] 12.2 Behaviour parameter names
