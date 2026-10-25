@@ -2004,7 +2004,7 @@ namespace ForzaStudio
             Dictionary<string, string> seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             using (SqliteDatabase to = SqliteDatabase.FromBytes(File.ReadAllBytes(Path.Combine(Path.Combine(Path.Combine(target, "Media"), "db"), "gamedb.slt"))))
             {
-                motorsport = Cars(to, Names(target));
+                motorsport = Fm4Cars(Cars(to, Names(target)));
                 List<Car> ported = new List<Car>();
                 foreach (string source in sources)
                 {
@@ -2038,6 +2038,28 @@ namespace ForzaStudio
                 string targetCars = Path.Combine(Path.Combine(target, "Media"), "cars");
                 motorsport.RemoveAll(delegate(Car car) { return !File.Exists(Path.Combine(targetCars, car.MediaName + ".zip")); });
             }
+        }
+
+        // FM4's cars come from the list inside the program (Fm4CarList: the game and its official DLC), not from reading the
+        // game's database and the packages installed in Xenia. From the target's own database only what the list does not
+        // hold is added: the cars made or ported by this program (an Id above the largest of FM4 and its DLC).
+        private static List<Car> Fm4Cars(List<Car> inDatabase)
+        {
+            List<Car> cars = new List<Car>();
+            Dictionary<string, bool> known = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            foreach (Fm4CarList.Entry e in Fm4CarList.Cars)
+            {
+                known[e.MediaName] = true;
+                cars.Add(new Car { Id = e.Id, MediaName = e.MediaName, Name = e.Name, Year = e.Year, Make = e.Make, Placement = e.Placement, Drive = e.Drive, Type = e.Type, Weight = e.Weight, Pi = e.Pi, Dlc = e.Dlc });
+            }
+            foreach (Car car in inDatabase)
+            {
+                if (!known.ContainsKey(car.MediaName))
+                {
+                    cars.Add(car);
+                }
+            }
+            return cars;
         }
 
         // One source root's cars, with their FM4 state; FM4 cars they were ported over go into 'ported'.
@@ -2091,7 +2113,7 @@ namespace ForzaStudio
                         else
                         {
                             car.State = Status.InFm4;
-                            car.Note = "an FM4 car (id " + same.Id + ")";
+                            car.Note = string.IsNullOrEmpty(same.Dlc) ? "an FM4 car (id " + same.Id + ")" : "an FM4 DLC car (id " + same.Id + ", " + same.Dlc + ")";
                             Car copy;
                             if (byName.TryGetValue(RenamedPort(car), out copy))
                             {
