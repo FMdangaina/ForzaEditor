@@ -20,7 +20,9 @@ User manual: [docs/MANUAL.md](docs/MANUAL.md). Quick start for the beta zip:
 
 Derived from Forza Studio 4.6 by Mike Davis, with an earlier edit by JYSB59.
 Maintained by FMdangaina. The DLC package format was worked out with help from Jew
-(@mr.abortion) and XTD (@xtd_ac) on Discord.
+(@mr.abortion) and XTD (@xtd_ac) on Discord. The engine power calculation (the torque a
+given power needs at its rpm, as a scalar of the peak torque) follows BlackBirdOsaka's notes
+on Discord.
 
 ## License
 

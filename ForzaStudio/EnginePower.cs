@@ -255,6 +255,33 @@ namespace ForzaStudio
             return (this.edited != null) ? this.edited[i] * this.power.CurveScale : this.power.BaseTorque[i];
         }
 
+        // The points up to the redline plus one at the redline itself (linear between the two points around it).
+        private static PointF[] ClipAtRedline(PointF[] line, double[] rpm, double redline, float redlineX)
+        {
+            if (redline <= 0 || rpm.Length < 2 || redline >= rpm[rpm.Length - 1])
+            {
+                return line;
+            }
+            List<PointF> kept = new List<PointF>();
+            for (int i = 0; i < line.Length; i++)
+            {
+                if (rpm[i] <= redline)
+                {
+                    kept.Add(line[i]);
+                }
+                else
+                {
+                    if (i > 0 && rpm[i] > rpm[i - 1])
+                    {
+                        float t = (float) ((redline - rpm[i - 1]) / (rpm[i] - rpm[i - 1]));
+                        kept.Add(new PointF(redlineX, line[i - 1].Y + ((line[i].Y - line[i - 1].Y) * t)));
+                    }
+                    break;
+                }
+            }
+            return (kept.Count >= 2) ? kept.ToArray() : line;
+        }
+
         private static double Nice(double value)
         {
             double step = Math.Pow(10, Math.Floor(Math.Log10(value)));
@@ -349,9 +376,10 @@ namespace ForzaStudio
             using (Pen powerPen = new Pen(Color.White, 2.5f))
             {
                 dashed.DashStyle = DashStyle.Dash;
-                g.DrawLines(dashed, baseLine);
-                g.DrawLines(torquePen, torqueLine);
-                g.DrawLines(powerPen, powerLine);
+                // Nothing is drawn past the redline (the engine cuts there; what the table holds above it is the old curve's tail).
+                g.DrawLines(dashed, ClipAtRedline(baseLine, this.power.Rpm, this.power.Redline, this.X(this.power.Redline)));
+                g.DrawLines(torquePen, ClipAtRedline(torqueLine, this.power.Rpm, this.power.Redline, this.X(this.power.Redline)));
+                g.DrawLines(powerPen, ClipAtRedline(powerLine, this.power.Rpm, this.power.Redline, this.X(this.power.Redline)));
             }
 
             double peakKw = EnginePower.Kilowatts(this.Torque(peakPower), this.power.Rpm[peakPower]);

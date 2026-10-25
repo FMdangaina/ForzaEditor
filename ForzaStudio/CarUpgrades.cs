@@ -313,6 +313,32 @@ StockLevel = 1
 MassDiff = 0, -0.033%, -0.089%
 Price = 0, 4400, 9900
 TorqueScale = stock, x1.04192, x1.06669
+; Upgrade levels of an engine that already has its stock turbo (FM4: stock + 2 levels, the medians over its 81 single-turbo and
+; 56 twin-turbo engines; MaxScale and PowerMaxScale follow the stock turbo row, which Forza Studio scales to the engine's power).
+[List_UpgradeEngineTurboSingle]
+StockLevel = 1
+Levels = 2
+MassDiff = 0, 9.5, 12
+WeightDistDiff = 0, 0.002, 0.0026
+Price = 0, 5500, 12300
+MomentInertia = stock, x1.246, x1.4346
+MaxScale = stock, x1.1486, x1.2484
+PowerMaxScale = stock, x1.3083, x1.562
+MinScale = stock, x0.9769, x0.962
+RobScale = stock, x0.9769, x0.9642
+
+[List_UpgradeEngineTurboTwin]
+StockLevel = 1
+Levels = 2
+MassDiff = 0, 14.1, 14.3
+WeightDistDiff = 0, 0.0023, 0.0025
+Price = 0, 6200, 13400
+MomentInertia = stock, x1.2995, x1.5446
+MaxScale = stock, x1.1908, x1.3464
+PowerMaxScale = stock, x1.3945, x1.6934
+MinScale = stock, x0.9706, x0.9491
+RobScale = stock, x0.9728, x0.9501
+
 
 [List_UpgradeEngineValves]
 StockLevel = 0
@@ -599,6 +625,28 @@ MomentInertia = stock, x0.9, x0.8, x0.7
             }
         }
 
+        // The generic upgrade levels of an engine that has only its stock parts (a copy made by CarEngine.Clone): every engine
+        // part table with a rule in Upgrades.ini, then, for a naturally aspirated engine, the turbo / supercharger conversions.
+        public void ApplyEngine(long engine)
+        {
+            this.curbKg = Convert.ToDouble(this.db.Scalar("SELECT CurbWeight FROM Data_Car WHERE Id = ?", this.carId) ?? 0.0, CultureInfo.InvariantCulture) * 100;
+            List<string> made = new List<string>();
+            foreach (string table in this.ini.Keys)
+            {
+                if (!table.StartsWith("List_UpgradeEngine", StringComparison.Ordinal) || !this.TableExists(table) || !Has(this.Columns(table), "EngineID"))
+                {
+                    continue;
+                }
+                string result = this.Generate(table, "EngineID", engine);
+                if (result != null)
+                {
+                    made.Add(result);
+                }
+            }
+            this.lines.Add(" generic levels (" + FileName + ") for " + made.Count + " parts: " + string.Join(", ", made.ToArray()));
+            this.Aspiration(engine);
+        }
+
         // Turbo / supercharger conversions for an engine that has none (user 2026-10-20: the FH1 Focus
         // had no aspiration swap). Rows at levels 1-3, Id = EngineID * 1000 + level (intercooler: + level
         // - 1, as FM4's), the values of [Aspiration.<type>].
@@ -627,6 +675,13 @@ MomentInertia = stock, x0.9, x0.8, x0.7
             {
                 types.RemoveAll(delegate(string t) { return string.Equals(t, "TurboTwin", StringComparison.OrdinalIgnoreCase); });
                 this.lines.Add(string.Format(CultureInfo.InvariantCulture, "  aspiration: {0} cylinders, no twin turbo (under {1})", cylinders, minimum));
+            }
+            // A diesel has no supercharger (user 2026-10-25): only the turbo, for the rare naturally aspirated one.
+            object diesel = this.db.Scalar("SELECT Diesel FROM Data_Engine WHERE EngineID = ?", engine);
+            if (diesel != null && diesel != DBNull.Value && Convert.ToInt64(diesel, CultureInfo.InvariantCulture) != 0)
+            {
+                types.RemoveAll(delegate(string t) { return string.Equals(t, "CSC", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "DSC", StringComparison.OrdinalIgnoreCase); });
+                this.lines.Add("  aspiration: diesel, no supercharger");
             }
             if (types.Count == 0)
             {

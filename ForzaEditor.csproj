@@ -171,6 +171,10 @@
     <Compile Include="ForzaStudio\DuplicateCarForm.cs" />
     <Compile Include="ForzaStudio\EventRestriction.cs" />
     <Compile Include="ForzaStudio\CarEngine.cs" />
+    <Compile Include="ForzaStudio\CarGearbox.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Transmission.cs" />
+    <Compile Include="ForzaStudio\CurveGenerateDialog.cs" />
+    <Compile Include="ForzaStudio\GearboxDialog.cs" />
     <Compile Include="ForzaStudio\CarPerformance.cs" />
     <Compile Include="ForzaStudio\EngineDialog.cs" />
     <Compile Include="ForzaStudio\DbIntegrity.cs" />

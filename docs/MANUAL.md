@@ -589,6 +589,9 @@ Forza Studio writes only these files:
 - It is derived from **Forza Studio 4.6** by Mike Davis, with an earlier edit by **JYSB59**.
 - The DLC package format was worked out with help from **Jew (@mr.abortion)** and
   **XTD (@xtd_ac)** on Discord.
+- The engine power calculation (the torque a power needs at its rpm, as a scalar of the peak
+  torque; Generate curve in the engine dialog) follows the notes of **BlackBirdOsaka** on
+  Discord.
 - Music is played with **vgmstream** (https://github.com/vgmstream/vgmstream, ISC-style license,
   see `vgmstream\COPYING`).
 - `texconv.exe` is from Microsoft **DirectXTex** (MIT). `xds.dll` comes from Forza Studio 4.6.

@@ -1680,7 +1680,7 @@ namespace ForzaStudio
         }
 
         // The package picture the dashboard shows: the program's icon, 64 x 64 PNG.
-        private static byte[] PackThumbnail(Icon icon)
+        internal static byte[] PackThumbnail(Icon icon)
         {
             if (icon == null)
             {

@@ -114,6 +114,8 @@ namespace ForzaStudio
         private readonly Label problem;
         private readonly RadioButton toGame;
         private readonly RadioButton toPack;
+        private readonly RadioButton toFile;                // the pack as an STFS package file (Xbox 360; Xenia reads it too)
+        private string packageOutput;                       // the folder the package file goes in, asked when the copy is created
         private readonly TextBox packName;
         private readonly NumericUpDown packOffer;
         private readonly TextBox displayName;
@@ -126,6 +128,10 @@ namespace ForzaStudio
         private readonly Button engineEdit;
         private readonly Label engineSummary;
         private EngineSpec engineSpec;
+        private readonly CheckBox gearboxOwn;
+        private readonly Button gearboxEdit;
+        private readonly Label gearboxSummary;
+        private GearboxSpec gearboxSpec;
         private readonly TextBox summary;
         private readonly Button back;
         private readonly Button next;
@@ -258,8 +264,12 @@ namespace ForzaStudio
             this.toGame.SetBounds(106, 182, 300, 24);
             this.toGame.Checked = true;
             this.toPack = new RadioButton();
-            this.toPack.Text = "in a new DLC pack (the game folder is not changed)";
-            this.toPack.SetBounds(106, 208, 420, 24);
+            this.toPack.Text = "in a DLC pack folder (Xenia)";
+            this.toPack.SetBounds(106, 208, 220, 24);
+            this.toFile = new RadioButton();
+            this.toFile.Text = "as a DLC package file (STFS)";
+            this.toFile.SetBounds(332, 208, 250, 24);
+            new ToolTip().SetToolTip(this.toFile, "The pack as one Xbox 360 package file (the same STFS file the port window builds), saved in a folder you choose when the copy is created: for a modded console, or to put in Xenia's content folder. The game folder is not changed.");
             this.AddLabel(0, "Pack name:", 124, 240, 80, 20);
             this.packName = new TextBox();
             this.packName.SetBounds(208, 237, 260, 24);
@@ -272,16 +282,17 @@ namespace ForzaStudio
             this.UseXeniaContent(xeniaContent);
             this.packName.Enabled = false;
             this.packOffer.Enabled = false;
-            this.toPack.CheckedChanged += delegate
+            EventHandler packChanged = delegate
             {
                 if (this.toPack.Checked && this.xeniaContent == null && !this.AskXeniaFolder())
                 {
                     this.toGame.Checked = true;
                     return;
                 }
-                this.packName.Enabled = this.toPack.Checked;
-                this.packOffer.Enabled = this.toPack.Checked;
-                if (this.toPack.Checked && this.packName.Text.Length == 0)
+                bool inPack = this.toPack.Checked || this.toFile.Checked;
+                this.packName.Enabled = inPack;
+                this.packOffer.Enabled = inPack;
+                if (inPack && this.packName.Text.Length == 0)
                 {
                     this.packName.Text = this.displayName.Text.Length > 0 ? this.displayName.Text : this.newName.Text.Trim();
                 }
@@ -289,8 +300,11 @@ namespace ForzaStudio
             };
             this.pages[0].Controls.Add(this.toGame);
             this.pages[0].Controls.Add(this.toPack);
+            this.pages[0].Controls.Add(this.toFile);
             this.pages[0].Controls.Add(this.packName);
             this.pages[0].Controls.Add(this.packOffer);
+            this.toPack.CheckedChanged += packChanged;
+            this.toFile.CheckedChanged += packChanged;
 
             // 2 Names
             this.AddLabel(1, "The names the game shows, the same in every language (change a language later in the string tables).", 12, 12, 576, 36);
@@ -363,6 +377,29 @@ namespace ForzaStudio
                 if (this.engineOwn.Checked && this.engineSpec == null)
                 {
                     this.EditEngine();
+                }
+            };
+
+            // The gearbox sits on the same page: number of gears and a ratio for each.
+            this.gearboxOwn = new CheckBox();
+            this.gearboxOwn.Text = "A gearbox of its own (number of gears, ratios, final drive; the drivetrain is copied, the source keeps its own)";
+            this.gearboxOwn.SetBounds(12, 232, 576, 22);
+            this.gearboxEdit = new Button();
+            this.gearboxEdit.Text = "Design the gearbox...";
+            this.gearboxEdit.SetBounds(32, 258, 160, 28);
+            this.gearboxEdit.Enabled = false;
+            this.gearboxEdit.Click += delegate { this.EditGearbox(); };
+            this.gearboxSummary = new Label();
+            this.gearboxSummary.SetBounds(32, 292, 556, 50);
+            this.pages[3].Controls.Add(this.gearboxOwn);
+            this.pages[3].Controls.Add(this.gearboxEdit);
+            this.pages[3].Controls.Add(this.gearboxSummary);
+            this.gearboxOwn.CheckedChanged += delegate
+            {
+                this.gearboxEdit.Enabled = this.gearboxOwn.Checked;
+                if (this.gearboxOwn.Checked && this.gearboxSpec == null)
+                {
+                    this.EditGearbox();
                 }
             };
 
@@ -452,6 +489,9 @@ namespace ForzaStudio
             this.engineSpec = null;
             this.engineSummary.Text = "";
             this.engineShared.Checked = true;
+            this.gearboxSpec = null;
+            this.gearboxSummary.Text = "";
+            this.gearboxOwn.Checked = false;
             foreach (string[] field in DataFields)
             {
                 object value;
@@ -493,6 +533,35 @@ namespace ForzaStudio
             }
         }
 
+        // The gearbox dialog on the source car's stock gearbox; cancelled with no gearbox yet: back to shared.
+        private void EditGearbox()
+        {
+            if (this.SelectedCar == null)
+            {
+                return;
+            }
+            try
+            {
+                using (GearboxDialog dialog = new GearboxDialog(this.target, Convert.ToInt64(this.carRow["Id"], CultureInfo.InvariantCulture), this.gearboxSpec))
+                {
+                    if (dialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        this.gearboxSpec = dialog.Result;
+                        this.gearboxSummary.Text = "Gearbox of its own: " + CarGearbox.Describe(this.gearboxSpec);
+                    }
+                    else if (this.gearboxSpec == null)
+                    {
+                        this.gearboxOwn.Checked = false;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                this.gearboxOwn.Checked = false;
+            }
+        }
+
         private string FreeName(string source)
         {
             for (int i = 2; i < 1000; i++)
@@ -522,11 +591,11 @@ namespace ForzaStudio
             {
                 message = text + " is already a car of this game.";
             }
-            else if (this.toPack.Checked && this.PackHasCar(text))
+            else if ((this.toPack.Checked || this.toFile.Checked) && this.PackHasCar(text))
             {
                 message = text + " is already a car of an installed DLC pack.";
             }
-            else if (this.toPack.Checked && this.packName.Text.Trim().Length == 0)
+            else if ((this.toPack.Checked || this.toFile.Checked) && this.packName.Text.Trim().Length == 0)
             {
                 message = "Give the pack a name.";
             }
@@ -595,9 +664,14 @@ namespace ForzaStudio
             CarDuplicate duplicate = new CarDuplicate();
             duplicate.TargetRoot = this.target;
             duplicate.XeniaContent = this.xeniaContent;
-            if (this.toPack.Checked)
+            if (this.toPack.Checked || this.toFile.Checked)
             {
-                duplicate.PackContent = this.xeniaContent;
+                duplicate.PackContent = this.toPack.Checked ? this.xeniaContent : null;
+                if (this.toFile.Checked)
+                {
+                    duplicate.ConsoleOutput = this.packageOutput ?? "(the folder you choose when the copy is created)";
+                    duplicate.Thumbnail = CarPortForm.PackThumbnail(this.Icon);
+                }
                 duplicate.PackOffer = (int) this.packOffer.Value;
                 duplicate.PackName = this.packName.Text.Trim();
                 duplicate.ReplacePack = this.replacePack;
@@ -610,6 +684,14 @@ namespace ForzaStudio
                     throw new InvalidOperationException("Design the engine first (page 4), or choose the shared engine.");
                 }
                 duplicate.Engine = this.engineSpec;
+            }
+            if (this.gearboxOwn.Checked)
+            {
+                if (this.gearboxSpec == null)
+                {
+                    throw new InvalidOperationException("Design the gearbox first (page 4), or untick the gearbox of its own.");
+                }
+                duplicate.Gearbox = this.gearboxSpec;
             }
             duplicate.NewMediaName = this.newName.Text.Trim();
             duplicate.DisplayName = this.displayName.Text.Trim();
@@ -670,7 +752,27 @@ namespace ForzaStudio
         {
             string question;
             this.replacePack = false;
-            if (this.toPack.Checked)
+            if (this.toFile.Checked)
+            {
+                // The package file goes straight into the folder the user picks (as the port window's Xbox 360 build does).
+                using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+                {
+                    dialog.Description = "Folder for the DLC package file (saved directly in it)";
+                    string last = AppSettings.Get("CarPort.XboxOut", "");
+                    if (Directory.Exists(last))
+                    {
+                        dialog.SelectedPath = last;
+                    }
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                    {
+                        return;
+                    }
+                    this.packageOutput = dialog.SelectedPath;
+                }
+                AppSettings.Set("CarPort.XboxOut", this.packageOutput);
+                question = "Build the DLC package file \"" + this.packName.Text.Trim() + "\" (offer " + (int) this.packOffer.Value + ") with the copy " + this.newName.Text.Trim() + " in " + this.packageOutput + " now? The game folder is not changed.";
+            }
+            else if (this.toPack.Checked)
             {
                 int offer = (int) this.packOffer.Value;
                 if (Directory.Exists(DlcPackage.PackagePath(this.xeniaContent, offer)))
@@ -700,7 +802,11 @@ namespace ForzaStudio
                 this.next.Enabled = false;
                 this.back.Enabled = false;
                 this.cancel.Text = "Close";
-                MessageBox.Show(this, duplicate.NewMediaName + " created (car Id " + duplicate.NewId + ").", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, duplicate.NewMediaName + " created (car Id " + duplicate.NewId + ")." + ((duplicate.PackageFile != null) ? "\n\nDLC package file: " + duplicate.PackageFile + "\nOn the console it goes in Hdd1:\\Content\\0000000000000000\\4D530910\\00000002\\ (FTP)." : ""), this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                if (duplicate.PackageFile != null)
+                {
+                    System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + duplicate.PackageFile + "\"");
+                }
             }
             catch (Exception ex)
             {

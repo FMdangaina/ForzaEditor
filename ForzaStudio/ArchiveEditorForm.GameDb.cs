@@ -219,6 +219,7 @@ namespace ForzaStudio
             engine.Controls.Add(engineBar);
             this.AddTab(this.tabCar, "Engine", engine);
             this.AddTab(this.tabCar, "Power", this.BuildPowerTab());
+            this.AddTab(this.tabCar, "Transmission", this.BuildTransmissionTab());
             this.pgBody = this.NewPropertyGrid();
             this.AddTab(this.tabCar, "Body", this.pgBody);
             this.relUpgrades = this.NewRelatedPanel();
@@ -1360,6 +1361,8 @@ namespace ForzaStudio
                 this.pgEngine.SelectedObject = null;
                 this.lblEngineUsage.Text = "No engine rows for this car.";
             }
+
+            this.ShowCarTransmissions(id);
 
             long body = this.gameDb.CarBodyId(id);
             this.pgBody.SelectedObject = (body >= 0) ? this.Record("Data_CarBody", body) : null;

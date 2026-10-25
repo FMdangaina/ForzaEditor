@@ -38,6 +38,7 @@ namespace ForzaStudio
         public StringBuilder Report = new StringBuilder();
         public long NewId;
         public EngineSpec Engine;                   // an engine of its own for the copy (CarEngine); null = the source's, shared
+        public GearboxSpec Gearbox;                 // a gearbox (drivetrain) of its own for the copy (CarGearbox); null = the source's, shared
 
         // A DLC pack instead of the game folder: the copy is built on a staged part of the game (the database,
         // the string tables, the source's zip and thumbnail zip), then DlcPackage.BuildFolder turns what
@@ -46,15 +47,18 @@ namespace ForzaStudio
         public int PackOffer;                       // the pack's offer number
         public string PackName;                     // the name the pack has in the game's store
         public bool ReplacePack;                    // the offer exists in PackContent: remove it first
+        public string ConsoleOutput;                // a folder: the pack is saved there as an STFS package file (Xbox 360; Xenia reads it too) instead of a folder in PackContent
+        public byte[] Thumbnail;                    // the picture the dashboard shows for the package file (64 x 64 PNG), or null
+        public string PackageFile;                  // the package file that was written (ConsoleOutput)
 
         private string stamp;
 
         public List<string> Plan()
         {
             List<string> plan = this.Execute(false);
-            if (this.PackContent != null)
+            if (this.PackContent != null || this.ConsoleOutput != null)
             {
-                plan.Insert(0, string.Format(CultureInfo.InvariantCulture, "destination: a new DLC pack \"{0}\" (offer {1}) in {2}; the game folder is not changed", this.PackName, this.PackOffer, this.PackContent));
+                plan.Insert(0, string.Format(CultureInfo.InvariantCulture, "destination: a new DLC pack \"{0}\" (offer {1}) {2}; the game folder is not changed", this.PackName, this.PackOffer, (this.ConsoleOutput != null) ? "as a package file in " + this.ConsoleOutput : "in " + this.PackContent));
                 this.Report.Insert(0, plan[0] + "\r\n");
             }
             return plan;
@@ -62,7 +66,7 @@ namespace ForzaStudio
 
         public void Run()
         {
-            if (this.PackContent == null)
+            if (this.PackContent == null && this.ConsoleOutput == null)
             {
                 this.Execute(true);
                 return;
@@ -80,13 +84,16 @@ namespace ForzaStudio
             {
                 throw new InvalidOperationException("The pack needs an offer number.");
             }
-            if (Directory.Exists(DlcPackage.PackagePath(this.PackContent, this.PackOffer)))
+            string work = (this.ConsoleOutput != null) ? Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "PackFile_" + DateTime.Now.Ticks.ToString(CultureInfo.InvariantCulture)) : null;
+            string content = (work != null) ? Path.Combine(work, "00000002") : this.PackContent;      // the folder the pack is built in (a temporary one for a package file)
+            string installed = (work != null) ? (this.XeniaContent ?? content) : content;           // whose strings and ids the pack is built on
+            if (work == null && Directory.Exists(DlcPackage.PackagePath(content, this.PackOffer)))
             {
                 if (!this.ReplacePack)
                 {
                     throw new InvalidOperationException("A package with offer " + this.PackOffer + " is already in Xenia's content folder.");
                 }
-                DlcPackage.Remove(this.PackContent, this.PackOffer);
+                DlcPackage.Remove(content, this.PackOffer);
             }
             string stage = Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "DuplicatePack_" + DateTime.Now.Ticks.ToString(CultureInfo.InvariantCulture));
             try
@@ -96,7 +103,7 @@ namespace ForzaStudio
                 inner.TargetRoot = stage;
                 inner.SourceMediaName = this.SourceMediaName;
                 inner.NewMediaName = this.NewMediaName;
-                inner.XeniaContent = this.XeniaContent ?? this.PackContent;
+                inner.XeniaContent = this.XeniaContent ?? this.PackContent ?? installed;
                 inner.DisplayName = this.DisplayName;
                 inner.ModelShort = this.ModelShort;
                 inner.Year = this.Year;
@@ -114,13 +121,14 @@ namespace ForzaStudio
                     inner.Data[pair.Key] = pair.Value;
                 }
                 inner.Engine = this.Engine;
+                inner.Gearbox = this.Gearbox;
                 inner.BackupFolder = Path.Combine(stage, "bak");
                 inner.Run();
                 this.NewId = inner.NewId;
                 this.Report.Append(inner.Report.ToString());
                 StringBuilder text = new StringBuilder();
-                List<string> others = DbIds.PackDatabases(this.PackContent);
-                string package = DlcPackage.BuildFolder(this.TargetRoot, this.TargetRoot, stage, this.PackContent, this.PackContent, this.PackOffer, this.PackName, text);
+                List<string> others = DbIds.PackDatabases(installed);
+                string package = DlcPackage.BuildFolder(this.TargetRoot, this.TargetRoot, stage, content, installed, this.PackOffer, this.PackName, text);
 
                 // The package's database as the game will merge it into its own (and the other packs'): the
                 // same integrity rules, so a pack never leaves a broken database behind.
@@ -137,14 +145,19 @@ namespace ForzaStudio
                 {
                     this.Report.AppendLine("  warning: " + line);
                 }
-                this.Report.AppendLine("DLC package \"" + this.PackName + "\" (offer " + this.PackOffer + ") in " + this.PackContent + ":");
+                if (this.ConsoleOutput != null)
+                {
+                    string file = DlcPackage.BuildConsolePackage(package, this.ConsoleOutput, this.PackName, this.Thumbnail, text);
+                    this.PackageFile = file;
+                }
+                this.Report.AppendLine("DLC package \"" + this.PackName + "\" (offer " + this.PackOffer + ") " + ((this.ConsoleOutput != null) ? "as a package file in " + this.ConsoleOutput : "in " + this.PackContent) + ":");
                 this.Report.Append(text.ToString());
             }
             catch (Exception)
             {
                 try
                 {
-                    DlcPackage.Remove(this.PackContent, this.PackOffer);
+                    DlcPackage.Remove(content, this.PackOffer);
                 }
                 catch (IOException)
                 {
@@ -158,6 +171,10 @@ namespace ForzaStudio
                     if (Directory.Exists(stage))
                     {
                         Directory.Delete(stage, true);
+                    }
+                    if (work != null && Directory.Exists(work))
+                    {
+                        Directory.Delete(work, true);
                     }
                 }
                 catch (IOException)
@@ -404,7 +421,6 @@ namespace ForzaStudio
                 if (this.Engine != null)
                 {
                     long engineId = CarEngine.Clone(db, this.NewId, this.Engine, plan);
-                    CarPerformance.Update(db, original, sourceId, this.NewId, this.Data.Keys, plan);
                     soundSource = Convert.ToString(db.Scalar("SELECT MediaName FROM Data_Engine WHERE EngineID = ?", engineId), CultureInfo.InvariantCulture);
                     ownEngineMedia = this.NewMediaName;
                     while (db.Scalar("SELECT EngineID FROM Data_Engine WHERE MediaName = ? COLLATE NOCASE", ownEngineMedia) != null)
@@ -412,6 +428,15 @@ namespace ForzaStudio
                         ownEngineMedia += "_E";
                     }
                     db.Execute("UPDATE Data_Engine SET MediaName = ? WHERE EngineID = ?", ownEngineMedia, engineId);
+                }
+                // The copy's own gearbox (CarGearbox); the performance numbers follow the engine and the gearbox.
+                if (this.Gearbox != null)
+                {
+                    CarGearbox.Clone(db, this.NewId, this.Gearbox, plan);
+                }
+                if (this.Engine != null || this.Gearbox != null)
+                {
+                    CarPerformance.Update(db, original, sourceId, this.NewId, this.Data.Keys, plan);
                 }
 
                 // The integrity rules (DbIntegrity, DbIds.CheckCar): nothing is written when one breaks.
