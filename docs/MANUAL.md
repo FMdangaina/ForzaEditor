@@ -413,6 +413,26 @@ The tabs:
 - **Changes** counts your edits, and its drop-down lists the last ones.
 - **Delete Row** warns when other rows still point at the row.
 
+### Duplicating a car (Tools > Duplicate Car)
+
+A wizard that copies any FM4 car under a name of its own, with a new Id, new names in every language, a copy of its zip,
+thumbnail and database rows. Pages:
+
+- **Where**: the game folder, Xenia's content folder as a DLC pack, or a **DLC package file (STFS)** built in a folder you
+  choose (the same Xbox 360 file the port window makes).
+- **Names, year, make** and the Data_Car numbers.
+- **Engine**: shared with the source, or **a new engine of its own**: name (it follows layout, cylinders and aspiration until
+  you type over it), sound (any FM4 engine's), layout, cylinders, aspiration (natural, single / twin / quad turbo,
+  positive-displacement or centrifugal supercharger), boost, diesel or petrol, displacement, idle and redline. The torque curve
+  is drawn with the mouse or made with **Generate curve** (torque range, power peak, limiter). The graph shows the curve up to
+  the redline in full colour and the margin the game's table keeps after the limiter dotted and dim. Upgrade levels, turbo or
+  supercharger rows and intercooler come from the generic rules (`Upgrades.ini`); a diesel gets no supercharger.
+- **Gearbox**: the source's, or **a gearbox of its own** (1 to 8 gears, a ratio each, reverse and final drive). The copy gets a
+  drivetrain of its own; the source car keeps its gearbox.
+- **Summary**: the plan and the checks the database rules make before anything is written.
+
+The Game Database tab **Transmission** lists the gearbox levels of a car, next to **Engine** and **Power**.
+
 ## 10. Digital dash (.fbf)
 
 Select a dash file (`.fbf`, `.bgf` or `.bsg`) to see the car's digital dash:
@@ -456,6 +476,9 @@ Motorsport 3 car into FM4. A port includes:
 From Forza Motorsport 3, the digital dash (kept by FM3 in `Media\DigitalGauges`) goes into the car
 zip with its textures, as FM4 keeps it. The Porsches need a make FM4 lacks: the port adds it (name, logo, profile and livery
 decals).
+
+The port window knows FM4's own cars, including the 176 cars of the official DLC, from a list inside the program: those are
+listed as "an FM4 car" / "an FM4 DLC car" and left out unless you tick **Also show cars FM4 already has**.
 
 ### Setting up
 

@@ -288,6 +288,7 @@ namespace ForzaStudio
             // starts as soon as the boost is full. The copy gets that from its own curve (the rows it was copied from are another
             // engine's power). The upgrade levels follow it by the generic ratios.
             ConvertAspiration(db, schema, id, Convert.ToInt64(engine.Rows[0][Math.Max(0, aspIndex)], CultureInfo.InvariantCulture), plan);
+            ConvertSupercharger(db, schema, id, Convert.ToInt64(engine.Rows[0][Math.Max(0, aspIndex)], CultureInfo.InvariantCulture), plan);
             if (curvePlan != null)
             {
                 double fullBoostKw = KilowattsAtTorquePeak(db, id, curvePlan.NewStock((int) Math.Ceiling((curvePlan.StockRedline + margin) / 100.0) + 1), curvePlan.StockRedline);
@@ -335,6 +336,89 @@ namespace ForzaStudio
             return id;
         }
 
+
+        // The supercharger table of an aspiration (5 = positive displacement, 6 = centrifugal), or null.
+        private static string SuperTable(long aspiration)
+        {
+            return (aspiration == 5) ? "List_UpgradeEngineDSC" : (aspiration == 6) ? "List_UpgradeEngineCSC" : null;
+        }
+
+        // The copy's supercharger rows follow its aspiration. FM4's supercharged engines (26 DSC, 3 CSC) have a stock row
+        // (IsStock = 1, ZeroRPMScale = RedlineRPMScale = 1 + boost / 2 for the DSC; the CSC's redline scale is the same) and
+        // two upgrade levels; a natural engine only has conversion levels (IsStock = 0). An engine made supercharged takes the
+        // rows of the FM4 engine of that aspiration whose boost is the closest, the scales moved by the ratio of the two
+        // (1 + bar / 2); an engine made natural or turbo loses its supercharger rows, the generic rules add the conversions.
+        private static void ConvertSupercharger(SqliteDatabase db, Dictionary<string, List<string>> schema, long engine, long oldAspiration, List<string> plan)
+        {
+            SqliteDatabase.Result now = db.Query("SELECT AspirationID_Stock, \"StockBoost-bar\" FROM Data_Engine WHERE EngineID = ?", engine);
+            long aspiration = Convert.ToInt64(now.Rows[0][0], CultureInfo.InvariantCulture);
+            double bar = Real(now.Rows[0][1]);
+            string to = SuperTable(aspiration);
+            if (aspiration == oldAspiration || (to == null && SuperTable(oldAspiration) == null))
+            {
+                return;
+            }
+            foreach (string table in new string[] { "List_UpgradeEngineCSC", "List_UpgradeEngineDSC" })
+            {
+                if (schema.ContainsKey(table))
+                {
+                    int removed = db.Execute("DELETE FROM " + SqliteDatabase.Quote(table) + " WHERE EngineID = ?", engine);
+                    if (removed > 0)
+                    {
+                        plan.Add("engine: " + removed + " supercharger rows of " + table + " removed (the aspiration changed)");
+                    }
+                }
+            }
+            if (to == null || !schema.ContainsKey(to))
+            {
+                return;
+            }
+            long source = -1;
+            double sourceBar = 0, bestGap = double.MaxValue;
+            foreach (object[] candidate in db.Query("SELECT EngineID, \"StockBoost-bar\" FROM Data_Engine WHERE AspirationID_Stock = ?", aspiration).Rows)
+            {
+                long candidateId = Convert.ToInt64(candidate[0], CultureInfo.InvariantCulture);
+                double gap = Math.Abs(Real(candidate[1]) - bar);
+                if (candidateId == engine || gap >= bestGap
+                    || Convert.ToInt64(db.Scalar("SELECT count(*) FROM " + SqliteDatabase.Quote(to) + " WHERE EngineID = ? AND IsStock = 1", candidateId), CultureInfo.InvariantCulture) == 0)
+                {
+                    continue;
+                }
+                source = candidateId;
+                sourceBar = Real(candidate[1]);
+                bestGap = gap;
+            }
+            if (source < 0)
+            {
+                throw new InvalidOperationException("No FM4 engine has supercharger rows in " + to + " to copy.");
+            }
+            double ratio = (1.0 + (bar / 2.0)) / (1.0 + (sourceBar / 2.0));
+            SqliteDatabase.Result pattern = db.Query("SELECT * FROM " + SqliteDatabase.Quote(to) + " WHERE EngineID = ? ORDER BY Level", source);
+            string key = DbIds.KeyColumn(db, to, schema[to]);
+            foreach (object[] row in pattern.Rows)
+            {
+                object[] copy = (object[]) row.Clone();
+                for (int i = 0; i < pattern.Columns.Length; i++)
+                {
+                    string column = pattern.Columns[i];
+                    if (string.Equals(column, key, StringComparison.OrdinalIgnoreCase))
+                    {
+                        copy[i] = (engine * 1000) + (Convert.ToInt64(row[i], CultureInfo.InvariantCulture) % 1000);
+                    }
+                    else if (string.Equals(column, "EngineID", StringComparison.OrdinalIgnoreCase))
+                    {
+                        copy[i] = engine;
+                    }
+                    else if (copy[i] is double && (string.Equals(column, "RedlineRPMScale", StringComparison.OrdinalIgnoreCase)
+                        || (aspiration == 5 && string.Equals(column, "ZeroRPMScale", StringComparison.OrdinalIgnoreCase))))
+                    {
+                        copy[i] = Math.Round((double) copy[i] * ratio, 4);
+                    }
+                }
+                Insert(db, to, pattern.Columns, copy);
+            }
+            plan.Add(string.Format(CultureInfo.InvariantCulture, "engine: {0} supercharger rows made in {1} ({2} bar, scales x{3:0.###}) on the pattern of engine {4} ({5} bar)", pattern.Rows.Count, to, bar, ratio, source, sourceBar));
+        }
 
         // The turbo table of an aspiration (FM4 keeps the stock turbo and its upgrade levels in one of three tables by
         // turbo count; superchargers and natural engines have no rows there), or null.

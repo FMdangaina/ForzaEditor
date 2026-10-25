@@ -282,6 +282,31 @@ namespace ForzaStudio
             return (kept.Count >= 2) ? kept.ToArray() : line;
         }
 
+        // The part past the redline, from the redline itself to the last point: the margin the game's table keeps after the
+        // limiter (300 rpm diesel / 500 petrol), where the engine no longer pulls. Null when the curve ends at the redline.
+        private static PointF[] TailAfterRedline(PointF[] line, double[] rpm, double redline, float redlineX)
+        {
+            if (redline <= 0 || rpm.Length < 2 || redline >= rpm[rpm.Length - 1])
+            {
+                return null;
+            }
+            List<PointF> kept = new List<PointF>();
+            for (int i = 0; i < line.Length; i++)
+            {
+                if (rpm[i] <= redline)
+                {
+                    continue;
+                }
+                if (kept.Count == 0 && i > 0 && rpm[i] > rpm[i - 1])
+                {
+                    float t = (float) ((redline - rpm[i - 1]) / (rpm[i] - rpm[i - 1]));
+                    kept.Add(new PointF(redlineX, line[i - 1].Y + ((line[i].Y - line[i - 1].Y) * t)));
+                }
+                kept.Add(line[i]);
+            }
+            return (kept.Count >= 2) ? kept.ToArray() : null;
+        }
+
         private static double Nice(double value)
         {
             double step = Math.Pow(10, Math.Floor(Math.Log10(value)));
@@ -380,6 +405,19 @@ namespace ForzaStudio
                 g.DrawLines(dashed, ClipAtRedline(baseLine, this.power.Rpm, this.power.Redline, this.X(this.power.Redline)));
                 g.DrawLines(torquePen, ClipAtRedline(torqueLine, this.power.Rpm, this.power.Redline, this.X(this.power.Redline)));
                 g.DrawLines(powerPen, ClipAtRedline(powerLine, this.power.Rpm, this.power.Redline, this.X(this.power.Redline)));
+            }
+            // The margin the table keeps past the redline, dim and dotted (torque and power): the engine does not pull there.
+            using (Pen tail = new Pen(ForzaTheme.TextDim, 1.5f))
+            {
+                tail.DashStyle = DashStyle.Dot;
+                foreach (PointF[] line in new PointF[][] { torqueLine, powerLine })
+                {
+                    PointF[] past = TailAfterRedline(line, this.power.Rpm, this.power.Redline, this.X(this.power.Redline));
+                    if (past != null)
+                    {
+                        g.DrawLines(tail, past);
+                    }
+                }
             }
 
             double peakKw = EnginePower.Kilowatts(this.Torque(peakPower), this.power.Rpm[peakPower]);
