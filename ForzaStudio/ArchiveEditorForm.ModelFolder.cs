@@ -184,15 +184,266 @@ namespace ForzaStudio
                 AppSettings.Set("Dir.ModelFolder", single ? Path.GetDirectoryName(dialog.SelectedPath) : dialog.SelectedPath);
             }
 
+            this.ApplyModelImport(files, models, folders, null, "OBJ");
+        }
+
+        // The whole car as one FBX scene with its hierarchy (see CarModelFbx).
+        private void ExportModelFbx()
+        {
+            Dictionary<string, CarbinModel> models;
+            Dictionary<string, ForzaZip.Entry> files;
+            try
+            {
+                models = this.LoadCarModels("Export Model to FBX", out files);
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Export Model to FBX", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                return;
+            }
+            if (models == null)
+            {
+                return;
+            }
+            List<string> wanted = this.ChooseFbxLevels(CarModelFbx.Levels(models));
+            if (wanted == null)
+            {
+                return;
+            }
+            string path;
+            using (SaveFileDialog dialog = new SaveFileDialog())
+            {
+                dialog.Title = "Export Model to FBX";
+                dialog.Filter = "FBX (*.fbx)|*.fbx";
+                dialog.FileName = CarModelFolder.FolderName(CarbinName(files.ContainsKey(CarModelFolder.Main) ? files[CarModelFolder.Main] : First(files)))
+                    + ((wanted.Count == 1) ? FbxSuffix(wanted[0]) : "") + ".fbx";
+                string start = AppSettings.Get("Dir.ModelFolder", null);
+                if (start != null && Directory.Exists(start))
+                {
+                    dialog.InitialDirectory = start;
+                }
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+                path = dialog.FileName;
+                AppSettings.Set("Dir.ModelFolder", Path.GetDirectoryName(path));
+            }
+            try
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                Dictionary<string, string> names = new Dictionary<string, string>();
+                foreach (KeyValuePair<string, ForzaZip.Entry> pair in files)
+                {
+                    names[pair.Key] = CarbinName(pair.Value);
+                }
+                int count = CarModelFbx.Export(names, models, path, this.SourceName, wanted);
+                this.SetStatus(string.Format("{0:N0} meshes exported to {1} (edit it, then Model > Import Model from FBX)", count, path));
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Export Model to FBX", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+            }
+        }
+
+        // "|3" -> "_main_lod3", "_lod0|0" -> "_lod0_lod0": a file name for a one-level export.
+        private static string FbxSuffix(string key)
+        {
+            string[] parts = key.Split('|');
+            return "_" + ((parts[0].Length == 0) ? "main" : parts[0].Substring(1)) + "_lod" + parts[1];
+        }
+
+        // Which model files and LODs to put in the FBX (a small scene is quicker to open and edit).
+        // Null when cancelled. The lod0 file's LOD 0 (the close-up body) is preselected.
+        private List<string> ChooseFbxLevels(List<CarModelFbx.Level> levels)
+        {
+            Panel panel = new Panel();
+            panel.Size = new Size(430, 40 + (Math.Min(levels.Count, 12) * 20) + 40);
+            Label header = new Label();
+            header.Text = "Model files and LODs to put in the FBX:";
+            header.AutoSize = true;
+            header.Location = new Point(0, 2);
+            panel.Controls.Add(header);
+            CheckedListBox list = new CheckedListBox();
+            list.CheckOnClick = true;
+            list.IntegralHeight = false;
+            list.Location = new Point(0, 24);
+            list.Size = new Size(430, (Math.Min(levels.Count, 12) * 20) + 12);
+            bool any = false;
+            foreach (CarModelFbx.Level level in levels)
+            {
+                bool first = level.Kind == CarModelFolder.Lod0 && level.Lod == 0;
+                any |= first;
+                list.Items.Add(level.Describe(), first);
+            }
+            if (!any && list.Items.Count > 0)
+            {
+                list.SetItemChecked(0, true);
+            }
+            panel.Controls.Add(list);
+            Button all = new Button();
+            all.Text = "All";
+            all.Size = new Size(70, 26);
+            all.Location = new Point(0, list.Bottom + 6);
+            all.Click += delegate { for (int i = 0; i < list.Items.Count; i++) { list.SetItemChecked(i, true); } };
+            Button none = new Button();
+            none.Text = "None";
+            none.Size = new Size(70, 26);
+            none.Location = new Point(76, list.Bottom + 6);
+            none.Click += delegate { for (int i = 0; i < list.Items.Count; i++) { list.SetItemChecked(i, false); } };
+            panel.Controls.Add(all);
+            panel.Controls.Add(none);
+            panel.Height = none.Bottom + 4;
+            while (true)
+            {
+                if (!this.ShowOptions("Export Model to FBX", panel))
+                {
+                    return null;
+                }
+                List<string> wanted = new List<string>();
+                for (int i = 0; i < levels.Count; i++)
+                {
+                    if (list.GetItemChecked(i))
+                    {
+                        wanted.Add(levels[i].Key);
+                    }
+                }
+                if (wanted.Count > 0)
+                {
+                    return wanted;
+                }
+                MessageBox.Show(this, "Tick at least one model file / LOD.", "Export Model to FBX", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private static ForzaZip.Entry First(Dictionary<string, ForzaZip.Entry> files)
+        {
+            foreach (ForzaZip.Entry entry in files.Values)
+            {
+                return entry;
+            }
+            return null;
+        }
+
+        private void ImportModelFbx()
+        {
+            Dictionary<string, ForzaZip.Entry> files;
+            Dictionary<string, CarbinModel> models;
+            try
+            {
+                models = this.LoadCarModels("Import Model from FBX", out files);
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Import Model from FBX", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                return;
+            }
+            if (models == null)
+            {
+                return;
+            }
+            string path;
+            using (OpenFileDialog dialog = new OpenFileDialog())
+            {
+                dialog.Title = "Import Model from FBX";
+                dialog.Filter = "FBX (*.fbx)|*.fbx";
+                string start = AppSettings.Get("Dir.ModelFolder", null);
+                if (start != null && Directory.Exists(start))
+                {
+                    dialog.InitialDirectory = start;
+                }
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+                path = dialog.FileName;
+                AppSettings.Set("Dir.ModelFolder", Path.GetDirectoryName(path));
+            }
+            Panel options = new Panel();
+            options.Size = new Size(470, 70);
+            Label what = new Label();
+            what.Text = "Only the parts the FBX has are compared with the model; the others are left as they are.";
+            what.AutoSize = false;
+            what.Size = new Size(470, 22);
+            what.Location = new Point(0, 2);
+            CheckBox drop = new CheckBox();
+            drop.Text = "Remove the parts the FBX does not have (at the LODs it has)";
+            drop.AutoSize = true;
+            drop.Location = new Point(0, 32);
+            options.Controls.Add(what);
+            options.Controls.Add(drop);
+            if (!this.ShowOptions("Import Model from FBX", options))
+            {
+                return;
+            }
+            Dictionary<string, string> names = new Dictionary<string, string>();
+            foreach (KeyValuePair<string, ForzaZip.Entry> pair in files)
+            {
+                names[pair.Key] = CarbinName(pair.Value);
+            }
+            string root = null;
+            try
+            {
+                Dictionary<string, string> folders;
+                List<string> notes = new List<string>();
+                List<string> errors = new List<string>();
+                try
+                {
+                    Cursor.Current = Cursors.WaitCursor;
+                    CarModelFbx.PrepareFolders(path, names, models, drop.Checked, out folders, out root, notes, errors);
+                }
+                catch (Exception exception)
+                {
+                    MessageBox.Show(this, exception.Message, "Import Model from FBX", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                    return;
+                }
+                finally
+                {
+                    Cursor.Current = Cursors.Default;
+                }
+                if (errors.Count > 0)
+                {
+                    MessageBox.Show(this, string.Join("\n", errors.ToArray()), "Import Model from FBX", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                this.ApplyModelImport(files, models, folders, notes, "FBX");
+            }
+            finally
+            {
+                if (root != null && Directory.Exists(root))
+                {
+                    try
+                    {
+                        Directory.Delete(root, true);
+                    }
+                    catch (IOException)
+                    {
+                    }
+                }
+            }
+        }
+
+        // The import of OBJ folders (the user's, or the ones made from an FBX): plan, confirmation, apply.
+        // 'notes' are findings of the FBX check, shown with the plan.
+        private void ApplyModelImport(Dictionary<string, ForzaZip.Entry> files, Dictionary<string, CarbinModel> models, Dictionary<string, string> folders, List<string> notes, string source)
+        {
             CarModelFolder.Plan plan = this.PrepareModelPlan(folders, models, false);
             if (plan == null)
             {
                 return;
             }
+            if (notes != null)
+            {
+                plan.Warnings.InsertRange(0, notes);
+            }
             if (plan.IsEmpty)
             {
                 // Unchanged OBJs can still be rebuilt: fresh precalc lighting and UV data.
-                if (MessageBox.Show(this, "Every OBJ matches the model." + ((plan.Ignored.Count > 0) ? "\n\nIgnored: " + string.Join(", ", plan.Ignored.ToArray()) : "")
+                if (MessageBox.Show(this, "Every " + source + " part matches the model." + ((notes != null) ? "\n\n" + string.Join("\n", notes.ToArray()) : "") + ((plan.Ignored.Count > 0) ? "\n\nIgnored: " + string.Join(", ", plan.Ignored.ToArray()) : "")
                     + "\n\nRebuild every OBJ anyway (recomputes precalc lighting and UV data)?", "Import Model", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                 {
                     return;

@@ -232,6 +232,8 @@
             model.DropDownItems.Add(new ToolStripSeparator());
             model.DropDownItems.Add(new ToolStripMenuItem("&Export Model to OBJ Folder...", null, delegate { this.ExportModelFolder(); }));
             model.DropDownItems.Add(new ToolStripMenuItem("&Import Model from OBJ Folder...", null, delegate { this.ImportModelFolder(); }));
+            model.DropDownItems.Add(new ToolStripMenuItem("Export Model to &FBX...", null, delegate { this.ExportModelFbx(); }));
+            model.DropDownItems.Add(new ToolStripMenuItem("Import Model from F&BX...", null, delegate { this.ImportModelFbx(); }));
             model.DropDownOpening += delegate { exportChecked.Enabled = this.pnlModel.Visible && this.scene != null; };
 
             ToolStripMenuItem texture = new ToolStripMenuItem("Te&xture");

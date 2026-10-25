@@ -266,6 +266,199 @@ namespace ForzaStudio
             return faces.Count;
         }
 
+        // A part at one LOD in memory: the same corners ExportLod writes and Load reads back
+        // (one Material per material name, normals normalized).
+        public static ObjMesh FromLod(CarbinModel.Section section, uint lod)
+        {
+            CarbinModel.VertexBuffer buffer = (lod == 0) ? section.Lod0 : section.Lod;
+            double[] positions = CarbinModel.Positions(section, buffer);
+            ObjMesh mesh = new ObjMesh();
+            Dictionary<string, Material> byName = new Dictionary<string, Material>();
+            foreach (CarbinModel.SubSection sub in section.SubSections)
+            {
+                if (sub.Lod != lod)
+                {
+                    continue;
+                }
+                Material material = Get(mesh, byName, sub.Name);
+                foreach (int[] face in CarbinModel.StripTriangles(sub))
+                {
+                    Corner[] triangle = new Corner[3];
+                    for (int i = 0; i < 3; i++)
+                    {
+                        int v = face[i];
+                        Corner corner = new Corner();
+                        corner.Position = new Vector3((float) positions[v * 3], (float) positions[(v * 3) + 1], (float) positions[(v * 3) + 2]);
+                        Vector2 uv = CarbinModel.VertexUv(buffer, v, sub, 0);
+                        corner.Uv = new Vector2(uv.X, 1f - uv.Y);
+                        corner.HasUv = true;
+                        corner.Normal = CarbinModel.VertexNormal(buffer, v);
+                        corner.HasNormal = corner.Normal.LengthSquared() > 1e-12f;
+                        if (corner.HasNormal)
+                        {
+                            corner.Normal.Normalize();
+                        }
+                        triangle[i] = corner;
+                    }
+                    material.Triangles.Add(triangle);
+                }
+            }
+            mesh.Materials.RemoveAll(delegate(Material m) { return m.Triangles.Count == 0; });
+            return mesh;
+        }
+
+        // True when both have the same materials (by name) with the same triangles, corner by corner,
+        // within the tolerances (a round trip through another program changes the last digits).
+        public static bool Same(ObjMesh a, ObjMesh b, float position, float uv, float normal)
+        {
+            if (a.Materials.Count != b.Materials.Count)
+            {
+                return false;
+            }
+            foreach (Material ma in a.Materials)
+            {
+                Material mb = null;
+                foreach (Material candidate in b.Materials)
+                {
+                    if (candidate.Name == ma.Name)
+                    {
+                        mb = candidate;
+                        break;
+                    }
+                }
+                if (mb == null || mb.Triangles.Count != ma.Triangles.Count)
+                {
+                    return false;
+                }
+                for (int t = 0; t < ma.Triangles.Count; t++)
+                {
+                    for (int c = 0; c < 3; c++)
+                    {
+                        Corner ca = ma.Triangles[t][c];
+                        Corner cb = mb.Triangles[t][c];
+                        if (ca.HasUv != cb.HasUv || ca.HasNormal != cb.HasNormal
+                            || Math.Abs(ca.Position.X - cb.Position.X) > position || Math.Abs(ca.Position.Y - cb.Position.Y) > position || Math.Abs(ca.Position.Z - cb.Position.Z) > position
+                            || (ca.HasUv && (Math.Abs(ca.Uv.X - cb.Uv.X) > uv || Math.Abs(ca.Uv.Y - cb.Uv.Y) > uv))
+                            || (ca.HasNormal && Vector3.Dot(ca.Normal, cb.Normal) < 1f - normal))
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        private struct CornerKey
+        {
+            public Corner Corner;
+
+            public override bool Equals(object other)
+            {
+                Corner a = this.Corner;
+                Corner b = ((CornerKey) other).Corner;
+                return a.Position == b.Position && a.Uv == b.Uv && a.Normal == b.Normal;
+            }
+
+            public override int GetHashCode()
+            {
+                return this.Corner.Position.GetHashCode() ^ (this.Corner.Uv.GetHashCode() * 31) ^ (this.Corner.Normal.GetHashCode() * 17);
+            }
+        }
+
+        // Writes the mesh as an OBJ in the model folder layout (one group per material, shared
+        // vertices by exact value). A material without UVs or normals writes none.
+        public void Save(string path, string partName, string comment, string mtllib)
+        {
+            CultureInfo inv = CultureInfo.InvariantCulture;
+            using (StreamWriter obj = new StreamWriter(path, false, new UTF8Encoding(false)))
+            {
+                obj.WriteLine("# " + comment);
+                obj.WriteLine("mtllib " + mtllib);
+                int baseV = 1;
+                int baseVt = 1;
+                int baseVn = 1;
+                foreach (Material material in this.Materials)
+                {
+                    bool uv = true;
+                    bool normal = true;
+                    Dictionary<CornerKey, int> index = new Dictionary<CornerKey, int>();
+                    List<Corner> order = new List<Corner>();
+                    List<int> faces = new List<int>();
+                    foreach (Corner[] triangle in material.Triangles)
+                    {
+                        foreach (Corner corner in triangle)
+                        {
+                            CornerKey key = new CornerKey();
+                            key.Corner = corner;
+                            int at;
+                            if (!index.TryGetValue(key, out at))
+                            {
+                                at = order.Count;
+                                index[key] = at;
+                                order.Add(corner);
+                            }
+                            faces.Add(at);
+                            uv &= corner.HasUv;
+                            normal &= corner.HasNormal;
+                        }
+                    }
+                    obj.WriteLine("g " + partName + "_" + material.Name);
+                    obj.WriteLine("usemtl " + material.Name);
+                    foreach (Corner corner in order)
+                    {
+                        obj.WriteLine(string.Format(inv, "v {0:R} {1:R} {2:R}", corner.Position.X, corner.Position.Y, corner.Position.Z));
+                    }
+                    if (uv)
+                    {
+                        foreach (Corner corner in order)
+                        {
+                            obj.WriteLine(string.Format(inv, "vt {0:R} {1:R}", corner.Uv.X, corner.Uv.Y));
+                        }
+                    }
+                    if (normal)
+                    {
+                        foreach (Corner corner in order)
+                        {
+                            obj.WriteLine(string.Format(inv, "vn {0:R} {1:R} {2:R}", corner.Normal.X, corner.Normal.Y, corner.Normal.Z));
+                        }
+                    }
+                    for (int i = 0; i < faces.Count; i += 3)
+                    {
+                        string a = Ref(faces[i], baseV, uv ? baseVt : 0, normal ? baseVn : 0);
+                        string b = Ref(faces[i + 1], baseV, uv ? baseVt : 0, normal ? baseVn : 0);
+                        string c = Ref(faces[i + 2], baseV, uv ? baseVt : 0, normal ? baseVn : 0);
+                        obj.WriteLine("f " + a + " " + b + " " + c);
+                    }
+                    baseV += order.Count;
+                    if (uv)
+                    {
+                        baseVt += order.Count;
+                    }
+                    if (normal)
+                    {
+                        baseVn += order.Count;
+                    }
+                }
+            }
+        }
+
+        // One face corner; a base of 0 means that attribute is not written.
+        private static string Ref(int i, int baseV, int baseVt, int baseVn)
+        {
+            CultureInfo inv = CultureInfo.InvariantCulture;
+            string text = (i + baseV).ToString(inv);
+            if (baseVt > 0)
+            {
+                text += "/" + (i + baseVt).ToString(inv);
+            }
+            if (baseVn > 0)
+            {
+                text += ((baseVt > 0) ? "/" : "//") + (i + baseVn).ToString(inv);
+            }
+            return text;
+        }
+
         // Materials with a stable random color each, so parts read apart in the editor.
         public static void WriteMtl(string path, IEnumerable<string> materials)
         {

@@ -150,7 +150,10 @@
     <Compile Include="ForzaStudio\ArchiveEditorForm.XeniaThumbnail.cs" />
     <Compile Include="ForzaStudio\XeniaThumbnails.cs" />
     <Compile Include="ForzaStudio\SetThumbnailsForm.cs" />
+    <Compile Include="ForzaStudio\CarModelFbx.cs" />
     <Compile Include="ForzaStudio\CarModelFolder.cs" />
+    <Compile Include="ForzaStudio\FbxFile.cs" />
+    <Compile Include="ForzaStudio\FbxScene.cs" />
     <Compile Include="ForzaStudio\GameInfo.cs" />
     <Compile Include="ForzaStudio\GameMusic.cs" />
     <Compile Include="ForzaStudio\MusicInstaller.cs" />

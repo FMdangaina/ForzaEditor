@@ -267,6 +267,10 @@ Background C3 (research). Paused by the user 2026-10-19.
 - [ ] 11.6 💤 .gr2 animation editor
 
 ### 12. Digital dash (Anark) editor 🔧
+- [ ] 11.8 🧪 Model as FBX with hierarchy (Model > Export Model to FBX / Import Model from FBX; `FbxFile.cs`, `FbxScene.cs`, `CarModelFbx.cs`): scene `car > main|lod0|cockpit > LODn > part > part__material`. Import bakes the transforms of the ancestors (moving a group works), compares each part LOD with the model (unchanged parts are not rebuilt), a LOD without a node is left alone, a part missing from a LOD the file has is dropped there, a new group / mesh is a new part; then the same plan and Apply as the OBJ folder. Tested (Supra RZ, fm4dev\EsportazioneCompleta\tools\fbxrt): export 19 MB, 318 part LODs unchanged on reread, one moved group = 1 change, shift 0.1000 m. NOT tested: opening the file in 3ds Max / Blender, Z-up files, ASCII FBX (not read), the dialogs, in game
+  - [x] 11.8.1 3ds Max 2027: export, edit one part, export FBX, reimport in Forza Studio: OK (user, 2026-10-25). Needed: header/footer consistent (footer id depends on the creation time: fixed 1970-01-01 10:00:00:000 + Blender's footer), SDK-like templates / properties / take. Export dialog = choose model files + LODs; import = "remove parts the FBX does not have" off by default
+  - [x] 11.8.3 In game check of a model imported from FBX: OK (user, 2026-10-25)
+  - [ ] 11.8.2 Blender check; ASCII FBX reader; choose single parts on export; more cars than the Supra; new part / Z-up file tests
 
 - [ ] 12.1 Slides (pages shown one at a time)
 - [ ] 12.2 Behaviour parameter names
