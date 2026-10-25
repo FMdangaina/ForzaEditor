@@ -125,9 +125,9 @@ Code: `CarUninstall.cs` (now also for copies, no `port_log.txt`), `ArchiveEditor
 Engine designer and the turbo rules were checked in game on the Brera 2.4 JTDm copy (155 kW, 400.1 N.m, plateau from ~1800 rpm). Not yet used:
 
 - [ ] Aspiration menu in game for the copy's turbo: stock turbo + 2 levels + stock intercooler; what the menu shows (a single -> single swap was seen before the intercooler fix); the turbo upgrade must raise the power.
-- [ ] NA copy made turbo and turbo copy made NA (stock / upgrade turbo and intercooler rows, conversions with no supercharger on a diesel): in game.
-- [ ] New gearbox in the wizard (page 4, "A gearbox of its own"): 5 gears and other counts, reverse, final drive; the copy's top speed and 0-100 in the menu; the source car keeps its own.
+- [x] NA copy made turbo and turbo copy made NA (stock / upgrade turbo and intercooler rows, conversions with no supercharger on a diesel): in game. Confirmed in game 2026-10-26 (petrol and diesel).
+- [x] New gearbox in the wizard (page 4, "A gearbox of its own"): 5 gears and other counts, reverse, final drive; the copy's top speed and 0-100 in the menu; the source car keeps its own. Confirmed in game 2026-10-26.
 - [ ] Tab "Transmission" of the Game Database on a Supra RZ (checked by the user: ok) and on a copy with its own gearbox.
-- [ ] "As a DLC package file (STFS)": the file built in a chosen folder, loaded in Xenia (done once on the Brera) and on the console (not done).
+- [~] "As a DLC package file (STFS)": the file built in a chosen folder, loaded in Xenia (done once on the Brera) and on the console (not done). Xenia ok; console STFS left for the future.
 - [ ] Generate curve with a torque range, a petrol engine and an engine with a limiter below 4000 rpm; the dialog's table (one row per 100 rpm) typed and pasted.
 - [ ] Engine name follows layout / cylinders / aspiration; typed over it stays.
