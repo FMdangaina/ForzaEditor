@@ -2008,6 +2008,16 @@ namespace ForzaStudio
                 List<Car> ported = new List<Car>();
                 foreach (string source in sources)
                 {
+                    bool hasCars;
+                    using (SqliteDatabase probe = SqliteDatabase.FromBytes(File.ReadAllBytes(Path.Combine(Path.Combine(Path.Combine(source, "Media"), "db"), "gamedb.slt"))))
+                    {
+                        hasCars = DbIds.HasTable(probe, "Data_Car");
+                    }
+                    if (!hasCars)
+                    {
+                        notes.AppendLine(Path.GetFileName(source) + ": left out, no cars in it (tracks or other content)");
+                        continue;
+                    }
                     foreach (Car car in ReadCars(source, target, to, motorsport, ported))
                     {
                         string first;

@@ -404,6 +404,10 @@ namespace ForzaStudio
             }
             using (SqliteDatabase db = SqliteDatabase.FromBytes(merge))
             {
+                if (!DbIds.HasTable(db, "Data_Car"))
+                {
+                    return cars;   // a pack with no cars (tracks, other content)
+                }
                 foreach (object[] row in db.Query("SELECT MediaName FROM Data_Car ORDER BY MediaName").Rows)
                 {
                     if (row[0] is string)
