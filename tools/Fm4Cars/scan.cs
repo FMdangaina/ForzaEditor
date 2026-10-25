@@ -23,7 +23,7 @@ class Scan
             }
             return null;
         };
-        return Run(a[0]);
+        return Run(a[0], a.Length > 1 ? a[1] : null);
     }
 
     static string Cell(object o)
@@ -31,10 +31,10 @@ class Scan
         return (o == null) ? "" : Convert.ToString(o, CultureInfo.InvariantCulture).Replace('\t', ' ').Replace('\n', ' ');
     }
 
-    static int Run(string output)
+    static int Run(string output, string folder)
     {
         string game = @"F:\Xenia\Games\FM4_Extracted";
-        string content = InstalledDlc.ContentFolder(ForzaGame.Motorsport4) ?? @"F:\Xenia\Emulators\Xenia Canary\content\0000000000000000\4D530910\00000002";
+        string content = folder ?? InstalledDlc.ContentFolder(ForzaGame.Motorsport4) ?? @"F:\Xenia\Emulators\Xenia Canary\content\0000000000000000\4D530910\00000002";
         long limit = GameIdLimits.Max(ForzaGame.Motorsport4, "Data_Car", "Id");
         StringTable names = StringTable.Load(@"F:\Xenia\Games\FM4_Extracted_DEV", "EN");
         Dictionary<string, bool> seen = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
@@ -56,10 +56,14 @@ class Scan
             }
         }
         List<KeyValuePair<string, byte[]>> merges = new List<KeyValuePair<string, byte[]>>();
+        Dictionary<string, InstalledDlc> packs = new Dictionary<string, InstalledDlc>();
         foreach (InstalledDlc dlc in InstalledDlc.Scan(ForzaGame.Motorsport4, content, null))
-            if (dlc.Merge != null) merges.Add(new KeyValuePair<string, byte[]>(dlc.Name, dlc.Merge));
+            if (dlc.Merge != null) { merges.Add(new KeyValuePair<string, byte[]>(dlc.Name, dlc.Merge)); packs[dlc.Name] = dlc; }
         foreach (KeyValuePair<string, byte[]> m in merges)
         {
+            // The game's texts with this package's own tables on top (its Data_Car.str names its cars).
+            StringTable dlcNames = StringTable.Load(@"F:\Xenia\Games\FM4_Extracted_DEV", "EN");
+            foreach (KeyValuePair<string, byte[]> file in packs[m.Key].Source.StringFiles("EN")) dlcNames.Overlay(file.Key, file.Value);
             using (SqliteDatabase db = SqliteDatabase.FromBytes(m.Value))
             {
                 if (!DbIds.HasTable(db, "Data_Car")) continue;
@@ -68,7 +72,7 @@ class Scan
                     string media = r[1] as string;
                     if (media == null || Convert.ToInt64(r[0]) > limit || seen.ContainsKey(media)) continue;
                     seen[media] = true;
-                    string name = names.Lookup("Data_Car", "DisplayName", r[2] as string);
+                    string name = dlcNames.Lookup("Data_Car", "DisplayName", r[2] as string);
                     text.Append(Cell(r[0]) + "\t" + media + "\t" + (string.IsNullOrEmpty(name) ? media : name));
                     for (int i = 3; i < 10; i++) text.Append("\t" + Cell(r[i]));
                     text.AppendLine("\t" + m.Key);

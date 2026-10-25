@@ -501,179 +501,179 @@
 1471	AUD_6_A4_11	#06 Audi A4 Touring Car	2011	3	1	2	3	10.5	0.755192	
 1472	FOR_1_Fusion_11	#05 Ford Racing Fusion Stock Car	2011	14	1	2	3	15.42214	0.652544	
 1473	CHE_2_MonteCarloSS_11	#04 Chevrolet Racing Monte Carlo SS Stock Car	2011	9	1	2	3	15.42214	0.652772	
-1253	NOB_M600_10	NOB_M600_10	2010	72	2	2	1	12.5	0.644728	Limited Collector's Edition Pack
-1285	PON_GTO_65	PON_GTO_65	1965	38	1	2	1	15.73058	0.237976	Limited Collector's Edition Pack
-1313	TES_RoadsterS_11	TES_RoadsterS_11	2011	81	2	2	1	12.35132	0.422996	Limited Collector's Edition Pack
-1322	LAM_GallardoLP570_11	LAM_GallardoLP570_11	2011	21	2	3	1	15.73966	0.628696	Limited Collector's Edition Pack
-1323	SUB_WRXSTi_11	SUB_WRXSTi_11	2011	48	1	3	1	15.34957	0.399475	Limited Collector's Edition Pack
-1325	ALF_Giulietta_11	ALF_Giulietta_11	2011	54	1	1	1	13.2	0.33253	Limited Collector's Edition Pack
-1328	BUG_VeyronSS_11	BUG_VeyronSS_11	2011	58	2	3	1	18.34328	0.73926	Limited Collector's Edition Pack
-1329	BUI_GSX_70	BUI_GSX_70	1970	7	1	2	1	17.77629	0.242719	Limited Collector's Edition Pack
-1331	CHR_GTX_71	CHR_GTX_71	1971	89	1	2	1	16.64684	0.272447	Limited Collector's Edition Pack
-1332	DOD_Dart_68	DOD_Dart_68	1968	11	1	2	2	13.69849	0.313959	Limited Collector's Edition Pack
-1333	FOR_Fairlane_64	FOR_Fairlane_64	1964	14	1	2	1	14.62835	0.319989	Limited Collector's Edition Pack
-1338	PON_Firebird_68	PON_Firebird_68	1968	38	1	2	1	15.42668	0.24085	Limited Collector's Edition Pack
-1339	HON_CRZ_11	HON_CRZ_11	2011	16	1	1	1	12.03834	0.139828	Limited Collector's Edition Pack
-1349	MIN_Clubman_11	MIN_Clubman_11	2011	29	1	1	1	12.85027	0.308578	Limited Collector's Edition Pack
-1351	LEX_SC300_97	LEX_SC300_97	1997	23	1	2	1	16.15	0.248766	Limited Collector's Edition Pack
-1352	DOD_SuperBee_70	DOD_SuperBee_70	1970	11	1	2	1	15.51286	0.245218	Limited Collector's Edition Pack
-1353	SHE_GT500428CJ_69	SHE_GT500428CJ_69	1969	47	1	2	1	17.46331	0.261003	Limited Collector's Edition Pack
-1354	CHE_NovaSS_66	CHE_NovaSS_66	1966	9	1	2	1	14.27	0.248024	Limited Collector's Edition Pack
-1355	FOR_Mustang_65	FOR_Mustang_65	1965	14	1	2	1	11.62104	0.230063	Limited Collector's Edition Pack
-1385	BMW_1M_11	BMW_1M_11	2011	6	1	2	1	14.95041	0.404679	Limited Collector's Edition Pack
-1388	BMW_M5_12	BMW_M5_12	2012	6	1	2	1	18.7	0.452812	Limited Collector's Edition Pack
-1390	FER_458Challenge_11	FER_458Challenge_11	2011	13	2	2	2	13.03797	0.652919	Limited Collector's Edition Pack
-1397	KOE_Agera_11	KOE_Agera_11	2011	20	2	2	1	14.35	0.667068	Limited Collector's Edition Pack
-1432	RUF_RGT8_11	RUF_RGT8_11	2011	91	3	2	1	13.5	0.563222	Limited Collector's Edition Pack
-1434	RUF_Rt12R_11	RUF_Rt12R_11	2011	91	3	3	1	14.7599	0.680604	Limited Collector's Edition Pack
-1443	DOD_Coronet_67	DOD_Coronet_67	1967	11	1	2	1	15.39946	0.283731	Limited Collector's Edition Pack
-1502	BMW_M1Design_81	BMW_M1Design_81	1981	6	2	2	1	13	0.370805	Limited Collector's Edition Pack
-1503	BMW_M5Design_12	BMW_M5Design_12	2012	6	1	2	1	18.7	0.452812	Limited Collector's Edition Pack
-1504	BMW_M3Design_08	BMW_M3Design_08	2008	6	1	2	1	16.55	0.426345	Limited Collector's Edition Pack
-1505	BMW_M6Design_10	BMW_M6Design_10	2010	6	1	2	1	18.59	0.427635	Limited Collector's Edition Pack
-1506	BMW_Z4Design_08	BMW_Z4Design_08	2008	6	1	2	1	14.65103	0.409586	Limited Collector's Edition Pack
-1216	AUD_RS3_11	AUD_RS3_11	2011	3	1	3	1	15.75	0.399889	November Speed Pack
-1394	GMC_Typhoon_93	GMC_Typhoon_93	1992	80	1	3	1	17.23651	0.304254	November Speed Pack
-1398	LAM_LP7004_12	LAM_LP7004_12	2012	21	2	3	1	15.74873	0.631907	November Speed Pack
-1399	FOR_FocusST_12	FOR_FocusST_12	2013	14	1	1	1	13.5	0.359509	November Speed Pack
-1416	AST_Virage_12	AST_Virage_12	2012	2	1	2	1	17.85	0.455954	November Speed Pack
-1422	DOD_ChargerSRT8_12	DOD_ChargerSRT8_12	2012	11	1	2	1	19.79931	0.400799	November Speed Pack
-1428	VW_SciroccoR_11	VW_SciroccoR_11	2011	52	1	1	1	13.44	0.377226	November Speed Pack
-1436	AUD_2_R15_11	AUD_2_R15_11	2011	3	2	2	3	9.3	0.9181	November Speed Pack
-1440	FER_62_F458_11	FER_62_F458_11	2011	13	2	2	3	12.58719	0.686694	November Speed Pack
-1459	CHE_BelAir_57	CHE_BelAir_57	1957	9	1	2	1	15.13638	0.172238	November Speed Pack
-1188	MAS_GranTurismoMC_10	MAS_GranTurismoMC_10	2010	25	1	2	1	14	0.598268	December IGN Pack
-1302	FOR_EscortRS1800_77	FOR_EscortRS1800_77	1977	14	1	2	1	9.01	0.15756	December IGN Pack
-1377	ALF_Spider_86	ALF_Spider_86	1986	54	1	2	1	11.56	0.070176	December IGN Pack
-1380	VW_SciroccoS_81	VW_SciroccoS_81	1981	52	1	1	1	9.13989	0.004489	December IGN Pack
-1420	CHE_Chevelle396_67	CHE_Chevelle396_67	1967	9	1	2	1	16.26129	0.265293	December IGN Pack
-1426	MAZ_RX8R3_11	MAZ_RX8R3_11	2011	26	1	2	1	13.90261	0.334486	December IGN Pack
-1458	SUZ_1_SX4_11	SUZ_1_SX4_11	2011	75	2	3	3	11.43	0.7992	December IGN Pack
-1460	FOR_SVTRaptor_12	FOR_SVTRaptor_12	2011	14	1	3	1	27.24276	0.225771	December IGN Pack
-1462	MAS_300S_57	MAS_300S_57	1957	25	1	2	1	7.80179	0.342383	December IGN Pack
-1479	PON_FieroGT_88	PON_FieroGT_88	1988	38	2	2	1	12.65745	0.185139	December IGN Pack
-1292	DOD_ShelbyOmniGLHS_86	DOD_ShelbyOmniGLHS_86	1986	11	1	1	1	11.52125	0.249019	January Jalopnik Pack
-1379	CHE_ImpalaSS_96	CHE_ImpalaSS_96	1996	9	1	2	1	18.31	0.222668	January Jalopnik Pack
-1417	AUD_RS5_11	AUD_RS5_11	2011	3	1	3	1	17.37259	0.475	January Jalopnik Pack
-1423	HON_CivicSi_12	HON_CivicSi_12	2012	16	1	1	1	13.04985	0.310629	January Jalopnik Pack
-1427	PAG_Huayra_12	PAG_Huayra_12	2012	34	2	2	1	14.30177	0.636225	January Jalopnik Pack
-1437	LAM_008_Gallardo_11	LAM_008_Gallardo_11	2011	21	2	2	3	11.9	0.68274	January Jalopnik Pack
-1439	HON_33_Lola_11	HON_33_Lola_11	2011	16	2	2	3	8.25	0.878083	January Jalopnik Pack
-1442	FIA_Coupe_00	FIA_Coupe_00	2000	57	1	1	1	13.1	0.334278	January Jalopnik Pack
-1461	ALF_Montreal_70	ALF_Montreal_70	1970	54	1	2	1	12.74595	0.181682	January Jalopnik Pack
-1464	FOR_Pinto_71	FOR_Pinto_71	1973	14	1	2	1	10.22397	0	January Jalopnik Pack
-1424	HYU_Veloster_12	HYU_Veloster_12	2013	17	1	1	1	12.5509	0.286488	Hyundai Veloster Bonus Pack
-1528	HYU_VelosterRMR_11	HYU_VelosterRMR_11	2011	17	1	3	3	13	0.616104	Hyundai Veloster Bonus Pack
-1335	MAZ_55_787B_91	MAZ_55_787B_91	1991	26	2	2	3	8.3	0.917128	February American Le Mans Series Pack
-1347	VW_PoloGTI_11	VW_PoloGTI_11	2011	52	1	1	1	11.84	0.289695	February American Le Mans Series Pack
-1393	ALF_155_92	ALF_155_92	1992	54	1	3	1	13.9	0.278262	February American Le Mans Series Pack
-1396	HOL_HSVGTS_11	HOL_HSVGTS_11	2011	59	1	2	1	18.45	0.379308	February American Le Mans Series Pack
-1441	PAN_050_Abruzzi_11	PAN_050_Abruzzi_11	2011	35	1	2	3	12.45	0.682748	February American Le Mans Series Pack
-1456	AUD_3_R18TDI_11	AUD_3_R18TDI_11	2011	3	2	2	3	9	0.923004	February American Le Mans Series Pack
-1478	AUD_2_SportQuattro_86	AUD_2_SportQuattro_86	1986	3	1	3	3	10.89983	0.653452	February American Le Mans Series Pack
-1492	BEN_PMContinental_11	BEN_PMContinental_11	2011	4	1	3	1	24.8115	0.467522	February American Le Mans Series Pack
-1495	DOD_RampageChallenger_11	DOD_RampageChallenger_11	2010	11	1	2	2	20.15834	0.415037	February American Le Mans Series Pack
-1510	FOR_Mustang_95	FOR_Mustang_95	1995	14	1	2	1	14.63289	0.335634	February American Le Mans Series Pack
-1264	REN_Clio200Cup_10	REN_Clio200Cup_10	2010	41	1	1	1	12.04	0.319795	March Pirelli Car Pack
-1429	CHE_NovaSS_69	CHE_NovaSS_69	1969	9	1	2	1	15.73966	0.259855	March Pirelli Car Pack
-1455	ULT_GTR_12	ULT_GTR_12	2012	96	2	2	1	9.9	0.691177	March Pirelli Car Pack
-1465	FER_2_312PB_72	FER_2_312PB_72	1971	13	2	2	3	6.55	0.72416	March Pirelli Car Pack
-1476	CHE_Corvair_69	CHE_Corvair_69	1969	9	3	2	1	11.86144	0.059009	March Pirelli Car Pack
-1483	AST_V12Zagato_12	AST_V12Zagato_12	2011	2	1	2	1	14.50135	0.545719	March Pirelli Car Pack
-1484	FOR_CountrySquire_66	FOR_CountrySquire_66	1966	14	1	2	1	18.36598	0.163092	March Pirelli Car Pack
-1493	BMW_850CSi_96	BMW_850CSi_96	1995	6	1	2	1	19.23232	0.344663	March Pirelli Car Pack
-1507	ALF_GTV6_86	ALF_GTV6_86	1986	54	1	2	1	12.88202	0.133345	March Pirelli Car Pack
-1538	WIE_GTMF5_11	WIE_GTMF5_11	2011	71	1	2	1	14.05	0.560399	March Pirelli Car Pack
-1378	MER_300SEL_72	MER_300SEL_72	1972	28	1	2	1	18.18906	0.230125	April Alpinestars Car Pack
-1387	VOL_850_97	VOL_850_97	1997	53	1	1	1	14.65103	0.265809	April Alpinestars Car Pack
-1418	BMW_M5_95	BMW_M5_95	1995	6	1	2	1	17.46331	0.339675	April Alpinestars Car Pack
-1452	AST_009_AMROne_11	AST_009_AMROne_11	2011	2	2	2	3	9	0.911617	April Alpinestars Car Pack
-1480	MAZ_RX7_85	MAZ_RX7_85	1985	26	1	2	1	11.68	0.157319	April Alpinestars Car Pack
-1496	JAG_XKRS_12	JAG_XKRS_12	2012	19	1	2	1	17.53135	0.487622	April Alpinestars Car Pack
-1497	MAS_Quattroporte_12	MAS_Quattroporte_12	2011	25	1	2	1	19.9	0.397585	April Alpinestars Car Pack
-1499	MER_35_SLSAMG_11	MER_35_SLSAMG_11	2011	28	1	2	3	13.4	0.647132	April Alpinestars Car Pack
-1501	SCI_tC_12	SCI_tC_12	2012	45	1	1	1	13.87993	0.243403	April Alpinestars Car Pack
-1509	CAD_Eldorado_59	CAD_Eldorado_59	1959	8	1	2	1	22.95178	0.128491	April Alpinestars Car Pack
-1381	MIT_GalantVR4_92	MIT_GalantVR4_92	1992	30	1	3	1	14.3	0.310029	May TopGear Car Pack
-1382	SUB_LegacyRS_90	SUB_LegacyRS_90	1990	48	1	3	1	13.56241	0.278883	May TopGear Car Pack
-1448	SMA_ForTwo_12	SMA_ForTwo_12	2010	95	3	2	1	8.27806	0.001768	May TopGear Car Pack
-1463	AMC_Pacer_77	AMC_Pacer_77	1977	76	1	2	1	14.41063	0.007356	May TopGear Car Pack
-1474	CHR_300_12	CHR_300_12	2012	10	1	2	1	19.79931	0.406992	May TopGear Car Pack
-1477	FOR_TransitSSV_11	FOR_TransitSSV_11	2011	14	1	2	1	20.38	0.070799	May TopGear Car Pack
-1481	AH_3000_65	AH_3000_65	1965	97	1	2	1	12.0202	0.114818	May TopGear Car Pack
-1486	LOT_Cortina_66	LOT_Cortina_66	1966	24	1	2	1	9.344	0.077021	May TopGear Car Pack
-1522	JEE_Wrangler_12	JEE_Wrangler_12	2012	88	1	3	1	18.61543	0.197877	May TopGear Car Pack
-1532	HEN_VenomGT_12	HEN_VenomGT_12	2012	102	2	2	1	12.17896	0.706145	May TopGear Car Pack
-260	POR_CarreraRS_73	POR_CarreraRS_73	1973	39	3	2	1	9.75224	0.32722	Porsche Expansion Pack
-261	POR_911GT2_95	POR_911GT2_95	1995	39	3	2	1	12.95	0.510876	Porsche Expansion Pack
-262	POR_996GT3_04	POR_996GT3_04	2004	39	3	2	1	14.33352	0.490267	Porsche Expansion Pack
-263	POR_997GT3_07	POR_997GT3_07	2007	39	3	2	1	13.94797	0.517064	Porsche Expansion Pack
-264	POR_997Turbo_07	POR_997Turbo_07	2007	39	3	3	1	15.85	0.565473	Porsche Expansion Pack
-265	POR_911Turbo_82	POR_911Turbo_82	1982	39	3	2	1	13	0.368896	Porsche Expansion Pack
-266	POR_914_70	POR_914_70	1970	39	2	2	1	9.96	0.134071	Porsche Expansion Pack
-268	POR_944Turbo_89	POR_944Turbo_89	1989	39	1	2	1	14.13	0.328985	Porsche Expansion Pack
-269	POR_959_87	POR_959_87	1987	39	3	3	1	14.46984	0.548314	Porsche Expansion Pack
-292	POR_CarreraGT_03	POR_CarreraGT_03	2003	39	2	2	1	14.5	0.596397	Porsche Expansion Pack
-531	POR_26_GT1_98	POR_26_GT1_98	1998	39	2	2	3	9.5	0.778505	Porsche Expansion Pack
-534	POR_66_911GT3Cup_05	POR_66_911GT3Cup_05	2005	39	3	2	3	11.5	0.624965	Porsche Expansion Pack
-536	POR_31_911GT3RSR_05	POR_31_911GT3RSR_05	2005	39	3	2	3	11.25	0.667568	Porsche Expansion Pack
-540	POR_17_962C_87	POR_17_962C_87	1987	39	2	2	3	8.89948	0.826083	Porsche Expansion Pack
-628	POR_997GT3RS_07	POR_997GT3RS_07	2007	39	3	2	1	13.75	0.520172	Porsche Expansion Pack
-1030	POR_7_RSSpyder_08	POR_7_RSSpyder_08	2008	39	2	2	3	8	0.886027	Porsche Expansion Pack
-1073	POR_16_RSSpyder_08	POR_16_RSSpyder_08	2008	39	2	2	3	8	0.886027	Porsche Expansion Pack
-1097	POR_2_911GT3Cup_08	POR_2_911GT3Cup_08	2008	39	3	2	3	11.4	0.647747	Porsche Expansion Pack
-1161	POR_80_GT3RSR_07	POR_80_GT3RSR_07	2007	39	3	2	3	12.25	0.679698	Porsche Expansion Pack
-1176	POR_Panamera_10	POR_Panamera_10	2010	39	1	3	1	19.69952	0.48397	Porsche Expansion Pack
-1189	POR_BoxsterS_10	POR_BoxsterS_10	2010	39	2	2	1	14.2	0.423879	Porsche Expansion Pack
-1234	POR_911SportClassic_10	POR_911SportClassic_10	2010	39	3	2	1	14.24	0.484289	Porsche Expansion Pack
-1281	POR_550ASpyder_56	POR_550ASpyder_56	1955	39	2	2	1	6.85	0.152652	Porsche Expansion Pack
-1539	POR_911GT2_12	POR_911GT2_12	2012	39	3	2	1	13.9484	0.59223	Porsche Expansion Pack
-1541	POR_CaymanR_12	POR_CaymanR_12	2012	39	2	2	1	13.72117	0.439053	Porsche Expansion Pack
-1542	POR_Cayenne_12	POR_Cayenne_12	2012	39	1	3	1	21.69986	0.455179	Porsche Expansion Pack
-1544	POR_17_911GT3RSR_11	POR_17_911GT3RSR_11	2011	39	3	2	3	12.2	0.683828	Porsche Expansion Pack
-1546	POR_23_911GT3Cup_11	POR_23_911GT3Cup_11	2011	39	3	2	3	12	0.655691	Porsche Expansion Pack
-1547	POR_54_911GT3Cup_11	POR_54_911GT3Cup_11	2011	39	3	2	3	12	0.655691	Porsche Expansion Pack
-1563	POR_045_GT3RSR_11	M6 Coupe	2011	39	3	2	3	12.2	0.683828	Porsche Expansion Pack
-1435	VW_Beetle_66	VW_Beetle_66	1963	52	3	2	1	7.98323	0	Meguiar's Car Pack
-1438	CHE_4_CorvetteZR1_11	CHE_4_CorvetteZR1_11	2011	9	1	2	3	12.45111	0.677823	Meguiar's Car Pack
-1475	AST_Cygnet_11	AST_Cygnet_11	2011	2	1	1	1	9.88	0.089944	Meguiar's Car Pack
-1487	MG_MGA_58	MG_MGA_58	1958	98	1	2	1	9.94275	0.035374	Meguiar's Car Pack
-1500	MER_C63AMG_12	MER_C63AMG_12	2012	28	1	2	1	17.48	0.50638	Meguiar's Car Pack
-1508	BMW_507_59	BMW_507_59	1959	6	1	2	1	12.2	0.138529	Meguiar's Car Pack
-1513	MAS_Ghibli_97	MAS_Ghibli_97	1997	25	1	2	1	13.65	0.3635	Meguiar's Car Pack
-1516	RUF_Yellowbird_87	RUF_Yellowbird_87	1987	91	3	2	1	12.07463	0.569355	Meguiar's Car Pack
-1517	TOY_CelicaST185_90	TOY_CelicaST185_90	1992	49	1	3	1	14.60001	0.266985	Meguiar's Car Pack
-1530	FOR_Coupe_40	FOR_Coupe_40	1940	14	1	2	1	13.47169	0	Meguiar's Car Pack
-1562	VIP_Viper_13	VIP_Viper_13	2013	104	1	2	1	14.95	0.564675	2013 SRT Viper Pack
-1620	DOD_Challenger392_12	DOD_Challenger392_12	2012	11	1	2	1	18.86944	0.415093	2013 SRT Viper Pack
-1451	ASC_KZ1R_12	ASC_KZ1R_12	2012	92	2	2	1	13.5	0.553326	July Car Pack
-1482	AMC_Gremlin_73	AMC_Gremlin_73	1973	76	1	2	1	12.3105	0.096183	July Car Pack
-1485	JAG_XK120_54	JAG_XK120_54	1954	19	1	2	1	13.67581	0.189054	July Car Pack
-1498	MCL_59_MP412C_11	MCL_59_MP412C_11	2011	27	2	2	3	12.3	0.667567	July Car Pack
-1512	HUD_Hornet_52	HUD_Hornet_52	1952	101	1	2	1	16.89	0.059265	July Car Pack
-1515	RUF_CTR2_95	RUF_CTR2_95	1995	91	3	2	1	13.81189	0.542818	July Car Pack
-1519	AST_VantageV600_98	AST_VantageV600_98	1998	2	1	2	1	20.02	0.432683	July Car Pack
-1525	MER_SLK55AMG_12	MER_SLK55AMG_12	2012	28	1	2	1	15.9982	0.42604	July Car Pack
-1527	SPY_Aileron_12	SPY_Aileron_12	2012	69	2	2	1	14.25187	0.462962	July Car Pack
-1558	LOT_Eleven_56	LOT_Eleven_56	1956	24	1	2	1	4.8988	0.171687	July Car Pack
-1419	CHE_CamaroZL1_12	CHE_CamaroZL1_12	2012	9	1	2	1	18.37503	0.497523	August Playseat Car Pack
-1489	TRI_TR3_62	TRI_TR3_62	1962	99	1	2	1	9.65245	0.034023	August Playseat Car Pack
-1535	LEX_GS350_13	LEX_GS350_13	2013	23	1	3	1	18.00762	0.356943	August Playseat Car Pack
-1548	SCI_FRS_13	SCI_FRS_13	2013	45	1	2	1	12.41482	0.320261	August Playseat Car Pack
-1560	MER_63_SauberC9_89	MER_63_SauberC9_89	1989	28	2	2	3	9.05	0.923573	August Playseat Car Pack
-1566	AST_DB7Zagato_03	AST_DB7Zagato_03	2003	2	1	2	1	17.4	0.427751	August Playseat Car Pack
-1567	FOR_MustangBoss302_13	FOR_MustangBoss302_13	2013	14	1	2	1	16.46994	0.438262	August Playseat Car Pack
-1569	HYU_GenesisCoupe_13	HYU_GenesisCoupe_13	2013	17	1	2	1	15.57183	0.374173	August Playseat Car Pack
-1586	LIN_Continental_62	LIN_Continental_62	1962	105	1	2	1	22.35757	0.168572	August Playseat Car Pack
-1591	PEU_205T16_84	PEU_205T16_84	1984	36	2	3	1	11.45	0.291164	August Playseat Car Pack
-1421	CIT_DS4_11	CIT_DS4_11	2011	56	1	1	1	13.58963	0.25688	September Pennzoil Car Pack
-1531	GMC_Vandura_83	GMC_Vandura_83	1983	80	1	2	1	25.31953	0	September Pennzoil Car Pack
-1549	ALF_33Stradale_68	ALF_33Stradale_68	1968	54	2	2	1	7	0.427617	September Pennzoil Car Pack
-1550	AST_DB4GT_60	AST_DB4GT_60	1960	2	1	2	1	12.25	0.28546	September Pennzoil Car Pack
-1559	MER_300SLR_55	MER_300SLR_55	1955	28	1	2	1	9	0.384073	September Pennzoil Car Pack
-1561	VW_KarmannGhia_67	VW_KarmannGhia_67	1967	52	3	2	1	8.40053	0	September Pennzoil Car Pack
-1564	CHE_Corvette_53	CHE_Corvette_53	1953	9	1	2	1	13.15418	0.107044	September Pennzoil Car Pack
-1574	AH_Sprite_58	AH_Sprite_58	1958	97	1	2	1	6.63606	0	September Pennzoil Car Pack
-1589	MG_MGB_65	MG_MGB_65	1966	98	1	2	1	10.70478	0.036072	September Pennzoil Car Pack
-1606	VIP_91_Viper_13	VIP_91_Viper_13	2013	104	1	2	3	12.45	0.674019	September Pennzoil Car Pack
-1637	VIP_93_Viper_13	VIP_93_Viper_13	2013	104	1	2	3	12.45	0.674019	September Pennzoil Car Pack
+1253	NOB_M600_10	M600	2010	72	2	2	1	12.5	0.644728	Limited Collector's Edition Pack
+1285	PON_GTO_65	GTO	1965	38	1	2	1	15.73058	0.237976	Limited Collector's Edition Pack
+1313	TES_RoadsterS_11	Roadster Sport	2011	81	2	2	1	12.35132	0.422996	Limited Collector's Edition Pack
+1322	LAM_GallardoLP570_11	Gallardo LP570-4 Superleggera	2011	21	2	3	1	15.73966	0.628696	Limited Collector's Edition Pack
+1323	SUB_WRXSTi_11	WRX STI	2011	48	1	3	1	15.34957	0.399475	Limited Collector's Edition Pack
+1325	ALF_Giulietta_11	Giulietta Quadrifoglio Verde	2011	54	1	1	1	13.2	0.33253	Limited Collector's Edition Pack
+1328	BUG_VeyronSS_11	Veyron Super Sport	2011	58	2	3	1	18.34328	0.73926	Limited Collector's Edition Pack
+1329	BUI_GSX_70	GSX	1970	7	1	2	1	17.77629	0.242719	Limited Collector's Edition Pack
+1331	CHR_GTX_71	GTX 426 HEMI	1971	89	1	2	1	16.64684	0.272447	Limited Collector's Edition Pack
+1332	DOD_Dart_68	Dart HEMI Super Stock	1968	11	1	2	2	13.69849	0.313959	Limited Collector's Edition Pack
+1333	FOR_Fairlane_64	Fairlane Thunderbolt	1964	14	1	2	1	14.62835	0.319989	Limited Collector's Edition Pack
+1338	PON_Firebird_68	Firebird	1968	38	1	2	1	15.42668	0.24085	Limited Collector's Edition Pack
+1339	HON_CRZ_11	CR-Z EX	2011	16	1	1	1	12.03834	0.139828	Limited Collector's Edition Pack
+1349	MIN_Clubman_11	John Cooper Works Clubman	2011	29	1	1	1	12.85027	0.308578	Limited Collector's Edition Pack
+1351	LEX_SC300_97	SC300	1997	23	1	2	1	16.15	0.248766	Limited Collector's Edition Pack
+1352	DOD_SuperBee_70	Coronet Super Bee	1970	11	1	2	1	15.51286	0.245218	Limited Collector's Edition Pack
+1353	SHE_GT500428CJ_69	GT500 428CJ	1969	47	1	2	1	17.46331	0.261003	Limited Collector's Edition Pack
+1354	CHE_NovaSS_66	Nova SS	1966	9	1	2	1	14.27	0.248024	Limited Collector's Edition Pack
+1355	FOR_Mustang_65	Mustang GT Coupe	1965	14	1	2	1	11.62104	0.230063	Limited Collector's Edition Pack
+1385	BMW_1M_11	1 Series M Coupe	2011	6	1	2	1	14.95041	0.404679	Limited Collector's Edition Pack
+1388	BMW_M5_12	M5	2012	6	1	2	1	18.7	0.452812	Limited Collector's Edition Pack
+1390	FER_458Challenge_11	458 Challenge	2011	13	2	2	2	13.03797	0.652919	Limited Collector's Edition Pack
+1397	KOE_Agera_11	Agera	2011	20	2	2	1	14.35	0.667068	Limited Collector's Edition Pack
+1432	RUF_RGT8_11	RGT-8	2011	91	3	2	1	13.5	0.563222	Limited Collector's Edition Pack
+1434	RUF_Rt12R_11	Rt 12 R	2011	91	3	3	1	14.7599	0.680604	Limited Collector's Edition Pack
+1443	DOD_Coronet_67	Coronet WO23	1967	11	1	2	1	15.39946	0.283731	Limited Collector's Edition Pack
+1502	BMW_M1Design_81	M1 Design Challenge	1981	6	2	2	1	13	0.370805	Limited Collector's Edition Pack
+1503	BMW_M5Design_12	M5 Design Challenge	2012	6	1	2	1	18.7	0.452812	Limited Collector's Edition Pack
+1504	BMW_M3Design_08	M3 Design Challenge	2008	6	1	2	1	16.55	0.426345	Limited Collector's Edition Pack
+1505	BMW_M6Design_10	M6 Coupe Design Challenge	2010	6	1	2	1	18.59	0.427635	Limited Collector's Edition Pack
+1506	BMW_Z4Design_08	Z4 M Coupe Design Challenge	2008	6	1	2	1	14.65103	0.409586	Limited Collector's Edition Pack
+1216	AUD_RS3_11	RS3 Sportback	2011	3	1	3	1	15.75	0.399889	November Speed Pack
+1394	GMC_Typhoon_93	Typhoon	1992	80	1	3	1	17.23651	0.304254	November Speed Pack
+1398	LAM_LP7004_12	Aventador LP700-4	2012	21	2	3	1	15.74873	0.631907	November Speed Pack
+1399	FOR_FocusST_12	Focus ST	2013	14	1	1	1	13.5	0.359509	November Speed Pack
+1416	AST_Virage_12	Virage	2012	2	1	2	1	17.85	0.455954	November Speed Pack
+1422	DOD_ChargerSRT8_12	Charger SRT8	2012	11	1	2	1	19.79931	0.400799	November Speed Pack
+1428	VW_SciroccoR_11	Scirocco R	2011	52	1	1	1	13.44	0.377226	November Speed Pack
+1436	AUD_2_R15_11	#2 Audi Sport Team Joest R15++ TDI	2011	3	2	2	3	9.3	0.9181	November Speed Pack
+1440	FER_62_F458_11	#62 Risi Competizione F458 Italia	2011	13	2	2	3	12.58719	0.686694	November Speed Pack
+1459	CHE_BelAir_57	Bel Air	1957	9	1	2	1	15.13638	0.172238	November Speed Pack
+1188	MAS_GranTurismoMC_10	GranTurismo MC GT4	2010	25	1	2	1	14	0.598268	December IGN Pack
+1302	FOR_EscortRS1800_77	Escort RS1800	1977	14	1	2	1	9.01	0.15756	December IGN Pack
+1377	ALF_Spider_86	Spider Quadrifoglio Verde	1986	54	1	2	1	11.56	0.070176	December IGN Pack
+1380	VW_SciroccoS_81	Scirocco S	1981	52	1	1	1	9.13989	0.004489	December IGN Pack
+1420	CHE_Chevelle396_67	Chevelle SS-396	1967	9	1	2	1	16.26129	0.265293	December IGN Pack
+1426	MAZ_RX8R3_11	RX-8 R3	2011	26	1	2	1	13.90261	0.334486	December IGN Pack
+1458	SUZ_1_SX4_11	#1 Monster Sport SX4 Hill Climb Special	2011	75	2	3	3	11.43	0.7992	December IGN Pack
+1460	FOR_SVTRaptor_12	F-150 SVT Raptor	2011	14	1	3	1	27.24276	0.225771	December IGN Pack
+1462	MAS_300S_57	300 S	1957	25	1	2	1	7.80179	0.342383	December IGN Pack
+1479	PON_FieroGT_88	Fiero GT	1988	38	2	2	1	12.65745	0.185139	December IGN Pack
+1292	DOD_ShelbyOmniGLHS_86	Shelby Omni GLHS	1986	11	1	1	1	11.52125	0.249019	January Jalopnik Pack
+1379	CHE_ImpalaSS_96	Impala SS	1996	9	1	2	1	18.31	0.222668	January Jalopnik Pack
+1417	AUD_RS5_11	RS 5	2011	3	1	3	1	17.37259	0.475	January Jalopnik Pack
+1423	HON_CivicSi_12	Civic Si Coupe	2012	16	1	1	1	13.04985	0.310629	January Jalopnik Pack
+1427	PAG_Huayra_12	Huayra	2012	34	2	2	1	14.30177	0.636225	January Jalopnik Pack
+1437	LAM_008_Gallardo_11	#08 West Yokohama Gallardo LP560-4	2011	21	2	2	3	11.9	0.68274	January Jalopnik Pack
+1439	HON_33_Lola_11	#33 Level 5 Motorsports Lola	2011	16	2	2	3	8.25	0.878083	January Jalopnik Pack
+1442	FIA_Coupe_00	Coupe 2.0 20V Turbo	2000	57	1	1	1	13.1	0.334278	January Jalopnik Pack
+1461	ALF_Montreal_70	Montreal	1970	54	1	2	1	12.74595	0.181682	January Jalopnik Pack
+1464	FOR_Pinto_71	Pinto	1973	14	1	2	1	10.22397	0	January Jalopnik Pack
+1424	HYU_Veloster_12	Veloster Turbo	2013	17	1	1	1	12.5509	0.286488	Hyundai Veloster Bonus Pack
+1528	HYU_VelosterRMR_11	#67 Rhys Millen Racing Veloster	2011	17	1	3	3	13	0.616104	Hyundai Veloster Bonus Pack
+1335	MAZ_55_787B_91	#55 Team Mazdaspeed 787B	1991	26	2	2	3	8.3	0.917128	February American Le Mans Series Pack
+1347	VW_PoloGTI_11	Polo GTI	2011	52	1	1	1	11.84	0.289695	February American Le Mans Series Pack
+1393	ALF_155_92	155 Q4	1992	54	1	3	1	13.9	0.278262	February American Le Mans Series Pack
+1396	HOL_HSVGTS_11	HSV GTS	2011	59	1	2	1	18.45	0.379308	February American Le Mans Series Pack
+1441	PAN_050_Abruzzi_11	#050 Panoz Racing Abruzzi	2011	35	1	2	3	12.45	0.682748	February American Le Mans Series Pack
+1456	AUD_3_R18TDI_11	#2 Audi Sport Team Joest R18 TDI	2011	3	2	2	3	9	0.923004	February American Le Mans Series Pack
+1478	AUD_2_SportQuattro_86	#2 Audi Sport quattro S1	1986	3	1	3	3	10.89983	0.653452	February American Le Mans Series Pack
+1492	BEN_PMContinental_11	Platinum Motorsport Continental GT	2011	4	1	3	1	24.8115	0.467522	February American Le Mans Series Pack
+1495	DOD_RampageChallenger_11	Quinton 'Rampage' Jackson Challenger SRT8	2010	11	1	2	2	20.15834	0.415037	February American Le Mans Series Pack
+1510	FOR_Mustang_95	Mustang Cobra R	1995	14	1	2	1	14.63289	0.335634	February American Le Mans Series Pack
+1264	REN_Clio200Cup_10	Clio RS	2010	41	1	1	1	12.04	0.319795	March Pirelli Car Pack
+1429	CHE_NovaSS_69	Nova SS 396	1969	9	1	2	1	15.73966	0.259855	March Pirelli Car Pack
+1455	ULT_GTR_12	GTR	2012	96	2	2	1	9.9	0.691177	March Pirelli Car Pack
+1465	FER_2_312PB_72	#2 Ferrari Automobili 312 P	1971	13	2	2	3	6.55	0.72416	March Pirelli Car Pack
+1476	CHE_Corvair_69	Corvair Monza	1969	9	3	2	1	11.86144	0.059009	March Pirelli Car Pack
+1483	AST_V12Zagato_12	V12 Zagato (Villa d’Este)	2011	2	1	2	1	14.50135	0.545719	March Pirelli Car Pack
+1484	FOR_CountrySquire_66	Country Squire	1966	14	1	2	1	18.36598	0.163092	March Pirelli Car Pack
+1493	BMW_850CSi_96	850CSi	1995	6	1	2	1	19.23232	0.344663	March Pirelli Car Pack
+1507	ALF_GTV6_86	GTV-6	1986	54	1	2	1	12.88202	0.133345	March Pirelli Car Pack
+1538	WIE_GTMF5_11	GT MF5	2011	71	1	2	1	14.05	0.560399	March Pirelli Car Pack
+1378	MER_300SEL_72	300 SEL 6.3	1972	28	1	2	1	18.18906	0.230125	April Alpinestars Car Pack
+1387	VOL_850_97	850 R	1997	53	1	1	1	14.65103	0.265809	April Alpinestars Car Pack
+1418	BMW_M5_95	M5	1995	6	1	2	1	17.46331	0.339675	April Alpinestars Car Pack
+1452	AST_009_AMROne_11	#009 Aston Martin Racing AMR One	2011	2	2	2	3	9	0.911617	April Alpinestars Car Pack
+1480	MAZ_RX7_85	RX-7 GSL-SE	1985	26	1	2	1	11.68	0.157319	April Alpinestars Car Pack
+1496	JAG_XKRS_12	XKR-S	2012	19	1	2	1	17.53135	0.487622	April Alpinestars Car Pack
+1497	MAS_Quattroporte_12	Quattroporte Sport GT S	2011	25	1	2	1	19.9	0.397585	April Alpinestars Car Pack
+1499	MER_35_SLSAMG_11	#35 Black Falcon SLS AMG GT3	2011	28	1	2	3	13.4	0.647132	April Alpinestars Car Pack
+1501	SCI_tC_12	tC	2012	45	1	1	1	13.87993	0.243403	April Alpinestars Car Pack
+1509	CAD_Eldorado_59	Eldorado Biarritz Convertible	1959	8	1	2	1	22.95178	0.128491	April Alpinestars Car Pack
+1381	MIT_GalantVR4_92	Galant VR-4	1992	30	1	3	1	14.3	0.310029	May TopGear Car Pack
+1382	SUB_LegacyRS_90	Legacy RS	1990	48	1	3	1	13.56241	0.278883	May TopGear Car Pack
+1448	SMA_ForTwo_12	fortwo	2010	95	3	2	1	8.27806	0.001768	May TopGear Car Pack
+1463	AMC_Pacer_77	Pacer X	1977	76	1	2	1	14.41063	0.007356	May TopGear Car Pack
+1474	CHR_300_12	300 SRT8	2012	10	1	2	1	19.79931	0.406992	May TopGear Car Pack
+1477	FOR_TransitSSV_11	Transit SuperSportVan	2011	14	1	2	1	20.38	0.070799	May TopGear Car Pack
+1481	AH_3000_65	3000 MKIII	1965	97	1	2	1	12.0202	0.114818	May TopGear Car Pack
+1486	LOT_Cortina_66	Cortina	1966	24	1	2	1	9.344	0.077021	May TopGear Car Pack
+1522	JEE_Wrangler_12	Wrangler Rubicon	2012	88	1	3	1	18.61543	0.197877	May TopGear Car Pack
+1532	HEN_VenomGT_12	Venom GT	2012	102	2	2	1	12.17896	0.706145	May TopGear Car Pack
+260	POR_CarreraRS_73	911 Carrera RS	1973	39	3	2	1	9.75224	0.32722	Porsche Expansion Pack
+261	POR_911GT2_95	911 GT2	1995	39	3	2	1	12.95	0.510876	Porsche Expansion Pack
+262	POR_996GT3_04	911 GT3	2004	39	3	2	1	14.33352	0.490267	Porsche Expansion Pack
+263	POR_997GT3_07	911 GT3	2007	39	3	2	1	13.94797	0.517064	Porsche Expansion Pack
+264	POR_997Turbo_07	911 Turbo	2007	39	3	3	1	15.85	0.565473	Porsche Expansion Pack
+265	POR_911Turbo_82	911 Turbo 3.3	1982	39	3	2	1	13	0.368896	Porsche Expansion Pack
+266	POR_914_70	914/6	1970	39	2	2	1	9.96	0.134071	Porsche Expansion Pack
+268	POR_944Turbo_89	944 Turbo	1989	39	1	2	1	14.13	0.328985	Porsche Expansion Pack
+269	POR_959_87	959	1987	39	3	3	1	14.46984	0.548314	Porsche Expansion Pack
+292	POR_CarreraGT_03	Carrera GT	2003	39	2	2	1	14.5	0.596397	Porsche Expansion Pack
+531	POR_26_GT1_98	#26 Porsche AG 911 GT1-98	1998	39	2	2	3	9.5	0.778505	Porsche Expansion Pack
+534	POR_66_911GT3Cup_05	#66 AXA Racing 911 GT3 Cup	2005	39	3	2	3	11.5	0.624965	Porsche Expansion Pack
+536	POR_31_911GT3RSR_05	#31 Petersen-White Lightning 911 GT3-RSR	2005	39	3	2	3	11.25	0.667568	Porsche Expansion Pack
+540	POR_17_962C_87	#17 Racing Porsche AG 962c	1987	39	2	2	3	8.89948	0.826083	Porsche Expansion Pack
+628	POR_997GT3RS_07	911 GT3 RS	2007	39	3	2	1	13.75	0.520172	Porsche Expansion Pack
+1030	POR_7_RSSpyder_08	#7 Penske Racing RS Spyder Evo	2008	39	2	2	3	8	0.886027	Porsche Expansion Pack
+1073	POR_16_RSSpyder_08	#16 Dyson Racing RS Spyder Evo	2008	39	2	2	3	8	0.886027	Porsche Expansion Pack
+1097	POR_2_911GT3Cup_08	#2 Gruppe Orange Racing 911 GT3 Cup	2008	39	3	2	3	11.4	0.647747	Porsche Expansion Pack
+1161	POR_80_GT3RSR_07	#80 Flying Lizard 911 GT3-RSR	2007	39	3	2	3	12.25	0.679698	Porsche Expansion Pack
+1176	POR_Panamera_10	Panamera Turbo	2010	39	1	3	1	19.69952	0.48397	Porsche Expansion Pack
+1189	POR_BoxsterS_10	Boxster S	2010	39	2	2	1	14.2	0.423879	Porsche Expansion Pack
+1234	POR_911SportClassic_10	911 Sport Classic	2010	39	3	2	1	14.24	0.484289	Porsche Expansion Pack
+1281	POR_550ASpyder_56	550 Spyder	1955	39	2	2	1	6.85	0.152652	Porsche Expansion Pack
+1539	POR_911GT2_12	911 GT2 RS	2012	39	3	2	1	13.9484	0.59223	Porsche Expansion Pack
+1541	POR_CaymanR_12	Cayman R	2012	39	2	2	1	13.72117	0.439053	Porsche Expansion Pack
+1542	POR_Cayenne_12	Cayenne Turbo	2012	39	1	3	1	21.69986	0.455179	Porsche Expansion Pack
+1544	POR_17_911GT3RSR_11	#17 Team Falken 911 GT3-RSR	2011	39	3	2	3	12.2	0.683828	Porsche Expansion Pack
+1546	POR_23_911GT3Cup_11	#23 Alex Job Racing 911 GT3 Cup	2011	39	3	2	3	12	0.655691	Porsche Expansion Pack
+1547	POR_54_911GT3Cup_11	#54 Black Swan Racing 911 GT3 Cup	2011	39	3	2	3	12	0.655691	Porsche Expansion Pack
+1563	POR_045_GT3RSR_11	#045 Flying Lizard 911 GT3-RSR	2011	39	3	2	3	12.2	0.683828	Porsche Expansion Pack
+1435	VW_Beetle_66	Beetle	1963	52	3	2	1	7.98323	0	Meguiar's Car Pack
+1438	CHE_4_CorvetteZR1_11	#4 Corvette Racing ZR1	2011	9	1	2	3	12.45111	0.677823	Meguiar's Car Pack
+1475	AST_Cygnet_11	Cygnet	2011	2	1	1	1	9.88	0.089944	Meguiar's Car Pack
+1487	MG_MGA_58	MGA Twin-Cam	1958	98	1	2	1	9.94275	0.035374	Meguiar's Car Pack
+1500	MER_C63AMG_12	C63 AMG Black Series	2012	28	1	2	1	17.48	0.50638	Meguiar's Car Pack
+1508	BMW_507_59	507	1959	6	1	2	1	12.2	0.138529	Meguiar's Car Pack
+1513	MAS_Ghibli_97	Ghibli Cup	1997	25	1	2	1	13.65	0.3635	Meguiar's Car Pack
+1516	RUF_Yellowbird_87	CTR Yellowbird	1987	91	3	2	1	12.07463	0.569355	Meguiar's Car Pack
+1517	TOY_CelicaST185_90	Celica GT-Four RC ST185	1992	49	1	3	1	14.60001	0.266985	Meguiar's Car Pack
+1530	FOR_Coupe_40	De Luxe Coupe	1940	14	1	2	1	13.47169	0	Meguiar's Car Pack
+1562	VIP_Viper_13	GTS	2013	104	1	2	1	14.95	0.564675	2013 SRT Viper Pack
+1620	DOD_Challenger392_12	Challenger SRT8 392	2012	11	1	2	1	18.86944	0.415093	2013 SRT Viper Pack
+1451	ASC_KZ1R_12	KZ1R	2012	92	2	2	1	13.5	0.553326	July Car Pack
+1482	AMC_Gremlin_73	Gremlin X	1973	76	1	2	1	12.3105	0.096183	July Car Pack
+1485	JAG_XK120_54	XK120 SE	1954	19	1	2	1	13.67581	0.189054	July Car Pack
+1498	MCL_59_MP412C_11	#59 McLaren GT MP4-12C GT3	2011	27	2	2	3	12.3	0.667567	July Car Pack
+1512	HUD_Hornet_52	Hornet	1952	101	1	2	1	16.89	0.059265	July Car Pack
+1515	RUF_CTR2_95	CTR2	1995	91	3	2	1	13.81189	0.542818	July Car Pack
+1519	AST_VantageV600_98	V8 Vantage V600	1998	2	1	2	1	20.02	0.432683	July Car Pack
+1525	MER_SLK55AMG_12	SLK55 AMG	2012	28	1	2	1	15.9982	0.42604	July Car Pack
+1527	SPY_Aileron_12	Aileron	2012	69	2	2	1	14.25187	0.462962	July Car Pack
+1558	LOT_Eleven_56	Eleven	1956	24	1	2	1	4.8988	0.171687	July Car Pack
+1419	CHE_CamaroZL1_12	Camaro ZL1	2012	9	1	2	1	18.37503	0.497523	August Playseat Car Pack
+1489	TRI_TR3_62	TR3B	1962	99	1	2	1	9.65245	0.034023	August Playseat Car Pack
+1535	LEX_GS350_13	GS350 F Sport	2013	23	1	3	1	18.00762	0.356943	August Playseat Car Pack
+1548	SCI_FRS_13	FR-S	2013	45	1	2	1	12.41482	0.320261	August Playseat Car Pack
+1560	MER_63_SauberC9_89	#63 Sauber-Mercedes C 9	1989	28	2	2	3	9.05	0.923573	August Playseat Car Pack
+1566	AST_DB7Zagato_03	DB7 Zagato	2003	2	1	2	1	17.4	0.427751	August Playseat Car Pack
+1567	FOR_MustangBoss302_13	Mustang Boss 302	2013	14	1	2	1	16.46994	0.438262	August Playseat Car Pack
+1569	HYU_GenesisCoupe_13	Genesis Coupe 3.8 Track	2013	17	1	2	1	15.57183	0.374173	August Playseat Car Pack
+1586	LIN_Continental_62	Continental	1962	105	1	2	1	22.35757	0.168572	August Playseat Car Pack
+1591	PEU_205T16_84	205 Turbo 16	1984	36	2	3	1	11.45	0.291164	August Playseat Car Pack
+1421	CIT_DS4_11	DS4	2011	56	1	1	1	13.58963	0.25688	September Pennzoil Car Pack
+1531	GMC_Vandura_83	Vandura G-1500	1983	80	1	2	1	25.31953	0	September Pennzoil Car Pack
+1549	ALF_33Stradale_68	33 Stradale	1968	54	2	2	1	7	0.427617	September Pennzoil Car Pack
+1550	AST_DB4GT_60	DB4 GT Zagato	1960	2	1	2	1	12.25	0.28546	September Pennzoil Car Pack
+1559	MER_300SLR_55	300 SLR	1955	28	1	2	1	9	0.384073	September Pennzoil Car Pack
+1561	VW_KarmannGhia_67	Karmann Ghia	1967	52	3	2	1	8.40053	0	September Pennzoil Car Pack
+1564	CHE_Corvette_53	Corvette	1953	9	1	2	1	13.15418	0.107044	September Pennzoil Car Pack
+1574	AH_Sprite_58	Sprite MkI	1958	97	1	2	1	6.63606	0	September Pennzoil Car Pack
+1589	MG_MGB_65	MGB GT	1966	98	1	2	1	10.70478	0.036072	September Pennzoil Car Pack
+1606	VIP_91_Viper_13	#91 SRT Motorsport GTS-R	2013	104	1	2	3	12.45	0.674019	September Pennzoil Car Pack
+1637	VIP_93_Viper_13	#93 SRT Motorsport GTS-R	2013	104	1	2	3	12.45	0.674019	September Pennzoil Car Pack
