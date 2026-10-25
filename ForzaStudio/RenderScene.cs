@@ -121,6 +121,11 @@ namespace ForzaStudio
                     Marshal.Copy(new IntPtr(data.Scan0.ToInt64() + ((long) y * data.Stride)), pixels, y * image.Width * 4, image.Width * 4);
                 }
                 image.UnlockBits(data);
+                // opaque: the texture alpha channel is not applied in the viewport
+                for (int i = 3; i < pixels.Length; i += 4)
+                {
+                    pixels[i] = 255;
+                }
                 texture.SetData<byte>(pixels);
                 texture.GenerateMipMaps(TextureFilter.Linear);
                 this.gpuTextures[image] = texture;

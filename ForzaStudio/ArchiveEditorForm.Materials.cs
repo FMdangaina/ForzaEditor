@@ -112,7 +112,7 @@ namespace ForzaStudio
 
             this.chkAlphaMask = new CheckBox();
             this.chkAlphaMask.Text = "Alpha as decal mask over base color";
-            this.chkAlphaMask.Checked = true;
+            this.chkAlphaMask.Checked = false;
             this.chkAlphaMask.Size = new Size(SideWidth, 22);
             this.chkAlphaMask.CheckedChanged += delegate
             {
