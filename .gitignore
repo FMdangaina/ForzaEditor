@@ -82,3 +82,8 @@ tmp/
 # Runtime files written next to the exe
 settings.txt
 materials.txt
+
+# tools/Fm4Cars: built tool and the copies of the program it needs (not redistributable binaries)
+tools/Fm4Cars/*.exe
+tools/Fm4Cars/*.dll
+tools/Fm4Cars/*.ini
