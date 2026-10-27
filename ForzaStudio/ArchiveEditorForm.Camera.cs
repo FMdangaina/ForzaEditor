@@ -106,6 +106,13 @@ namespace ForzaStudio
         private byte[] ReadGameDbFile(out string path)
         {
             path = null;
+            this.camMergeEntry = this.MergeEntry();
+            if (this.camMergeEntry != null)
+            {
+                // A DLC car keeps its rows in the pack's merge database, edited inside the package.
+                path = this.camMergeEntry.FullPath ?? this.camMergeEntry.Name;
+                return this.zip.Read(this.camMergeEntry);
+            }
             string root = this.GameRoot;
             if (root == null)
             {
@@ -220,6 +227,7 @@ namespace ForzaStudio
         }
 
         private bool camPending;
+        private ForzaZip.Entry camMergeEntry;     // the pack's merge database when the car is in a DLC package
 
         private void UpdateCameraLabels()
         {
@@ -327,7 +335,7 @@ namespace ForzaStudio
                 MessageBox.Show(this, "The database has unsaved changes in the database view. Save or revert them first.", "Cockpit Camera", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            ForzaZip.Entry open = this.EntryForFile(this.camDbPath);
+            ForzaZip.Entry open = (this.camMergeEntry != null) ? null : this.EntryForFile(this.camDbPath);
             if (open != null && open.IsModified)
             {
                 MessageBox.Show(this, "gamedb.slt has pending changes in the open folder. Save them first (File > Save).", "Cockpit Camera", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -348,10 +356,20 @@ namespace ForzaStudio
             {
                 List<string> done;
                 byte[] bytes;
-                using (SqliteDatabase db = SqliteDatabase.FromBytes(File.ReadAllBytes(this.camDbPath)))
+                using (SqliteDatabase db = SqliteDatabase.FromBytes((this.camMergeEntry != null) ? this.zip.Read(this.camMergeEntry) : File.ReadAllBytes(this.camDbPath)))
                 {
                     done = this.camState.Save(db);
                     bytes = db.ToBytes();
+                }
+                if (this.camMergeEntry != null)
+                {
+                    // Into the pack zip, then the usual save packs the zip and the package again.
+                    this.zip.Replace(this.camMergeEntry, bytes);
+                    this.camPending = false;
+                    this.UpdateCameraLabels();
+                    this.SaveArchive(false);
+                    this.SetStatus(string.Join("; ", done.ToArray()) + "   (merge database saved in the package)");
+                    return;
                 }
                 string backup = BackupFile(this.camDbPath, "gamedb.slt", BackupStamp());
                 File.WriteAllBytes(this.camDbPath, bytes);
@@ -362,7 +380,7 @@ namespace ForzaStudio
                 }
                 this.camPending = false;
                 this.UpdateCameraLabels();
-                this.SetStatus(string.Join("; ", done.ToArray()) + "   (backup " + Path.GetFileName(backup) + ")");
+                this.SetStatus(string.Join("; ", done.ToArray()) + (backup != null ? "   (backup " + Path.GetFileName(backup) + ")" : "   (no backup: Backup is off in the ini)"));
             }
             catch (Exception exception)
             {

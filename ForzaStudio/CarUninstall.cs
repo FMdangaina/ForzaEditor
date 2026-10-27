@@ -580,7 +580,7 @@ namespace ForzaStudio
 
         private void Backup(string path)
         {
-            if (!File.Exists(path))
+            if (!File.Exists(path) || !BackupPolicy.Enabled)
             {
                 return;
             }

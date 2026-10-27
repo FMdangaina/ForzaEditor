@@ -88,6 +88,7 @@
     </Reference>
     <Reference Include="System.Data" />
     <Reference Include="System.Security" />
+    <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System" />
     <Reference Include="Microsoft.Xna.Framework" />
@@ -174,6 +175,8 @@
     <Compile Include="ForzaStudio\CarEngine.cs" />
     <Compile Include="ForzaStudio\CarGearbox.cs" />
     <Compile Include="ForzaStudio\TurboPreview.cs" />
+    <Compile Include="ForzaStudio\TempCleanup.cs" />
+    <Compile Include="ForzaStudio\ChangeSoundForm.cs" />
     <Compile Include="ForzaStudio\PerformanceFromGameForm.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Transmission.cs" />
     <Compile Include="ForzaStudio\CurveGenerateDialog.cs" />
@@ -227,6 +230,7 @@
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartEdit.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartImport.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.AddFile.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.Delete.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.ModelFolder.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.cs">
       <SubType>Form</SubType>

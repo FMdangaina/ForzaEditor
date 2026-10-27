@@ -30,9 +30,11 @@ namespace ForzaStudio
         private int tableBlocks;
         private int tableStart;
         private readonly List<Entry> entries = new List<Entry>();
+        private Dictionary<string, Entry> byPath;
 
         private class Entry
         {
+            public long[] Offsets;      // OpenFile: where each block of the file sits
             public string Name;
             public bool IsFolder;
             public bool Consecutive;
@@ -156,6 +158,184 @@ namespace ForzaStudio
                 }
             }
             return null;
+        }
+
+        private Entry FindFile(string relativePath)
+        {
+            string wanted = relativePath.Replace('/', '\\');
+            lock (this.entries)
+            {
+                if (this.byPath == null)
+                {
+                    this.byPath = new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
+                    for (int i = 0; i < this.entries.Count; i++)
+                    {
+                        if (!this.entries[i].IsFolder)
+                        {
+                            this.byPath[this.RelativePath(i)] = this.entries[i];
+                        }
+                    }
+                }
+                Entry found;
+                return this.byPath.TryGetValue(wanted, out found) ? found : null;
+            }
+        }
+
+        // The size of one file (path as in ReadFile), -1 when the package has no such file.
+        public long FileSize(string relativePath)
+        {
+            Entry entry = this.FindFile(relativePath);
+            return (entry != null) ? entry.Size : -1;
+        }
+
+        // One file as a read-only seekable stream, read from the package in place (a zip of a few hundred MB is
+        // opened without extracting it). null when the package has no such file.
+        public Stream OpenFile(string relativePath)
+        {
+            Entry entry = this.FindFile(relativePath);
+            if (entry == null)
+            {
+                return null;
+            }
+            long[] offsets;
+            lock (entry)
+            {
+                if (entry.Offsets == null)
+                {
+                    entry.Offsets = this.BlockOffsets(entry);
+                }
+                offsets = entry.Offsets;
+            }
+            return new FileView(new FileStream(this.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete), offsets, entry.Size);
+        }
+
+        // Where each 4 KB block of a file sits in the package file.
+        private long[] BlockOffsets(Entry entry)
+        {
+            int count = (int) ((entry.Size + Block - 1) / Block);
+            long[] offsets = new long[count];
+            int block = entry.Start;
+            using (FileStream file = new FileStream(this.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            {
+                byte[] buffer = new byte[Block];
+                for (int k = 0; k < count; k++)
+                {
+                    long at = this.firstBlock + (this.Backing(block) * Block);
+                    if (at + Block > file.Length)
+                    {
+                        throw new InvalidDataException(string.Format("The package is incomplete ({0:N0} of at least {1:N0} bytes): {2}", file.Length, at + Block, this.Path));
+                    }
+                    offsets[k] = at;
+                    if (k + 1 < count)
+                    {
+                        if (entry.Consecutive)
+                        {
+                            block++;
+                        }
+                        else
+                        {
+                            file.Position = at;
+                            ReadFull(file, buffer);
+                            block = this.Next(file, block, buffer);
+                        }
+                    }
+                }
+            }
+            return offsets;
+        }
+
+        private class FileView : Stream
+        {
+            private readonly FileStream file;
+            private readonly long[] offsets;
+            private readonly long length;
+            private long position;
+
+            public FileView(FileStream file, long[] offsets, long length)
+            {
+                this.file = file;
+                this.offsets = offsets;
+                this.length = length;
+            }
+
+            public override bool CanRead { get { return true; } }
+            public override bool CanSeek { get { return true; } }
+            public override bool CanWrite { get { return false; } }
+            public override long Length { get { return this.length; } }
+
+            public override long Position
+            {
+                get { return this.position; }
+                set { this.position = value; }
+            }
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                int done = 0;
+                while (count > 0 && this.position < this.length)
+                {
+                    int block = (int) (this.position / Block);
+                    int within = (int) (this.position % Block);
+                    // Blocks that follow each other in the package are read in one go.
+                    int run = 1;
+                    while (block + run < this.offsets.Length && this.offsets[block + run] == this.offsets[block] + (long) run * Block && (long) run * Block - within < count)
+                    {
+                        run++;
+                    }
+                    long take = Math.Min(Math.Min((long) run * Block - within, count), this.length - this.position);
+                    this.file.Position = this.offsets[block] + within;
+                    int read = this.file.Read(buffer, offset, (int) take);
+                    if (read <= 0)
+                    {
+                        throw new EndOfStreamException();
+                    }
+                    this.position += read;
+                    offset += read;
+                    count -= read;
+                    done += read;
+                }
+                return done;
+            }
+
+            public override long Seek(long offset, SeekOrigin origin)
+            {
+                switch (origin)
+                {
+                    case SeekOrigin.Begin:
+                        this.position = offset;
+                        break;
+                    case SeekOrigin.Current:
+                        this.position += offset;
+                        break;
+                    default:
+                        this.position = this.length + offset;
+                        break;
+                }
+                return this.position;
+            }
+
+            public override void Flush()
+            {
+            }
+
+            public override void SetLength(long value)
+            {
+                throw new NotSupportedException();
+            }
+
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                throw new NotSupportedException();
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    this.file.Dispose();
+                }
+                base.Dispose(disposing);
+            }
         }
 
         private string RelativePath(int index)

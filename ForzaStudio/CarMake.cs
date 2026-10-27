@@ -545,7 +545,7 @@ namespace ForzaStudio
         {
             if (outputRoot == null)
             {
-                if (File.Exists(path))
+                if (File.Exists(path) && BackupPolicy.Enabled)
                 {
                     string bak = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bak");
                     Directory.CreateDirectory(bak);

@@ -1511,7 +1511,45 @@ namespace ForzaStudio
         // GAME: is the folder that contains Media, found from what is open.
         private string GameRoot
         {
-            get { return (this.zip == null) ? null : GamePaths.FindRoot(this.zip.FilePath); }
+            get
+            {
+                if (this.zip == null)
+                {
+                    return null;
+                }
+                // Inside a DLC package the work folder has only the pack's files: the shared textures, shaders and
+                // camera presets are the source game's (Tools > Settings > Folders); the pack's database is MergeEntry.
+                if (this.package != null && this.InPackage(this.zip.FilePath))
+                {
+                    ForzaGame source = GameInfo.FromTitleId(this.package.TitleId);
+                    // FM4 is the port target (Tools > Port Car); the other games have their own Folders setting.
+                    string game = (source == ForzaGame.Motorsport4) ? AppSettings.Get("CarPort.Target", "") : GameInfo.ConfiguredFolder(source);
+                    if (!string.IsNullOrEmpty(game) && Directory.Exists(Path.Combine(game, "Media")))
+                    {
+                        return game;
+                    }
+                }
+                return GamePaths.FindRoot(this.zip.FilePath);
+            }
+        }
+
+        // The merge database (db\patch\*_merge.slt, the highest number) of the pack zip open in a DLC package, or null.
+        private ForzaZip.Entry MergeEntry()
+        {
+            if (this.package == null || this.zip == null || !this.InPackage(this.zip.FilePath))
+            {
+                return null;
+            }
+            ForzaZip.Entry found = null;
+            foreach (ForzaZip.Entry entry in this.zip.Entries)
+            {
+                string name = (entry.FullPath ?? entry.Name).Replace('\\', '/');
+                if (!entry.IsDirectory && name.IndexOf("media/db/patch/", StringComparison.OrdinalIgnoreCase) >= 0 && name.EndsWith("_merge.slt", StringComparison.OrdinalIgnoreCase))
+                {
+                    found = entry;
+                }
+            }
+            return found;
         }
 
         private static string RelativeToFolder(string folder, string path)

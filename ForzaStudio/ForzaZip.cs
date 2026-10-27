@@ -31,9 +31,11 @@ namespace ForzaStudio
             internal int DataOffset;
             internal byte[] Replacement;    // pending uncompressed data
             internal bool IsNew;            // added since the last save (Revert removes it)
+            internal bool deleted;          // marked for deletion: Save leaves it out (Revert takes the mark off)
 
             public bool IsDirectory { get { return this.Name.EndsWith("/"); } }
-            public bool IsModified { get { return this.Replacement != null; } }
+            public bool IsDeleted { get { return this.deleted; } }
+            public bool IsModified { get { return this.Replacement != null || this.deleted; } }
             public bool IsAdded { get { return this.IsNew; } }
         }
 
@@ -46,7 +48,7 @@ namespace ForzaStudio
         public ForzaZip(string path)
         {
             this.FilePath = path;
-            using (FileStream file = OpenRead(path))
+            using (Stream file = OpenRead(path))
             {
                 this.Parse(file);
             }
@@ -133,13 +135,34 @@ namespace ForzaStudio
             return null;
         }
 
-        // Opened for each read and closed again, so the file is never kept locked.
-        private static FileStream OpenRead(string path)
+        // Zips that are not files on disk (a zip inside an Xbox 360 package, read in place): a made-up path
+        // that opens a stream. Read-only; Save and the folder modes are for real files.
+        private static readonly Dictionary<string, Func<Stream>> mounted = new Dictionary<string, Func<Stream>>(StringComparer.OrdinalIgnoreCase);
+
+        public static void Mount(string path, Func<Stream> open)
         {
+            lock (mounted)
+            {
+                mounted[path] = open;
+            }
+        }
+
+        // Opened for each read and closed again, so the file is never kept locked.
+        private static Stream OpenRead(string path)
+        {
+            Func<Stream> open;
+            lock (mounted)
+            {
+                mounted.TryGetValue(path, out open);
+            }
+            if (open != null)
+            {
+                return open();
+            }
             return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         }
 
-        private static byte[] ReadAt(FileStream file, long offset, int length)
+        private static byte[] ReadAt(Stream file, long offset, int length)
         {
             byte[] data = new byte[length];
             file.Position = offset;
@@ -158,7 +181,7 @@ namespace ForzaStudio
 
         // Only the central directory and the local headers are read: big archives (UI\Textures.zip is
         // 435 MB) are never loaded whole.
-        private void Parse(FileStream file)
+        private void Parse(Stream file)
         {
             int tailLength = (int) Math.Min(file.Length, 65557);
             byte[] tail = ReadAt(file, file.Length - tailLength, tailLength);
@@ -225,7 +248,7 @@ namespace ForzaStudio
                 return File.ReadAllBytes(entry.FullPath);
             }
             byte[] compressed;
-            using (FileStream file = OpenRead(this.FilePath))
+            using (Stream file = OpenRead(this.FilePath))
             {
                 compressed = ReadAt(file, entry.DataOffset, entry.CompressedSize);
             }
@@ -255,7 +278,20 @@ namespace ForzaStudio
 
         public void Replace(Entry entry, byte[] data)
         {
+            entry.deleted = false;
             entry.Replacement = data;
+        }
+
+        // Marks a file for deletion: it stays in the archive (and can be read) until Save, which writes the archive
+        // without it (a zip) or removes the file (a folder; RemoveDeleted). A file added and not saved just goes.
+        public void MarkDeleted(Entry entry)
+        {
+            if (entry.IsNew)
+            {
+                this.Entries.Remove(entry);
+                return;
+            }
+            entry.deleted = true;
         }
 
         // An empty archive whose new entries copy the headers (versions, 0x1123 extra field,
@@ -275,9 +311,16 @@ namespace ForzaStudio
             this.Entries.Remove(entry);
         }
 
+        // Takes the deletion mark off (a replaced file keeps its replacement).
+        public void Undelete(Entry entry)
+        {
+            entry.deleted = false;
+        }
+
         public void Revert(Entry entry)
         {
             entry.Replacement = null;
+            entry.deleted = false;
             if (entry.IsNew)
             {
                 this.Entries.Remove(entry);
@@ -456,6 +499,7 @@ namespace ForzaStudio
         public List<Entry> SaveFolder()
         {
             List<Entry> saved = this.ModifiedEntries;
+            saved.RemoveAll(delegate(Entry entry) { return entry.deleted; });
             foreach (Entry entry in saved)
             {
                 string temp = entry.FullPath + ".tmp";
@@ -471,6 +515,22 @@ namespace ForzaStudio
             return saved;
         }
 
+        // Folder mode: the files marked for deletion go (deleteFile is told each path: the Recycle Bin, or File.Delete)
+        // and leave the archive. Returns them.
+        public List<Entry> RemoveDeleted(Action<string> deleteFile)
+        {
+            List<Entry> gone = this.Entries.FindAll(delegate(Entry entry) { return entry.deleted; });
+            foreach (Entry entry in gone)
+            {
+                if (this.IsFolder && entry.FullPath != null && File.Exists(entry.FullPath))
+                {
+                    deleteFile(entry.FullPath);
+                }
+                this.Entries.Remove(entry);
+            }
+            return gone;
+        }
+
         // Writes the archive to a temporary file first, then moves it over the target.
         public void Save(string path)
         {
@@ -479,13 +539,17 @@ namespace ForzaStudio
                 throw new InvalidOperationException("Use SaveFolder for a folder.");
             }
             string temp = path + ".tmp";
-            using (FileStream source = OpenRead(this.FilePath))
+            using (Stream source = OpenRead(this.FilePath))
             using (FileStream file = new FileStream(temp, FileMode.Create, FileAccess.Write))
             {
                 BinaryWriter writer = new BinaryWriter(file);
                 List<byte[]> central = new List<byte[]>();
                 foreach (Entry entry in this.Entries)
                 {
+                    if (entry.deleted)
+                    {
+                        continue;
+                    }
                     byte[] data;
                     uint crc = entry.Crc;
                     int uncompressed = entry.UncompressedSize;
@@ -522,8 +586,8 @@ namespace ForzaStudio
                 writer.Write(0x06054b50);
                 writer.Write((short) 0);
                 writer.Write((short) 0);
-                writer.Write((short) this.Entries.Count);
-                writer.Write((short) this.Entries.Count);
+                writer.Write((short) central.Count);
+                writer.Write((short) central.Count);
                 writer.Write(centralSize);
                 writer.Write(centralOffset);
                 writer.Write((short) this.endComment.Length);
@@ -537,7 +601,7 @@ namespace ForzaStudio
 
             this.FilePath = path;
             this.Entries.Clear();
-            using (FileStream file = OpenRead(path))
+            using (Stream file = OpenRead(path))
             {
                 this.Parse(file);
             }

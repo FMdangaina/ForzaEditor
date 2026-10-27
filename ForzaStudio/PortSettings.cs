@@ -59,6 +59,11 @@ FlipSections =
 ; a pack). FM3 and FM2 ports are fine as they are and never get it. 0 = leave the values as they are.
 ScalarBonus = 1
 
+[Backup]
+; on = a file the tool is about to overwrite (the port, uninstall, duplicate, the editor's saves, thumbnails, packages) is copied
+; to bak\ next to the exe first. off = no copies at all: bak\ does not grow (a port copies UI\Textures.zip, 436 MB, every time).
+Enabled = on
+
 [Lod0]
 ; on = a part the donor's _lod0 file has, the car's _lod0 lacks and its cockpit file has (the headlights, which FH keeps
 ; in the cockpit file) moves into the _lod0 file, where FM4 keeps it and where it deforms; off = the FH layout.
@@ -114,6 +119,15 @@ MoveSections = on
             cache = IniFile.Load(path, DefaultIni);
             cacheTime = time;
             return cache;
+        }
+    }
+
+    // [Backup] Enabled of ForzaStudio.ini: whether the copies in bak\ are made at all.
+    internal static class BackupPolicy
+    {
+        public static bool Enabled
+        {
+            get { return PortSettings.GetBool("Backup", "Enabled", true); }
         }
     }
 

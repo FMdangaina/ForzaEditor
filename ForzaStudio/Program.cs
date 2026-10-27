@@ -10,7 +10,9 @@
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            TempCleanup.RunInBackground();
             Application.Run(new ArchiveEditorForm());
+            TempCleanup.Run();
         }
     }
 }

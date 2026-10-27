@@ -99,6 +99,7 @@ namespace ForzaStudio
                 case ForzaGame.Horizon2: key = "Folder.FH2"; break;
                 case ForzaGame.Motorsport3: key = "Folder.FM3"; break;
                 case ForzaGame.Motorsport2: key = "Folder.FM2"; break;
+                case ForzaGame.Motorsport4: key = "CarPort.Target"; break;     // the port target: its database holds the expansions' rows
             }
             string folder = (key == null) ? "" : AppSettings.Get(key, "");
             return (folder.Length > 0 && Directory.Exists(folder) && Detect(folder) == game) ? folder : null;

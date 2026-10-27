@@ -89,6 +89,12 @@
                     e.SuppressKeyPress = true;
                     this.OpenSelectedArchive();
                 }
+                else if (e.KeyCode == Keys.Delete && e.Modifiers == Keys.None && this.CanDeleteSelection)
+                {
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                    this.DeleteSelected();
+                }
             };
             this.tvArchive.NodeMouseClick += delegate(object sender, TreeNodeMouseClickEventArgs e)
             {
@@ -213,6 +219,11 @@
             archive.DropDownItems.Add(extract);
             archive.DropDownItems.Add(replace);
             archive.DropDownItems.Add(revert);
+            ToolStripMenuItem deleteItem = new ToolStripMenuItem("&Delete Selected File or Folder...", null, delegate { this.DeleteSelected(); });
+            deleteItem.ShortcutKeyDisplayString = "Del (in the tree)";
+            ToolStripMenuItem undoDelete = new ToolStripMenuItem("&Undo Delete", null, delegate { this.UndoDeleteSelected(); });
+            archive.DropDownItems.Add(deleteItem);
+            archive.DropDownItems.Add(undoDelete);
             archive.DropDownItems.Add(new ToolStripSeparator());
             ToolStripMenuItem extractAll = new ToolStripMenuItem("Extract A&ll...", null, delegate { this.ExtractAll(); });
             archive.DropDownItems.Add(extractAll);
@@ -226,6 +237,8 @@
                 replace.Enabled = entry != null;
                 revert.Enabled = entry != null && entry.IsModified;
                 revert.Text = (entry != null && entry.IsAdded) ? "Remo&ve Added File" : "Re&vert Selected File";
+                deleteItem.Enabled = this.CanDeleteSelection;
+                undoDelete.Enabled = this.CanUndoDeleteSelection;
                 extractAll.Enabled = this.zip != null;
             };
 
@@ -259,6 +272,7 @@
             tools.DropDownItems.Add(new ToolStripMenuItem("Duplicate &Car...", null, delegate { this.ShowDuplicateCar(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Database &SQL...", null, delegate { this.ShowSqlConsole(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Car &Performance From Game...", null, delegate { this.ShowPerformanceFromGame(); }));
+            tools.DropDownItems.Add(new ToolStripMenuItem("Change Car &Sound...", null, delegate { this.ShowChangeSound(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Set Generated &Thumbnail...", null, delegate { using (SetThumbnailsForm form = new SetThumbnailsForm()) { form.ShowDialog(this); } }));
             tools.DropDownItems.Add(new ToolStripSeparator());
             tools.DropDownItems.Add(new ToolStripMenuItem("&Settings...", null, delegate { this.ShowSettings(); }));
@@ -305,10 +319,14 @@
             this.ctxArchive.Items.Add(extract);
             this.ctxArchive.Items.Add(replace);
             this.ctxArchive.Items.Add(revert);
+            ToolStripMenuItem delete = new ToolStripMenuItem("Delete...", null, delegate { this.DeleteSelected(); });
+            ToolStripMenuItem undoDelete = new ToolStripMenuItem("Undo Delete", null, delegate { this.UndoDeleteSelected(); });
+            this.ctxArchive.Items.Add(delete);
+            this.ctxArchive.Items.Add(undoDelete);
             this.ctxArchive.Items.Add(new ToolStripSeparator());
             this.ctxArchive.Items.Add(add);
-            this.ctxArchive.Opening += delegate(object sender, CancelEventArgs e)
             this.ctxArchive.Items.Add(new ToolStripMenuItem("New Folder Here...", null, delegate { this.NewArchiveFolder(); }));
+            this.ctxArchive.Opening += delegate(object sender, CancelEventArgs e)
             {
                 if (this.zip == null)
                 {
@@ -320,6 +338,9 @@
                 replace.Enabled = entry != null;
                 revert.Enabled = entry != null && entry.IsModified;
                 revert.Text = (entry != null && entry.IsAdded) ? "Remove Added File" : "Revert File";
+                delete.Enabled = this.CanDeleteSelection;
+                delete.Text = (entry != null) ? "Delete File..." : "Delete Folder...";
+                undoDelete.Enabled = this.CanUndoDeleteSelection;
             };
             this.tvArchive.ContextMenuStrip = this.ctxArchive;
         }
@@ -369,6 +390,25 @@
                 return;
             }
             using (PerformanceFromGameForm form = new PerformanceFromGameForm(this.gameDb, 0))
+            {
+                form.Changed += delegate
+                {
+                    this.OnGameDbEdited(null, EventArgs.Empty);
+                    this.SelectDbSection(this.dbSection);
+                };
+                form.ShowDialog(this);
+            }
+        }
+
+        // Tools > Change Car Sound: the database open in the database view (gamedb.slt, or a DLC pack's merge database).
+        private void ShowChangeSound()
+        {
+            if (this.gameDb == null || !this.gameDb.HasTable("Data_Car") || !this.gameDb.HasTable("Data_Engine"))
+            {
+                MessageBox.Show(this, "Open a database with the cars first (Media\\db\\gamedb.slt, or the pack's database).", "Change car sound", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            using (ChangeSoundForm form = new ChangeSoundForm(this.gameDb, AppSettings.Get("CarPort.Target", "")))
             {
                 form.Changed += delegate
                 {
@@ -653,6 +693,18 @@
                 node.ToolTipText = string.Format("{0} bytes", entry.UncompressedSize);
                 nodes.Add(node);
             }
+            if (this.virtualFoldersOf == this.zip)
+            {
+                foreach (string virtualFolder in this.virtualFolders)
+                {
+                    TreeNodeCollection nodes = root.Nodes;
+                    foreach (string part in virtualFolder.Trim('/').Split('/'))
+                    {
+                        TreeNode folder = nodes[part] ?? nodes.Add(part, part);
+                        nodes = folder.Nodes;
+                    }
+                }
+            }
             this.tvArchive.Nodes.Add(root);
             root.Expand();
             this.tvArchive.EndUpdate();
@@ -673,18 +725,7 @@
                 this.AddFolder(dir);
                 this.folderFiles[dir].Add(entry);
             }
-            if (this.virtualFoldersOf == this.zip)
-            {
-                foreach (string virtualFolder in this.virtualFolders)
-                {
-                    TreeNodeCollection nodes = root.Nodes;
-                    foreach (string part in virtualFolder.Trim('/').Split('/'))
-                    {
-                        TreeNode folder = nodes[part] ?? nodes.Add(part, part);
-                        nodes = folder.Nodes;
-                    }
-                }
-            }
+            this.AddEmptyFolders();
             this.tvArchive.BeginUpdate();
             this.tvArchive.Nodes.Clear();
             bool packageRoot = this.package != null && string.Equals(this.zip.FilePath.TrimEnd('\\'), this.packageFolder, StringComparison.OrdinalIgnoreCase);
@@ -705,7 +746,6 @@
             }
             this.folderDirs[dir] = new List<string>();
             this.folderFiles[dir] = new List<ForzaZip.Entry>();
-            this.AddEmptyFolders();
             int slash = dir.LastIndexOf('/', dir.Length - 2);
             string parent = (slash < 0) ? "" : dir.Substring(0, slash + 1);
             this.AddFolder(parent);
@@ -801,6 +841,14 @@
         private void SetNodeText(TreeNode node, ForzaZip.Entry entry)
         {
             string name = entry.Name.Substring(entry.Name.LastIndexOf('/') + 1);
+            if (entry.IsDeleted)
+            {
+                node.Text = name + " (deleted)";
+                node.NodeFont = new Font(this.tvArchive.Font, FontStyle.Strikeout);
+                node.ForeColor = Color.Firebrick;
+                return;
+            }
+            node.ForeColor = Color.Empty;
             node.Text = entry.IsAdded ? (name + " +") : (entry.IsModified ? (name + " *") : name);
             node.NodeFont = entry.IsModified ? new Font(this.tvArchive.Font, FontStyle.Bold) : null;
         }
@@ -860,8 +908,13 @@
             return DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
         }
 
+        // null when [Backup] Enabled is off in ForzaStudio.ini.
         private static string BackupFile(string source, string name, string stamp)
         {
+            if (!BackupPolicy.Enabled)
+            {
+                return null;
+            }
             Directory.CreateDirectory(BackupFolder);
             string target = Path.Combine(BackupFolder, stamp + "_bak_" + name);
             File.Copy(source, target, true);
@@ -898,13 +951,20 @@
                 string stamp = BackupStamp();
                 foreach (ForzaZip.Entry entry in modified)
                 {
-                    if (File.Exists(entry.FullPath))
+                    // A deleted file goes to the Recycle Bin, not to bak\.
+                    if (!entry.IsDeleted && File.Exists(entry.FullPath))
                     {
                         BackupFile(entry.FullPath, this.SourceName + "_" + entry.Name.Replace('/', '_'), stamp);
                     }
                 }
                 List<ForzaZip.Entry> saved = this.zip.SaveFolder();
-                this.packagePending |= saved.Count > 0 && this.InPackage(this.zip.FilePath);
+                List<ForzaZip.Entry> removed = this.RemoveDeletedFiles(stamp);
+                this.packagePending |= (saved.Count > 0 || removed.Count > 0) && this.InPackage(this.zip.FilePath);
+                if (removed.Count > 0)
+                {
+                    this.currentEntry = null;
+                    this.PopulateTree();
+                }
                 int manifests = 0;
                 foreach (ForzaZip.Entry entry in saved)
                 {
@@ -918,7 +978,8 @@
                         manifests++;
                     }
                 }
-                this.SetStatus(string.Format("Saved {0} file(s), previous versions in {1}{2}", saved.Count, BackupFolder, (manifests > 0) ? ", zipmanifest.xml updated" : ""));
+                this.SetStatus(string.Format("Saved {0} file(s){1}{2}{3}", saved.Count, (saved.Count > 0 && BackupPolicy.Enabled) ? ", previous versions in " + BackupFolder : "",
+                    (removed.Count > 0) ? ", " + removed.Count + " deleted" : "", (manifests > 0) ? ", zipmanifest.xml updated" : ""));
                 return true;
             }
             catch (Exception exception)

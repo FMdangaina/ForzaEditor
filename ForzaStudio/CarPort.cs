@@ -247,6 +247,24 @@ namespace ForzaStudio
             // An FM2 game folder is laid out as a stage first (Fm2Source: model on the donor's, wheel, thumbnail,
             // the donor's row renamed), in a temporary folder that goes away with the run.
             string original = this.SourceRoot;
+            // A DLC package's car, wheels and textures are written from the package now, and the car's zip goes
+            // again when the run ends (DlcSource.Materialize).
+            bool sourceCarWritten = DlcSource.Materialize(original, this.MediaName);
+            try
+            {
+                this.RunStaged(original);
+            }
+            finally
+            {
+                if (sourceCarWritten)
+                {
+                    DlcSource.Release(original, this.MediaName);
+                }
+            }
+        }
+
+        private void RunStaged(string original)
+        {
             string tempStage = null;
             bool dlcRaw = DlcSource.IsFm2Raw(this.SourceRoot);
             if (GameInfo.Detect(this.SourceRoot) == ForzaGame.Motorsport2 && (!DlcSource.IsStage(this.SourceRoot) || dlcRaw) && GameInfo.Detect(this.TargetRoot) == ForzaGame.Motorsport4)
@@ -1952,20 +1970,32 @@ namespace ForzaStudio
             {
                 string from = Path.Combine(Path.Combine(Path.Combine(sourceRoot, "Media"), "cars"), mediaName + ".zip");
                 string to = Path.Combine(Path.Combine(Path.Combine(targetRoot, "Media"), "cars"), mediaName + ".zip");
-                if (!File.Exists(from) || !File.Exists(to))
+                // A DLC package's car whose zip is not written yet: the build number is in the stage's list.
+                KeyValuePair<bool, string> listed;
+                bool inList = !File.Exists(from) && DlcSource.LazyCars(sourceRoot).TryGetValue(mediaName, out listed);
+                if ((!File.Exists(from) && !inList) || !File.Exists(to))
                 {
                     return false;
                 }
-                ForzaZip a = new ForzaZip(from);
+                string sourceBuild;
+                if (inList)
+                {
+                    sourceBuild = DlcSource.LazyCars(sourceRoot)[mediaName].Value;
+                }
+                else
+                {
+                    ForzaZip a = new ForzaZip(from);
+                    ForzaZip.Entry x = a.Find("buildnumber.txt");
+                    sourceBuild = (x == null) ? "" : Encoding.ASCII.GetString(a.Read(x)).Trim();
+                }
                 ForzaZip b = new ForzaZip(to);
-                ForzaZip.Entry x = a.Find("buildnumber.txt");
                 ForzaZip.Entry y = b.Find("buildnumber.txt");
-                if (x == null)
+                if (sourceBuild.Length == 0)
                 {
                     // FM3 car zips have no build number: a ported car carries the port's log.
                     return b.Find("port_log.txt") != null;
                 }
-                return x != null && y != null && Encoding.ASCII.GetString(a.Read(x)).Trim() == Encoding.ASCII.GetString(b.Read(y)).Trim();
+                return y != null && sourceBuild == Encoding.ASCII.GetString(b.Read(y)).Trim();
             }
             catch (Exception)
             {
@@ -6228,7 +6258,7 @@ namespace ForzaStudio
         private void Backup(string path)
         {
             // Trial files are not the game's (and a pack's second car would copy UI\Textures.zip again).
-            if (!File.Exists(path) || this.OutputRoot != null)
+            if (!File.Exists(path) || this.OutputRoot != null || !BackupPolicy.Enabled)
             {
                 return;
             }
@@ -6274,6 +6304,7 @@ namespace ForzaStudio
                     if (dlc.Source.Cars().Exists(delegate(string c) { return string.Equals(c, this.DonorMediaName, StringComparison.OrdinalIgnoreCase); }))
                     {
                         root = dlc.Source.Stage(new StringBuilder());
+                        DlcSource.Materialize(root, this.DonorMediaName);   // the donor's zip stays: later cars of the run use it again
                         break;
                     }
                 }

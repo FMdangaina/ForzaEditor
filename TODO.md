@@ -409,6 +409,24 @@ Problems seen in game, cause unknown or check pending. When fixed they move to t
 - 2026-10-19: no real hardware any more (the Xbox 360 was sold). Not a port bug: FM4's own cars do the same in Xenia. If the tyre changes on a
   real console, look at what picks `Media\wheels\TireA/B/C.zip` (`List_Wheels`, `WheelLayouts`, `Combo_TireBrandCompound`).
 
+### B4. Corvette C5R (`CHE_50_CorvetteC5R_03`, FM3 port in the DLC pack offer 200) looks corrupted in game (open, cause unknown)
+
+- **Seen 2026-10-28** in DEV (user screenshot of the showroom): silver body with black parts (corners of the front bumper, the vents, the area around
+  the headlights). The user says something got corrupted. Context: the pack was opened with Open DLC Package and the car zip edited: a `digitalgauge`
+  folder was made and the dash of FM4's own C5R (`CHE_3_CorvetteC5R_04`: `.bgf/.bsg/.fbf`) copied in, first without the 4 `che_3_..._label.xds` the `.fbf`
+  names, later with both `che_3_*` and `che_50_*` labels. The package installed at 00:29 has no `digitalgauge` on this car, so the dash is not what the
+  screenshot shows. (The FM3 port itself has no dash for this car: `Dash_CHE_50_...` does not exist in FM3.)
+- **Checked 2026-10-28, no game** (tools in `E:\DEV\fm4dev\DlcEditCorvette`: `ziplist`, `integ`, `matcheck`, `porttest`):
+  - the layer zip is intact: every entry's `0x1123` offset, local header and CRC are right (working copy 483 entries, installed package 472);
+  - the car's files are identical (name, size, CRC) to a fresh trial port from FM3 on all 30 shared entries (only `port_log.txt`, the build report the
+    pack leaves out, and the added `digitalgauge` differ);
+  - 0 materials without an FM4 shader in the 3 models (FM4's own C5R: 0 too); the port report has no material warning;
+  - against FM4's own C5R the car lacks `shadersettings.xml` (FM3's source has none; FM4's only tunes lights and glass) and `buildnumber.txt`: not a
+    cause of black body parts.
+  - not related: `HON_8_NSX_05` in the same pack has a `digitalgauge` from the port itself (FM3 gauge 90, 13 textures from `UI\Textures.zip`).
+- **To do (rule "check the source game first")**: the user looks at the same car in FM3 (are those parts black there too?) and says whether the screenshot
+  was taken before or after the pack edit and which parts are black. Then, if it is the port: install the fresh trial port (no edit) in DEV and compare.
+
 ---
 
 # 5. Done log (100% finished)

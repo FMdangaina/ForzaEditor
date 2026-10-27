@@ -1041,7 +1041,7 @@ namespace ForzaStudio
             this.openTrial.Enabled = !this.busy && this.trialFolder != null && Directory.Exists(this.trialFolder);
             this.uninstall.Enabled = !this.busy && car != null && (car.State == Status.Ported || car.PortedAs != null);
 
-            this.addToPack.Enabled = !this.busy && car != null && car.State == Status.New && this.donors.SelectedItem != null && this.FindEntry(car.MediaName) == null;
+            this.addToPack.Enabled = !this.busy && car != null && car.State == Status.New && this.FindEntry(car.MediaName) == null;
             this.removeFromPack.Enabled = !this.busy && this.packList.SelectedItems.Count == 1;
             this.newPack.Enabled = !this.busy && this.pack.Count > 0;
             this.trialPack.Enabled = !this.busy && this.pack.Count > 0 && this.packFirstCar > 0;
@@ -1274,8 +1274,14 @@ namespace ForzaStudio
         {
             Car car = this.SelectedCar;
             DonorChoice donor = this.donors.SelectedItem as DonorChoice;
-            if (car == null || donor == null || this.FindEntry(car.MediaName) != null)
+            if (car == null || this.FindEntry(car.MediaName) != null)
             {
+                return;
+            }
+            if (donor == null)
+            {
+                MessageBox.Show(this, "Choose the FM4 template car first (the list under \"Selected car\"), then press Add again.", "Add to pack", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                this.donors.Focus();
                 return;
             }
             PackEntry entry = new PackEntry();
@@ -2052,6 +2058,14 @@ namespace ForzaStudio
                         string first;
                         if (seen.TryGetValue(car.MediaName, out first))
                         {
+                            // The game's own row without files (the second disc's cars) gives way to the package that has them.
+                            int at = horizon.FindIndex(delegate(Car c) { return string.Equals(c.MediaName, car.MediaName, StringComparison.OrdinalIgnoreCase); });
+                            if (at >= 0 && horizon[at].State == Status.NoFiles && car.State != Status.NoFiles)
+                            {
+                                horizon[at] = car;
+                                seen[car.MediaName] = source;
+                                continue;
+                            }
                             notes.AppendLine(string.Format("{0}: also in {1}, listed once (from {2})", car.MediaName, Path.GetFileName(source), Path.GetFileName(first)));
                             continue;
                         }
@@ -2126,7 +2140,8 @@ namespace ForzaStudio
                 {
                     foreach (InstalledDlc dlc in InstalledDlc.Scan(ForzaGame.Motorsport4, folder, null))
                     {
-                        if (dlc.Source == null || dlc.Problem != null)
+                        // An expansion without a database of its own has no Merge, but its cars are there.
+                        if (dlc.Source == null || dlc.Source.Problem != null)
                         {
                             continue;
                         }
@@ -2186,6 +2201,8 @@ namespace ForzaStudio
                     byName[car.MediaName] = car;
                 }
                 string sourceCars = Path.Combine(Path.Combine(source, "Media"), "cars");
+                // A DLC package's cars are in the stage's list; their zips are written when one is ported.
+                Dictionary<string, KeyValuePair<bool, string>> lazy = DlcSource.LazyCars(source);
                 foreach (Car car in horizon)
                 {
                     car.Root = source;
@@ -2195,6 +2212,8 @@ namespace ForzaStudio
                     car.Fm4Class = CarPort.ClassName(to, CarPort.ClassFor(to, car.Fm4Pi, car.Id));
                     Car same;
                     string zip = Path.Combine(sourceCars, car.MediaName + ".zip");
+                    KeyValuePair<bool, string> listed;
+                    bool inList = lazy.TryGetValue(car.MediaName, out listed);
                     if (File.Exists(zip))
                     {
                         try
@@ -2205,7 +2224,11 @@ namespace ForzaStudio
                         {
                         }
                     }
-                    if (!File.Exists(zip))
+                    else if (inList)
+                    {
+                        car.Traffic = listed.Key;
+                    }
+                    if (!File.Exists(zip) && !inList)
                     {
                         car.State = Status.NoFiles;
                         car.Note = "no car zip in the source folder";

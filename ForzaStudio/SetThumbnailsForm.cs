@@ -713,6 +713,10 @@ namespace ForzaStudio
         // A copy in bak\ next to the exe, as the editor does before it overwrites a game file.
         private static void Backup(string path, string stamp)
         {
+            if (!BackupPolicy.Enabled)
+            {
+                return;
+            }
             string folder = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "bak");
             Directory.CreateDirectory(folder);
             File.Copy(path, Path.Combine(folder, stamp + "_bak_" + Path.GetFileName(path)), true);
@@ -725,17 +729,21 @@ namespace ForzaStudio
             string temp = target + ".new";
             try
             {
-                string backups = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "bak");
-                Directory.CreateDirectory(backups);
-                string backup = Path.Combine(backups, DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture) + "_bak_" + Path.GetFileName(target));
-                File.Copy(target, backup, true);
+                string backup = null;
+                if (BackupPolicy.Enabled)
+                {
+                    string backups = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "bak");
+                    Directory.CreateDirectory(backups);
+                    backup = Path.Combine(backups, DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture) + "_bak_" + Path.GetFileName(target));
+                    File.Copy(target, backup, true);
+                }
                 StfsPackage.Rewrite(this.root, temp, this.package.Header);
                 StfsReader check = StfsReader.Open(temp);
                 File.Delete(target);
                 File.Move(temp, target);
                 check.Path = target;
                 this.package = check;
-                return ", package " + Path.GetFileName(target) + " written (original in bak\\" + Path.GetFileName(backup) + ")";
+                return ", package " + Path.GetFileName(target) + " written" + ((backup != null) ? " (original in bak\\" + Path.GetFileName(backup) + ")" : " (no backup: Backup is off in the ini)");
             }
             catch (Exception)
             {
