@@ -45,6 +45,7 @@ namespace ForzaStudio
         public string MediaName;        // the car, e.g. MCL_P1_13
         public string DonorMediaName;   // an FM4 car close to it, e.g. MCL_MP412C_11 (brakes, templates)
         public string DonorRoot;        // the donor is a car of an installed DLC pack: that pack laid out as a game folder (found by ResolveDonor), else null
+        public string Tires = "normal"; // "normal": the source's own tire models (BuildTireZips); "offroad": FM4's Hummer H1 tire models under the car's name
         public string RenameTo;         // a car FM4 already has, ported beside it under this MediaName (for tests); null = the source's name
         public string DisplaySuffix;    // text added to the car's DisplayName / ModelShort when renamed, e.g. " FH"
         public bool Arcade = true;      // Data_Car.IsArcade
@@ -364,6 +365,7 @@ namespace ForzaStudio
                 this.SteeringWheelPosition();
                 this.ReviewMaterials();
                 this.BuildWheelZips();
+                this.BuildTireZips();
                 this.PortSound();
                 this.PortThumbnail();
                 this.DonorReport();
@@ -4703,6 +4705,105 @@ namespace ForzaStudio
                 this.donorFormat.Add("wheel " + media + " zip: entry headers and zipmanifest.xml line of the donor wheel " + donorWheelMedia);
                 this.SaveNew(wheel, path);
                 this.Line("wheel zip: {0} ({1} entries)", this.Relative(path), wheel.Entries.Count);
+            }
+        }
+
+        // The "offroad" choice: FM4's Hummer H1 tire models (TireA/B/C of HUM_H1ALpha_06, in the base game) as they are, under
+        // this car's name, so the car gets the deep tread of an off-road tire whatever its source has.
+        private void OffroadTire(string kind, string wheels)
+        {
+            const string offroad = "HUM_H1ALpha_06";
+            string sourcePath = GamePaths.FindMedia(this.TargetRoot, "wheels", "Tire" + kind + offroad);
+            if (sourcePath == null || !sourcePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                this.Line("WARNING tire Tire{0}{1}: the offroad tire Tire{0}{2}.zip is not in the FM4 folder, the generic tire stays", kind, this.CarName, offroad);
+                return;
+            }
+            string path = Path.Combine(wheels, "Tire" + kind + this.CarName + ".zip");
+            ForzaZip from = new ForzaZip(sourcePath);
+            ForzaZip tire = ForzaZip.CreateLike(from);
+            foreach (ForzaZip.Entry entry in from.Entries)
+            {
+                if (entry.IsDirectory)
+                {
+                    continue;
+                }
+                tire.Add(entry.Name.ToLowerInvariant().Replace(("tire" + kind + offroad).ToLowerInvariant(), ("tire" + kind + this.CarName).ToLowerInvariant()), from.Read(entry));
+            }
+            this.SaveNew(tire, path);
+            this.Line("tire zip: {0} ({1} entries, the H1's offroad tire)", this.Relative(path), tire.Entries.Count);
+        }
+
+        // A car with its own tire model (the games ship Media\wheels\TireA/B/C<wheel>.zip beside the generic TireA/B/C.zip: the
+        // same textures and a heavier tire .carbin, e.g. FH1 / FH2 Raptor and Wrangler; FM3 has none) brings it: the .carbin
+        // converted like the wheel's, the textures as they are, laid out like FM4's generic tire zip. An FM4 file of that name
+        // stays (D-16). The game looks the zip up by the NAME OF THE CAR (checked in game 2026-10-27: TireA/B/CFOR_SVTRaptor_12_FH.zip
+        // is used by the car FOR_SVTRaptor_12_FH, whose wheel is FOR_SVTRaptor_12; named after the wheel it showed the generic tire).
+        private void BuildTireZips()
+        {
+            string wheels = Path.Combine(Path.Combine(this.TargetRoot, "Media"), "wheels");
+            // the source's tire zips are named after its car (its stock wheel has the same name in every case seen)
+            string stockWheel = this.source.Scalar("SELECT w.MediaName FROM List_Wheels w JOIN Data_Car c ON c.StockWheelID = w.ID WHERE c.Id = ?", this.carId) as string;
+            foreach (string kind in new string[] { "A", "B", "C" })
+            {
+                if (string.Equals(this.Tires, "offroad", StringComparison.OrdinalIgnoreCase))
+                {
+                    this.OffroadTire(kind, wheels);
+                    continue;
+                }
+                string sourceName = this.MediaName;
+                string sourcePath = GamePaths.FindMedia(this.SourceRoot, "wheels", "Tire" + kind + sourceName);
+                if (sourcePath == null && stockWheel != null)
+                {
+                    sourceName = stockWheel;
+                    sourcePath = GamePaths.FindMedia(this.SourceRoot, "wheels", "Tire" + kind + sourceName);
+                }
+                if (sourcePath == null || !sourcePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                string media = this.CarName;
+                string path = Path.Combine(wheels, "Tire" + kind + media + ".zip");
+                string generic = GamePaths.FindMedia(this.TargetRoot, "wheels", "Tire" + kind);
+                if (File.Exists(path) || generic == null)
+                {
+                    this.Line("tire Tire{0}{1}: {2}", kind, media, File.Exists(path) ? "an FM4 file, kept" : "FM4's generic Tire" + kind + ".zip not found, skipped");
+                    continue;
+                }
+                ForzaZip from = new ForzaZip(sourcePath);
+                ForzaZip model = new ForzaZip(generic);
+                ForzaZip tire = ForzaZip.CreateLike(model);
+                int models = 0;
+                foreach (ForzaZip.Entry entry in from.Entries)
+                {
+                    string name = entry.Name.ToLowerInvariant().Replace(("tire" + kind + sourceName).ToLowerInvariant(), ("tire" + kind + media).ToLowerInvariant());
+                    if (name == "buildnumber.txt" || name.EndsWith("_build_report.html"))
+                    {
+                        continue;
+                    }
+                    byte[] data = from.Read(entry);
+                    if (name.EndsWith(".carbin"))
+                    {
+                        CarbinModel carbin = new CarbinModel(data, true);
+                        ConvertToMotorsport4(carbin);
+                        data = carbin.ToBytes();
+                        models++;
+                    }
+                    tire.Add(name, data);
+                }
+                ForzaZip.Entry build = model.Find("buildnumber.txt");
+                if (build != null)
+                {
+                    tire.Add("buildnumber.txt", model.Read(build));
+                }
+                ForzaZip.Entry version = model.Find("versiondata.xml");
+                if (version != null && tire.Find("versiondata.xml") == null)
+                {
+                    tire.Add("versiondata.xml", model.Read(version));
+                    this.donorFormat.Add("tire " + kind + media + " versiondata.xml: the generic tire's (" + this.game + " has none)");
+                }
+                this.SaveNew(tire, path);
+                this.Line("tire zip: {0} ({1} entries, {2} model converted)", this.Relative(path), tire.Entries.Count, models);
             }
         }
 

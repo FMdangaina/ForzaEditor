@@ -84,6 +84,7 @@ namespace ForzaStudio
             public bool Arcade;
             public string Brakes;       // CarPort.BrakeChoice text: what goes on a car with no brakes
             public string Sound;        // CarPort.SoundFrom: the FM4 car whose engine sound setup the car gets, null = the source's
+            public bool OffroadTires;   // CarPort.Tires = "offroad": the H1 tire models under the car's name
             public long? MakeId;        // CarPort.MakeId: the make chosen for the car, null = the source's
             public List<CarPort.Issue> Issues;
             public int Applied;
@@ -96,9 +97,11 @@ namespace ForzaStudio
         private readonly CheckBox includeDlc;
         private readonly ListView cars;
         private readonly ComboBox donors;
+        private bool fillingDonors;      // the list is being refilled: a change of selection is not the user's pick
         private readonly CheckBox arcade;
         private readonly ComboBox makes;    // "the source's" + FM4's makes
         private readonly ComboBox sounds;   // "the source's" + FM4's cars
+        private readonly ComboBox tires;    // Normal (the source's tire models, if it has any) / Offroad (FM4 H1 tires)
         private readonly ComboBox frontCaliper, rearCaliper;   // brakes of a car that has none
         private readonly TextBox frontAngle, rearAngle;
         private readonly ToolStripStatusLabel details;
@@ -301,7 +304,7 @@ namespace ForzaStudio
             options.Dock = DockStyle.Bottom;
             options.Height = 184;
             Label donorLabel = new Label();
-            donorLabel.Text = "FM4 template car, for what the source car lacks (green = most similar: make, layout, drive, year, weight, PI):";
+            donorLabel.Text = "FM4 template car, for what the source car lacks (your choice; a car of an installed DLC pack is marked [DLC]):";
             donorLabel.Location = new Point(8, 8);
             donorLabel.AutoSize = true;
             this.donors = new ComboBox();
@@ -310,7 +313,16 @@ namespace ForzaStudio
             this.donors.Width = 460;
             this.donors.MaxDropDownItems = 24;
             ForzaTheme.GreenItems(this.donors);
-            this.donors.SelectedIndexChanged += delegate { this.UpdateButtons(); };
+            this.donors.SelectedIndexChanged += delegate
+            {
+                DonorChoice chosen = this.donors.SelectedItem as DonorChoice;
+                Car forCar = this.SelectedCar;
+                if (!this.fillingDonors && chosen != null && forCar != null)
+                {
+                    AppSettings.Set("CarPort.Donor." + forCar.MediaName, chosen.Car.MediaName);
+                }
+                this.UpdateButtons();
+            };
             this.arcade = new CheckBox();
             this.arcade.Text = "Also in arcade mode";
             new ToolTip().SetToolTip(this.arcade, "Sets Data_Car.IsArcade, so the car shows in the arcade car list too");
@@ -342,6 +354,20 @@ namespace ForzaStudio
             options.Controls.Add(this.BuildNewMakeButton());
             options.Controls.Add(soundLabel);
             options.Controls.Add(this.sounds);
+            Label tiresLabel = new Label();
+            tiresLabel.Text = "Tires:";
+            tiresLabel.Location = new Point(604, 63);
+            tiresLabel.AutoSize = true;
+            this.tires = new ComboBox();
+            this.tires.DropDownStyle = ComboBoxStyle.DropDownList;
+            this.tires.Location = new Point(646, 60);
+            this.tires.Width = 120;
+            this.tires.Items.Add("Normal");
+            this.tires.Items.Add("Offroad (H1)");
+            this.tires.SelectedIndex = 0;
+            new ToolTip().SetToolTip(this.tires, "Normal: the tire models the source car has (FH1 / FH2 Raptor, Wrangler), else FM4's generic tires.\nOffroad: the tire models of FM4's Hummer H1 (TireA/B/C) put under this car's name, with the deep tread of an off-road tire");
+            options.Controls.Add(tiresLabel);
+            options.Controls.Add(this.tires);
             // Brakes for a car whose source has none (traffic, FM2...): the game's generic ones, chosen here.
             Label brakeLabel = new Label();
             brakeLabel.Text = "FRONT brakes (only if the car has none):";
@@ -1113,7 +1139,7 @@ namespace ForzaStudio
             List<string> saved = new List<string>();
             foreach (PackEntry entry in this.pack)
             {
-                saved.Add(entry.Car.MediaName + "|" + entry.Donor + "|" + (entry.Arcade ? "1" : "0") + "|" + entry.Brakes + "|" + entry.Sound + "|" + (entry.MakeId.HasValue ? entry.MakeId.Value.ToString(CultureInfo.InvariantCulture) : ""));
+                saved.Add(entry.Car.MediaName + "|" + entry.Donor + "|" + (entry.Arcade ? "1" : "0") + "|" + entry.Brakes + "|" + entry.Sound + "|" + (entry.MakeId.HasValue ? entry.MakeId.Value.ToString(CultureInfo.InvariantCulture) : "") + "|" + (entry.OffroadTires ? "1" : "0"));
             }
             AppSettings.Set("CarPort.PackCars", string.Join(";", saved.ToArray()));
             AppSettings.Set("CarPort.PackSource", this.sourceBox.Text.Trim());
@@ -1229,6 +1255,7 @@ namespace ForzaStudio
                             entry.Arcade = parts[2] == "1";
                             entry.Brakes = (parts.Length > 3) ? parts[3] : new CarPort.BrakeChoice().ToString();
                             entry.Sound = (parts.Length > 4 && parts[4].Length > 0) ? parts[4] : null;
+                            entry.OffroadTires = parts.Length > 6 && parts[6] == "1";
                             long savedMake;
                             if (parts.Length > 5 && long.TryParse(parts[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out savedMake))
                             {
@@ -1256,6 +1283,7 @@ namespace ForzaStudio
             entry.Donor = donor.Car.MediaName;
             entry.Arcade = this.arcade.Checked;
             entry.Brakes = this.CurrentBrakes().ToString();
+            entry.OffroadTires = this.tires.SelectedIndex == 1;
             CarPort.Choice soundChoice = this.sounds.SelectedItem as CarPort.Choice;
             entry.Sound = (soundChoice != null) ? soundChoice.Value as string : null;
             CarPort.Choice makeChoice = this.makes.SelectedItem as CarPort.Choice;
@@ -1423,6 +1451,7 @@ namespace ForzaStudio
                     port.DonorMediaName = entries[i].Donor;
                     port.Arcade = entries[i].Arcade;
                     port.Brakes = CarPort.BrakeChoice.Parse(entries[i].Brakes);
+                    port.Tires = entries[i].OffroadTires ? "offroad" : "normal";
                     port.SoundFrom = entries[i].Sound;
                     port.MakeId = entries[i].MakeId;
                     if (chosen[i] != null)
@@ -2290,28 +2319,35 @@ namespace ForzaStudio
                 (car.State == Status.New) ? "Not in FM4: it will be added." : (car.State == Status.InFm4) ? car.Note + ". Trial / install adds it beside FM4's as " + RenamedPort(car) + " (name + \"" + RenamedSuffix + "\")." : car.Note + ".", this.sourceTag);
             if (car.State == Status.New || car.State == Status.Ported || car.State == Status.InFm4)
             {
+                // The donor is the user's choice (2026-10-27: no more suggestions): the list is alphabetical, nothing is selected
+                // until he picks one, and the pick of each car is kept (also across a refresh of the list after a trial).
                 List<Car> ranked = new List<Car>(this.fm4Cars);
                 if (this.sourceTag == "FM2")
                 {
                     // an FM2 port is built on a car of the FM4 game folder itself: no donor from a DLC pack
                     ranked.RemoveAll(delegate(Car donorCar) { return !string.IsNullOrEmpty(donorCar.Dlc); });
                 }
-                Dictionary<Car, double> score = new Dictionary<Car, double>();
-                foreach (Car donor in ranked)
+                ranked.Sort(delegate(Car a, Car b) { return string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase); });
+                string picked = AppSettings.Get("CarPort.Donor." + car.MediaName, "");
+                this.fillingDonors = true;
+                try
                 {
-                    score[donor] = DonorScore(car, donor);
+                    int select = -1;
+                    for (int i = 0; i < ranked.Count; i++)
+                    {
+                        DonorChoice choice = new DonorChoice();
+                        choice.Car = ranked[i];
+                        this.donors.Items.Add(choice);
+                        if (picked.Length > 0 && string.Equals(ranked[i].MediaName, picked, StringComparison.OrdinalIgnoreCase))
+                        {
+                            select = i;
+                        }
+                    }
+                    this.donors.SelectedIndex = select;
                 }
-                ranked.Sort(delegate(Car a, Car b) { return score[b].CompareTo(score[a]); });
-                for (int i = 0; i < ranked.Count; i++)
+                finally
                 {
-                    DonorChoice choice = new DonorChoice();
-                    choice.Car = ranked[i];
-                    choice.Suggested = i < 5;
-                    this.donors.Items.Add(choice);
-                }
-                if (this.donors.Items.Count > 0)
-                {
-                    this.donors.SelectedIndex = 0;
+                    this.fillingDonors = false;
                 }
             }
             this.UpdateButtons();
@@ -2379,6 +2415,7 @@ namespace ForzaStudio
             port.DonorMediaName = donor.Car.MediaName;
             port.Arcade = this.arcade.Checked;
             port.Brakes = this.CurrentBrakes();
+            port.Tires = (this.tires.SelectedIndex == 1) ? "offroad" : "normal";
             CarPort.Choice make = this.makes.SelectedItem as CarPort.Choice;
             if (make != null && make.Value != null)
             {

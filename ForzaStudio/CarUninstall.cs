@@ -257,6 +257,16 @@ namespace ForzaStudio
                 this.RemoveStrings("List_CarMake.str", makeKeys, changed, plan);
                 deleted.Add(carZipPath);
                 plan.Add("file Media\\cars\\" + Path.GetFileName(carZipPath));
+                // the car's own tire models (Media\wheels\TireA/B/C<car>.zip, D-16) go with the car
+                foreach (Match zip in Regex.Matches(log, @"^tire zip: (Media\\wheels\\[^ \r\n]+\.zip)", RegexOptions.Multiline))
+                {
+                    string tirePath = Path.Combine(this.TargetRoot, zip.Groups[1].Value);
+                    if (File.Exists(tirePath) && !deleted.Contains(tirePath))
+                    {
+                        deleted.Add(tirePath);
+                        plan.Add("file " + zip.Groups[1].Value);
+                    }
+                }
                 if (wheel != null && Convert.ToInt64(db.Scalar("SELECT count(*) FROM List_Wheels WHERE ID = ?", Convert.ToInt64(wheel))) == 0)
                 {
                     foreach (Match zip in Regex.Matches(log, @"^wheel zip: (Media\\wheels\\[^ \r\n]+\.zip)", RegexOptions.Multiline))
