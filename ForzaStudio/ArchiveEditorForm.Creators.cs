@@ -172,7 +172,13 @@ namespace ForzaStudio
             header.Info.Text = this.gameDb.Text(table, columns[0], row[0]) ?? GameDatabase.FormatValue(row[0]);
             for (int i = 0; i < header.Pictures.Length; i++)
             {
-                SetPicture(header.Pictures[i], this.LoadGameImage(row[i + 1] as string));
+                Bitmap image = this.LoadGameImage(row[i + 1] as string);
+                if (image == null && i > 0)
+                {
+                    // the light logo of a make can be missing from the game (Chrysler, Infiniti, Jaguar, Mitsubishi): the first one stands in
+                    image = this.LoadGameImage(row[1] as string);
+                }
+                SetPicture(header.Pictures[i], image);
             }
             this.ShowDbContent(tabs);
         }

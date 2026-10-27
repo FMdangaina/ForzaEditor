@@ -64,7 +64,7 @@ Build: `C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\
 | # | Task | Roadmap | State |
 |---|---|---|---|
 | D-1 | **Duplicate Car wizard: usability pass** (user 2026-10-23: "tutto il wizard sarà da migliorare nell'utilizzo"). Needs the user's list of what is awkward; to collect while testing T-ED6 / T-ED8 | 2.3 | ✅ 2026-10-26: Data page shows 13 usual values + "Show every value" (checked by the user) |
-| D-2 | Makes: light logo falls back to the dark one when the file is missing (Chrysler, Infiniti, Jaguar, Mitsubishi) | – | ⬜ offered 2026-10-23 |
+| D-2 | Makes: light logo falls back to the dark one when the file is missing (Chrysler, Infiniti, Jaguar, Mitsubishi) | – | ✅ CLOSED 2026-10-27 (ShowListItem: a missing picture after the first takes the first one; checked by the user) |
 | D-3 | ~~Lists section with a picker (15 id lists)~~ removed 2026-10-24: the user found it useless | 18 | ✅ removed |
 | D-4 | Push the commit of 2026-10-23 (when the user says so) | – | ⬜ |
 | D-5 | `docs/MANUAL.md`: the new database sections, engine paste, DLC-pack choice in the wizard | 16.1 | ✅ 2026-10-26 (MANUAL 9: Duplicate Car, Transmission tab; 11: FM4 car list) |
