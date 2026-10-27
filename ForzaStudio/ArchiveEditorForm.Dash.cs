@@ -86,6 +86,7 @@ namespace ForzaStudio
             this.dashCanvas.Dock = DockStyle.Fill;
             this.dashCanvas.SelectionChanged += delegate { this.SelectDashNode(this.dashCanvas.Selected); };
             this.dashCanvas.DuplicateRequested += delegate { this.DuplicateDashSelection(); };
+            this.dashCanvas.DeleteRequested += delegate { this.DeleteDashSelection(); };
             this.dashCanvas.Dragging +=delegate { this.pgDash.Refresh(); };
             this.dashCanvas.Edited += delegate(object sender, DashEditEventArgs e)
             {
@@ -124,6 +125,12 @@ namespace ForzaStudio
             }
             bar.Items.Add(align);
             bar.Items.Add(new ToolStripButton("Duplicate (Ctrl+D)", null, delegate { this.DuplicateDashSelection(); }));
+            ToolStripDropDownButton add = new ToolStripDropDownButton("Add");
+            add.DropDownItems.Add(new ToolStripMenuItem("Gauge (a number or text with its own tree)...", null, delegate { this.AddDashGauge(); }));
+            add.DropDownItems.Add(new ToolStripMenuItem("Texts from another car's dash...", null, delegate { this.ImportDashFromCar(); }));
+            bar.Items.Add(add);
+            bar.Items.Add(new ToolStripButton("Delete (Del)", null, delegate { this.DeleteDashSelection(); }));
+            bar.Items.Add(new ToolStripButton("Structure...", null, delegate { this.ShowDashReport(); }));
             this.lblDashInfo = new ToolStripLabel();
             this.lblDashInfo.Alignment = ToolStripItemAlignment.Right;
             bar.Items.Add(this.lblDashInfo);
@@ -258,7 +265,7 @@ namespace ForzaStudio
                 dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dialog.StartPosition = FormStartPosition.CenterParent;
                 dialog.MinimizeBox = dialog.MaximizeBox = false;
-                dialog.ClientSize = new Size(420, 170);
+                dialog.ClientSize = new Size(420, 190);
                 Label caption = new Label();
                 caption.Text = single ? "Name of the copy:" : "Text added to each name:";
                 caption.SetBounds(12, 12, 396, 18);
@@ -270,16 +277,16 @@ namespace ForzaStudio
                 same.SetBounds(12, 66, 396, 36);
                 same.CheckedChanged += delegate { box.Enabled = !same.Checked; };
                 Label note = new Label();
-                note.Text = "The copy shares meshes and textures, is added at the end of the dash and sits 20 units off the original.";
-                note.SetBounds(12, 104, 396, 32);
+                note.Text = "The copy shares meshes and textures, goes in the last group of the dash (the backdrop) and sits 20 units off the original. The game feeds only its own gauges: a copy of a gear or speed text stays still.";
+                note.SetBounds(12, 104, 396, 44);
                 Button ok = new Button();
                 ok.Text = "Duplicate";
                 ok.DialogResult = DialogResult.OK;
-                ok.SetBounds(236, 136, 84, 26);
+                ok.SetBounds(236, 156, 84, 26);
                 Button cancel = new Button();
                 cancel.Text = "Cancel";
                 cancel.DialogResult = DialogResult.Cancel;
-                cancel.SetBounds(326, 136, 84, 26);
+                cancel.SetBounds(326, 156, 84, 26);
                 dialog.Controls.AddRange(new Control[] { caption, box, same, note, ok, cancel });
                 dialog.AcceptButton = ok;
                 dialog.CancelButton = cancel;
@@ -289,6 +296,559 @@ namespace ForzaStudio
                 sameNames = same.Checked;
                 return accepted;
             }
+        }
+
+        // Structure...: every element, record, base node, property and tail table of the three files, as text.
+        private void ShowDashReport()
+        {
+            AnarkDash dash = this.dashCanvas.Dash;
+            if (dash == null)
+            {
+                return;
+            }
+            string text = DashReport.Build(dash);
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "Dash structure (" + dash.Nodes.Count + " elements)";
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.Size = new Size(1100, 760);
+                TextBox box = new TextBox();
+                box.Multiline = true;
+                box.ReadOnly = true;
+                box.ScrollBars = ScrollBars.Both;
+                box.WordWrap = false;
+                box.Font = new Font("Consolas", 9f);
+                box.Dock = DockStyle.Fill;
+                box.Text = text;
+                Button save = new Button();
+                save.Text = "Save as .txt...";
+                save.Dock = DockStyle.Bottom;
+                save.Click += delegate
+                {
+                    using (SaveFileDialog sfd = new SaveFileDialog())
+                    {
+                        sfd.Filter = "Text|*.txt";
+                        sfd.FileName = "dash_structure.txt";
+                        if (sfd.ShowDialog(dialog) == DialogResult.OK)
+                        {
+                            File.WriteAllText(sfd.FileName, text, System.Text.Encoding.UTF8);
+                        }
+                    }
+                };
+                dialog.Controls.Add(box);
+                dialog.Controls.Add(save);
+                ForzaTheme.Apply(dialog);
+                dialog.ShowDialog(this);
+            }
+        }
+
+        // Del / Delete: an element added to the dash (or any of its last elements the game does not use) is removed from
+        // the three files; any other is offered to be hidden (opacity 0), because the game numbers the elements.
+        private void DeleteDashSelection()
+        {
+            AnarkDash dash = this.dashCanvas.Dash;
+            List<AnarkDash.Node> nodes = (dash != null) ? this.dashCanvas.TopSelection() : new List<AnarkDash.Node>();
+            if (nodes.Count == 0)
+            {
+                this.SetStatus("Dash: select what to delete.");
+                return;
+            }
+            List<int> indexes = new List<int>();
+            foreach (AnarkDash.Node n in nodes)
+            {
+                indexes.Add(n.Index);
+            }
+            indexes.Sort();
+            indexes.Reverse();                  // the last first: removing one does not move the others
+            int removed = 0;
+            List<int> hide = new List<int>();
+            List<string> reasons = new List<string>();
+            foreach (int index in indexes)
+            {
+                AnarkDash.Node node = dash.Nodes[index];
+                string why = dash.WhyNotRemovable(node);
+                if (why == null)
+                {
+                    dash.Remove(node);
+                    removed++;
+                }
+                else
+                {
+                    hide.Add(index);
+                    reasons.Add(why);
+                }
+            }
+            int hidden = 0;
+            if (hide.Count > 0)
+            {
+                string list = reasons[0] + ((hide.Count > 1) ? " (and " + (hide.Count - 1) + " more)" : "");
+                if (MessageBox.Show(this, "Cannot be deleted: " + list + ".\r\n\r\nHide " + ((hide.Count == 1) ? "it" : "them") + " instead (opacity 0)?",
+                    "Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                {
+                    foreach (int index in hide)
+                    {
+                        if (dash.SetTransform(dash.Nodes[index], "opacity", 0))
+                        {
+                            hidden++;
+                        }
+                    }
+                }
+            }
+            if (removed == 0 && hidden == 0)
+            {
+                return;
+            }
+            this.FillDashTree(dash);
+            this.dashCanvas.Selection.Clear();
+            this.dashCanvas.Invalidate();
+            this.SelectDashNode(null);
+            this.DashEdited(true, ((removed > 0) ? removed + " deleted" : "") + ((removed > 0 && hidden > 0) ? ", " : "") + ((hidden > 0) ? hidden + " hidden" : ""), false);
+        }
+
+        // Data the game can feed into a text: contract channel (see AnarkBgf), shown name.
+        private static readonly string[][] DashFeeds = new string[][]
+        {
+            new string[] { "001BB29C", "Engine rpm (tach)" }, new string[] { "054BD82F", "Turbo boost pressure" }, new string[] { "064405FF", "Gear" },
+            new string[] { "01F1A7EB", "Speed" }, new string[] { "04B6EF78", "Fuel" }, new string[] { "030765FF", "Odometer" }, new string[] { "015CE8CE", "Trip" },
+            new string[] { "07C92224", "Clock" }, new string[] { "06FE717C", "Oil pressure" }, new string[] { "03DFBB0D", "Oil temperature" },
+            new string[] { "013DA2F2", "Water temperature" }, new string[] { "06CD5CEA", "Outside temperature" },
+            new string[] { "00B74AB7", "Current lap time" }, new string[] { "03DC8BD8", "Last lap time" }, new string[] { "04FB9F66", "Best lap time" },
+            new string[] { "01446A9B", "Race position" }, new string[] { "042EF57D", "Lap number" }, new string[] { "0720D35B", "Total laps" },
+        };
+
+        // Add > From another car: a group or a text (with the texts under it) taken from the dash of another car, like the
+        // TEXT group of the Corvette C5R (rpm, speed, gear, lap time). Whatever under it needs a picture is left out. The
+        // channels the other dash fed to these texts are fed to the copies here, unless this dash already uses that value.
+        private void ImportDashFromCar()
+        {
+            AnarkDash dash = this.dashCanvas.Dash;
+            if (dash == null)
+            {
+                return;
+            }
+            AnarkDash src;
+            string carName;
+            using (OpenFileDialog open = new OpenFileDialog())
+            {
+                open.Title = "Car zip (or its folder file) whose dash to take from";
+                open.Filter = "Car zip|*.zip|All files|*.*";
+                if (this.zip != null && !string.IsNullOrEmpty(this.zip.FilePath) && !this.zip.IsFolder)
+                {
+                    open.InitialDirectory = Path.GetDirectoryName(this.zip.FilePath);
+                }
+                if (open.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+                ForzaZip other;
+                try
+                {
+                    other = ForzaZip.OpenFile(open.FileName);
+                }
+                catch (Exception ex)
+                {
+                    this.SetStatus("Dash: " + ex.Message);
+                    return;
+                }
+                ForzaZip.Entry bgfEntry = null;
+                foreach (ForzaZip.Entry e in other.Entries)
+                {
+                    if (e.Name.EndsWith(".bgf", StringComparison.OrdinalIgnoreCase) && e.Name.IndexOf("dash_", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        bgfEntry = e;
+                        break;
+                    }
+                }
+                if (bgfEntry == null)
+                {
+                    this.SetStatus("Dash: " + Path.GetFileName(open.FileName) + " has no digital dash.");
+                    return;
+                }
+                string stem = bgfEntry.Name.Substring(0, bgfEntry.Name.Length - 4);
+                ForzaZip.Entry fbfEntry = other.Find(stem + ".fbf"), bsgEntry = other.Find(stem + ".bsg");
+                if (fbfEntry == null)
+                {
+                    this.SetStatus("Dash: the other dash has no .fbf.");
+                    return;
+                }
+                src = new AnarkDash(AnarkFbf.Read(other.Read(fbfEntry)), AnarkBgf.Read(other.Read(bgfEntry)), (bsgEntry != null) ? AnarkBsg.Read(other.Read(bsgEntry)) : null);
+                carName = Path.GetFileNameWithoutExtension(open.FileName);
+            }
+            List<AnarkDash.Node> usable = new List<AnarkDash.Node>();
+            foreach (AnarkDash.Node n in src.Nodes)
+            {
+                if (n != src.Root && n.Record != null && AnarkDash.OwnerOf(n) == src.Root && n.Element.Type != AnarkBgf.ElementType.Component
+                    && (n.Record.Type == AnarkFbf.RecordType.Group || n.Record.Type == AnarkFbf.RecordType.Text) && src.FirstText(n) != null)
+                {
+                    usable.Add(n);
+                }
+            }
+            if (usable.Count == 0)
+            {
+                this.SetStatus("Dash: the dash of " + carName + " has no group or text to take.");
+                return;
+            }
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "Add from " + carName;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.MinimizeBox = dialog.MaximizeBox = false;
+                dialog.ClientSize = new Size(432, 190);
+                Label l1 = new Label();
+                l1.Text = "Take:";
+                l1.SetBounds(12, 15, 60, 18);
+                ComboBox from = new ComboBox();
+                from.DropDownStyle = ComboBoxStyle.DropDownList;
+                foreach (AnarkDash.Node t in usable)
+                {
+                    from.Items.Add(src.PathOf(t).Replace("parent.Layer.", "") + "  (" + src.Subtree(t).Count + " elements)");
+                }
+                from.SelectedIndex = 0;
+                from.SetBounds(76, 12, 344, 22);
+                CheckBox feed = new CheckBox();
+                feed.Text = "Feed the copies with the same game values as there (rpm, speed, gear, lap time...)";
+                feed.Checked = true;
+                feed.SetBounds(12, 46, 408, 22);
+                Label note = new Label();
+                note.Text = "Texts, groups and their place on the screen are copied; pictures under the group are left out. A value this dash already feeds to something else stays where it is. The font must be one this dash can show.";
+                note.SetBounds(12, 76, 408, 60);
+                Button ok = new Button();
+                ok.Text = "Add";
+                ok.DialogResult = DialogResult.OK;
+                ok.SetBounds(246, 150, 84, 26);
+                Button cancel = new Button();
+                cancel.Text = "Cancel";
+                cancel.DialogResult = DialogResult.Cancel;
+                cancel.SetBounds(336, 150, 84, 26);
+                dialog.Controls.AddRange(new Control[] { l1, from, feed, note, ok, cancel });
+                dialog.AcceptButton = ok;
+                dialog.CancelButton = cancel;
+                ForzaTheme.Apply(dialog);
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+                AnarkDash.Node pick = usable[from.SelectedIndex];
+                AnarkDash.Node copy = dash.Import(src, pick, pick.Name, true);
+                if (copy == null)
+                {
+                    this.SetStatus("Dash: " + dash.Blocked + ".");
+                    return;
+                }
+                string fed = "";
+                if (feed.Checked)
+                {
+                    List<string> lines = dash.BindImported(src, dash.LastImport);
+                    fed = (lines.Count > 0) ? "; " + string.Join(", ", lines.ToArray()) : "; nothing fed";
+                }
+                this.FillDashTree(dash);
+                this.dashCanvas.Selection.Clear();
+                this.dashCanvas.Selection.Add(copy);
+                this.dashCanvas.Invalidate();
+                this.SelectDashNode(copy);
+                this.DashEdited(true, "added " + copy.Name + " from " + carName, false);
+                this.SetStatus("Dash: added " + copy.Name + " from " + carName + fed + ".");
+            }
+        }
+
+        // Add > Gauge: a whole gauge (component, group and text, with its slides) copied from one of the gauges this dash
+        // already has, like Gauge_Gear, in the scene. It can be fed with a game value (rpm, boost, speed...).
+        private void AddDashGauge()
+        {
+            AnarkDash dash = this.dashCanvas.Dash;
+            if (dash == null)
+            {
+                return;
+            }
+            List<AnarkDash.Node> templates = dash.GaugeTemplates();
+            List<AnarkDash.Node> usable = new List<AnarkDash.Node>();
+            foreach (AnarkDash.Node t in templates)
+            {
+                if (dash.FirstText(t) != null)
+                {
+                    usable.Add(t);
+                }
+            }
+            if (usable.Count == 0)
+            {
+                this.SetStatus("Dash: this dash has no text gauge (like Gauge_Gear or Gauge_Clock) to copy.");
+                return;
+            }
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "Add gauge";
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.MinimizeBox = dialog.MaximizeBox = false;
+                dialog.ClientSize = new Size(432, 236);
+                Label l1 = new Label();
+                l1.Text = "Copy of:";
+                l1.SetBounds(12, 15, 96, 18);
+                ComboBox from = new ComboBox();
+                from.DropDownStyle = ComboBoxStyle.DropDownList;
+                foreach (AnarkDash.Node t in usable)
+                {
+                    from.Items.Add(t.Name + "  (" + (dash.Subtree(t).Count) + " elements)");
+                }
+                from.SelectedIndex = 0;
+                from.SetBounds(112, 12, 308, 22);
+                Label l2 = new Label();
+                l2.Text = "Name:";
+                l2.SetBounds(12, 45, 96, 18);
+                TextBox nameBox = new TextBox();
+                nameBox.Text = "Gauge_New";
+                nameBox.SetBounds(112, 42, 308, 22);
+                Label l3 = new Label();
+                l3.Text = "Text shown:";
+                l3.SetBounds(12, 75, 96, 18);
+                TextBox textBox = new TextBox();
+                textBox.Text = "0";
+                textBox.SetBounds(112, 72, 308, 22);
+                Label l4 = new Label();
+                l4.Text = "Fed by the game with:";
+                l4.SetBounds(12, 105, 98, 30);
+                ComboBox feed = new ComboBox();
+                feed.DropDownStyle = ComboBoxStyle.DropDownList;
+                feed.Items.Add("(nothing: stays as typed)");
+                foreach (string[] f in DashFeeds)
+                {
+                    feed.Items.Add(f[1]);
+                }
+                feed.SelectedIndex = 0;
+                feed.SetBounds(112, 102, 308, 22);
+                Label note = new Label();
+                note.Text = "The new gauge gets its own tree (gauge > group > text) and slides, like the original. A value can feed only one text: choosing one takes it from the text that had it. Move it on the preview afterwards.";
+                note.SetBounds(12, 140, 408, 50);
+                Button ok = new Button();
+                ok.Text = "Add";
+                ok.DialogResult = DialogResult.OK;
+                ok.SetBounds(246, 200, 84, 26);
+                Button cancel = new Button();
+                cancel.Text = "Cancel";
+                cancel.DialogResult = DialogResult.Cancel;
+                cancel.SetBounds(336, 200, 84, 26);
+                dialog.Controls.AddRange(new Control[] { l1, from, l2, nameBox, l3, textBox, l4, feed, note, ok, cancel });
+                dialog.AcceptButton = ok;
+                dialog.CancelButton = cancel;
+                ForzaTheme.Apply(dialog);
+                if (dialog.ShowDialog(this) != DialogResult.OK || nameBox.Text.Trim().Length == 0)
+                {
+                    return;
+                }
+                AnarkDash.Node gauge = dash.Duplicate(usable[from.SelectedIndex], nameBox.Text.Trim(), false);
+                if (gauge == null)
+                {
+                    this.SetStatus("Dash: " + dash.Blocked + ".");
+                    return;
+                }
+                AnarkDash.Node text = dash.FirstText(gauge);
+                dash.SetText(text, textBox.Text);
+                string fed = "";
+                if (feed.SelectedIndex > 0)
+                {
+                    bool done;
+                    string before = dash.BindChannel(DashFeeds[feed.SelectedIndex - 1][0], text, out done);
+                    fed = done ? "; fed with " + DashFeeds[feed.SelectedIndex - 1][1] + ((before != null && before.StartsWith("parent.")) ? " (taken from " + before.Substring(before.LastIndexOf('.') + 1) + ")" : "") : "; the value could not be set";
+                }
+                this.FillDashTree(dash);
+                this.dashCanvas.Selection.Clear();
+                this.dashCanvas.Selection.Add(gauge);
+                this.dashCanvas.Invalidate();
+                this.SelectDashNode(gauge);
+                this.DashEdited(true, "new gauge" + fed, false);
+            }
+        }
+
+        // Add > Text / Rectangle / Image (no longer in the menu): a copy of the first element of that kind the dash has (see AnarkDash.Template),
+        // with the text, font, size, color or texture asked here, put in the middle of the dash. Only what the game
+        // already has can be used: the fonts the dash's texts use, the textures in this car's digitalgauge folder.
+        private void AddDashElement(string kind)
+        {
+            AnarkDash dash = this.dashCanvas.Dash;
+            if (dash == null)
+            {
+                return;
+            }
+            AnarkDash.Node template = dash.Template(kind);
+            if (template == null)
+            {
+                this.SetStatus("Dash: this dash has no " + ((kind == "text") ? "text" : (kind == "rectangle") ? "flat-color rectangle" : "textured rectangle") + " to base a new one on.");
+                return;
+            }
+            AnarkDash.Node added = null;
+            string name = "New_" + kind;
+            for (int n = 2; dash.Fbf.Records.Exists(delegate(AnarkFbf.Record r) { return r.Name == name; }); n++)
+            {
+                name = "New_" + kind + n;
+            }
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "Add " + kind;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.MinimizeBox = dialog.MaximizeBox = false;
+                List<Control> controls = new List<Control>();
+                int y = 12;
+                TextBox nameBox = new TextBox();
+                TextBox textBox = null;
+                ComboBox fontBox = null, textureBox = null;
+                NumericUpDown sizeBox = null, widthBox = null, heightBox = null;
+                TextBox colorBox = new TextBox();
+                Label l = new Label();
+                l.Text = "Name:";
+                l.SetBounds(12, y + 3, 90, 18);
+                nameBox.Text = name;
+                nameBox.SetBounds(110, y, 290, 22);
+                controls.Add(l);
+                controls.Add(nameBox);
+                y += 30;
+                if (kind == "text")
+                {
+                    l = new Label();
+                    l.Text = "Text:";
+                    l.SetBounds(12, y + 3, 90, 18);
+                    textBox = new TextBox();
+                    textBox.Text = "Text";
+                    textBox.SetBounds(110, y, 290, 22);
+                    controls.Add(l);
+                    controls.Add(textBox);
+                    y += 30;
+                    l = new Label();
+                    l.Text = "Font:";
+                    l.SetBounds(12, y + 3, 90, 18);
+                    fontBox = new ComboBox();
+                    fontBox.DropDownStyle = ComboBoxStyle.DropDownList;
+                    foreach (string font in this.DashFonts())
+                    {
+                        fontBox.Items.Add(font);
+                    }
+                    string current = this.DashString(template, "font");
+                    fontBox.SelectedIndex = Math.Max(0, fontBox.Items.IndexOf(current));
+                    fontBox.SetBounds(110, y, 290, 22);
+                    controls.Add(l);
+                    controls.Add(fontBox);
+                    y += 30;
+                    l = new Label();
+                    l.Text = "Size:";
+                    l.SetBounds(12, y + 3, 90, 18);
+                    sizeBox = new NumericUpDown();
+                    sizeBox.Minimum = 1;
+                    sizeBox.Maximum = 1000;
+                    sizeBox.Value = (decimal) Math.Max(1, Math.Min(1000, template.Element.GetFloat("size", 40)));
+                    sizeBox.SetBounds(110, y, 90, 22);
+                    controls.Add(l);
+                    controls.Add(sizeBox);
+                    y += 30;
+                }
+                else if (kind == "rectangle")
+                {
+                    l = new Label();
+                    l.Text = "Width x height:";
+                    l.SetBounds(12, y + 3, 96, 18);
+                    widthBox = new NumericUpDown();
+                    heightBox = new NumericUpDown();
+                    widthBox.Minimum = heightBox.Minimum = 1;
+                    widthBox.Maximum = heightBox.Maximum = 10000;
+                    widthBox.Value = heightBox.Value = 100;
+                    widthBox.SetBounds(110, y, 90, 22);
+                    heightBox.SetBounds(210, y, 90, 22);
+                    controls.Add(l);
+                    controls.Add(widthBox);
+                    controls.Add(heightBox);
+                    y += 30;
+                }
+                else
+                {
+                    string current = AnarkDash.ImageOf(AnarkDash.MaterialOf(template)).Record.Path;
+                    l = new Label();
+                    l.Text = "Texture:";
+                    l.SetBounds(12, y + 3, 90, 18);
+                    textureBox = new ComboBox();
+                    textureBox.DropDownStyle = ComboBoxStyle.DropDownList;
+                    foreach (string path in this.DashTextures(current))
+                    {
+                        textureBox.Items.Add(path);
+                    }
+                    textureBox.SelectedIndex = Math.Max(0, textureBox.Items.IndexOf(current));
+                    textureBox.SetBounds(110, y, 290, 22);
+                    controls.Add(l);
+                    controls.Add(textureBox);
+                    y += 30;
+                }
+                if (kind != "image")
+                {
+                    l = new Label();
+                    l.Text = "Color (#RRGGBB):";
+                    l.SetBounds(12, y + 3, 96, 18);
+                    colorBox.Text = GameColor.Hex(dash.GetColor(template));
+                    colorBox.SetBounds(110, y, 90, 22);
+                    controls.Add(l);
+                    controls.Add(colorBox);
+                    y += 30;
+                }
+                Label note = new Label();
+                note.Text = "A copy of " + template.Name + ", put in the middle of the dash and in the last group (the backdrop). The game does not feed it: it stays as set here. Move and resize it on the preview afterwards.";
+                note.SetBounds(12, y + 4, 388, 44);
+                controls.Add(note);
+                y += 54;
+                Button ok = new Button();
+                ok.Text = "Add";
+                ok.DialogResult = DialogResult.OK;
+                ok.SetBounds(226, y, 84, 26);
+                Button cancel = new Button();
+                cancel.Text = "Cancel";
+                cancel.DialogResult = DialogResult.Cancel;
+                cancel.SetBounds(316, y, 84, 26);
+                controls.Add(ok);
+                controls.Add(cancel);
+                dialog.ClientSize = new Size(412, y + 38);
+                dialog.Controls.AddRange(controls.ToArray());
+                dialog.AcceptButton = ok;
+                dialog.CancelButton = cancel;
+                ForzaTheme.Apply(dialog);
+                Color color = Color.White;
+                if (dialog.ShowDialog(this) != DialogResult.OK || nameBox.Text.Trim().Length == 0)
+                {
+                    return;
+                }
+                if (kind != "image" && !DashColorEditor.TryParse(colorBox.Text, out color))
+                {
+                    this.SetStatus("Dash: the color must look like #RRGGBB.");
+                    return;
+                }
+                AnarkDash.Node copy = dash.Duplicate(template, nameBox.Text.Trim(), false);
+                if (copy == null)
+                {
+                    this.SetStatus("Dash: " + dash.Blocked + ".");
+                    return;
+                }
+                added = copy;
+                dash.PlaceAt(copy, PointF.Empty, copy.Z);
+                if (kind == "text")
+                {
+                    dash.SetText(copy, textBox.Text);
+                    dash.SetFont(copy, (string) fontBox.SelectedItem);
+                    dash.SetFloat(copy, copy.Element.Find("size"), (float) sizeBox.Value);
+                    dash.SetColor(copy, color);
+                }
+                else if (kind == "rectangle")
+                {
+                    dash.SetTransform(copy, "scale.x", (float) widthBox.Value / 100f);
+                    dash.SetTransform(copy, "scale.y", (float) heightBox.Value / 100f);
+                    dash.SetColor(copy, color);
+                }
+                else
+                {
+                    dash.SetTexture(copy, (string) textureBox.SelectedItem);
+                }
+            }
+            this.FillDashTree(dash);
+            this.dashCanvas.Selection.Clear();
+            this.dashCanvas.Selection.Add(added);
+            this.dashCanvas.Invalidate();
+            this.SelectDashNode(added);
+            this.DashEdited(true, "new " + kind, false);
         }
 
         private TreeNode AddDashNode(TreeNodeCollection parent, AnarkDash.Node node)
@@ -472,6 +1032,14 @@ namespace ForzaStudio
                             delegate(object value) { return this.DashApply(dash.SetRaw(node, property, ((bool) value) ? 1u : 0u), caption); });
                         break;
                     case AnarkBgf.ValueKind.String:
+                        if (p.IsBehaviourParameter && caption.EndsWith("target") || caption.Contains("target ("))
+                        {
+                            view.Add(caption, DashInspector.CategoryGraph, "Data contract: the element that receives this value from the game, as a path (pick one, or Scene.UIContract for none). Setting a path switches the 'on' value before it on.", typeof(string),
+                                delegate { return dash.Bgf.GetString(property) ?? ""; },
+                                delegate(object value) { return this.DashApply(dash.SetTarget(node, property, (string) value ?? ""), caption); })
+                                .Choices(delegate { return dash.Paths().ToArray(); });
+                            break;
+                        }
                         view.Add(caption, DashInspector.CategoryGraph, description, typeof(string), delegate { return dash.Bgf.GetString(property) ?? ""; },
                             delegate(object value) { return this.DashApply(dash.SetStringProperty(node, property, (string) value), caption); });
                         break;

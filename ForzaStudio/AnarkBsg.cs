@@ -43,6 +43,60 @@ namespace ForzaStudio
         public List<Node> Nodes = new List<Node>();
         public byte[] Rest;
 
+        // The rest is a u32 byte size and the list of every material (kind 6) and image (kind 7) of the scene: u32 id,
+        // u8 kind, in id order (all 234 FM4 files); header 0x28 = how many. Null when a file does not read that way.
+        public class TableEntry
+        {
+            public uint Id;
+            public byte Kind;
+        }
+
+        public List<TableEntry> Table;
+
+        private void ParseTable(byte[] header)
+        {
+            this.Table = null;
+            if (this.Rest.Length < 4)
+            {
+                return;
+            }
+            long size = (uint) AnarkFbf.ReadU32(this.Rest, 0);
+            long count = (uint) AnarkFbf.ReadU32(header, 0x28);
+            if (size != this.Rest.Length - 4 || size != count * 5)
+            {
+                return;
+            }
+            List<TableEntry> table = new List<TableEntry>();
+            for (int i = 0; i < count; i++)
+            {
+                TableEntry e = new TableEntry();
+                e.Id = AnarkFbf.ReadU32(this.Rest, 4 + i * 5);
+                e.Kind = this.Rest[8 + i * 5];
+                table.Add(e);
+            }
+            this.Table = table;
+        }
+
+        // A material or image added to the scene: the game wants it in the table too.
+        public void AddToTable(uint id, byte kind)
+        {
+            if (this.Table != null)
+            {
+                TableEntry e = new TableEntry();
+                e.Id = id;
+                e.Kind = kind;
+                this.Table.Add(e);
+            }
+        }
+
+        public void RemoveFromTable(uint id)
+        {
+            if (this.Table != null)
+            {
+                this.Table.RemoveAll(delegate(TableEntry e) { return e.Id == id; });
+            }
+        }
+
         public static AnarkBsg Read(byte[] data)
         {
             if (data.Length < HeaderSize || data[8] != 'F' || data[9] != 'G' || data[10] != 'B' || data[11] != 'k')
@@ -75,15 +129,31 @@ namespace ForzaStudio
             }
             bsg.Rest = new byte[data.Length - o];
             Buffer.BlockCopy(data, o, bsg.Rest, 0, bsg.Rest.Length);
+            bsg.ParseTable(bsg.Header);
             return bsg;
         }
 
         public byte[] Write()
         {
-            byte[] data = new byte[HeaderSize + this.Nodes.Count * NodeSize + this.Rest.Length];
+            byte[] rest = this.Rest;
+            if (this.Table != null)
+            {
+                rest = new byte[4 + this.Table.Count * 5];
+                WriteU32(rest, 0, (uint) (this.Table.Count * 5));
+                for (int i = 0; i < this.Table.Count; i++)
+                {
+                    WriteU32(rest, 4 + i * 5, this.Table[i].Id);
+                    rest[8 + i * 5] = this.Table[i].Kind;
+                }
+            }
+            byte[] data = new byte[HeaderSize + this.Nodes.Count * NodeSize + rest.Length];
             Buffer.BlockCopy(this.Header, 0, data, 0, HeaderSize);
             WriteU32(data, 0x24, (uint) this.Nodes.Count);
             WriteU32(data, 0x2C, (uint) (this.Nodes.Count * NodeSize));
+            if (this.Table != null)
+            {
+                WriteU32(data, 0x28, (uint) this.Table.Count);
+            }
             int o = HeaderSize;
             foreach (Node node in this.Nodes)
             {
@@ -98,7 +168,7 @@ namespace ForzaStudio
                 WriteU32(data, o + 92, node.Unknown);
                 o += NodeSize;
             }
-            Buffer.BlockCopy(this.Rest, 0, data, o, this.Rest.Length);
+            Buffer.BlockCopy(rest, 0, data, o, rest.Length);
             return data;
         }
 

@@ -82,6 +82,7 @@ namespace ForzaStudio
         public bool ShowOutlines;
         public event EventHandler SelectionChanged;
         public event EventHandler DuplicateRequested;         // Ctrl+D
+        public event EventHandler DeleteRequested;            // Del
         public event EventHandler Dragging;                  // while a move / resize is going on
         public event EventHandler<DashEditEventArgs> Edited;  // after one (What: "position", "size")
         public event EventHandler<DashEditEventArgs> EditBlocked;
@@ -818,6 +819,15 @@ namespace ForzaStudio
                 if (this.DuplicateRequested != null)
                 {
                     this.DuplicateRequested(this, EventArgs.Empty);
+                }
+                return;
+            }
+            if (e.KeyCode == Keys.Delete)
+            {
+                e.Handled = true;
+                if (this.DeleteRequested != null)
+                {
+                    this.DeleteRequested(this, EventArgs.Empty);
                 }
                 return;
             }

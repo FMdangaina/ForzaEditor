@@ -219,6 +219,7 @@
     <Compile Include="ForzaStudio\AnarkBsg.cs" />
     <Compile Include="ForzaStudio\AnarkDash.cs" />
     <Compile Include="ForzaStudio\DashInspector.cs" />
+    <Compile Include="ForzaStudio\DashReport.cs" />
     <Compile Include="ForzaStudio\AnarkDashCanvas.cs">
       <SubType>Component</SubType>
     </Compile>

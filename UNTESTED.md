@@ -73,7 +73,8 @@ notes in `docs/MANUAL.md` and `TODO.md` (12.3, 12.5, 12.6, 12.7). Not written by
 
 - [ ] E1. Property inspector + drag on the preview (move, 8 resize handles, arrows) [12.3].
 - [ ] E2. Multi-selection (Ctrl+click, rubber band, Ctrl+A, align / spread) [12.5].
-- [ ] E3. Duplicate node (Ctrl+D): re-read tests passed offline; in game: do slides / animations ignore the extra elements? [12.6].
+- [ ] E3. Duplicate node (Ctrl+D): **the first version crashed the game** (gear text copy, 2026-10-26); reworked (copy goes at the end under the backdrop group, listed in the scene's slides, bsg material table updated): 1529 copies checked offline on FM4 / FH2 / FH1; in game: does the copy load now? [12.6].
+- [ ] E4. Delete (Del) and Add > Text / Rectangle / Image: offline checks only (remove gives the original files back); in game: Add a text, a flat rectangle and an image on the Alfa Brera dash, then Delete the added ones [12.7].
 
 ---
 

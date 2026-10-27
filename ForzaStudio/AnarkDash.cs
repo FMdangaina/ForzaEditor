@@ -302,9 +302,10 @@ namespace ForzaStudio
         }
 
         // ---- Editing ----
-        // Only values already in the files change: no property, string or record is added, so every count in the
-        // .bgf header (strings at 0x3C, properties at 0x2C/0x78, components 0x28/0x74, behaviours 0x30/0x7C) and the
-        // order of the graph properties, which the slides and animations may count on, stay as they are.
+        // Editing a value changes only values already in the files: no property, string or record is added, so every
+        // count in the .bgf header (strings at 0x3C, properties at 0x2C/0x78, components 0x28/0x74, behaviours 0x30/0x7C)
+        // and the order of the graph properties stay as they are. Duplicate / Remove (above) are the exceptions and
+        // keep the counts themselves.
         // A value is written where the game reads it: the graph property when the element has one, else the base
         // (.bsg node, .fbf material/text/image record). Every .bgf string belongs to one property only (all 431 files),
         // so a text or font is changed in place.
@@ -516,23 +517,295 @@ namespace ForzaStudio
             return new PointF((float) (d.PosX + cos * ux + sin * uy), (float) (d.PosY - sin * ux + cos * uy));
         }
 
-        // ---- Duplicate ----
+        // ---- Duplicate, add, delete ----
+
+        // The nearest component (the scene or a gauge) at or above a node: the owner of its slide entries.
+        public static Node OwnerOf(Node node)
+        {
+            for (Node n = node; n != null; n = n.Parent)
+            {
+                if (n.Element.Type == AnarkBgf.ElementType.Component)
+                {
+                    return n;
+                }
+            }
+            return null;
+        }
+
+        // Where new elements go. All 431 dashes of the game list their elements depth first, and the slides, animation
+        // tracks and behaviours of the .bgf count elements by index, so nothing is inserted in the middle: new elements are
+        // appended as children of a group on the path to the last element (the shallowest one that belongs to the scene
+        // itself: the backdrop of the dash; else the layer), which keeps the order depth first. Each is listed in the
+        // slides of the component that owns that group (the scene). Null when the dash has neither.
+        public Node EndParent()
+        {
+            List<Node> path = new List<Node>();
+            for (Node n = this.Nodes[this.Nodes.Count - 1]; n != null; n = n.Parent)
+            {
+                path.Insert(0, n);
+            }
+            foreach (Node n in path)
+            {
+                if (n.Record != null && n.Record.Type == AnarkFbf.RecordType.Group && n.Element.Type == AnarkBgf.ElementType.Node && OwnerOf(n) == this.Root)
+                {
+                    return n;
+                }
+            }
+            foreach (Node n in path)
+            {
+                if (n.Record != null && n.Record.Type == AnarkFbf.RecordType.Layer && OwnerOf(n) == this.Root)
+                {
+                    return n;                       // no backdrop group at the end: the layer itself
+                }
+            }
+            return null;
+        }
+
+        // The layer on the path to the last element: gauges (components) are its children.
+        public Node EndLayer()
+        {
+            for (Node n = this.Nodes[this.Nodes.Count - 1]; n != null; n = n.Parent)
+            {
+                if (n.Record != null && n.Record.Type == AnarkFbf.RecordType.Layer && OwnerOf(n) == this.Root)
+                {
+                    return n;
+                }
+            }
+            return null;
+        }
+
+        // Why a gauge cannot be copied, or null. A gauge is a component with its elements and its own slides; one with a
+        // behaviour (bars: PROGRESS_BAR), animation tracks or events is tied to indexes the copy would not have.
+        public string WhyNotCopyableGauge(Node gauge)
+        {
+            if (this.Bgf.Slides == null)
+            {
+                return "the slides of this dash are not understood";
+            }
+            List<int> subtree = this.Subtree(gauge);
+            foreach (int i in subtree)
+            {
+                if (this.Nodes[i].Element.Type == AnarkBgf.ElementType.Behaviour)
+                {
+                    return gauge.Name + " has a behaviour (a bar or an animation): it cannot be copied";
+                }
+            }
+            if (this.Bgf.IndexMentioned(gauge.Index, gauge.Index + subtree.Count))
+            {
+                return gauge.Name + " is used by an animation or an event of the game: it cannot be copied";
+            }
+            List<AnarkBgf.Slide> slides = this.Bgf.SlidesOf(gauge.Index);
+            if (slides.Count == 0)
+            {
+                return gauge.Name + " has no slides";
+            }
+            foreach (AnarkBgf.Slide slide in slides)
+            {
+                if (slide.Entries.Count != subtree.Count)
+                {
+                    return gauge.Name + " has slides that do not list all its elements: it cannot be copied";
+                }
+                foreach (AnarkBgf.SlideEntry e in slide.Entries)
+                {
+                    if (e.ItemCount > 0 || e.TrackCount > 0)
+                    {
+                        return gauge.Name + " uses animation tracks in its slides: it cannot be copied";
+                    }
+                }
+            }
+            return null;
+        }
+
+        // The gauges of this dash that can be copied (the library of this dash): Gauge_Gear, Gauge_Clock...
+        public List<Node> GaugeTemplates()
+        {
+            List<Node> list = new List<Node>();
+            foreach (Node n in this.Nodes)
+            {
+                if (n.Element.Type == AnarkBgf.ElementType.Component && n != this.Root && n.Record != null && this.WhyNotCopyableGauge(n) == null)
+                {
+                    list.Add(n);
+                }
+            }
+            return list;
+        }
+
+        // The first text inside a node.
+        public Node FirstText(Node root)
+        {
+            foreach (int i in this.Subtree(root))
+            {
+                if (this.Nodes[i].Record != null && this.Nodes[i].Record.Type == AnarkFbf.RecordType.Text)
+                {
+                    return this.Nodes[i];
+                }
+            }
+            return null;
+        }
+
+        // After Import: every data channel the other dash pointed at one of the copied elements is pointed at its copy here
+        // (rpm, speed, gear, lap time...), unless this dash already feeds that value to something (it keeps it).
+        // Returns one line per channel for the status.
+        public List<string> BindImported(AnarkDash src, Dictionary<int, int> map)
+        {
+            List<string> lines = new List<string>();
+            foreach (Node b in src.Nodes)
+            {
+                if (b.Element.Type != AnarkBgf.ElementType.Behaviour || b.Element.Parent != src.Root.Index)
+                {
+                    continue;
+                }
+                foreach (AnarkBgf.Property p in b.Element.Properties)
+                {
+                    if (p.Kind != AnarkBgf.ValueKind.String || !p.IsBehaviourParameter)
+                    {
+                        continue;
+                    }
+                    string target = src.Bgf.GetString(p);
+                    foreach (KeyValuePair<int, int> pair in map)
+                    {
+                        if (src.Nodes[pair.Key].Record == null || src.PathOf(src.Nodes[pair.Key]) != target)
+                        {
+                            continue;
+                        }
+                        bool done;
+                        string label = p.Name ?? p.NameHash.ToString("X7");
+                        string before = this.BindChannel((p.Hash & 0x07FFFFFF).ToString("X8"), this.Nodes[pair.Value], out done, true);
+                        lines.Add(done ? label + " -> " + this.Nodes[pair.Value].Name
+                            : (before == null) ? label + ": this dash has no such channel" : label + ": kept on " + before.Substring(before.LastIndexOf('.') + 1));
+                    }
+                }
+            }
+            return lines;
+        }
+
+        // Points a data channel (a "... target" parameter of the scene's contract) at an element and switches it on.
+        // Returns the path it pointed at before, or null when there is no such parameter.
+        public string BindChannel(string hash, Node target, out bool done)
+        {
+            return this.BindChannel(hash, target, out done, false);
+        }
+
+        public string BindChannel(string hash, Node target, out bool done, bool onlyIfFree)
+        {
+            done = false;
+            uint h = Convert.ToUInt32(hash, 16);
+            foreach (Node n in this.Nodes)
+            {
+                if (n.Element.Type == AnarkBgf.ElementType.Behaviour && n.Element.Parent == this.Root.Index)
+                {
+                    foreach (AnarkBgf.Property p in n.Element.Properties)
+                    {
+                        if ((p.Hash & 0x07FFFFFF) == h && p.Kind == AnarkBgf.ValueKind.String)
+                        {
+                            string before = this.Bgf.GetString(p);
+                            if (onlyIfFree && before != null && before.StartsWith("parent."))
+                            {
+                                return before;
+                            }
+                            done = this.SetTarget(n, p, this.PathOf(target));
+                            return before;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        private static bool SameLinear(Node p, Node q)
+        {
+            return Math.Abs(p.A - q.A) < 1e-4f && Math.Abs(p.B - q.B) < 1e-4f && Math.Abs(p.C - q.C) < 1e-4f && Math.Abs(p.D - q.D) < 1e-4f;
+        }
+
+        // The indexes of a node and everything under it (depth first order: they follow each other).
+        public List<int> Subtree(Node root)
+        {
+            List<Node> elements = this.Nodes;
+            bool[] inside = new bool[elements.Count];
+            inside[root.Index] = true;
+            List<int> list = new List<int>();
+            list.Add(root.Index);
+            for (int i = root.Index + 1; i < elements.Count; i++)
+            {
+                int p = elements[i].Element.Parent;
+                if (p >= 0 && p < inside.Length && inside[p])
+                {
+                    inside[i] = true;
+                    list.Add(i);
+                }
+            }
+            return list;
+        }
 
         // Copies a node (a model, a text or a group) with everything under it:
-        //   .fbf  the records, with new ids, next to the originals (same relative order: groups after their children);
-        //   .bgf  the elements and their properties, APPENDED at the end so that no index the slides and animations
-        //         may use changes; strings get their own copy; the header counts are updated;
-        //   .bsg  the base nodes, appended, with new ids.
-        // The meshes and textures are shared. name = the copy's name (the .bgf element hash is built from it);
-        // sameNames keeps every name as it is, so whatever the game does by name (animations, data) may act on the copy too.
-        // Returns the new node, or null (Blocked says why). The node tree is rebuilt: older Node objects are stale.
+        //   .fbf  the records, with new ids, just before the record of the group they go in (groups after their children);
+        //   .bgf  the elements and their properties, APPENDED (see EndParent), strings get their own copy, the header
+        //         counts are updated, and every new element is listed in the slides of its component;
+        //   .bsg  the base nodes, appended, with new ids; materials and images also go in its table of them.
+        // The meshes and textures are shared. The copy keeps its place on the screen. name = the copy's name (the .bgf
+        // element hash is built from it); sameNames keeps every name as it is, so whatever the game does by name may
+        // act on the copy too. Returns the new node, or null (Blocked says why). The node tree is rebuilt: older Node
+        // objects are stale.
         public Node Duplicate(Node root, string name, bool sameNames)
         {
-            this.Blocked = null;
-            AnarkBgf.ElementType type = root.Element.Type;
-            if (root.Record == null || (type != AnarkBgf.ElementType.Node && type != AnarkBgf.ElementType.Text))
+            return this.Import(this, root, name, sameNames);
+        }
+
+        // Old index in the other dash -> index of the copy in this one, of the last Import.
+        public Dictionary<int, int> LastImport = new Dictionary<int, int>();
+
+        // True when the node, or anything under it, is an image or a material (it needs a texture the car zip may lack).
+        private static bool UsesImage(AnarkDash dash, Node node)
+        {
+            foreach (int i in dash.Subtree(node))
             {
-                this.Blocked = root.Name + " cannot be duplicated alone (select a model, a text or a group)";
+                AnarkFbf.Record r = dash.Nodes[i].Record;
+                if (r != null && (r.Type == AnarkFbf.RecordType.Image || r.Type == AnarkFbf.RecordType.Material))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private bool NameTaken(string name)
+        {
+            foreach (AnarkFbf.Record r in this.Fbf.Records)
+            {
+                if (r.Name == name)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Duplicate (src == this) or Import: the same copy, but the node comes from ANOTHER dash (src). A group or a text
+        // only, never a gauge; whatever under it uses an image or a material is left out (the texture is in the other
+        // car's zip). Names keep the source's (a number is added when this dash already has one: name == null).
+        public Node Import(AnarkDash src, Node root, string name, bool sameNames)
+        {
+            bool cross = src != this;
+            this.Blocked = null;
+            if (cross)
+            {
+                sameNames = true;
+                if (root.Element.Type == AnarkBgf.ElementType.Component)
+                {
+                    this.Blocked = "a gauge of another dash cannot be imported (its behaviour and animations are tied to that dash)";
+                    return null;
+                }
+            }
+            AnarkBgf.ElementType type = root.Element.Type;
+            bool isComponent = type == AnarkBgf.ElementType.Component;
+            if (root.Record == null || (type != AnarkBgf.ElementType.Node && type != AnarkBgf.ElementType.Text && !isComponent))
+            {
+                this.Blocked = root.Name + " cannot be duplicated alone (select a model, a text, a group or a gauge)";
+                return null;
+            }
+            if (isComponent && root == this.Root)
+            {
+                this.Blocked = "the scene cannot be duplicated";
                 return null;
             }
             if (string.IsNullOrEmpty(name) || !IsLatin1(name))
@@ -540,32 +813,67 @@ namespace ForzaStudio
                 this.Blocked = "the name of the copy must be plain text";
                 return null;
             }
-            List<AnarkBgf.Element> elements = this.Bgf.Elements;
-            bool[] inside = new bool[elements.Count];
-            inside[root.Index] = true;
-            bool grew = true;
-            while (grew)
+            if (this.Bgf.Slides == null)
             {
-                grew = false;
-                for (int i = 0; i < elements.Count; i++)
-                {
-                    int p = elements[i].Parent;
-                    if (!inside[i] && p >= 0 && p < inside.Length && inside[p])
-                    {
-                        inside[i] = true;
-                        grew = true;
-                    }
-                }
+                this.Blocked = "the slides of this dash are not understood, nothing can be added to it";
+                return null;
+            }
+            Node parent = isComponent ? this.EndLayer() : this.EndParent();
+            if (parent == null)
+            {
+                this.Blocked = "this dash has no " + (isComponent ? "layer" : "group at its end") + " to put a copy in";
+                return null;
+            }
+            Node owner = OwnerOf(parent);
+            if (!cross && root.Parent != null && !SameLinear(root.Parent, parent))
+            {
+                this.Blocked = root.Name + " sits in a part of the dash that is scaled or turned differently from where copies go (" + parent.Name + "): the copy would change size";
+                return null;
             }
 
-            for (int i = 0; i < inside.Length; i++)
+            List<AnarkBgf.Element> elements = this.Bgf.Elements;
+            List<AnarkBgf.Element> srcEl = src.Bgf.Elements;
+            bool[] inside = new bool[srcEl.Count];
+            int skipped = 0;
+            foreach (int i in src.Subtree(root))
             {
-                if (inside[i] && i != root.Index && elements[i].Parent > i)
+                AnarkBgf.ElementType t = srcEl[i].Type;
+                if ((t == AnarkBgf.ElementType.Component && i != root.Index) || t == AnarkBgf.ElementType.Behaviour)
                 {
-                    this.Blocked = root.Name + " has an element listed before its parent: not supported";
+                    this.Blocked = root.Name + " contains a behaviour or another gauge of the game: copy its parts instead";
+                    return null;
+                }
+                if (cross && i != root.Index && (!inside[srcEl[i].Parent] || UsesImage(src, src.Nodes[i])))
+                {
+                    skipped++;
+                    continue;
+                }
+                inside[i] = true;
+            }
+            if (cross && UsesImage(src, root) && src.FirstText(root) == null)
+            {
+                this.Blocked = root.Name + " is a picture (needs a texture of the other car)";
+                return null;
+            }
+            if (cross && (src.Bsg == null) != (this.Bsg == null))
+            {
+                this.Blocked = "one of the two dashes has no .bsg";
+                return null;
+            }
+            if (isComponent)
+            {
+                // a gauge with animations, behaviours or events cannot be copied: they count elements by index
+                string why = this.WhyNotCopyableGauge(root);
+                if (why != null)
+                {
+                    this.Blocked = why;
                     return null;
                 }
             }
+
+            // where the copy stays: the original's place on the screen
+            PointF place = (!cross && root.Parent != null) ? root.Parent.Transform(this.GetTransform(root, "position.x"), this.GetTransform(root, "position.y")) : PointF.Empty;
+            float placeZ = root.Z;
 
             uint nextId = 0;
             foreach (AnarkFbf.Record r in this.Fbf.Records)
@@ -588,86 +896,142 @@ namespace ForzaStudio
             Dictionary<int, int> newIndex = new Dictionary<int, int>();
             Dictionary<uint, uint> newId = new Dictionary<uint, uint>();
             List<KeyValuePair<int, AnarkFbf.Record>> records = new List<KeyValuePair<int, AnarkFbf.Record>>();
-            int lastRecord = -1;
-            int firstNew = elements.Count;
-            for (int i = 0; i < inside.Length; i++)
+            int originalCount = srcEl.Count;
+            List<string> used = new List<string>();
+            for (int i = 0; i < originalCount; i++)
             {
                 if (!inside[i])
                 {
                     continue;
                 }
-                AnarkBgf.Element old = elements[i];
+                AnarkBgf.Element old = srcEl[i];
                 AnarkBgf.Element copy = old.Copy();
                 newIndex[i] = elements.Count;
-                copy.Parent = (i == root.Index) ? old.Parent : newIndex[old.Parent];
-                if (old.Type != AnarkBgf.ElementType.Behaviour)
+                copy.Parent = (i == root.Index) ? parent.Index : newIndex[old.Parent];
+                copy.Id = ++nextId;
+                newId[old.Id] = copy.Id;
+                AnarkFbf.Record rec = src.Fbf.Find(old.Id);
+                if (rec != null)
                 {
-                    copy.Id = ++nextId;
-                    newId[old.Id] = copy.Id;
-                    AnarkFbf.Record rec = this.Fbf.Find(old.Id);
-                    if (rec != null)
+                    AnarkFbf.Record recCopy = rec.Copy();
+                    recCopy.Id = copy.Id;
+                    recCopy.Name = sameNames ? rec.Name : (i == root.Index) ? name : rec.Name + suffix;
+                    if (cross)
                     {
-                        AnarkFbf.Record recCopy = rec.Copy();
-                        recCopy.Id = copy.Id;
-                        recCopy.Name = sameNames ? rec.Name : (i == root.Index) ? name : rec.Name + suffix;
-                        uint owner;
-                        if (recCopy.Type == AnarkFbf.RecordType.Image && newId.TryGetValue(recCopy.Owner, out owner))
+                        // the names of the other dash, a number after them when this dash (or this import) has one already
+                        string unique = rec.Name;
+                        for (int n = 2; this.NameTaken(unique) || used.Contains(unique); n++)
                         {
-                            recCopy.Owner = owner;
+                            unique = rec.Name + "_" + n;
                         }
-                        copy.Hash = (old.Hash & 0xF8000000u) | AnarkBgf.HashName(recCopy.Name);
-                        records.Add(new KeyValuePair<int, AnarkFbf.Record>(this.Fbf.Records.IndexOf(rec), recCopy));
-                        lastRecord = Math.Max(lastRecord, this.Fbf.Records.IndexOf(rec));
+                        used.Add(unique);
+                        recCopy.Name = unique;
                     }
+                    uint owned;
+                    if (recCopy.Type == AnarkFbf.RecordType.Image && newId.TryGetValue(recCopy.Owner, out owned))
+                    {
+                        recCopy.Owner = owned;
+                    }
+                    copy.Hash = (old.Hash & 0xF8000000u) | AnarkBgf.HashName(recCopy.Name);
+                    records.Add(new KeyValuePair<int, AnarkFbf.Record>(src.Fbf.Records.IndexOf(rec), recCopy));
                 }
                 foreach (AnarkBgf.Property p in copy.Properties)
                 {
-                    if (p.Kind == AnarkBgf.ValueKind.String && p.Value < this.Bgf.Strings.Count)
+                    if (p.Kind == AnarkBgf.ValueKind.String && p.Value < src.Bgf.Strings.Count)
                     {
-                        string text = this.Bgf.Strings[(int) p.Value];
+                        string text = src.Bgf.Strings[(int) p.Value];
                         p.Value = (uint) this.Bgf.Strings.Count;
                         this.Bgf.Strings.Add(text);
                     }
                 }
                 elements.Add(copy);
+                if (!isComponent || i == root.Index)
+                {
+                    this.Bgf.AddToSlides(owner.Index, elements.Count - 1, cross ? -1 : i);
+                }
+            }
+            this.LastImport = newIndex;
+            if (isComponent)
+            {
+                // the gauge's own slides: the same entries for the new elements
+                foreach (AnarkBgf.Slide slide in this.Bgf.SlidesOf(root.Index))
+                {
+                    AnarkBgf.Slide copySlide = new AnarkBgf.Slide();
+                    Array.Copy(slide.Name, copySlide.Name, slide.Name.Length);
+                    copySlide.Duration = slide.Duration;
+                    foreach (AnarkBgf.SlideEntry entry in slide.Entries)
+                    {
+                        int mapped;
+                        if (newIndex.TryGetValue((int) entry.Index, out mapped))
+                        {
+                            AnarkBgf.SlideEntry e2 = new AnarkBgf.SlideEntry();
+                            e2.Index = (uint) mapped;
+                            e2.Flag = entry.Flag;
+                            e2.Data = (byte[]) entry.Data.Clone();
+                            copySlide.Entries.Add(e2);
+                        }
+                    }
+                    this.Bgf.Slides.Add(copySlide);
+                }
             }
             if (records.Count > 0)
             {
-                // the copies go after the last original of the subtree, in the order the originals have (groups after their children)
+                // before the record of the group they go in, in the order the originals have (groups after their children)
                 records.Sort(delegate(KeyValuePair<int, AnarkFbf.Record> p, KeyValuePair<int, AnarkFbf.Record> q) { return p.Key.CompareTo(q.Key); });
                 List<AnarkFbf.Record> ordered = new List<AnarkFbf.Record>();
                 foreach (KeyValuePair<int, AnarkFbf.Record> pair in records)
                 {
                     ordered.Add(pair.Value);
                 }
-                this.Fbf.Records.InsertRange(lastRecord + 1, ordered);
+                int at = this.Fbf.Records.IndexOf((parent.Record.Type == AnarkFbf.RecordType.Group) ? parent.Record : this.Root.Record);
+                this.Fbf.Records.InsertRange((at >= 0) ? at : this.Fbf.Records.Count, ordered);
             }
 
             if (this.Bsg != null)
             {
-                // base nodes, appended; the parent of a copy is the copy of the nearest ancestor that has one
+                // base nodes, appended; the parent of a copy is the base node of the copy of its parent, and for the
+                // first copy that of the group it goes in (or of the nearest ancestor that has one)
                 Dictionary<uint, AnarkBsg.Node> copies = new Dictionary<uint, AnarkBsg.Node>();
-                for (int i = 0; i < inside.Length; i++)
+                for (int i = 0; i < originalCount; i++)
                 {
-                    AnarkBsg.Node b = (inside[i] && elements[i].Type != AnarkBgf.ElementType.Behaviour) ? this.Bsg.Find(elements[i].Id) : null;
+                    if (!inside[i])
+                    {
+                        continue;
+                    }
+                    uint id = srcEl[i].Id;
+                    AnarkFbf.Record oldRecord = src.Fbf.Find(id);
+                    if (oldRecord != null && (oldRecord.Type == AnarkFbf.RecordType.Material || oldRecord.Type == AnarkFbf.RecordType.Image))
+                    {
+                        this.Bsg.AddToTable(newId[id], (byte) (oldRecord.Type == AnarkFbf.RecordType.Material ? 6 : 7));
+                        continue;
+                    }
+                    AnarkBsg.Node b = src.Bsg.Find(id);
                     if (b == null)
                     {
                         continue;
                     }
                     AnarkBsg.Node bc = b.Copy();
                     bc.Id = newId[b.Id];
-                    int parent = b.Parent;
-                    for (int p = elements[i].Parent; i != root.Index && p >= 0; p = elements[p].Parent)
+                    AnarkBsg.Node bparent = null;
+                    if (i != root.Index)
                     {
-                        AnarkBsg.Node pb = (elements[p].Type != AnarkBgf.ElementType.Behaviour) ? this.Bsg.Find(elements[p].Id) : null;
-                        AnarkBsg.Node pc;
-                        if (pb != null && copies.TryGetValue(pb.Id, out pc))
+                        for (int p = srcEl[i].Parent; p >= 0 && bparent == null; p = srcEl[p].Parent)
                         {
-                            parent = this.Bsg.Nodes.IndexOf(pc);
-                            break;
+                            AnarkBsg.Node pb = src.Bsg.Find(srcEl[p].Id);
+                            if (pb != null)
+                            {
+                                copies.TryGetValue(pb.Id, out bparent);
+                            }
                         }
                     }
-                    bc.Parent = parent;
+                    else
+                    {
+                        for (int p = parent.Index; p >= 0 && bparent == null; p = this.Nodes[p].Element.Parent)
+                        {
+                            bparent = this.Bsg.Find(elements[p].Id);
+                        }
+                    }
+                    bc.Parent = (bparent != null) ? this.Bsg.Nodes.IndexOf(bparent) : -1;
                     copies[b.Id] = bc;
                     this.Bsg.Nodes.Add(bc);
                 }
@@ -677,8 +1041,183 @@ namespace ForzaStudio
             this.FbfChanged = this.BgfChanged = true;
             this.BsgChanged = this.BsgChanged || this.Bsg != null;
             this.Build();
-            return this.Nodes[newIndex[root.Index]];
+            Node result = this.Nodes[newIndex[root.Index]];
+            if (!cross)
+            {
+                this.PlaceAt(result, place, placeZ);
+            }
+            return result;
         }
+
+        // Moves a node so that its position point is at a point of the screen (world) and its depth is z; false when
+        // it has no editable position.
+        public bool PlaceAt(Node node, PointF world, float z)
+        {
+            if (!IsSpatial(node) || this.TransformSource(node, "position.x") == null || this.TransformSource(node, "position.y") == null)
+            {
+                return false;
+            }
+            PointF local = ToParent(node, world);
+            this.WriteTransform(node, "position.x", local.X);
+            this.WriteTransform(node, "position.y", local.Y);
+            if (node.Parent != null)
+            {
+                this.WriteTransform(node, "position.z", z - node.Parent.Z);
+            }
+            this.Update();
+            return true;
+        }
+
+        // ---- Add (a copy of something this dash already has) ----
+
+        // The element to copy for a new "text", "rectangle" (one flat colour) or "image" (a texture): the first the dash
+        // has of that kind. Null when it has none.
+        public Node Template(string kind)
+        {
+            foreach (Node n in this.Nodes)
+            {
+                if (n.Record == null)
+                {
+                    continue;
+                }
+                if (kind == "text")
+                {
+                    if (n.Record.Type == AnarkFbf.RecordType.Text && n.Element.Find("textstring") != null && n.Element.Find("font") != null
+                        && n.Element.Find("size") != null && this.ColorSource(n) != null)
+                    {
+                        return n;
+                    }
+                    continue;
+                }
+                if (n.Record.Type != AnarkFbf.RecordType.Model || n.Children.Count != 1)
+                {
+                    continue;
+                }
+                Node material = MaterialOf(n);
+                if (material == null || this.ColorSource(n) == null)
+                {
+                    continue;
+                }
+                Node image = ImageOf(material);
+                if (kind == "rectangle" && image == null && material.Children.Count == 0)
+                {
+                    return n;
+                }
+                if (kind == "image" && image != null && material.Children.Count == 1)
+                {
+                    return n;
+                }
+            }
+            return null;
+        }
+
+        // ---- Delete ----
+
+        // Why a node cannot be removed for good, or null when it can. The game counts elements by index, so only the
+        // last elements of the dash can go (the ones added, in practice); anything else can be hidden.
+        public string WhyNotRemovable(Node node)
+        {
+            if (node.Element.Type == AnarkBgf.ElementType.Behaviour || node.Parent == null)
+            {
+                return node.Name + " is a behaviour or the scene of the game";
+            }
+            if (this.Bgf.Slides == null)
+            {
+                return "the slides of this dash are not understood";
+            }
+            List<int> subtree = this.Subtree(node);
+            foreach (int i in subtree)
+            {
+                if ((this.Nodes[i].Element.Type == AnarkBgf.ElementType.Component && i != node.Index) || this.Nodes[i].Element.Type == AnarkBgf.ElementType.Behaviour)
+                {
+                    return node.Name + " holds a behaviour or another gauge of the game";
+                }
+            }
+            if (node.Index + subtree.Count != this.Nodes.Count)
+            {
+                return node.Name + " is not one of the last elements of the dash, and the game numbers the elements (it can be hidden instead)";
+            }
+            if (this.Bgf.IndexMentioned(node.Index))
+            {
+                return node.Name + " may be used by an animation or a behaviour of the game (it can be hidden instead)";
+            }
+            return null;
+        }
+
+        // Removes a node with everything under it (see WhyNotRemovable). The node tree is rebuilt.
+        public bool Remove(Node node)
+        {
+            this.Blocked = this.WhyNotRemovable(node);
+            if (this.Blocked != null)
+            {
+                return false;
+            }
+            int first = node.Index;
+            // data channels that point inside what goes are set free
+            List<string> gone = new List<string>();
+            foreach (int i in this.Subtree(node))
+            {
+                gone.Add(this.PathOf(this.Nodes[i]));
+            }
+            foreach (Node b in this.Nodes)
+            {
+                if (b.Element.Type == AnarkBgf.ElementType.Behaviour && b.Element.Parent == this.Root.Index)
+                {
+                    foreach (AnarkBgf.Property p in b.Element.Properties)
+                    {
+                        string target = (p.Kind == AnarkBgf.ValueKind.String && p.IsBehaviourParameter) ? this.Bgf.GetString(p) : null;
+                        if (target != null && gone.Contains(target))
+                        {
+                            this.SetTarget(b, p, "Scene.UIContract");
+                        }
+                    }
+                }
+            }
+            List<AnarkBgf.Element> elements = this.Bgf.Elements;
+            Dictionary<uint, bool> ids = new Dictionary<uint, bool>();
+            List<int> strings = new List<int>();
+            for (int i = first; i < elements.Count; i++)
+            {
+                ids[elements[i].Id] = true;
+                foreach (AnarkBgf.Property p in elements[i].Properties)
+                {
+                    if (p.Kind == AnarkBgf.ValueKind.String && p.Value < this.Bgf.Strings.Count)
+                    {
+                        strings.Add((int) p.Value);
+                    }
+                }
+            }
+            this.Fbf.Records.RemoveAll(delegate(AnarkFbf.Record r) { return ids.ContainsKey(r.Id); });
+            if (this.Bsg != null)
+            {
+                List<AnarkBsg.Node> old = new List<AnarkBsg.Node>(this.Bsg.Nodes);
+                this.Bsg.Nodes.RemoveAll(delegate(AnarkBsg.Node b) { return ids.ContainsKey(b.Id); });
+                foreach (AnarkBsg.Node b in this.Bsg.Nodes)
+                {
+                    if (b.Parent >= 0 && b.Parent < old.Count)
+                    {
+                        b.Parent = this.Bsg.Nodes.IndexOf(old[b.Parent]);
+                    }
+                }
+                foreach (uint id in ids.Keys)
+                {
+                    this.Bsg.RemoveFromTable(id);
+                }
+                this.BsgChanged = true;
+            }
+            strings.Sort();
+            for (int k = strings.Count - 1; k >= 0 && strings[k] == this.Bgf.Strings.Count - 1; k--)
+            {
+                this.Bgf.Strings.RemoveAt(strings[k]);       // only the last strings can go: the others keep their numbers
+            }
+            elements.RemoveRange(first, elements.Count - first);
+            this.Bgf.RemoveFromSlides(first);
+            this.Bgf.UpdateHeader();
+            this.FbfChanged = this.BgfChanged = true;
+            this.Build();
+            return true;
+        }
+
 
         public bool MoveBy(Node node, float dx, float dy)
         {
@@ -804,6 +1343,52 @@ namespace ForzaStudio
             this.Bgf.Strings[(int) p.Value] = value;
             this.BgfChanged = true;
             this.Update();
+            return true;
+        }
+
+        // The path the data contract uses for an element: "parent." + the names from the scene's child down to it.
+        public string PathOf(Node node)
+        {
+            string path = node.Name;
+            for (Node n = node.Parent; n != null && n != this.Root; n = n.Parent)
+            {
+                path = n.Name + "." + path;
+            }
+            return "parent." + path;
+        }
+
+        // The paths of the elements a contract parameter can point at (texts, models, groups, gauges).
+        public List<string> Paths()
+        {
+            List<string> list = new List<string>();
+            list.Add("Scene.UIContract");
+            foreach (Node n in this.Nodes)
+            {
+                if (n != this.Root && n.Record != null && n.Record.Type != AnarkFbf.RecordType.Material && n.Record.Type != AnarkFbf.RecordType.Image
+                    && n.Record.Type != AnarkFbf.RecordType.Light && n.Record.Type != AnarkFbf.RecordType.Camera)
+                {
+                    list.Add(this.PathOf(n));
+                }
+            }
+            return list;
+        }
+
+        // A contract target: the path, and the "on" switch just before it follows (1 for a path, 0 for none).
+        public bool SetTarget(Node node, AnarkBgf.Property p, string path)
+        {
+            if (!this.SetStringProperty(node, p, path))
+            {
+                return false;
+            }
+            int i = node.Element.Properties.IndexOf(p);
+            if (i > 0)
+            {
+                AnarkBgf.Property on = node.Element.Properties[i - 1];
+                if (on.IsBehaviourParameter && on.Kind == AnarkBgf.ValueKind.Bool)
+                {
+                    on.Value = (path.Length > 0 && path != "Scene.UIContract" && path != "this") ? 1u : 0u;
+                }
+            }
             return true;
         }
 

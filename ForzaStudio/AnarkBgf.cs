@@ -136,6 +136,31 @@ namespace ForzaStudio
                 new int[] { 0x2C, properties }, new int[] { 0x78, properties }, new int[] { 0x30, behaviours }, new int[] { 0x7C, behaviours },
                 new int[] { 0x3C, this.Strings.Count },
             };
+            // 0x1C = highest element id << 8 (431 of 431 files): the game sizes its id tables by it, an id above it
+            // is out of range (this was the crash on load of the first copies).
+            uint maxId = 0;
+            foreach (Element e in this.Elements)
+            {
+                maxId = Math.Max(maxId, e.Id);
+            }
+            fields = new List<int[]>(fields) { new int[] { 0x1C, (int) (maxId << 8) } }.ToArray();
+            if (this.Slides != null)
+            {
+                int entries = 0, items = 0, tracks = 0;
+                foreach (Slide slide in this.Slides)
+                {
+                    entries += slide.Entries.Count;
+                    foreach (SlideEntry e in slide.Entries)
+                    {
+                        items += e.ItemCount;
+                        tracks += e.TrackCount;
+                    }
+                }
+                fields = new List<int[]>(fields)
+                {
+                    new int[] { 0x5C, this.Slides.Count }, new int[] { 0x60, entries }, new int[] { 0x64, items }, new int[] { 0x68, tracks },
+                }.ToArray();
+            }
             foreach (int[] f in fields)
             {
                 this.Header[f[0]] = (byte) (f[1] >> 24);
@@ -151,7 +176,317 @@ namespace ForzaStudio
         public byte[] Header;
         public List<string> Strings = new List<string>();
         public List<Element> Elements = new List<Element>();
-        public byte[] Rest;                  // slides and animations
+        public byte[] Rest;                  // behaviour table, animations, events, slides (see Slides)
+
+        // The tail after the graph: five blocks, each a u32 size + bytes: behaviours (u32 element index, u32 n, n u32),
+        // animation tracks (u32 element index, u32 property hash, u32 type + key count, 6 words per key), events,
+        // one more (empty in every file seen) and the SLIDES. All 431 dashes read and write back byte for byte.
+        // Only the slides are parsed: they list, for every component (the scene and each gauge), the elements it owns
+        // (itself, its elements down to the next component, and the components under it), in index order, and one
+        // slide has one entry per element. An element missing from a slide of its component was never seen.
+        //   slide  = 25 bytes name, u32 duration, u32 entry count, entries
+        //   entry  = u32 element index, u8 flag, u32 A, A x 8 bytes, u32 N, N x 4 bytes (animation tracks used)
+        // Header 0x5C = slide count, 0x60 = entries, 0x64 = A items, 0x68 = track references (all 431 files).
+        public class SlideEntry
+        {
+            public uint Index;
+            public byte Flag;
+            public byte[] Data = new byte[8];   // A, A items, N, N tracks
+
+            public int ItemCount { get { return (int) ReadU32(this.Data, 0); } }
+            public int TrackCount { get { return (int) ReadU32(this.Data, 4 + 8 * this.ItemCount); } }
+        }
+
+        public class Slide
+        {
+            public byte[] Name = new byte[25];
+            public uint Duration;
+            public List<SlideEntry> Entries = new List<SlideEntry>();
+
+            public string Label
+            {
+                get
+                {
+                    int n = Array.IndexOf(this.Name, (byte) 0);
+                    return Latin1.GetString(this.Name, 0, (n < 0) ? this.Name.Length : n);
+                }
+            }
+        }
+
+        public List<Slide> Slides;           // null when the tail did not read as expected: then Rest is written as it is
+        private int slideStart;              // in Rest: first byte after the size of the slide block
+
+        private void ParseSlides()
+        {
+            this.Slides = null;
+            try
+            {
+                byte[] d = this.Rest;
+                int o = 0;
+                for (int block = 0; block < 4; block++)
+                {
+                    long size = (uint) ReadU32(d, o);
+                    o += 4;
+                    if (o + size > d.Length)
+                    {
+                        return;
+                    }
+                    o += (int) size;
+                }
+                long slideBytes = (uint) ReadU32(d, o);
+                o += 4;
+                if (o + slideBytes != d.Length)
+                {
+                    return;
+                }
+                List<Slide> slides = new List<Slide>();
+                int start = o;
+                while (o < d.Length)
+                {
+                    Slide slide = new Slide();
+                    Buffer.BlockCopy(d, o, slide.Name, 0, 25);
+                    slide.Duration = (uint) ReadU32(d, o + 25);
+                    uint count = (uint) ReadU32(d, o + 29);
+                    o += 33;
+                    for (uint i = 0; i < count; i++)
+                    {
+                        SlideEntry entry = new SlideEntry();
+                        entry.Index = (uint) ReadU32(d, o);
+                        entry.Flag = d[o + 4];
+                        o += 5;
+                        int items = ReadU32(d, o);
+                        if (items < 0 || items > 100000)
+                        {
+                            return;
+                        }
+                        int tracksAt = o + 4 + items * 8;
+                        int tracks = ReadU32(d, tracksAt);
+                        if (tracks < 0 || tracks > 100000)
+                        {
+                            return;
+                        }
+                        int end = tracksAt + 4 + tracks * 4;
+                        if (end > d.Length)
+                        {
+                            return;
+                        }
+                        entry.Data = new byte[end - o];
+                        Buffer.BlockCopy(d, o, entry.Data, 0, entry.Data.Length);
+                        o = end;
+                        slide.Entries.Add(entry);
+                    }
+                    slides.Add(slide);
+                }
+                if (o != d.Length)
+                {
+                    return;
+                }
+                this.slideStart = start;
+                this.Slides = slides;
+            }
+            catch (IndexOutOfRangeException)
+            {
+                this.Slides = null;
+            }
+            catch (ArgumentException)
+            {
+                this.Slides = null;
+            }
+        }
+
+        private byte[] BuildRest()
+        {
+            if (this.Slides == null)
+            {
+                return this.Rest;
+            }
+            MemoryStream slides = new MemoryStream();
+            foreach (Slide slide in this.Slides)
+            {
+                slides.Write(slide.Name, 0, 25);
+                WriteU32(slides, slide.Duration);
+                WriteU32(slides, (uint) slide.Entries.Count);
+                foreach (SlideEntry entry in slide.Entries)
+                {
+                    WriteU32(slides, entry.Index);
+                    slides.WriteByte(entry.Flag);
+                    slides.Write(entry.Data, 0, entry.Data.Length);
+                }
+            }
+            MemoryStream rest = new MemoryStream();
+            rest.Write(this.Rest, 0, this.slideStart - 4);
+            WriteU32(rest, (uint) slides.Length);
+            slides.WriteTo(rest);
+            return rest.ToArray();
+        }
+
+        // The animation tracks (block 2 of the tail): element index, property hash, number of keys; null when the block
+        // does not read as tracks. A key is 6 words: time in ms, value, three more floats, and a last value.
+        public List<uint[]> Tracks()
+        {
+            if (this.Slides == null)
+            {
+                return null;
+            }
+            byte[] d = this.Rest;
+            int o = 4 + ReadU32(d, 0);
+            int size = ReadU32(d, o);
+            int t = o + 4, end = t + size;
+            List<uint[]> list = new List<uint[]>();
+            while (t < end)
+            {
+                if (t + 12 > end)
+                {
+                    return null;
+                }
+                uint keys = (uint) ReadU32(d, t + 8) & 0xFFFFFF;
+                list.Add(new uint[] { (uint) ReadU32(d, t), (uint) ReadU32(d, t + 4), keys });
+                t += 12 + (int) keys * 24;
+            }
+            return (t == end) ? list : null;
+        }
+
+        // The behaviour table (block 1 of the tail): element index of each behaviour and the numbers listed with it.
+        public List<uint[]> BehaviourTable()
+        {
+            if (this.Slides == null)
+            {
+                return null;
+            }
+            byte[] d = this.Rest;
+            int size = ReadU32(d, 0);
+            int t = 4, end = 4 + size;
+            List<uint[]> list = new List<uint[]>();
+            while (t + 8 <= end)
+            {
+                int n = ReadU32(d, t + 4);
+                if (n < 0 || t + 8 + n * 4 > end)
+                {
+                    return null;
+                }
+                uint[] row = new uint[n + 1];
+                row[0] = (uint) ReadU32(d, t);
+                for (int i = 0; i < n; i++)
+                {
+                    row[i + 1] = (uint) ReadU32(d, t + 8 + i * 4);
+                }
+                list.Add(row);
+                t += 8 + n * 4;
+            }
+            return (t == end) ? list : null;
+        }
+
+        // The slides of the component at element index owner.
+        public List<Slide> SlidesOf(int owner)
+        {
+            List<Slide> list = new List<Slide>();
+            if (this.Slides != null)
+            {
+                foreach (Slide slide in this.Slides)
+                {
+                    if (slide.Entries.Count > 0 && slide.Entries[0].Index == owner)
+                    {
+                        list.Add(slide);
+                    }
+                }
+            }
+            return list;
+        }
+
+        // Lists the new element (the last one, so index order holds) in every slide of its component. The flag
+        // (what the slide does with it) is copied from the element it was copied from, else from the component.
+        public int AddToSlides(int owner, int index, int like)
+        {
+            int n = 0;
+            foreach (Slide slide in this.SlidesOf(owner))
+            {
+                SlideEntry model = slide.Entries[0];
+                foreach (SlideEntry e in slide.Entries)
+                {
+                    if (e.Index == like)
+                    {
+                        model = e;
+                    }
+                }
+                SlideEntry entry = new SlideEntry();
+                entry.Index = (uint) index;
+                entry.Flag = model.Flag;
+                slide.Entries.Add(entry);
+                n++;
+            }
+            return n;
+        }
+
+        // Takes the elements at index >= first out of every slide (they are the last ones of the graph).
+        public void RemoveFromSlides(int first)
+        {
+            if (this.Slides != null)
+            {
+                foreach (Slide slide in this.Slides)
+                {
+                    slide.Entries.RemoveAll(delegate(SlideEntry e) { return e.Index >= first; });
+                }
+                this.Slides.RemoveAll(delegate(Slide s) { return s.Entries.Count == 0; });      // the slides of a removed component
+            }
+        }
+
+        // True when a word of the behaviour, animation, event or other blocks equals one of the indexes: such an
+        // element may be used by a behaviour or animation (a false alarm is possible, never a miss).
+        public bool IndexMentioned(int first)
+        {
+            return this.IndexMentioned(first, this.Elements.Count);
+        }
+
+        public bool IndexMentioned(int first, int last)
+        {
+            byte[] d = this.Rest;
+            if (this.Slides == null)
+            {
+                return true;
+            }
+            int count = last;
+            int o = 0;
+            for (int block = 0; block < 4; block++)
+            {
+                int size = ReadU32(d, o);
+                int start = o + 4, end = start + size;
+                if (block == 1)
+                {
+                    // animation tracks: u32 element, u32 property hash, u32 type + key count, 6 words per key; only the element counts
+                    int t = start;
+                    bool whole = true;
+                    while (t < end)
+                    {
+                        if (t + 12 > end)
+                        {
+                            whole = false;
+                            break;
+                        }
+                        uint element = (uint) ReadU32(d, t);
+                        if (element >= first && element < count)
+                        {
+                            return true;
+                        }
+                        t += 12 + (ReadU32(d, t + 8) & 0xFFFFFF) * 24;
+                    }
+                    if (whole && t == end)
+                    {
+                        o = end;
+                        continue;
+                    }
+                }
+                for (int w = start; w + 4 <= end; w += 4)
+                {
+                    uint v = (uint) ReadU32(d, w);
+                    if (v >= first && v < count)
+                    {
+                        return true;
+                    }
+                }
+                o = end;
+            }
+            return false;
+        }
 
         public static uint HashName(string name)
         {
@@ -175,7 +510,42 @@ namespace ForzaStudio
             "positionu", "positionv", "scaleu", "scalev", "rotationuv", "tilingmodehorz", "tilingmodevert",
         };
 
-        private static Dictionary<uint, string> names;
+        // The data contract: the first behaviour of every dash (the scene's "UIContract", 94 parameters in order, the same
+        // 97 hashes in all 431 dashes of FM4, FH2 and FH1). The game fills the dash through it: a parameter pair "on"
+        // (bool) + "target" (string) says which element of the dash receives a value; the target is a path of names
+        // from the scene ("parent.Layer.Gauge_Gear.Group.TEXT_GEAR_DATA"), "Scene.UIContract" or "this" when unused.
+        // The meaning of each hash is read from the names of the targets the dashes use (TEXT_TACH_DATA on 001BB29C...)
+        // and from the values (a redline of 8000-10000 rpm, 6 gears...): the labels are deductions, not game names.
+        private static readonly string[] ContractLabels = new string[]
+        {
+            "064CB58A:Contract name", "073F25FB:Contract is on", "04A9EC63:Contract type", "02C190DD:Overlays group",
+            "02FB3C14:Speed gauge on", "012D5B95:Speed gauge target", "01CC92B1:Speed text on", "01F1A7EB:Speed text target", "071FE357:Speed max (km/h)",
+            "001001EB:Odometer text on", "030765FF:Odometer text target", "06E717D2:Trip text on", "015CE8CE:Trip text target", "04447E03:Odometer units?",
+            "078C1FAF:Tach gauge on", "03F59520:Gear gauge on (extra slot)", "03FFB820:Gear gauge target (extra slot)", "05667472:Tach gauge target",
+            "026A51D2:Tach text on", "001BB29C:Tach text target (rpm number)", "008BDC30:Tach max rpm", "06B664B0:Tach (always 0)",
+            "07F77F3B:Gear gauge on", "038EC7D5:Gear gauge target", "06BAFBAF:Gear text on", "064405FF:Gear text target", "01946C81:Gear (-1 or 0)", "06B42F93:Number of gears",
+            "030EA3D3:Fuel gauge on", "0201B14E:Fuel gauge target", "05ECD5F6:Fuel text on", "04B6EF78:Fuel text target", "071C402C:Fuel capacity",
+            "072842D0:Boost gauge on", "04878BD9:Boost gauge target", "05F9996D:Boost text on", "054BD82F:Boost text target (turbo pressure)",
+            "070BB30D:Boost min", "04EEB47B:Boost max", "077022BF:Boost (0 or 1)",
+            "045E1DF7:Current lap time text on", "00B74AB7:Current lap time text target", "058A8F84:Last lap text on", "03DC8BD8:Last lap text target",
+            "06AD5476:Best lap text on", "04FB9F66:Best lap text target", "03019601:Race position text on", "01446A9B:Race position text target",
+            "068C0956:Race cars text target", "013C521F:Lap number text on", "042EF57D:Lap number text target", "0720D35B:Total laps text target",
+            "06079D40:ABS light on", "05CD6BF1:ABS light target", "024544BA:Stability light on", "041F2EF7:Stability light target",
+            "04B5A012:Traction light on", "024CF99F:Traction light target", "070BB8D0:Shift lights on", "04EF8E64:Shift lights target",
+            "02A10FFC:Clock text on", "07C92224:Clock text target",
+            "0421DCCF:Oil pressure gauge on", "000C0752:Oil pressure gauge target", "06A108F2:Oil pressure text on", "06FE717C:Oil pressure text target",
+            "06343B1E:Oil pressure min", "00DD5A30:Oil pressure max",
+            "062AC6FE:Oil temp gauge on", "0260E6E3:Oil temp gauge target", "06E7F621:Oil temp text on", "03DFBB0D:Oil temp text target",
+            "000C66AF:Oil temp min", "0127D7C1:Oil temp max", "04C7B9AE:Oil temp units?",
+            "02D9FCD9:Water temp gauge on", "053A43C8:Water temp gauge target", "032BCA7C:Water temp text on", "013DA2F2:Water temp text target",
+            "038A9D94:Water temp min", "04DAA5A6:Water temp max", "01D42193:Water temp units?",
+            "0775A5DF:Extra slot on", "01E4B312:Extra slot target", "07F5FDF2:Outside temp text on", "06CD5CEA:Outside temp text target", "010BBFA9:Outside temp units?",
+            "0455E536:G meter on", "076FA337:G meter text on", "000912F3:G meter horizontal target", "000A1332:G meter vertical target",
+            "061C739A:G meter number on", "042B33C2:G meter number target",
+            "0523363B:Memory on", "03C40DE5:Animation name", "0263A72E:Tach memory target",
+        };
+
+        private static Dictionary<uint, string> names, contract;
 
         public static string PropertyName(uint hash)
         {
@@ -187,9 +557,20 @@ namespace ForzaStudio
                     map[HashName(name)] = name;
                 }
                 names = map;
+                Dictionary<uint, string> labels = new Dictionary<uint, string>();
+                foreach (string line in ContractLabels)
+                {
+                    labels[Convert.ToUInt32(line.Substring(0, 8), 16)] = line.Substring(9);
+                }
+                contract = labels;
             }
             string found;
-            return names.TryGetValue(hash & 0x07FFFFFF, out found) ? found : null;
+            uint key = hash & 0x07FFFFFF;
+            if (names.TryGetValue(key, out found))
+            {
+                return found;
+            }
+            return ((hash & 0x80000000) != 0 && contract.TryGetValue(key, out found)) ? found : null;
         }
 
         public static AnarkBgf Read(byte[] data)
@@ -250,6 +631,7 @@ namespace ForzaStudio
                 throw new InvalidDataException("graph section overrun");
             }
             bgf.Rest = Bytes(data, ref o, data.Length - o);
+            bgf.ParseSlides();
             return bgf;
         }
 
@@ -287,7 +669,8 @@ namespace ForzaStudio
             strings.WriteTo(s2);
             WriteU32(s2, (uint) graph.Length);
             graph.WriteTo(s2);
-            s2.Write(this.Rest, 0, this.Rest.Length);
+            byte[] rest = this.BuildRest();
+            s2.Write(rest, 0, rest.Length);
             return s2.ToArray();
         }
 
@@ -306,6 +689,11 @@ namespace ForzaStudio
         public string GetString(Property p)
         {
             return (p != null && p.Value < this.Strings.Count) ? this.Strings[(int) p.Value] : null;
+        }
+
+        internal static int ReadU32(byte[] data, int o)
+        {
+            return (data[o] << 24) | (data[o + 1] << 16) | (data[o + 2] << 8) | data[o + 3];
         }
 
         private static int U32(byte[] data, ref int o)
