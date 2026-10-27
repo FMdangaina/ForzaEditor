@@ -253,8 +253,7 @@ console tests). Docs: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 A make FM4 lacks (or a brand-new one), local or in a DLC pack. Code: `CarMake.cs`, `NewMakeForm.cs`, `CarPortForm.Makes.cs`.
 
 - [x] 8.1 ✅ CLOSED 2026-10-27 in game (user: Bowler imported, its make logo shows in the DLC) In-game check (local and pack): the make's page, logo in the list, Livery editor with no decals (2026-10-26: name and page OK, logo black square -> D-13 fix, T-G13 to check)
-- [ ] 8.2 Open: own decals (`Livery_DecalsSortOrder`), a country not in `List_Country`, a logo with its own look for the `_wtbg` folder,
-      edit / remove a created make, per-language names in the dialog (uninstalling the last car of a make already removes the make)
+- [ ] 8.2 REDUCED by the user 2026-10-27: the makes in the game DB are for dev builds, everything must come from DLC packs, so decals, `_wtbg` logo look, edit / remove a make and per-language names are dropped.      Only this is kept: in the DLC creation wizard (new make page), if the make's country is not in `List_Country`, ask for the flag image, the country name (and region) and add the country to the pack.
 
 ### 9. Materials and game shaders ✅ (finished 2026-10-26: FM4-shader search in the editor + magenta marking of errors work well, user)
 
