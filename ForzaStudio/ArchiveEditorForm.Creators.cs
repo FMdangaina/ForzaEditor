@@ -104,16 +104,17 @@ namespace ForzaStudio
             this.ShowDbContent(this.tabEvent);
         }
 
-        // Events have no picture of their own: the poster of their career type (Club, Showcase...), and
-        // when that has none the logo of the first race's track.
+        // The event's own poster is UI4\Logos\Posters\EventBkgd<Events.Id>.xds in Textures.zip; when it is missing
+        // the poster of their career type (Club, Showcase...), and when that has none the logo of the first race's track.
         private void UpdateEventPicture(long id)
         {
+            Bitmap image = this.LoadGameImage("GAME:\\Media\\UI\\Textures\\UI4\\Logos\\Posters\\EventBkgd" + id.ToString(CultureInfo.InvariantCulture) + ".xds");
             string path = null;
-            if (this.gameDb.HasTable("CareerEventTypes"))
+            if (image == null && this.gameDb.HasTable("CareerEventTypes"))
             {
                 path = this.gameDb.Sql.Scalar("SELECT t.PosterPath FROM CareerEventTypes t JOIN Events e ON e.CareerTypeId = t.id WHERE e.Id = ?", id) as string;
+                image = this.LoadGameImage(path);
             }
-            Bitmap image = this.LoadGameImage(path);
             if (image == null && this.gameDb.HasTable("Races"))
             {
                 path = this.gameDb.Sql.Scalar("SELECT t.Logo FROM Races r JOIN Tracks t ON t.id = r.TrackId WHERE r.EventId = ? ORDER BY r.RaceNumber LIMIT 1", id) as string;
