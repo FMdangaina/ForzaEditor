@@ -28,9 +28,9 @@ Build: `C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\
 | T-ED1 | Database view: sections **Engines, Makes, Countries, Manufacturers** (list columns, record tab, related tab, search, sort, Back, Go to / Used by from a car's engine, a make, a country, a wheel's manufacturer) | 2026-10-23 | ✅ 2026-10-27 (user) |
 | T-ED2 | Logos on Makes (dark + light), Countries (flag), Manufacturers (`Car_Parts_Logos\decalNNN`; 337 of 569 have no file in FM4 = empty box is normal) | 2026-10-23 | ✅ 2026-10-27 (user) |
 | T-ED3 | **Events** header picture (poster of the career type; 17 of 32 types have none, the first race's track logo is used) | 2026-10-23 | ✅ 2026-10-27 (user) |
-| T-ED4 | Manufacturers > Parts tab: no more engine / drivetrain rows (those point at CarMake); wheels, tire brands, discounts listed | 2026-10-23 | – |
-| T-ED5 | Engine designer (wizard page 4): Ctrl+V of two Excel columns (rpm, N.m) at any rpm; one column; header line; comma decimals | 2026-10-23 | – |
-| T-ED6 | Duplicate Car wizard: "in a new DLC pack" can be chosen; asks for Xenia's folder when Settings has none; Cancel returns to "game folder" | 2026-10-23 | – |
+| T-ED4 | Manufacturers > Parts tab: no more engine / drivetrain rows (those point at CarMake); wheels, tire brands, discounts listed | 2026-10-23 | ✅ 2026-10-27 (user) |
+| T-ED5 | Engine designer (wizard page 4): Ctrl+V of two Excel columns (rpm, N.m) at any rpm; one column; header line; comma decimals | 2026-10-23 | ✅ 2026-10-27 (user: Excel curve of the 1750 FPT 200 hp pasted into a Brera, a "Brera 1750", all worked) |
+| T-ED6 | Duplicate Car wizard: "in a new DLC pack" can be chosen; asks for Xenia's folder when Settings has none; Cancel returns to "game folder" | 2026-10-23 | 🧪 2026-10-27 (user: the Brera 1750 duplicated into a DLC pack, in use; the Xenia-folder prompt and Cancel not reported) |
 | T-ED7 | Driver tab in the model view (rig points, carattribs offsets) | 2026-10-22 | ✅ 2026-10-27 (user: works on cockpit.carbin) |
 | T-ED8 | Duplicate Car wizard end to end on a copy (car, names, Data, engine page, summary, Create) incl. "own engine" | 2026-10-22 | ✅ 2026-10-27 (user: copy on original gamedb.slt and on a DLC, no problems) |
 | T-ED9 | SQL console diagnostics list (`SqlDiagnostics.cs`) and EventRestrictions decode | 2026-10-22 | ✅ 2026-10-27 (user: all tested) |
