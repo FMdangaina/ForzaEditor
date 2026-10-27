@@ -5439,6 +5439,7 @@ namespace ForzaStudio
                 {
                     this.Line("engine sound {0}: " + this.game + " tuning, its harmonic tunings are all in FM4{1}", media, (imported.Count > 0) ? " (" + imported.Count + " brought from " + this.game + ")" : "");
                     data = this.CompleteEngineTuning(media, data, engineTuning, donorEngine, harmonic, sourceHarmonic);
+                    data = this.DscBlowOff(media, data);
                 }
                 this.Put(engineTuning, media + "_ET.xml", data);
             }
@@ -5457,6 +5458,41 @@ namespace ForzaStudio
                 this.Put(carModels, this.CarName + "_CMT.xml", tuning);
                 this.Line("car model tuning {0}_CMT.xml added", this.CarName);
             }
+        }
+
+        // A supercharged (DSC, Data_Engine.AspirationID_Stock 5) engine with the source's blow-off slots played a
+        // blow-off on throttle lift and no supercharger whine in FM4 (Bowler Nemesis EXR from FH2, slots L1 1/2,
+        // L2 3/5, L3 3/5); with the Ford GT's slots (L1 1/1, L2 2/1, L3 3/1) the whine is back and the blow-off
+        // gone (user, in game 2026-10-27). Only the DSC engines get them; everything else stays the source's.
+        private byte[] DscBlowOff(string media, byte[] data)
+        {
+            object aspiration = this.target.Scalar("SELECT AspirationID_Stock FROM Data_Engine WHERE MediaName = ? COLLATE NOCASE", media);
+            if (aspiration == null || aspiration is DBNull || Convert.ToInt64(aspiration, CultureInfo.InvariantCulture) != 5)
+            {
+                return data;
+            }
+            Encoding latin = Encoding.GetEncoding(28591);
+            string text = latin.GetString(data);
+            string result = text;
+            StringBuilder was = new StringBuilder();
+            for (int slot = 1; slot <= 3; slot++)
+            {
+                Match level = Regex.Match(result, "blowoffL" + slot + "Level=\"([^\"]*)\"");
+                Match choice = Regex.Match(result, "blowoffL" + slot + "Choice=\"([^\"]*)\"");
+                if (!level.Success || !choice.Success)
+                {
+                    return data;
+                }
+                was.Append((slot > 1 ? ", " : "") + "L" + slot + " " + level.Groups[1].Value + "/" + choice.Groups[1].Value);
+                result = Regex.Replace(result, "blowoffL" + slot + "Level=\"[^\"]*\"", "blowoffL" + slot + "Level=\"" + slot + "\"");
+                result = Regex.Replace(result, "blowoffL" + slot + "Choice=\"[^\"]*\"", "blowoffL" + slot + "Choice=\"1\"");
+            }
+            if (result == text)
+            {
+                return data;
+            }
+            this.Line("  engine sound {0}: supercharged (DSC), blow-off slots {1} -> L1 1/1, L2 2/1, L3 3/1 (the Ford GT's: with the source's the game plays a blow-off and no supercharger whine)", media, was.ToString());
+            return latin.GetBytes(result);
         }
 
         // FM3's engine tuning is an older, shorter layout (all 490 FM3 files against FM4's 501): it lacks
