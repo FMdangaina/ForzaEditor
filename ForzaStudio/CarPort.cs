@@ -4731,7 +4731,7 @@ namespace ForzaStudio
                 tire.Add(entry.Name.ToLowerInvariant().Replace(("tire" + kind + offroad).ToLowerInvariant(), ("tire" + kind + this.CarName).ToLowerInvariant()), from.Read(entry));
             }
             this.SaveNew(tire, path);
-            this.Line("tire zip: {0} ({1} entries, the H1's offroad tire)", this.Relative(path), tire.Entries.Count);
+            this.Line("tire zip: {0} ({1} entries, the H1's offroad tire as it is)", this.Relative(path), tire.Entries.Count);
         }
 
         // A car with its own tire model (the games ship Media\wheels\TireA/B/C<wheel>.zip beside the generic TireA/B/C.zip: the
