@@ -20,7 +20,7 @@ T-ED1 - T-ED9, T-G11, T-G14, T-G15, 8.1, D-2, D-8, D-16, D-18, 3.9. T-G7 and T-G
 
 ## Still to see
 - T-G8 (13.1): menu song `blowmeaway22` created, test with a modified file holding only that song; second song, mono / 48 kHz.
-- T-G12 / B1: crash deformation ("benino" on the C7), `carattribs.xml` deformation values to raise; T1 - T6 of B1 only if still needed.
+- T-G12 / B1: CLOSED by the user (BRZ port deforms well with the damage scaler +1).
 - D-17 / the Raptor grip (suspended): FH1 / FH2 ports have more grip than FM4's own car; the tire zips are now by car name, so look again.
 - 3.5 missing sounds across generations (classify cases, mapping table); the donor engine sound read from a DLC pack (`ReadTuning`) was never reached by a trial.
 - Waiting for the user's .carbin: offroad tires, small tires, generic brake discs for "standard" cars (FM2 / FH1 / FH2 traffic).
