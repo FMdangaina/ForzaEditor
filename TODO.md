@@ -176,7 +176,18 @@ Tools > Import Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`). All 7
       bank (ET → HT → `<Soundbank>` check, as `CarPort.ImportHarmonic`).
 - [ ] 3.5 Missing sounds across generations (ex C6). One case classified and fixed (FM3 engine tuning format); banks: source game first,
       FM4 car picked in the review for what is missing, `NA.fsb` = no sound. Left:
-  - [ ] 3.5.1 Classify more real cases (missing reference / asset / format / audio system)
+  - [x] 3.5.1 Classify more real cases (missing reference / asset / format / audio system). CENSUS 2026-10-27 (harness `E:\DEV\fm4dev\Sound35`: cen.exe, cend2.exe;
+        every car of every source ported to a scratch folder, donor LAM_LP6704SV_10, sound lines of the report grouped; results in fh1/fh2/fm2/fm3/dlc_*.txt there).
+        Sources: FH2 216, FH1 176, FM3 311 with a model, FM2 234 with a model, DLC from the Xenia content folder (FH1 84 cars, FM3 146, FM2 4); every car ported "ok",
+        0 times "sound bank in neither game". Cases:
+        - **A. the source has no engine tuning at all** -> the donor's tuning, REVIEW line to pick the FM4 car: FM2 234 cars (FM2 has no tuning format, by design),
+          FH2 4 (Fiesta PLAYER, Transit, BoxTruck, Bus), FH1 1 (VW Corrado), FM3 2 (Focus ST / SVT).
+        - **B. FM3 tuning without FM4's DSP blocks** (old format): completed from the FM4 car with the same banks: FM3 275 cars + DLC 78 (all FM3 cars; FH1 / FH2 are fine).
+        - **C. a same-name bank differs between FM3 and FM4**: FM4's kept (warning): FM3 270 cars + DLC 37. Not an error, but the sound may differ from FM3's.
+        - **D. the tuning names a harmonic tuning (`*_HT.xml`) that the source game lacks**: FH1 2 + DLC 9, FM3 1 + DLC 10 (e.g. Huayra, Zagato TZ3, Apollo S, CCX,
+          MP4-12C, Cobra Daytona): the donor's sound for that car, REVIEW line.
+        - Not sound: FM3 104 + FM2 76 database rows without a car zip (cannot be ported); DLC packages without cars (rims, tracks, textures, incomplete files).
+        Next 3.5.2: the mapping table / procedure for A and D (which FM4 car to suggest per missing bank).
   - [ ] 3.5.2 Mapping table between the generations; written procedure to find invalid references
   - [ ] 3.5.3 💤 Engine sound listening tool: same-name banks of source and FM4 played at chosen RPM / throttle, then pick one (needs the
         .fsb / .xma decoder, RPM-to-sample mapping, crossfade)
