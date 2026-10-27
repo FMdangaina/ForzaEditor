@@ -101,6 +101,19 @@ namespace ForzaStudio
                 quality.SetBounds(100, 12 + 5 * 32, 60, 24);
                 form.Controls.Add(quality);
 
+                CheckBox startFirst = new CheckBox();
+                startFirst.Text = "Menu music starts with this song";
+                startFirst.SetBounds(180, 12 + 5 * 32, 270, 24);
+                startFirst.Enabled = false;
+                form.Controls.Add(startFirst);
+                list.SelectedIndexChanged += delegate
+                {
+                    startFirst.Enabled = list.SelectedIndex == 2;      // "Menu (default)": the playlist that has a start="true" song
+                    if (!startFirst.Enabled)
+                    {
+                        startFirst.Checked = false;
+                    }
+                };
                 Button ok = new Button();
                 ok.Text = "Add";
                 ok.SetBounds(294, 200, 75, 26);
@@ -128,7 +141,7 @@ namespace ForzaStudio
                     try
                     {
                         string xma = MusicInstaller.Install(input, MusicDecoder, encoder, this.musicRoot, safe, (int) quality.Value, playlist,
-                            title.Text, artist.Text, delegate(string step) { this.SetStatus(step); Application.DoEvents(); });
+                            title.Text, artist.Text, startFirst.Checked, delegate(string step) { this.SetStatus(step); Application.DoEvents(); });
                         this.SetStatus("Song added: " + xma);
                         form.DialogResult = DialogResult.OK;
                     }

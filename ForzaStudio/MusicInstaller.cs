@@ -35,6 +35,13 @@ namespace ForzaStudio
         public static string Install(string input, string decoder, string encoder, string root, string name, int quality,
             int playlist, string title, string artist, Action<string> progress)
         {
+            return Install(input, decoder, encoder, root, name, quality, playlist, title, artist, false, progress);
+        }
+
+        // start = the menu music starts with this song (start="true", only in "Menu (default)"; the song that had it loses it).
+        public static string Install(string input, string decoder, string encoder, string root, string name, int quality,
+            int playlist, string title, string artist, bool start, Action<string> progress)
+        {
             if (!File.Exists(input))
             {
                 throw new FileNotFoundException("Song file not found: " + input);
@@ -98,13 +105,18 @@ namespace ForzaStudio
             if (playlist >= 0)
             {
                 progress("Adding to " + PlaylistFiles[playlist] + "...");
-                AddSong(Path.Combine(music, PlaylistFiles[playlist]), name, title, artist);
+                AddSong(Path.Combine(music, PlaylistFiles[playlist]), name, title, artist, start && PlaylistFiles[playlist] == "InDefaultUIPlaylist.xml");
             }
             return xma;
         }
 
         // <Song .../> before </Playlist>, the rest of the XML untouched. A copy of the playlist is kept once as .orig.
         public static void AddSong(string playlist, string name, string title, string artist)
+        {
+            AddSong(playlist, name, title, artist, false);
+        }
+
+        public static void AddSong(string playlist, string name, string title, string artist, bool start)
         {
             if (!File.Exists(playlist))
             {
@@ -121,8 +133,14 @@ namespace ForzaStudio
             {
                 throw new InvalidDataException("No </Playlist> in " + playlist);
             }
-            string line = string.Format("  <Song filename=\"{0}\" title=\"{1}\" artist=\"{2}\" album=\"na\" label=\"na\" intro=\"na\" introoffset=\"na\"/>",
-                file, Attr(title), Attr(artist));
+            string line = string.Format("  <Song filename=\"{0}\" title=\"{1}\" artist=\"{2}\" album=\"na\" label=\"na\" intro=\"na\" introoffset=\"na\"{3}/>",
+                file, Attr(title), Attr(artist), start ? " start=\"true\"" : "");
+            if (start)
+            {
+                // one song starts the menu music (checked in game 2026-10-27: a song with start="true" on its own plays first)
+                xml = System.Text.RegularExpressions.Regex.Replace(xml, "\\s+start=\"true\"", "");
+                end = xml.LastIndexOf("</Playlist>", StringComparison.Ordinal);
+            }
             string newline = (xml.IndexOf("\r\n", StringComparison.Ordinal) >= 0) ? "\r\n" : "\n";
             if (!File.Exists(playlist + ".orig"))
             {
