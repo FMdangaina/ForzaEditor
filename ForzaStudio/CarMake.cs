@@ -19,8 +19,20 @@ namespace ForzaStudio
     //           pack build (DlcPackage.BuildFolder) takes the new row, the string tables and the
     //           logo entries from the difference to the game, as it does for a ported make.
     // A make with no car is not listed in game: a car goes under it by the port's Make choice.
+    // A country FM4 lacks, added with the make: the List_Country row, its name (List_Country.str, every
+    // language) and its flag in UI\Textures.zip (UI4/Logos/Country_Flags/L_FLA_<base>_flag.xds).
+    public class CarCountrySpec
+    {
+        public long Id;                 // 0: the next free one (CarMake.FreeCountryId)
+        public string Name;             // as the game shows it, e.g. SWEDEN; every language gets it
+        public string Base;             // the flag's name part: L_FLA_<base>_flag
+        public long RegionId;           // List_Region.Id
+        public string Flag;             // an image file (png, jpg, bmp, tga), stretched to the flags' size
+    }
+
     public class CarMakeSpec
     {
+        public CarCountrySpec NewCountry;   // set: CountryId is the new country's Id (Create adds it first)
         public long Id;                 // 0: the next free one (CarMake.FreeId)
         public string Code;             // List_CarMake.ManufacturerCode, e.g. ACU
         public string Base;             // List_CarMake.IconPathBase, the logo's name part: L_MAN_<base>_Logo
@@ -71,6 +83,34 @@ namespace ForzaStudio
             return id;
         }
 
+        private const string Flags = @"GAME:\Media\UI\Textures\UI4\Logos\Country_Flags\";
+
+        // The next country Id: after the game's largest and the largest of any DLC package in Xenia's
+        // content folder, like FreeId.
+        public static long FreeCountryId(SqliteDatabase db, string xeniaContent)
+        {
+            long id = DbIds.Next(db, "List_Country", "CountryID");
+            foreach (string pack in DbIds.PackDatabases(xeniaContent))
+            {
+                try
+                {
+                    using (SqliteDatabase merge = SqliteDatabase.FromBytes(File.ReadAllBytes(pack)))
+                    {
+                        object max = merge.Scalar("SELECT max(CountryID) FROM List_Country");
+                        if (max != null && max != DBNull.Value)
+                        {
+                            id = Math.Max(id, Convert.ToInt64(max, CultureInfo.InvariantCulture) + 1);
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    // a package without the table, or unreadable: no country Id of its own
+                }
+            }
+            return id;
+        }
+
         // The checks before anything is written; the first problem as a message, else null.
         public static string Check(CarMakeSpec spec, string targetRoot, string outputRoot)
         {
@@ -105,9 +145,40 @@ namespace ForzaStudio
                 {
                     return "The game already has a make with the logo name " + spec.Base + ".";
                 }
-                if (Convert.ToInt64(db.Scalar("SELECT count(*) FROM List_Country WHERE CountryID = ?", spec.CountryId)) == 0)
+                CarCountrySpec country = spec.NewCountry;
+                if (country == null)
                 {
-                    return "The country " + spec.CountryId + " is not in List_Country.";
+                    if (Convert.ToInt64(db.Scalar("SELECT count(*) FROM List_Country WHERE CountryID = ?", spec.CountryId)) == 0)
+                    {
+                        return "The country " + spec.CountryId + " is not in List_Country.";
+                    }
+                }
+                else
+                {
+                    if (string.IsNullOrEmpty(country.Name) || country.Name.Trim().Length == 0)
+                    {
+                        return "The new country needs a name.";
+                    }
+                    if (country.Base == null || !Regex.IsMatch(country.Base, "^[A-Za-z0-9]{2,40}$"))
+                    {
+                        return "The flag name is letters and digits only (L_FLA_<name>_flag).";
+                    }
+                    if (string.IsNullOrEmpty(country.Flag) || !File.Exists(country.Flag))
+                    {
+                        return "Choose the flag image.";
+                    }
+                    if (country.Id > 0 && Convert.ToInt64(db.Scalar("SELECT count(*) FROM List_Country WHERE CountryID = ?", country.Id)) > 0)
+                    {
+                        return "The game already has a country with Id " + country.Id + ".";
+                    }
+                    if (Convert.ToInt64(db.Scalar("SELECT count(*) FROM List_Country WHERE lower(IconPath) LIKE ?", "%l_fla_" + country.Base.ToLowerInvariant() + "_flag.%")) > 0)
+                    {
+                        return "The game already has a country with the flag name " + country.Base + ".";
+                    }
+                    if (Convert.ToInt64(db.Scalar("SELECT count(*) FROM List_Region WHERE Id = ?", country.RegionId)) == 0)
+                    {
+                        return "The region " + country.RegionId + " is not in List_Region.";
+                    }
                 }
             }
             return null;
@@ -136,8 +207,20 @@ namespace ForzaStudio
             {
                 id = (spec.Id > 0) ? spec.Id : FreeId(db, null);
                 string[] strings = AddStrings(spec, db, targetRoot, outputRoot, stringZips, id, report);
+                long countryId = spec.CountryId;
+                if (spec.NewCountry != null)
+                {
+                    CarCountrySpec country = spec.NewCountry;
+                    countryId = (country.Id > 0) ? country.Id : FreeCountryId(db, null);
+                    string name = AddCountryName(country, db, stringZips, countryId, report);
+                    byte[] flag = BuildFlag(country, logos, texconv, report);
+                    logoFiles["UI4/Logos/Country_Flags/L_FLA_" + country.Base + "_flag.xds"] = flag;
+                    db.Execute("INSERT INTO List_Country (CountryID, Country, RegionID, IconPath) VALUES (?, ?, ?, ?)",
+                        countryId, name, country.RegionId, Flags + "L_FLA_" + country.Base + "_flag.tga");
+                    report.AppendLine(string.Format(CultureInfo.InvariantCulture, "List_Country: row {0} ({1}), region {2}, Country {3}", countryId, country.Name, country.RegionId, name));
+                }
                 db.Execute("INSERT INTO List_CarMake (ID, DisplayName, ManufacturerCode, CountryID, IconPath, IconPathLight, IconPathBase, Profile) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    id, strings[0], spec.Code, spec.CountryId,
+                    id, strings[0], spec.Code, countryId,
                     Logos + @"Manufacturer_Logos_I\L_MAN_" + spec.Base + "_Logo.tga",
                     Logos + @"Manufacturer_Logos_SM\L_MAN_" + spec.Base + "_Logo.tga",
                     spec.Base, strings[1]);
@@ -259,6 +342,102 @@ namespace ForzaStudio
             }
             report.AppendLine(string.Format(CultureInfo.InvariantCulture, "strings: keys {0:X4} (DisplayName) and {1:X4} (Profile) in List_CarMake.str of {2} languages", keys[0], keys[1], files.Count));
             return new string[] { "_&" + (high | (uint) keys[0]).ToString(CultureInfo.InvariantCulture), "_&" + (high | (uint) keys[1]).ToString(CultureInfo.InvariantCulture) };
+        }
+
+        // The country's name in List_Country.str of every language (the zips AddStrings opened): one key
+        // free in all of them (from FFFE down) with the table id the other countries have, named
+        // IDS_Country_<n>. Returns the "_&<id>" value for the row.
+        private static string AddCountryName(CarCountrySpec country, SqliteDatabase db, Dictionary<string, ForzaZip> zips, long id, StringBuilder report)
+        {
+            Dictionary<string, StrFile> files = new Dictionary<string, StrFile>(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, ForzaZip> pair in zips)
+            {
+                ForzaZip.Entry entry = pair.Value.Find("List_Country.str");
+                if (entry != null)
+                {
+                    files[pair.Key] = new StrFile(pair.Value.Read(entry));
+                }
+            }
+            if (files.Count == 0)
+            {
+                throw new InvalidOperationException("No string table has List_Country.str.");
+            }
+            object other = db.Scalar("SELECT Country FROM List_Country WHERE Country LIKE '\\_&%' ESCAPE '\\' LIMIT 1");
+            uint value;
+            if (!(other is string) || !uint.TryParse(((string) other).Substring(2), NumberStyles.None, CultureInfo.InvariantCulture, out value))
+            {
+                throw new InvalidOperationException("List_Country has no string id to model the new one on.");
+            }
+            uint high = value & 0xFFFF0000u;
+            int key = 0;
+            for (int candidate = 0xFFFE; candidate > 0 && key == 0; candidate--)
+            {
+                bool used = false;
+                foreach (StrFile file in files.Values)
+                {
+                    used = used || file.Contains(candidate);
+                }
+                if (!used)
+                {
+                    key = candidate;
+                }
+            }
+            if (key == 0)
+            {
+                throw new InvalidOperationException("List_Country.str has no free key.");
+            }
+            int number = NextNumber(files, "IDS_Country_");
+            foreach (KeyValuePair<string, StrFile> pair in files)
+            {
+                pair.Value.Set(key, country.Name.Trim(), "IDS_Country_" + number.ToString(CultureInfo.InvariantCulture));
+                ForzaZip zip = zips[pair.Key];
+                zip.Replace(zip.Find("List_Country.str"), pair.Value.ToBytes());
+            }
+            report.AppendLine(string.Format(CultureInfo.InvariantCulture, "strings: key {0:X4} in List_Country.str of {1} languages", key, files.Count));
+            return "_&" + (high | (uint) key).ToString(CultureInfo.InvariantCulture);
+        }
+
+        // L_FLA_<base>_flag.xds: a texture laid out as an existing flag (size, format, gamma, mips) holding
+        // the image stretched over all of it.
+        private static byte[] BuildFlag(CarCountrySpec country, ForzaZip textures, string texconv, StringBuilder report)
+        {
+            string name = "UI4/Logos/Country_Flags/L_FLA_" + country.Base + "_flag.xds";
+            if (textures.Find(name) != null)
+            {
+                throw new InvalidOperationException("Textures.zip already has " + name + ".");
+            }
+            ForzaZip.Entry model = textures.Find("UI4/Logos/Country_Flags/L_FLA_Italy_flag.xds");
+            if (model == null)
+            {
+                throw new InvalidOperationException("Textures.zip has no flag to model the new one on.");
+            }
+            XdsTexture like = new XdsTexture(textures.Read(model));
+            XdsTexture flag = XdsTexture.Create(like.Width, like.Height, like.Codec, like.IsGamma, like.LevelCount);
+            string temp = Path.Combine(Path.GetTempPath(), "ForzaStudio_flag_" + Guid.NewGuid().ToString("N") + ".png");
+            try
+            {
+                using (Image image = LoadImage(country.Flag))
+                using (Bitmap stretched = new Bitmap(like.Width, like.Height, PixelFormat.Format32bppArgb))
+                {
+                    using (Graphics g = Graphics.FromImage(stretched))
+                    {
+                        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                        g.DrawImage(image, 0, 0, like.Width, like.Height);
+                    }
+                    stretched.Save(temp, ImageFormat.Png);
+                }
+                flag.ImportImage(temp, texconv);
+            }
+            finally
+            {
+                if (File.Exists(temp))
+                {
+                    File.Delete(temp);
+                }
+            }
+            report.AppendLine(string.Format(CultureInfo.InvariantCulture, "flag {0}: {1}x{2} {3}, {4} levels, as the Italian one", name, like.Width, like.Height, like.FormatName, like.LevelCount));
+            return flag.ToBytes();
         }
 
         // The number after the highest "<prefix><n>" name in any language.
