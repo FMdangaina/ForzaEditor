@@ -181,7 +181,7 @@ Tools > Import Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`). All 7
   - [ ] 3.5.3 💤 Engine sound listening tool: same-name banks of source and FM4 played at chosen RPM / throttle, then pick one (needs the
         .fsb / .xma decoder, RPM-to-sample mapping, crossfade)
 - Tyre width of ported cars: see 10.4.
-- [ ] 3.9 Car-specific tire models (`TireA/B/C<car>.zip`, FH1 / FH2 Raptor and Wrangler; FM4 has them for the H1 and the Raptor of the December IGN Pack): the port should copy them (D-16)
+- [x] 3.9 ✅ CLOSED 2026-10-27 in game (D-16, D-19; tire zips by the car's name) Car-specific tire models (`TireA/B/C<car>.zip`, FH1 / FH2 Raptor and Wrangler; FM4 has them for the H1 and the Raptor of the December IGN Pack): the port should copy them (D-16)
 
 ### 5. FM2 / FM1 → FM4 🔧
 
