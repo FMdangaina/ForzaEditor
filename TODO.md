@@ -141,7 +141,7 @@ All with every FM4 DLC present (Ids free in the game AND in all packs). Code com
   - [x] 2.2.3 Check in game
 - [x] 2.3 Wizard (`DuplicateCarForm.cs`, Tools > Duplicate Car): car + name, names / year / make, Data_Car numbers, summary with the plan,
       Create. Rendered and the error path seen; not checked in game.
-  - [ ] 2.3.2 Own engine from scratch (e.g. Bora 1.9 TDI from the V6)
+  - [x] 2.3.2 (CLOSED 2026-10-27, user: custom 5-cylinder engine for the Acura made and OK) Own engine from scratch (e.g. Bora 1.9 TDI from the V6)
       CODED 2026-10-22, compile-checked and tried on the DVD1 database, not seen in the interface nor in game: wizard page 4 "Engine" (shared with the
       source as before, or its own) opens `EngineDialog.cs`: name, SOUND (any FM4 engine's setup: the copy's Data_Engine.MediaName becomes that engine's, no file
       is written), layout, cylinders, aspiration, turbo boost, compression, mass, displacement, idle (StallRPM) and redline rpm, torque x and the shape of
@@ -206,7 +206,7 @@ FM2 big-endian in the FM4 family (docs + tools `fm4dev\Fm1_Fm2`, `fm4dev\Fm1_CAB
       committed 638a573)
   - [x] 5.1.1 In-game check of an FM2 port with the new Id rule (1.1): Foose IS400 and Abflug Supra tested by the user 2026-10-26, OK
 - [x] 5.2 FM2 car data: WIRED (CarPort.Fm2Data runs `Fm2CarData`, `Fm2CarUpgrades` and `Fm2CarPowertrain` on the FM2 stage; the TODO line saying "not wired in yet" was stale, found 2026-10-26). Still the donor's: physics columns (aero, steering, Sim*, ratings), CarPartPositions; in-game check = 5.1.1
-- [ ] 5.3 Same close-up rebuild as the FH traffic cars for FM1 / FM2 cars (ex 14.1 last item, ex C4): only after FH traffic works (6.1);
+- [x] 5.3 (CLOSED 2026-10-27: interior is covered by 6.2; the user does the rest by hand) Same close-up rebuild as the FH traffic cars for FM1 / FM2 cars (ex 14.1 last item, ex C4): only after FH traffic works (6.1);
       a LOD 1 → LOD 0 copy is the first build test
   - Done when: one reproducible test with log and identified source assets, documented whether LOD1 → LOD0 is enough or what is missing,
     cockpit camera off checked, not assumed. Keep results apart by game generation and asset type.
@@ -218,7 +218,7 @@ FM2 big-endian in the FM4 family (docs + tools `fm4dev\Fm1_Fm2`, `fm4dev\Fm1_CAB
 Ported traffic cars load and run (see D, topic 6). What stays open:
 
 - [ ] 6.1 Exterior FH material names still black, fixed by hand (Rename Material): parked under 9 (shader research, an FM4 "mini engine" in the viewer)
-- [ ] 6.2 Driver position (ex C5): where the seated body position is stored (known: rig in `_cockpit.carbin` head 0x1C8-0x2FF,
+- [x] 6.2 (CLOSED 2026-10-27, user: done for FM2 and FH1/FH2 traffic; editor for driver position, hands and camera) Driver position (ex C5): where the seated body position is stored (known: rig in `_cockpit.carbin` head 0x1C8-0x2FF,
       `DriverHandsOffset`, cockpit camera = `CarPartPositions` part 9 + `CameraOverrides`). Compare a working car with a known-correct one;
       position, rotation and coordinate system separately; a controlled change checked in game; document the field. Done when the position
       maps to a specific field with a reproducible test.
@@ -281,7 +281,7 @@ Background C3 (research). Paused by the user 2026-10-19.
         tables: only if a case shows up
   - [ ] 10.1.2 Traffic cars' LOD0 wheel rebuilt from LOD 1 copies the table from the nearest vertex: not a problem so far; watch if a traffic
         rim looks small up close
-- [ ] 10.4 Tyre width on ported cars whose wheel mesh is wider than usual (ex topic 1 + 11.6): check in game whether D 10.5 / 10.6 already fixed it;
+- [x] 10.4 (CLOSED 2026-10-27, checked by the user) Tyre width on ported cars whose wheel mesh is wider than usual (ex topic 1 + 11.6): check in game whether D 10.5 / 10.6 already fixed it;
       maybe tied to 10.1 and to 3.1
 
 ### 11. Model editing and automatic LODs 🔧
