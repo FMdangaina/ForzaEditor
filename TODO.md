@@ -299,7 +299,7 @@ Background C3 (research). Paused by the user 2026-10-19.
 
 ### 13. Music 🔧
 
-- [ ] 13.1 Add a song (FM4), coded 2026-10-21, **plays in a race in game 2026-10-27** (menu playlists, second song, mono / 48 kHz still to try): ♪ > "Add song (FM4)..." (`MusicInstaller.cs`, `ArchiveEditorForm.SongAdd.cs`;
+- [x] 13.1 ✅ CLOSED 2026-10-27 in game (user: race + menu rotation, two songs; see T-G8) Add a song (FM4), coded 2026-10-21, **plays in a race in game 2026-10-27** (menu playlists, second song, mono / 48 kHz still to try): ♪ > "Add song (FM4)..." (`MusicInstaller.cs`, `ArchiveEditorForm.SongAdd.cs`;
       ideas from the Fm4 Sound SDK). Any audio → vgmstream WAV → `xma2encode` (Xbox 360 SDK, copied to `bin\xma2encode\`, NOT redistributed) →
       `Media\audio\Music\<name>.xma` + `<Song>` line (playlist kept once as `.orig`). Tried: Digitalism - Pogo in FM4_Extracted_DEV (race layer 1);
       the user says Forza Studio parses the new .xma like a game file. To test: plays in Xenia in race; menu playlists; the dialog; a second song /
