@@ -246,6 +246,7 @@ console tests). Docs: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
       overlays the packages' .str names. The view is READ-ONLY (GameDatabase.ReadOnly); the toolbar button DLC turns it off to edit the game's
       own database. FH1: 21 packages, 15 merged, 69 DLC cars; "Rally Expansion Pack" zip is damaged in the file itself. Open: FM2 packs without
       a merge database (cars as loose folders, rows come from `_execute.sql`) are listed but not merged; FH2 has no content here.
+- [ ] 7.4 New Folder in the archive tree (user 2026-10-27): Archive > New Folder... and right-click "New Folder Here..." on a zip, a folder or a DLC package. In a folder / package work folder the folder is made on disk (and shows even when empty); in a zip it only shows in the tree until a file is added (a zip stores no empty folder). CODED, compile-checked on a clean copy, NOT built in binDebug (the build is broken by another chat's ForzaZip.cs) and not seen in the interface: to check once the build is back.
 - [ ] 7.2 ⏸ Transfer to the console: FTP (Aurora / FSD) or Xbox 360 Neighborhood (the user's side; no console now)
 
 ### 8. New car makes 🔧

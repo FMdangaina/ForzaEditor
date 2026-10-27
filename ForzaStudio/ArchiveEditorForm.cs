@@ -205,6 +205,8 @@
             archive.DropDownItems.Add(new ToolStripSeparator());
             ToolStripMenuItem addFile = new ToolStripMenuItem("&Add File...", null, delegate { this.AddFileToArchive(); }, Keys.Control | Keys.Shift | Keys.A);
             archive.DropDownItems.Add(addFile);
+            ToolStripMenuItem newFolder = new ToolStripMenuItem("New &Folder...", null, delegate { this.NewArchiveFolder(); });
+            archive.DropDownItems.Add(newFolder);
             ToolStripMenuItem extract = new ToolStripMenuItem("&Extract Selected File...", null, delegate { this.ExtractSelected(); });
             ToolStripMenuItem replace = new ToolStripMenuItem("&Replace Selected File...", null, delegate { this.ReplaceSelected(); });
             ToolStripMenuItem revert = new ToolStripMenuItem("Re&vert Selected File", null, delegate { this.RevertSelected(); });
@@ -219,6 +221,7 @@
                 ForzaZip.Entry entry = (this.zip != null) ? this.SelectedEntry : null;
                 openSelected.Enabled = this.CanOpenSelectedArchive;
                 addFile.Enabled = this.zip != null;
+                newFolder.Enabled = this.zip != null;
                 extract.Enabled = entry != null;
                 replace.Enabled = entry != null;
                 revert.Enabled = entry != null && entry.IsModified;
@@ -305,6 +308,7 @@
             this.ctxArchive.Items.Add(new ToolStripSeparator());
             this.ctxArchive.Items.Add(add);
             this.ctxArchive.Opening += delegate(object sender, CancelEventArgs e)
+            this.ctxArchive.Items.Add(new ToolStripMenuItem("New Folder Here...", null, delegate { this.NewArchiveFolder(); }));
             {
                 if (this.zip == null)
                 {
@@ -669,6 +673,18 @@
                 this.AddFolder(dir);
                 this.folderFiles[dir].Add(entry);
             }
+            if (this.virtualFoldersOf == this.zip)
+            {
+                foreach (string virtualFolder in this.virtualFolders)
+                {
+                    TreeNodeCollection nodes = root.Nodes;
+                    foreach (string part in virtualFolder.Trim('/').Split('/'))
+                    {
+                        TreeNode folder = nodes[part] ?? nodes.Add(part, part);
+                        nodes = folder.Nodes;
+                    }
+                }
+            }
             this.tvArchive.BeginUpdate();
             this.tvArchive.Nodes.Clear();
             bool packageRoot = this.package != null && string.Equals(this.zip.FilePath.TrimEnd('\\'), this.packageFolder, StringComparison.OrdinalIgnoreCase);
@@ -689,6 +705,7 @@
             }
             this.folderDirs[dir] = new List<string>();
             this.folderFiles[dir] = new List<ForzaZip.Entry>();
+            this.AddEmptyFolders();
             int slash = dir.LastIndexOf('/', dir.Length - 2);
             string parent = (slash < 0) ? "" : dir.Substring(0, slash + 1);
             this.AddFolder(parent);

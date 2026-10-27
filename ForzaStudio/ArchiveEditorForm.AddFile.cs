@@ -43,6 +43,129 @@ namespace ForzaStudio
             return (parts.Count == 0) ? "" : string.Join("/", parts.ToArray()) + "/";
         }
 
+        // Folders made with New Folder in a zip: a zip stores no empty folder, so they only show in the tree
+        // (and are in the saved zip once a file is added to them). In a folder (a game folder, a DLC package's
+        // work folder) the folder is really made on disk and shows whenever the folder is opened.
+        private readonly List<string> virtualFolders = new List<string>();
+        private ForzaZip virtualFoldersOf;
+
+        // Archive > New Folder, also on the tree's right-click menu: a folder inside the selected folder.
+        private void NewArchiveFolder()
+        {
+            if (this.zip == null)
+            {
+                MessageBox.Show(this, "Open an archive or a folder first.", "New Folder", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            string parent = this.SelectedArchiveFolder();
+            Panel content = new Panel();
+            content.Size = new Size(420, 60);
+            Label parentLabel = OptionLabel("In: " + ((parent.Length > 0) ? parent : this.SourceName), 0, 4);
+            parentLabel.AutoSize = false;
+            parentLabel.Width = 410;
+            TextBox name = OptionText("", 0, 30, 410);
+            content.Controls.AddRange(new Control[] { parentLabel, name });
+            if (!this.ShowOptions("New Folder", content))
+            {
+                return;
+            }
+            string typed = name.Text.Trim().Replace('\\', '/').Trim('/');
+            if (typed.Length == 0 || typed.IndexOfAny(new char[] { ':', '*', '?', '"', '<', '>', '|' }) >= 0 || typed.Contains("//") || typed.Contains(".."))
+            {
+                MessageBox.Show(this, "Give the folder a name (no : * ? \" < > |; a/b makes two levels).", "New Folder", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            string dir = parent + typed + "/";
+            try
+            {
+                if (this.zip.IsFolder)
+                {
+                    Directory.CreateDirectory(Path.Combine(this.zip.FilePath, dir.TrimEnd('/').Replace('/', Path.DirectorySeparatorChar)));
+                }
+                else
+                {
+                    if (this.virtualFoldersOf != this.zip)
+                    {
+                        this.virtualFolders.Clear();
+                        this.virtualFoldersOf = this.zip;
+                    }
+                    if (!this.virtualFolders.Contains(dir))
+                    {
+                        this.virtualFolders.Add(dir);
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "New Folder", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                return;
+            }
+            this.PopulateTree();
+            this.SelectFolderNode(dir);
+            this.SetStatus(this.zip.IsFolder ? "Folder " + dir + " made on disk" : "Folder " + dir + " made (a zip keeps it once a file is added to it)");
+        }
+
+        // Folder mode: the real folders without a file in them (a folder made here, or an empty one) are
+        // folders of the tree too.
+        private void AddEmptyFolders()
+        {
+            if (!this.zip.IsFolder)
+            {
+                return;
+            }
+            string root = this.zip.FilePath.TrimEnd('\\');
+            try
+            {
+                foreach (string path in Directory.GetDirectories(root, "*", SearchOption.AllDirectories))
+                {
+                    this.AddFolder(path.Substring(root.Length + 1).Replace('\\', '/') + "/");
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
+        // Selects the tree node of an archive folder ("a/b/"), opening the folders on its path.
+        private void SelectFolderNode(string dir)
+        {
+            if (this.tvArchive.Nodes.Count == 0)
+            {
+                return;
+            }
+            TreeNode node = this.tvArchive.Nodes[0];
+            foreach (string part in dir.Trim('/').Split('/'))
+            {
+                if (this.zip.IsFolder)
+                {
+                    this.LoadFolderNode(node);
+                }
+                TreeNode next = null;
+                foreach (TreeNode child in node.Nodes)
+                {
+                    if (child.Tag is ForzaZip.Entry)
+                    {
+                        continue;
+                    }
+                    if (string.Equals(child.Text, part, StringComparison.OrdinalIgnoreCase))
+                    {
+                        next = child;
+                        break;
+                    }
+                }
+                if (next == null)
+                {
+                    return;
+                }
+                node.Expand();
+                node = next;
+            }
+            this.tvArchive.SelectedNode = node;
+        }
+
         // Extensions already in the archive, most used first.
         private List<string> ArchiveExtensions()
         {
