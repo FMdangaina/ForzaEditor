@@ -2079,13 +2079,42 @@ namespace ForzaStudio
             }
         }
 
+        private static string packCarsSignature;
+
+        // The packages in Xenia's content folder as they are now (name, size, date): the list of donors is read again when
+        // a package was added or taken out while the window was open (a donor of a removed pack failed the trial, 2026-10-27).
+        private static string PackFolderSignature()
+        {
+            string folder = InstalledDlc.ContentFolder(ForzaGame.Motorsport4);
+            if (folder == null)
+            {
+                return "";
+            }
+            System.Text.StringBuilder text = new System.Text.StringBuilder();
+            try
+            {
+                string[] files = Directory.GetFiles(folder);
+                Array.Sort(files, StringComparer.OrdinalIgnoreCase);
+                foreach (string file in files)
+                {
+                    FileInfo info = new FileInfo(file);
+                    text.Append(info.Name).Append('|').Append(info.Length).Append('|').Append(info.LastWriteTimeUtc.Ticks).Append(';');
+                }
+            }
+            catch (IOException)
+            {
+            }
+            return text.ToString();
+        }
+
         private static Dictionary<string, string> packCarsCache;
 
         // The cars of the DLC packages installed in Xenia for FM4 (MediaName -> the package's name), read once: the packages
         // are extracted to %TEMP% the first time, then only their headers and merge databases are read.
         private static Dictionary<string, string> InstalledPackCars()
         {
-            if (packCarsCache != null)
+            string signature = PackFolderSignature();
+            if (packCarsCache != null && packCarsSignature == signature)
             {
                 return packCarsCache;
             }
@@ -2116,6 +2145,7 @@ namespace ForzaStudio
                 // no readable packages: the donors are the game's own cars
             }
             packCarsCache = cars;
+            packCarsSignature = signature;
             return cars;
         }
 
