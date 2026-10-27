@@ -198,14 +198,30 @@ namespace ForzaStudio
                     }
                 }
             }
+            // The source is renumbered in place: a row of another table that names the new car Id (FH2 keeps
+            // CameraOverrides rows of cars it does not have) would clash with the car's own row.
+            List<string[]> sourceColumns = CarColumns(Schema(source));
             for (long id = first; ; id++)
             {
-                if (!taken.Contains(id) && !Taken(target, id) && !Taken(source, id))
+                if (!taken.Contains(id) && !Taken(target, id) && !Taken(source, id) && !UsedByCarColumn(source, sourceColumns, id))
                 {
                     reason = string.Format(CultureInfo.InvariantCulture, "first free id from {0}: free in the target, the source and {1} installed pack(s)", first, packs.Count);
                     return id;
                 }
             }
+        }
+
+        // True when any car column of the database (CarColumns) holds the Id.
+        private static bool UsedByCarColumn(SqliteDatabase db, List<string[]> columns, long id)
+        {
+            foreach (string[] column in columns)
+            {
+                if (Convert.ToInt64(db.Scalar("SELECT count(*) FROM " + SqliteDatabase.Quote(column[0]) + " WHERE " + SqliteDatabase.Quote(column[1]) + " = ?", id)) > 0)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         // A car Id some row already uses: a car, or its body row (Data_CarBody.Id = car * 1000).

@@ -2268,7 +2268,7 @@ namespace ForzaStudio
                 else if (name == "carattribs.xml")
                 {
                     List<string> kept = new List<string>();
-                    data = ConvertCarAttributes(Encoding.UTF8.GetString(data), Encoding.UTF8.GetString(donor.Read(donor.Find("carattribs.xml"))), animations, this.Report, kept);
+                    data = ConvertCarAttributes(Encoding.UTF8.GetString(data), Encoding.UTF8.GetString(donor.Read(donor.Find("carattribs.xml"))), animations, this.Report, kept, !this.motorsport3 && !this.fm2Stage);
                     foreach (string element in kept)
                     {
                         this.donorContent.Add("carattribs.xml " + element);
@@ -4165,7 +4165,13 @@ namespace ForzaStudio
         // gets the donor's elements that stay and differ from the car's own (DonorElements).
         public static byte[] ConvertCarAttributes(string fh2, string fm4Donor, bool animations, StringBuilder report, List<string> donorKept)
         {
-            byte[] converted = ConvertCarAttributes(fh2, fm4Donor, animations, report);
+            return ConvertCarAttributes(fh2, fm4Donor, animations, report, donorKept, false);
+        }
+
+        // horizon: the car comes from FH1 / FH2, whose crash damage is raised (Port.ini [Damage] ScalarBonus; FM3 is fine as it is).
+        public static byte[] ConvertCarAttributes(string fh2, string fm4Donor, bool animations, StringBuilder report, List<string> donorKept, bool horizon)
+        {
+            byte[] converted = ConvertCarAttributes(fh2, fm4Donor, animations, report, horizon);
             if (donorKept != null)
             {
                 string text = Encoding.UTF8.GetString(converted);
@@ -4220,6 +4226,11 @@ namespace ForzaStudio
 
         public static byte[] ConvertCarAttributes(string fh2, string fm4Donor, bool animations, StringBuilder report)
         {
+            return ConvertCarAttributes(fh2, fm4Donor, animations, report, false);
+        }
+
+        public static byte[] ConvertCarAttributes(string fh2, string fm4Donor, bool animations, StringBuilder report, bool horizon)
+        {
             fh2 = Regex.Replace(fh2, "<(\\w+) NumTicks=\"\\d+\">(.*?)</\\1>", delegate(Match gauge)
             {
                 // Repeated marks kept once (in order), at most MaxTicks.
@@ -4264,7 +4275,7 @@ namespace ForzaStudio
                     result = result.Substring(0, to.Index) + from.Value + result.Substring(to.Index + to.Length);
                 }
             }
-            result = ConvertDamage(result, fh2, report);
+            result = ConvertDamage(result, fh2, report, horizon);
             Match target = Regex.Match(result, "[ \t]*<Animations>.*?</Animations>\r?\n?", RegexOptions.Singleline);
             if (!animations)
             {
@@ -4323,7 +4334,7 @@ namespace ForzaStudio
         private const string StandardScrape = "<DamageScrape ScrapeMinSpeed=\"0.010000\" ScrapeMaxSpeed=\"0.300000\" ScrapeRadius=\"1.300000\" ScrapeDamage=\"0.080000\" DamageBias=\"0.750000\" ScrapeBias=\"0.700000\" GlassDamageCausingBreak=\"0.005000\" />";
         private static readonly string[] StandardDebris = { "Mechanical", "Fiber", "Frame", "Crumb" };
 
-        private static string ConvertDamage(string result, string source, StringBuilder report)
+        private static string ConvertDamage(string result, string source, StringBuilder report, bool horizon)
         {
             string newline = result.Contains("\r\n") ? "\r\n" : "\n";
             List<string> notes = new List<string>();
@@ -4381,6 +4392,22 @@ namespace ForzaStudio
                     scalarLines.Add(string.Format(CultureInfo.InvariantCulture, "<DamageScalars speed=\"{0:0.000000}\" radius=\"{1:0.000000}\" damage=\"{2:0.000000}\" />", point[0], point[1], point[2]));
                 }
                 notes.Add(string.Format(CultureInfo.InvariantCulture, "scalars FM4 standard (the car's: {0} at 200 km/h, under {1})", (points.Count > 0) ? at.ToString("0.00", CultureInfo.InvariantCulture) : "none", MinimumDamage));
+            }
+
+            // User 2026-10-27 (Bowler in a pack, C7 Stingray): +1 on the damage of every DamageScalars point deforms
+            // a ported car much better than FM4's standard curve.
+            double bonus = horizon ? PortSettings.GetDouble("Damage", "ScalarBonus", 1) : 0;
+            if (bonus != 0)
+            {
+                for (int i = 0; i < scalarLines.Count; i++)
+                {
+                    string line = scalarLines[i];
+                    scalarLines[i] = Regex.Replace(line, "\\bdamage=\"([^\"]*)\"", delegate(Match m)
+                    {
+                        return "damage=\"" + (Number(m.Groups[1].Value) + bonus).ToString("0.000000", CultureInfo.InvariantCulture) + "\"";
+                    });
+                }
+                notes.Add(string.Format(CultureInfo.InvariantCulture, "scalar damage {0:+0.##;-0.##} on every point (Port.ini [Damage] ScalarBonus)", bonus));
             }
 
             Match drops = Regex.Match(damage.Success ? damage.Value : "", "<PartDropValues>.*?</PartDropValues>", RegexOptions.Singleline);

@@ -349,7 +349,7 @@
             {
                 form.Changed += delegate
                 {
-                    this.UpdateDbChanges();
+                    this.OnGameDbEdited(null, EventArgs.Empty);
                     this.SelectDbSection(this.dbSection);
                 };
                 form.ShowDialog(this);
@@ -368,7 +368,7 @@
             {
                 form.Changed += delegate
                 {
-                    this.UpdateDbChanges();
+                    this.OnGameDbEdited(null, EventArgs.Empty);
                     this.SelectDbSection(this.dbSection);
                 };
                 form.ShowDialog(this);

@@ -54,6 +54,10 @@ Tables = both
 ; with Words = normalize: sections whose sign is reversed, comma separated, or * for all
 ; (T3 on the Supra: bumperFi, bumperFc, bumperRc, skirtRa, skirtLa, skirtRd)
 FlipSections =
+; Added to the `damage` of every DamageScalars point in the CarAttribs of a car ported from FH1 / FH2 (speed 5 / 35 / 98).
+; FM4's standard is 0.5 / 1.5 / 2.5; +1 on all levels deforms a ported car much better (checked in game 2026-10-27: Bowler in
+; a pack). FM3 and FM2 ports are fine as they are and never get it. 0 = leave the values as they are.
+ScalarBonus = 1
 
 [Lod0]
 ; on = a part the donor's _lod0 file has, the car's _lod0 lacks and its cockpit file has (the headlights, which FH keeps
