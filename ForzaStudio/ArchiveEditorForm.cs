@@ -255,6 +255,7 @@
             tools.DropDownItems.Add(new ToolStripMenuItem("Create &DLC Package...", null, delegate { this.ShowCarPort(PortMode.Dlc); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Duplicate &Car...", null, delegate { this.ShowDuplicateCar(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Database &SQL...", null, delegate { this.ShowSqlConsole(); }));
+            tools.DropDownItems.Add(new ToolStripMenuItem("Car &Performance From Game...", null, delegate { this.ShowPerformanceFromGame(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Set Generated &Thumbnail...", null, delegate { using (SetThumbnailsForm form = new SetThumbnailsForm()) { form.ShowDialog(this); } }));
             tools.DropDownItems.Add(new ToolStripSeparator());
             tools.DropDownItems.Add(new ToolStripMenuItem("&Settings...", null, delegate { this.ShowSettings(); }));
@@ -345,6 +346,25 @@
                 return;
             }
             using (SqlConsoleForm form = new SqlConsoleForm(this.gameDb))
+            {
+                form.Changed += delegate
+                {
+                    this.UpdateDbChanges();
+                    this.SelectDbSection(this.dbSection);
+                };
+                form.ShowDialog(this);
+            }
+        }
+
+        // Tools > Car Performance From Game: the database open in the database view (the game's, or a DLC package's merge database).
+        private void ShowPerformanceFromGame()
+        {
+            if (this.gameDb == null || !this.gameDb.HasTable("Data_Car"))
+            {
+                MessageBox.Show(this, "Open a database with the car first (Media\\db\\gamedb.slt, or the pack's database).", "Car performance from the game", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            using (PerformanceFromGameForm form = new PerformanceFromGameForm(this.gameDb, 0))
             {
                 form.Changed += delegate
                 {

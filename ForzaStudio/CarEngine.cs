@@ -13,6 +13,9 @@ namespace ForzaStudio
         public double[] Curve;                              // the stock curve as base N.m (before the parts and the boost), one value per 100 rpm from 0 rpm, to the redline + the margin; null = the source's, stretched with the redline
         public double? RedlineRpm;                          // the stock redline; the upgrade levels and the curve's rpm scale with it
         public double? IdleRpm;                             // StallRPM of every camshaft level of the copy
+        public double? TurboVolume;                         // the engine tuning file's TurboVolume (the whistle's level); null = the sound engine's (0.5 when it has none)
+        public int BovLevel;                                // the blow-off sample of turbos.fev ("L<level>_BlowOff_<choice>") written to the file's three blowoff slots; 0 = the sound engine's own
+        public int BovChoice;
     }
 
     // A copy of a car's stock engine under an EngineID of its own (the Duplicate Car wizard shares the source's
@@ -331,6 +334,16 @@ namespace ForzaStudio
             {
                 // The old engine table: the car's row (not the rows of the other cars that use the engine).
                 db.Execute("UPDATE Combo_Engines SET EngineID = ? WHERE Ordinal = ? AND EngineID = ?", id, carId, old);
+            }
+            // Data_Car.Displacement = the stock displacement row's Disp (equal on all 502 FM4 cars); the showroom reads it from there.
+            if (schema["Data_Car"].Exists(delegate(string c) { return string.Equals(c, "Displacement", StringComparison.OrdinalIgnoreCase); }) && schema.ContainsKey("List_UpgradeEngineDisplacement"))
+            {
+                object disp = db.Scalar("SELECT Disp FROM List_UpgradeEngineDisplacement WHERE EngineID = ? AND IsStock = 1 ORDER BY Level LIMIT 1", id);
+                if (disp != null && disp != DBNull.Value)
+                {
+                    db.Execute("UPDATE Data_Car SET Displacement = ? WHERE Id = ?", disp, carId);
+                    plan.Add("engine: Data_Car.Displacement = " + Convert.ToString(disp, CultureInfo.InvariantCulture) + " cc (what the showroom shows)");
+                }
             }
             UpdateSimulation(db, schema, carId, id, plan);
             return id;
@@ -839,7 +852,7 @@ namespace ForzaStudio
 
         // Every camshaft level's curve of the new engine on FM4's grid, once the generic levels exist. The stock level's curve is
         // the designed one; an upgrade level's is it times the TorqueScale ratio the generic rules gave that level (Curve.TorqueScale
-        // of Upgrades.ini). Each is 0 above its own redline + the margin; then the marker (-2.63); TorqueScale = the peak, the
+        // of Upgrades.ini). Each runs to the end of the grid (like all of FM4's, no zero above the level's own redline); then the marker (-2.63); TorqueScale = the peak, the
         // values normalised to it. NumRPMEntriesArray and TorqueCurveMaxRPM of every level follow the highest redline.
         private static void RebuildCurves(SqliteDatabase db, long engine, CurvePlan plan, List<string> report)
         {
@@ -874,16 +887,17 @@ namespace ForzaStudio
             {
                 long curveId = Convert.ToInt64(cam[3], CultureInfo.InvariantCulture);
                 double multiplier = ReadCurve(db, curveId, 0).Scale / stockScale;
-                double cutoff = Real(cam[2]) + plan.Margin;
+                // FM4 never cuts a level's curve at its own redline: all 504 stock and 918 upgrade curves stay above 0 up to the end of
+                // the grid (the highest level's redline + margin), so the redline limiter is the game's, not a torque that dies.
                 double[] absolute = new double[points];
                 for (int i = 0; i < points; i++)
                 {
-                    absolute[i] = (i * 100.0 > cutoff) ? 0 : stock[i] * multiplier;
+                    absolute[i] = stock[i] * multiplier;
                 }
                 WriteCurve(db, curveId, absolute, points, zeroRatio);
                 db.Execute("UPDATE List_UpgradeEngineCamshaft SET NumRPMEntriesArray = ?, TorqueCurveMaxRPM = ? WHERE Id = ?", (long) (points + 1), points * 100.0, Convert.ToInt64(cam[0], CultureInfo.InvariantCulture));
             }
-            report.Add(string.Format(CultureInfo.InvariantCulture, "engine: {0} torque curves of {1} values (0 - {2:0} rpm, 100 rpm apart, end marker -2.63), torque 0 above each level's redline + {3:0} rpm", cams.Rows.Count, points + 1, points * 100.0, plan.Margin));
+            report.Add(string.Format(CultureInfo.InvariantCulture, "engine: {0} torque curves of {1} values (0 - {2:0} rpm, 100 rpm apart, end marker -2.63), torque kept above 0 to the end of the grid as FM4 does (highest redline + {3:0} rpm)", cams.Rows.Count, points + 1, points * 100.0, plan.Margin));
         }
 
         // Writes one curve (the row keeps its id): TorqueScale = the peak, the values normalised, the marker after the last.

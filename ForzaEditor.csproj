@@ -173,6 +173,8 @@
     <Compile Include="ForzaStudio\EventRestriction.cs" />
     <Compile Include="ForzaStudio\CarEngine.cs" />
     <Compile Include="ForzaStudio\CarGearbox.cs" />
+    <Compile Include="ForzaStudio\TurboPreview.cs" />
+    <Compile Include="ForzaStudio\PerformanceFromGameForm.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Transmission.cs" />
     <Compile Include="ForzaStudio\CurveGenerateDialog.cs" />
     <Compile Include="ForzaStudio\GearboxDialog.cs" />

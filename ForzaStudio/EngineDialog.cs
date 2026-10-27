@@ -38,6 +38,9 @@ namespace ForzaStudio
         private readonly NumericUpDown displacement;
         private readonly NumericUpDown idle;
         private readonly NumericUpDown redline;
+        private readonly string target;
+        private readonly NumericUpDown turboVolume;
+        private readonly ComboBox bov;
         private readonly CheckBox diesel;
         private readonly CheckBox carbureted;
         private readonly CheckBox rotary;
@@ -65,9 +68,10 @@ namespace ForzaStudio
         public EngineDialog(string target, StringTable names, long carId, EngineSpec initial)
         {
             this.names = names;
+            this.target = target;
             this.AutoScaleMode = AutoScaleMode.None;
             this.Text = "Engine of the copy";
-            this.ClientSize = new Size(780, 704);
+            this.ClientSize = new Size(780, 740);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
@@ -138,9 +142,39 @@ namespace ForzaStudio
             this.Controls.Add(this.carbureted);
             this.Controls.Add(this.rotary);
 
+            // The turbo's sound: the engine tuning file's TurboVolume (the game has one whistle, four loops in Turbos\turbos.fsb) and the
+            // blow-off sample (turbos.fev: L1_BlowOff_1..3, L2_BlowOff_1..3, L3_BlowOff_1..5), used for a turbocharged engine.
+            this.turboVolume = this.Number(8, "Turbo volume:", 0, 0, 1.5m, 2, 0.05m);
+            this.bov = new ComboBox();
+            this.bov.DropDownStyle = ComboBoxStyle.DropDownList;
+            Choice bovOwn = new Choice();
+            bovOwn.Text = "(the sound engine's own)";
+            this.bov.Items.Add(bovOwn);
+            int[] bovCounts = { 3, 3, 5 };
+            for (int level = 1; level <= 3; level++)
+            {
+                for (int choice = 1; choice <= bovCounts[level - 1]; choice++)
+                {
+                    Choice sample = new Choice();
+                    sample.Id = (level * 10) + choice;
+                    sample.Text = "L" + level + "  blow-off " + choice;
+                    this.bov.Items.Add(sample);
+                }
+            }
+            this.bov.SelectedIndex = 0;
+            this.Field(8, "BOV sound:", 1, this.bov, 150);
+            this.turboVolume.Value = 0;
+            this.PreviewButton("Whistle", 240, 70, delegate { return "turbo1_loop7"; });
+            this.PreviewButton("HI", 660, 48, delegate { return this.BovSample("HI"); });
+            this.PreviewButton("MED", 712, 56, delegate { return this.BovSample("MED"); });
+            Label turboNote = new Label();
+            turboNote.SetBounds(124, 12 + (8 * 30) + 26, 600, 16);
+            turboNote.Text = "Turbo volume 0 = the sound engine's own (0.5 if it has none). FM4's turbo engines use 0.2 - 0.9. Turbocharged engines only.";
+            this.Controls.Add(turboNote);
+
             this.graph = new PowerGraph();
             this.graph.Editable = true;
-            this.graph.SetBounds(12, 262, 506, 360);
+            this.graph.SetBounds(12, 298, 506, 360);
             this.graph.CurveEdited += delegate
             {
                 double[] edited = this.graph.EditedCurve;
@@ -154,7 +188,7 @@ namespace ForzaStudio
 
             // The same curve as numbers, one row per point: the torque column can be typed in (or a column pasted).
             this.table = new DataGridView();
-            this.table.SetBounds(526, 262, 242, 360);
+            this.table.SetBounds(526, 298, 242, 360);
             this.table.AllowUserToAddRows = false;
             this.table.AllowUserToDeleteRows = false;
             this.table.AllowUserToResizeRows = false;
@@ -182,7 +216,7 @@ namespace ForzaStudio
             this.Controls.Add(this.table);
             Button reset = new Button();
             reset.Text = "Reset curve";
-            reset.SetBounds(12, 632, 110, 28);
+            reset.SetBounds(12, 668, 110, 28);
             reset.Click += delegate
             {
                 this.shape = this.StockCurve(this.Points());
@@ -191,24 +225,24 @@ namespace ForzaStudio
             this.Controls.Add(reset);
             Button generate = new Button();
             generate.Text = "Generate curve...";
-            generate.SetBounds(12, 664, 110, 28);
+            generate.SetBounds(12, 700, 110, 28);
             generate.Click += delegate { this.GenerateCurve(); };
             this.Controls.Add(generate);
             Label note = new Label();
-            note.SetBounds(130, 628, 380, 40);
+            note.SetBounds(130, 664, 380, 40);
             note.Text = "Drag on the graph, or type the N.m of a row of the table: one row per 100 rpm, as FM4 stores it (the number of values follows the redline + 300 rpm diesel / 500 petrol). Ctrl+V pastes two columns from Excel (rpm, N.m at any rpm) or one column of N.m from the selected row. Rows past the redline are grey. Idle is the stall rpm; the sound is the FM4 engine you pick.";
             this.Controls.Add(note);
             this.pointsNote = new Label();
-            this.pointsNote.SetBounds(130, 670, 380, 28);
+            this.pointsNote.SetBounds(130, 706, 380, 28);
             this.Controls.Add(this.pointsNote);
             Button ok = new Button();
             ok.Text = "OK";
-            ok.SetBounds(596, 650, 80, 28);
+            ok.SetBounds(596, 686, 80, 28);
             ok.Click += delegate { this.Accept(); };
             Button cancel = new Button();
             cancel.Text = "Cancel";
             cancel.DialogResult = DialogResult.Cancel;
-            cancel.SetBounds(688, 650, 80, 28);
+            cancel.SetBounds(688, 686, 80, 28);
             this.Controls.Add(ok);
             this.Controls.Add(cancel);
             this.CancelButton = cancel;
@@ -220,13 +254,59 @@ namespace ForzaStudio
                 this.LoadSpec(initial);
             }
             this.redline.ValueChanged += delegate { this.Rebuild(); };
-            this.aspiration.SelectedIndexChanged += delegate { this.Rebuild(); this.SuggestName(); };
+            this.aspiration.SelectedIndexChanged += delegate { this.Rebuild(); this.SuggestName(); this.TurboControls(); };
+            this.TurboControls();
             this.layout.SelectedIndexChanged += delegate { this.SuggestName(); };
             this.cylinders.SelectedIndexChanged += delegate { this.SuggestName(); };
             this.name.TextChanged += delegate { if (!this.filling) { this.nameAuto = false; } };
             this.boost.ValueChanged += delegate { this.Rebuild(); };
             this.diesel.CheckedChanged += delegate { this.Rebuild(); this.SuggestName(); };
             ForzaTheme.Apply(this);
+        }
+
+        private delegate string SamplePrefix();
+
+        // A small play button of the turbo sound row: it listens to the sample of turbos.fsb whose name starts with what the
+        // callback gives (null = nothing chosen). The game folder is the one the engine is made in.
+        private void PreviewButton(string text, int x, int width, SamplePrefix prefix)
+        {
+            Button play = new Button();
+            play.Text = "▶ " + text;
+            play.SetBounds(x, 12 + (8 * 30) - 1, width, 26);
+            play.Click += delegate
+            {
+                string wanted = prefix();
+                if (wanted == null)
+                {
+                    MessageBox.Show(this, "Pick a BOV sound first (the sound engine's own is not a single sample).", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                try
+                {
+                    TurboPreview.Play(this.target, wanted);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, ex.Message, this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            };
+            this.Controls.Add(play);
+        }
+
+        // "BlowOff_L<level>_<choice>_<HI|MED>" of the BOV chosen, or null.
+        private string BovSample(string loudness)
+        {
+            Choice sample = this.bov.SelectedItem as Choice;
+            return (sample == null || sample.Id <= 0) ? null : "BlowOff_L" + (sample.Id / 10) + "_" + (sample.Id % 10) + "_" + loudness;
+        }
+
+        // The turbo sound controls are for a turbocharged engine (single, twin, quad).
+        private void TurboControls()
+        {
+            Choice picked = this.aspiration.SelectedItem as Choice;
+            bool turbo = picked != null && picked.Id >= 2 && picked.Id <= 4;
+            this.turboVolume.Enabled = turbo;
+            this.bov.Enabled = turbo;
         }
 
         private string Lookup(string table, string column, string value)
@@ -470,6 +550,21 @@ namespace ForzaStudio
             if (spec.RedlineRpm.HasValue)
             {
                 Set(this.redline, spec.RedlineRpm.Value);
+            }
+            if (spec.TurboVolume.HasValue)
+            {
+                Set(this.turboVolume, spec.TurboVolume.Value);
+            }
+            if (spec.BovLevel > 0)
+            {
+                for (int i = 1; i < this.bov.Items.Count; i++)
+                {
+                    Choice sample = this.bov.Items[i] as Choice;
+                    if (sample != null && sample.Id == (spec.BovLevel * 10) + spec.BovChoice)
+                    {
+                        this.bov.SelectedIndex = i;
+                    }
+                }
             }
             if (spec.Curve != null && this.stockScale > 0)
             {
@@ -778,6 +873,11 @@ namespace ForzaStudio
                 MessageBox.Show(this, "A turbo or supercharged engine needs a boost above 0 bar.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
+            if (chosenAspiration != null && chosenAspiration.Id >= 2 && chosenAspiration.Id <= 6 && this.boost.Value > 2.04m
+                && MessageBox.Show(this, "FM4's boost goes from 0.48 to 2.04 bar; " + this.boost.Value.ToString(CultureInfo.InvariantCulture) + " bar is outside what the torque and power numbers were fitted on, so the shown values may differ from the game's. Continue?", this.Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            {
+                return;
+            }
             Choice picked = this.sound.SelectedItem as Choice;
             if (picked != null && picked.Media != null && picked.Media != Convert.ToString(this.source["MediaName"], CultureInfo.InvariantCulture))
             {
@@ -787,6 +887,19 @@ namespace ForzaStudio
             this.Id(spec, "CylinderID", this.cylinders);
             this.Id(spec, "AspirationID_Stock", this.aspiration);
             this.Real(spec, "StockBoost-bar", this.boost);
+            if (chosenAspiration != null && chosenAspiration.Id >= 2 && chosenAspiration.Id <= 4)
+            {
+                if (this.turboVolume.Value > 0)
+                {
+                    spec.TurboVolume = (double) this.turboVolume.Value;
+                }
+                Choice sample = this.bov.SelectedItem as Choice;
+                if (sample != null && sample.Id > 0)
+                {
+                    spec.BovLevel = (int) (sample.Id / 10);
+                    spec.BovChoice = (int) (sample.Id % 10);
+                }
+            }
             this.Real(spec, "Compression", this.compression);
             this.Real(spec, "EngineMass-kg", this.mass);
             this.Flag(spec, "Diesel", this.diesel);

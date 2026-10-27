@@ -699,7 +699,43 @@ namespace ForzaStudio
                 {
                     missing.Add("UI\\Textures.zip unreadable");
                 }
-                this.Line(missing.Count == 0 ? "  logos: L_MAN_{0}_Logo in all {1} FM4 logo folders" : "  WARNING logos: L_MAN_{0}_Logo missing in " + string.Join(", ", missing.ToArray()), name.Groups[1].Value, LogoFolders.Length);
+                if (missing.Count > 0 && !missing.Contains("UI\\Textures.zip unreadable") && !this.skipThumbnail)
+                {
+                    // A make FM4 has no logo for (Bowler from FH2): the source game's own logos, when it has the same files in the
+                    // same layout (FH1 / FH2 and FM4 share the six folders, sizes and format), go into the target's Textures.zip
+                    // (a pack then carries them as loose files). Without logos the game draws a black square.
+                    string targetTextures = Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "UI"), "Textures.zip");
+                    string sourceTextures = Path.Combine(Path.Combine(Path.Combine(this.SourceRoot, "Media"), "UI"), "Textures.zip");
+                    if (File.Exists(sourceTextures))
+                    {
+                        ForzaZip sourceZip = new ForzaZip(sourceTextures);
+                        ForzaZip to2 = this.OpenChanged(targetTextures);
+                        List<string> stillMissing = new List<string>();
+                        foreach (string folder in missing)
+                        {
+                            string entryName = "UI4/Logos/" + folder + "/L_MAN_" + name.Groups[1].Value + "_Logo.xds";
+                            ForzaZip.Entry logo = sourceZip.Find(entryName);
+                            ForzaZip.Entry reference = to2.Find("UI4/Logos/" + folder + "/L_MAN_Acura_Logo.xds");
+                            bool same = false;
+                            if (logo != null && reference != null)
+                            {
+                                XdsTexture a = new XdsTexture(sourceZip.Read(logo)), b = new XdsTexture(to2.Read(reference));
+                                same = a.Width == b.Width && a.Height == b.Height && a.Codec == b.Codec;
+                            }
+                            if (same)
+                            {
+                                this.Put(to2, entryName, sourceZip.Read(logo));
+                            }
+                            else
+                            {
+                                stillMissing.Add(folder);
+                            }
+                        }
+                        this.Line("  logos: {0} of {1} copied from {2}'s Textures.zip into the target's (same size and format as FM4's)", missing.Count - stillMissing.Count, missing.Count, this.game);
+                        missing = stillMissing;
+                    }
+                }
+                this.Line(missing.Count == 0 ? "  logos: L_MAN_{0}_Logo in all {1} logo folders" : "  WARNING logos: L_MAN_{0}_Logo missing in " + string.Join(", ", missing.ToArray()) + " (the game draws a black square)", name.Groups[1].Value, LogoFolders.Length);
             }
             if (from.ContainsKey("Livery_DecalsSortOrder") && to.ContainsKey("Livery_DecalsSortOrder"))
             {
@@ -1671,6 +1707,101 @@ namespace ForzaStudio
             this.target.Execute("UPDATE Data_Car SET PerformanceIndex = ?, ClassID = ?, ContentId = 0, IsArcade = ?, IsPurchased = 1, IsInstalled = 1 WHERE Id = ?",
                 fm4Pi, (classId != null) ? Convert.ToInt64(classId) : 9L, this.Arcade ? 1L : 0L, this.carId);
             this.Line("Data_Car {0}: PI {1:0.000} (" + this.game + ") -> {2:0.000} (FM4), class {3}, IsArcade {4}", this.carId, pi, fm4Pi, ClassName(this.target, classId), this.Arcade ? 1 : 0);
+            if (this.fm2Pi < 0)
+            {
+                this.PortRatings(targetColumns);
+            }
+        }
+
+        private static readonly string[] RatingColumns = { "SpeedRating", "HandlingRating", "AccelerationRating", "LaunchRating", "BrakingRating" };
+
+        // The five bars of the garage on FM4's scale. The source game's bars are on its own (FH2's speed, acceleration and launch run
+        // 0.5 - 0.75 below FM4's on the 140 cars both games have, rmse 1.1 / 0.8 / 0.7 against the car's real FM4 bars), so each
+        // bar goes through a line fit on the cars the source and FM4 share (same MediaName), as the PI does: leave-one-out error
+        // 0.35 / 0.25 / 0.18 / 0.38 / 0.24 on those cars. Without enough shared cars (a DLC package alone) the bars stay the source's.
+        private void PortRatings(List<string> targetColumns)
+        {
+            foreach (string column in RatingColumns)
+            {
+                if (!Has(targetColumns, column))
+                {
+                    return;
+                }
+            }
+            string select = "SELECT MediaName, " + string.Join(", ", RatingColumns);
+            Dictionary<string, double[]> horizon = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+            foreach (object[] row in this.source.Query(select + " FROM Data_Car").Rows)
+            {
+                if (row[0] is string)
+                {
+                    double[] bars = new double[5];
+                    bool all = true;
+                    for (int i = 0; i < 5; i++)
+                    {
+                        all = all && row[1 + i] != null && row[1 + i] != DBNull.Value;
+                        bars[i] = (row[1 + i] == null || row[1 + i] == DBNull.Value) ? 0 : Convert.ToDouble(row[1 + i], CultureInfo.InvariantCulture);
+                    }
+                    if (all)
+                    {
+                        horizon[(string) row[0]] = bars;
+                    }
+                }
+            }
+            List<double[]> fromBars = new List<double[]>();
+            List<double[]> toBars = new List<double[]>();
+            foreach (object[] row in this.target.Query("SELECT Id, " + string.Join(", ", RatingColumns) + ", MediaName FROM Data_Car").Rows)
+            {
+                double[] bars;
+                string media = row[6] as string;
+                if (media != null && Convert.ToInt64(row[0], CultureInfo.InvariantCulture) != this.carId && horizon.TryGetValue(media, out bars)
+                    && !IsPorted(this.SourceRoot, this.TargetRoot, media) && (this.OutputRoot == null || !IsPorted(this.SourceRoot, this.OutputRoot, media)))
+                {
+                    double[] mine = new double[5];
+                    bool all = true;
+                    for (int i = 0; i < 5; i++)
+                    {
+                        all = all && row[1 + i] != null && row[1 + i] != DBNull.Value;
+                        mine[i] = (row[1 + i] == null || row[1 + i] == DBNull.Value) ? 0 : Convert.ToDouble(row[1 + i], CultureInfo.InvariantCulture);
+                    }
+                    if (all)
+                    {
+                        fromBars.Add(bars);
+                        toBars.Add(mine);
+                    }
+                }
+            }
+            double[] own;
+            if (fromBars.Count < 30 || !horizon.TryGetValue(Convert.ToString(this.source.Scalar("SELECT MediaName FROM Data_Car WHERE Id = ?", this.carId), CultureInfo.InvariantCulture), out own))
+            {
+                this.Line("ratings: kept as the source's ({0} cars shared with FM4, 30 needed to fit the lines)", fromBars.Count);
+                return;
+            }
+            List<string> parts = new List<string>();
+            List<object> args = new List<object>();
+            List<string> sets = new List<string>();
+            for (int i = 0; i < 5; i++)
+            {
+                double mx = 0, my = 0;
+                for (int k = 0; k < fromBars.Count; k++)
+                {
+                    mx += fromBars[k][i] / fromBars.Count;
+                    my += toBars[k][i] / fromBars.Count;
+                }
+                double sxx = 0, sxy = 0;
+                for (int k = 0; k < fromBars.Count; k++)
+                {
+                    sxx += (fromBars[k][i] - mx) * (fromBars[k][i] - mx);
+                    sxy += (fromBars[k][i] - mx) * (toBars[k][i] - my);
+                }
+                double slope = (sxx > 1e-9) ? sxy / sxx : 1.0;
+                double mapped = Math.Max(0, Math.Min(10, my + (slope * (own[i] - mx))));
+                sets.Add(SqliteDatabase.Quote(RatingColumns[i]) + " = ?");
+                args.Add(mapped);
+                parts.Add(string.Format(CultureInfo.InvariantCulture, "{0} {1:0.0} -> {2:0.0}", RatingColumns[i].Replace("Rating", ""), own[i], mapped));
+            }
+            args.Add(this.carId);
+            this.target.Execute("UPDATE Data_Car SET " + string.Join(", ", sets.ToArray()) + " WHERE Id = ?", args.ToArray());
+            this.Line("ratings ({0} -> FM4 lines on {1} shared cars): {2}", this.game, fromBars.Count, string.Join(", ", parts.ToArray()));
         }
 
         // (FH2 PI, FM4 PI) of the cars both games have (same MediaName), sorted; the car being

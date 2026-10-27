@@ -240,9 +240,10 @@ namespace ForzaStudio
             double k100 = (s.T100 > 0 && c.T100 > 0) ? c.T100 / s.T100 : k60;
             double kq = c.QuarterTime / s.QuarterTime, kvq = c.QuarterSpeed / s.QuarterSpeed, ktop = c.TopSpeed / s.TopSpeed;
             double nt60 = t60 * k60, nt100 = t100 * k100, ntq = tq * kq, nvq = vq * kvq, ntop = top * ktop;
-            double speed = Math.Max(0, Real(row[5]) + (0.14631 * (ntop - top)));
-            double acceleration = Math.Max(0, Real(row[6]) + (-0.21026 * (nt60 - t60)) + (0.13644 * (nvq - vq)));
-            double launch = Math.Max(0, Real(row[7]) + (-0.61434 * (nt60 - t60)));
+            // FM4's bars run 0 to 10 (all 503 cars: maximum exactly 10, also Veyron and Zonda R), and its PI follows the capped bars.
+            double speed = Math.Min(10, Math.Max(0, Real(row[5]) + (0.14631 * (ntop - top))));
+            double acceleration = Math.Min(10, Math.Max(0, Real(row[6]) + (-0.21026 * (nt60 - t60)) + (0.13644 * (nvq - vq))));
+            double launch = Math.Min(10, Math.Max(0, Real(row[7]) + (-0.61434 * (nt60 - t60))));
             double pi = Math.Max(0, Real(row[8]) + (0.01328 * (speed - Real(row[5]))) + (0.05059 * (acceleration - Real(row[6]))) + (0.01559 * (launch - Real(row[7]))));
             object classId = CarPort.ClassFor(db, pi, carId) ?? row[9];
             db.Execute("UPDATE Data_Car SET SimTimeTo60MPH = ?, SimTimeTo100MPH = ?, SimTimeQuarterMile = ?, SimSpeedQuarterMile = ?, SimTopSpeed = ?, SpeedRating = ?, AccelerationRating = ?, LaunchRating = ?, PerformanceIndex = ?, ClassID = ? WHERE Id = ?",
@@ -269,6 +270,85 @@ namespace ForzaStudio
             }
             plan.Add(string.Format(CultureInfo.InvariantCulture, "performance (simulated, source -> copy): 0-60 {0:0.0} -> {1:0.0} s, top speed {2:0} -> {3:0} km/h, quarter mile {4:0.0} -> {5:0.0} s; PI {6:0} -> {7:0} (class {8}); shown figures scaled: {9}",
                 t60, nt60, top * 3.6, ntop * 3.6, tq, ntq, (Real(row[8]) * 1000) + 100, (pi * 1000) + 100, classId, scaled.Count == 0 ? "none" : string.Join(", ", scaled.ToArray())));
+        }
+
+        // The PI the game shows (A 542) from Data_Car.PerformanceIndex: a line between the points of CarClasses
+        // (MaxPerformanceIndex -> MaxDisplayPerformanceIndex: 0.4177 -> 500, 0.53 -> 600...), rounded up. Checked on a
+        // ported Bowler: stored 0.4639 = 541.1, shown 542. Below the first class it runs from (0, 100).
+        public static int ShownPi(SqliteDatabase db, double pi)
+        {
+            List<double[]> points = ClassPoints(db);
+            double lastX = 0, lastY = 100;
+            foreach (double[] p in points)
+            {
+                if (pi <= p[0])
+                {
+                    return (int) Math.Ceiling(lastY + ((p[1] - lastY) * (pi - lastX) / Math.Max(1e-9, p[0] - lastX)));
+                }
+                lastX = p[0];
+                lastY = p[1];
+            }
+            return (int) Math.Ceiling(lastY);
+        }
+
+        // The Data_Car.PerformanceIndex the game shows as this PI (the middle of the integer's step).
+        public static double StoredPi(SqliteDatabase db, int shown)
+        {
+            List<double[]> points = ClassPoints(db);
+            double target = shown - 0.5;
+            double lastX = 0, lastY = 100;
+            foreach (double[] p in points)
+            {
+                if (target <= p[1])
+                {
+                    return lastX + ((p[0] - lastX) * (target - lastY) / Math.Max(1e-9, p[1] - lastY));
+                }
+                lastX = p[0];
+                lastY = p[1];
+            }
+            return lastX;
+        }
+
+        // FM4's CarClasses (MaxPerformanceIndex, MaxDisplayPerformanceIndex), for a database that has no such table (a DLC pack's merge database).
+        private static readonly double[][] Fm4Classes = {
+            new double[] { 0.157, 200 }, new double[] { 0.2224, 275 }, new double[] { 0.282493, 350 }, new double[] { 0.347, 425 }, new double[] { 0.4177, 500 },
+            new double[] { 0.53, 600 }, new double[] { 0.6233, 700 }, new double[] { 0.7245, 800 }, new double[] { 0.796, 875 }, new double[] { 0.938, 998 }, new double[] { 1, 999 } };
+        private static readonly string[] Fm4ClassNames = { "F", "E", "D", "C", "B", "A", "S", "R3", "R2", "R1", "U" };
+
+        private static List<double[]> ClassPoints(SqliteDatabase db)
+        {
+            List<double[]> points = new List<double[]>();
+            if (DbIds.HasTable(db, "CarClasses"))
+            {
+                foreach (object[] row in db.Query("SELECT MaxPerformanceIndex, MaxDisplayPerformanceIndex FROM CarClasses ORDER BY MaxPerformanceIndex").Rows)
+                {
+                    points.Add(new double[] { Real(row[0]), Real(row[1]) });
+                }
+            }
+            if (points.Count == 0)
+            {
+                points.AddRange(Fm4Classes);
+            }
+            return points;
+        }
+
+        // The class id (CarClasses.Id: F 0, E 1 ... R1 9, U 10) of a stored PI, and its letter.
+        public static int ClassOf(SqliteDatabase db, double pi)
+        {
+            List<double[]> points = ClassPoints(db);
+            for (int i = 0; i < points.Count; i++)
+            {
+                if (pi <= points[i][0])
+                {
+                    return i;
+                }
+            }
+            return points.Count - 1;
+        }
+
+        public static string ClassLetter(int classId)
+        {
+            return (classId >= 0 && classId < Fm4ClassNames.Length) ? Fm4ClassNames[classId] : "?";
         }
 
         private static double TorqueAt(double[] torque, double maxRpm, double redline, double rpm)

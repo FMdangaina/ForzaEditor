@@ -415,6 +415,7 @@ namespace ForzaStudio
                 }
 
                 string soundSource = null, ownEngineMedia = null;
+                bool turboSound = false;
                 // The copy's own engine (CarEngine), before the checks. Its sound is set up the way the port does it: the
                 // engine keeps a MediaName of its own (the car's) and gets an engine tuning file of that name, a copy of the
                 // chosen engine's (or the source's) one, written below.
@@ -423,6 +424,8 @@ namespace ForzaStudio
                     long engineId = CarEngine.Clone(db, this.NewId, this.Engine, plan);
                     soundSource = Convert.ToString(db.Scalar("SELECT MediaName FROM Data_Engine WHERE EngineID = ?", engineId), CultureInfo.InvariantCulture);
                     ownEngineMedia = this.NewMediaName;
+                    long aspiration = Convert.ToInt64(db.Scalar("SELECT AspirationID_Stock FROM Data_Engine WHERE EngineID = ?", engineId), CultureInfo.InvariantCulture);
+                    turboSound = aspiration >= 2 && aspiration <= 4;
                     while (db.Scalar("SELECT EngineID FROM Data_Engine WHERE MediaName = ? COLLATE NOCASE", ownEngineMedia) != null)
                     {
                         ownEngineMedia += "_E";
@@ -581,7 +584,32 @@ namespace ForzaStudio
                 string modelPath = Path.Combine(audioFolder, "CarModelTuning.zip");
                 string tuningPath = Path.Combine(Path.Combine(audioFolder, "Engines"), "enginetuning.zip");
                 ForzaZip modelZip = AddCopy(modelPath, this.SourceMediaName + "_CMT.xml", this.NewMediaName + "_CMT.xml", plan, "sound: car model tuning");
-                ForzaZip tuningZip = (ownEngineMedia != null) ? AddCopy(tuningPath, soundSource + "_ET.xml", ownEngineMedia + "_ET.xml", plan, "sound: engine tuning (the engine's setup is " + soundSource + "'s)") : null;
+                // A turbo engine on the setup of a natural one (TurboVolume 0, as the Furai's) would whistle never: FM4's 137 turbo
+                // engines all have TurboVolume 0.2 - 0.9 (median 0.5), the turbo sound's level in the tuning file.
+                ForzaZip tuningZip = null;
+                if (ownEngineMedia != null)
+                {
+                    // The sound engine's stock redline / idle against the copy's own: the audio range follows the ratio.
+                    double redlineFactor = 1.0, idleFactor = 1.0;
+                    object soundEngine = original.Scalar("SELECT EngineID FROM Data_Engine WHERE MediaName = ? COLLATE NOCASE", soundSource);
+                    if (soundEngine != null && soundEngine != DBNull.Value)
+                    {
+                        SqliteDatabase.Result was = original.Query("SELECT RedlineRPM, StallRPM FROM List_UpgradeEngineCamshaft WHERE EngineID = ? AND IsStock = 1 ORDER BY Level LIMIT 1", soundEngine);
+                        SqliteDatabase.Result now = db.Query("SELECT RedlineRPM, StallRPM FROM List_UpgradeEngineCamshaft WHERE EngineID = (SELECT EngineID FROM Data_Engine WHERE MediaName = ? COLLATE NOCASE) AND IsStock = 1 ORDER BY Level LIMIT 1", ownEngineMedia);
+                        if (was.Rows.Count > 0 && now.Rows.Count > 0)
+                        {
+                            double wasRedline = Convert.ToDouble(was.Rows[0][0], CultureInfo.InvariantCulture), wasStall = Convert.ToDouble(was.Rows[0][1], CultureInfo.InvariantCulture);
+                            double nowRedline = Convert.ToDouble(now.Rows[0][0], CultureInfo.InvariantCulture), nowStall = Convert.ToDouble(now.Rows[0][1], CultureInfo.InvariantCulture);
+                            redlineFactor = (wasRedline > 0 && nowRedline > 0) ? nowRedline / wasRedline : 1.0;
+                            idleFactor = (wasStall > 0 && nowStall > 0) ? nowStall / wasStall : 1.0;
+                        }
+                    }
+                    bool turboNow = turboSound;
+                    double rf = redlineFactor, inf = idleFactor;
+                    EngineSpec engineSpec = this.Engine;
+                    tuningZip = AddCopy(tuningPath, soundSource + "_ET.xml", ownEngineMedia + "_ET.xml", plan, "sound: engine tuning (the engine's setup is " + soundSource + "'s)",
+                        delegate(byte[] data, List<string> lines) { return TuneEngineSound(data, lines, turboNow, rf, inf, engineSpec); });
+                }
 
                 if (apply)
                 {
@@ -688,7 +716,58 @@ namespace ForzaStudio
         }
 
         // The zip with a copy of one of its files under another name (in memory; null and a plan line when it has no such file).
+        private delegate byte[] EntryEdit(byte[] data, List<string> plan);
+
+        // The engine tuning file of a copy's own engine, made for the engine it describes: the turbo level (see the call) and the
+        // rpm range the sound is played over. audio_rpm_redline / audio_rpm_idle sit near the engine's redline and stall rpm in
+        // FM4 (median 1.02 and 1.00 times; the Furai's own are 1.075 and 1.6): the copy keeps the sound engine's ratio to its
+        // physics, so the sound runs up to the new redline and idles at the new idle.
+        private static byte[] TuneEngineSound(byte[] data, List<string> plan, bool turbo, double redlineFactor, double idleFactor, EngineSpec spec)
+        {
+            string text = System.Text.Encoding.UTF8.GetString(data);
+            if (turbo)
+            {
+                // The whistle's level (the user's, or 0.5 when the sound engine has none) and the blow-off sample of the three slots.
+                System.Text.RegularExpressions.Match m = System.Text.RegularExpressions.Regex.Match(text, "TurboVolume=\"([^\"]*)\"");
+                double now;
+                if (m.Success && double.TryParse(m.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out now) && (spec != null && spec.TurboVolume.HasValue || now <= 0))
+                {
+                    double volume = (spec != null && spec.TurboVolume.HasValue) ? spec.TurboVolume.Value : 0.5;
+                    text = text.Substring(0, m.Index) + "TurboVolume=\"" + volume.ToString("0.000000", CultureInfo.InvariantCulture) + "\"" + text.Substring(m.Index + m.Length);
+                    plan.Add(string.Format(CultureInfo.InvariantCulture, "sound: TurboVolume {0} -> {1} in the engine tuning (the engine is turbocharged; FM4's turbo engines use 0.2 - 0.9)", now, volume));
+                }
+                if (spec != null && spec.BovLevel > 0)
+                {
+                    for (int slot = 1; slot <= 3; slot++)
+                    {
+                        text = System.Text.RegularExpressions.Regex.Replace(text, "blowoffL" + slot + "Level=\"[^\"]*\"", "blowoffL" + slot + "Level=\"" + spec.BovLevel + "\"");
+                        text = System.Text.RegularExpressions.Regex.Replace(text, "blowoffL" + slot + "Choice=\"[^\"]*\"", "blowoffL" + slot + "Choice=\"" + spec.BovChoice + "\"");
+                    }
+                    plan.Add("sound: blow-off L" + spec.BovLevel + "_BlowOff_" + spec.BovChoice + " in the three blow-off slots of the engine tuning");
+                }
+            }
+            string[] names = { "audio_rpm_redline", "audio_rpm_idle" };
+            double[] factors = { redlineFactor, idleFactor };
+            for (int i = 0; i < names.Length; i++)
+            {
+                System.Text.RegularExpressions.Match m = System.Text.RegularExpressions.Regex.Match(text, names[i] + "=\"([^\"]*)\"");
+                double was;
+                if (factors[i] > 0 && Math.Abs(factors[i] - 1.0) > 0.001 && m.Success && double.TryParse(m.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out was) && was > 0)
+                {
+                    double value = Math.Round(was * factors[i]);
+                    text = text.Substring(0, m.Index) + names[i] + "=\"" + value.ToString(CultureInfo.InvariantCulture) + "\"" + text.Substring(m.Index + m.Length);
+                    plan.Add(string.Format(CultureInfo.InvariantCulture, "sound: {0} {1:0} -> {2:0} in the engine tuning (follows the engine's {3})", names[i], was, value, i == 0 ? "redline" : "idle"));
+                }
+            }
+            return System.Text.Encoding.UTF8.GetBytes(text);
+        }
+
         private static ForzaZip AddCopy(string zipPath, string from, string to, List<string> plan, string what)
+        {
+            return AddCopy(zipPath, from, to, plan, what, null);
+        }
+
+        private static ForzaZip AddCopy(string zipPath, string from, string to, List<string> plan, string what, EntryEdit edit)
         {
             if (!File.Exists(zipPath))
             {
@@ -707,7 +786,8 @@ namespace ForzaStudio
                 plan.Add(what + ": " + to + " is already in " + Path.GetFileName(zipPath));
                 return null;
             }
-            zip.Add(to, zip.Read(entry));
+            byte[] bytes = zip.Read(entry);
+            zip.Add(to, (edit != null) ? edit(bytes, plan) : bytes);
             plan.Add(what + ": " + to + " added to " + Path.GetFileName(zipPath) + " (copy of " + from + ")");
             return zip;
         }
