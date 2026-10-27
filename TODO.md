@@ -235,7 +235,7 @@ console tests). Docs: `docs/DLC_PACKAGES.md`. Material: `fm4dev\DEV_DLC`.
 - [ ] 7.1 Several Forza Studio packs at once. CODED 2026-10-22: a pack's string tables = the game's + EVERY installed FM4 pack layer (STFS or
       folder, `DlcPackage.StringLayer`) + its own strings; priority above the highest layer; key clashes with an installed pack reported as
       WARNING (merged EN Data_Car 1006 → 1402 keys). In-game check pending. Follows the string audit rules in D, 2.1.
-- [ ] 7.3 Read the installed DLCs of the opened game (user 2026-10-24, all games: FM2/FM3/FM4/FH1/FH2). Starts when the configuration paths
+- [ ] 7.3 (2026-10-27: to be reviewed, another chat is working on it - the %temp% one; do not touch from here) Read the installed DLCs of the opened game (user 2026-10-24, all games: FM2/FM3/FM4/FH1/FH2). Starts when the configuration paths
       are complete. Needs: (a) find DLC content for each game (folder DLC, STFS packages, `DlcSource.cs` already reads FH1/FM3 STFS);
       (b) merge each DLC gamedb into the in-memory view (cars, tracks; ids from the DLC kept, clashes reported, game files never written);
       (c) show DLC cars / tracks in the car list and database views with a "DLC" mark and the pack name; (d) check per game what a DLC
