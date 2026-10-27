@@ -282,13 +282,39 @@ namespace ForzaStudio
         // the emulator's folder: its config's content_root when set, else <emulator>\content.
         public static string XeniaContent(string xenia)
         {
+            return XeniaContent(xenia, TitleId);
+        }
+
+        // The same for any game's title id (hex, e.g. 4D530910). The folder typed in Settings may be any level of the path:
+        // the emulator's folder, its content folder, content\0000000000000000, or the whole ...\<title id>\00000002
+        // (user 2026-10-27: he had typed it up to content\0000000000000000).
+        public static string XeniaContent(string xenia, string title)
+        {
             string root = Path.Combine(xenia, "content");
             string value = XeniaSetting(xenia, "content_root");
             if (!string.IsNullOrEmpty(value))
             {
                 root = Path.IsPathRooted(value) ? value : Path.Combine(xenia, value);
             }
-            return Path.Combine(Path.Combine(Path.Combine(root, "0000000000000000"), TitleId), "00000002");
+            string standard = Path.Combine(Path.Combine(Path.Combine(root, "0000000000000000"), title), "00000002");
+            string typed = xenia.TrimEnd('\\', '/');
+            string[] candidates = new string[]
+            {
+                standard,
+                Path.Combine(Path.Combine(Path.Combine(Path.Combine(typed, "content"), "0000000000000000"), title), "00000002"),
+                Path.Combine(Path.Combine(Path.Combine(typed, "0000000000000000"), title), "00000002"),
+                Path.Combine(Path.Combine(typed, title), "00000002"),
+                Path.Combine(typed, "00000002"),
+                typed,
+            };
+            foreach (string candidate in candidates)
+            {
+                if (Directory.Exists(candidate) && candidate.TrimEnd('\\').EndsWith("00000002", StringComparison.Ordinal))
+                {
+                    return candidate;
+                }
+            }
+            return standard;
         }
 
         // The emulator's config file (xenia-canary.config.toml, or xenia.config.toml), or null.

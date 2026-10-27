@@ -44,6 +44,7 @@ namespace ForzaStudio
         public string TargetRoot;       // FM4 game folder
         public string MediaName;        // the car, e.g. MCL_P1_13
         public string DonorMediaName;   // an FM4 car close to it, e.g. MCL_MP412C_11 (brakes, templates)
+        public string DonorRoot;        // the donor is a car of an installed DLC pack: that pack laid out as a game folder (found by ResolveDonor), else null
         public string RenameTo;         // a car FM4 already has, ported beside it under this MediaName (for tests); null = the source's name
         public string DisplaySuffix;    // text added to the car's DisplayName / ModelShort when renamed, e.g. " FH"
         public bool Arcade = true;      // Data_Car.IsArcade
@@ -104,6 +105,7 @@ namespace ForzaStudio
         private SqliteDatabase target;
         private long carId;
         private long donorId;
+        private SqliteDatabase donorDb;  // the donor pack's rows (DonorRoot), when the donor is not in the target database
         private long? newMake;          // a make the port added to List_CarMake (PortMake)
         private string motorsport3Dash; // List_DigitalGauges.MediaName of an FM3 car's dash, or null
         private readonly List<string> engineMedia = new List<string>();
@@ -255,6 +257,10 @@ namespace ForzaStudio
                 {
                     throw new InvalidOperationException("An FM2 DLC package needs the Forza Motorsport 2 game: set its folder in Tools > Settings > Folders.");
                 }
+                if (GamePaths.FindCar(this.TargetRoot, this.DonorMediaName) == null)
+                {
+                    throw new InvalidOperationException("An FM2 car is built on a donor from the FM4 game folder itself, and " + this.DonorMediaName + " is not there (a DLC car?). Pick another donor.");
+                }
                 tempStage = Path.Combine(Path.GetTempPath(), "ForzaStudio_FM2_" + this.MediaName);
                 List<string> stageLog = new List<string>();
                 try
@@ -331,7 +337,8 @@ namespace ForzaStudio
                 }
                 DbIds.PackContent = this.XeniaContent;
                 this.carId = DbIds.CarId(this.target, this.source, this.CarName, DbIds.PackDatabases(this.XeniaContent), this.FirstCarId ?? DbIds.InstallFirstCar, !this.FirstCarId.HasValue, out reason);
-                this.donorId = ToLong(this.target.Scalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", this.DonorMediaName), "the target database has no car " + this.DonorMediaName);
+                this.ResolveDonor();
+                this.donorId = ToLong(this.DonorScalar("SELECT Id FROM Data_Car WHERE MediaName = ? COLLATE NOCASE", this.DonorMediaName), "the target database has no car " + this.DonorMediaName);
                 object existing = this.target.Scalar("SELECT MediaName FROM Data_Car WHERE Id = ?", this.carId);
                 if (existing != null && !string.Equals((string) existing, this.CarName, StringComparison.OrdinalIgnoreCase))
                 {
@@ -2159,10 +2166,45 @@ namespace ForzaStudio
 
         #region Car and wheel zips
 
+        // The donor's carattribs.xml, the template of the car's. A donor without one (some cars of the DLC packs) lends
+        // the first FM4 car's that has it, and the report says so.
+        private string CarAttribsTemplate(ForzaZip donor)
+        {
+            ForzaZip.Entry own = donor.Find("carattribs.xml");
+            if (own != null)
+            {
+                return Encoding.UTF8.GetString(donor.Read(own));
+            }
+            string cars = Path.Combine(Path.Combine(this.TargetRoot, "Media"), "cars");
+            int tried = 0;
+            foreach (string zip in Directory.Exists(cars) ? Directory.GetFiles(cars, "*.zip") : new string[0])
+            {
+                if (++tried > 80)
+                {
+                    break;
+                }
+                try
+                {
+                    ForzaZip other = new ForzaZip(zip);
+                    ForzaZip.Entry entry = other.Find("carattribs.xml");
+                    if (entry != null)
+                    {
+                        this.donorContent.Add("carattribs.xml: the template of " + Path.GetFileNameWithoutExtension(zip) + " (the donor " + this.DonorMediaName + " has none)");
+                        return Encoding.UTF8.GetString(other.Read(entry));
+                    }
+                }
+                catch (Exception)
+                {
+                    // not a readable car zip: the next one
+                }
+            }
+            throw new InvalidOperationException("The donor " + this.DonorMediaName + " has no carattribs.xml and no FM4 car zip has one to use instead. Pick another donor.");
+        }
+
         private void BuildCarZip()
         {
             string sourcePath = GamePaths.FindCar(this.SourceRoot, this.MediaName);
-            string donorPath = GamePaths.FindCar(this.TargetRoot, this.DonorMediaName);
+            string donorPath = GamePaths.FindCar(this.DonorRoot ?? this.TargetRoot, this.DonorMediaName);
             if (sourcePath == null || donorPath == null || !sourcePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException("Car zips not found (" + this.MediaName + " in " + this.game + ", " + this.DonorMediaName + " in FM4).");
@@ -2268,7 +2310,7 @@ namespace ForzaStudio
                 else if (name == "carattribs.xml")
                 {
                     List<string> kept = new List<string>();
-                    data = ConvertCarAttributes(Encoding.UTF8.GetString(data), Encoding.UTF8.GetString(donor.Read(donor.Find("carattribs.xml"))), animations, this.Report, kept, !this.motorsport3 && !this.fm2Stage);
+                    data = ConvertCarAttributes(Encoding.UTF8.GetString(data), this.CarAttribsTemplate(donor), animations, this.Report, kept, !this.motorsport3 && !this.fm2Stage);
                     foreach (string element in kept)
                     {
                         this.donorContent.Add("carattribs.xml " + element);
@@ -2401,7 +2443,7 @@ namespace ForzaStudio
                 this.damagePrefix = this.MediaName;
                 if (path == null || !path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) || words == "donorcar")
                 {
-                    path = GamePaths.FindCar(this.TargetRoot, this.DonorMediaName);
+                    path = GamePaths.FindCar(this.DonorRoot ?? this.TargetRoot, this.DonorMediaName);
                     this.damagePrefix = this.DonorMediaName;
                     this.damageByShape = true;
                 }
@@ -4610,7 +4652,7 @@ namespace ForzaStudio
 
         private void BuildWheelZips()
         {
-            string donorWheelMedia = this.target.Scalar("SELECT w.MediaName FROM List_Wheels w JOIN Data_Car c ON c.StockWheelID = w.ID WHERE c.Id = ?", this.donorId) as string;
+            string donorWheelMedia = this.DonorScalar("SELECT w.MediaName FROM List_Wheels w JOIN Data_Car c ON c.StockWheelID = w.ID WHERE c.Id = ?", this.donorId) as string;
             foreach (long id in this.wheelIds)
             {
                 string media = this.source.Scalar("SELECT MediaName FROM List_Wheels WHERE ID = ?", id) as string;
@@ -4619,7 +4661,7 @@ namespace ForzaStudio
                     media = this.target.Scalar("SELECT MediaName FROM List_Wheels WHERE ID = ?", id) as string;   // a new id (Motorsport3Wheel)
                 }
                 string sourcePath = GamePaths.FindMedia(this.SourceRoot, "wheels", media);
-                string donorPath = (donorWheelMedia != null) ? GamePaths.FindMedia(this.TargetRoot, "wheels", donorWheelMedia) : null;
+                string donorPath = (donorWheelMedia != null) ? (GamePaths.FindMedia(this.DonorRoot ?? this.TargetRoot, "wheels", donorWheelMedia) ?? GamePaths.FindMedia(this.TargetRoot, "wheels", donorWheelMedia)) : null;
                 if (sourcePath == null || donorPath == null)
                 {
                     this.Line("wheel {0}: zip not found, skipped", media);
@@ -5343,7 +5385,7 @@ namespace ForzaStudio
             List<string> imported = new List<string>();
             List<string> checkedHarmonics = new List<string>();   // in FM4 with all their sound banks
             ForzaZip engineTuning = this.OpenChanged(Path.Combine(Path.Combine(targetAudio, "Engines"), "enginetuning.zip"));
-            string donorEngine = this.target.Scalar("SELECT e.MediaName FROM Data_Engine e JOIN List_UpgradeEngine u ON u.EngineID = e.EngineID WHERE u.Ordinal = ? AND u.Level = 0", this.donorId) as string;
+            string donorEngine = this.DonorScalar("SELECT e.MediaName FROM Data_Engine e JOIN List_UpgradeEngine u ON u.EngineID = e.EngineID WHERE u.Ordinal = ? AND u.Level = 0", this.donorId) as string;
             string chosenEngine = (this.SoundFrom != null) ? this.target.Scalar("SELECT e.MediaName FROM Data_Engine e JOIN List_UpgradeEngine u ON u.EngineID = e.EngineID JOIN Data_Car c ON c.Id = u.Ordinal WHERE c.MediaName = ? COLLATE NOCASE AND u.Level = 0", this.SoundFrom) as string : null;
             ForzaZip.Entry chosenTuning = (chosenEngine != null) ? engineTuning.Find(chosenEngine + "_ET.xml") : null;
             if (this.SoundFrom != null && chosenTuning == null)
@@ -5396,13 +5438,13 @@ namespace ForzaStudio
                     object fix;
                     bool picked = this.Fixes.TryGetValue(fullKey, out fix) && fix is string && engineTuning.Find((string) fix + "_ET.xml") != null;
                     string setup = picked ? (string) fix : donorEngine;
-                    ForzaZip.Entry fallback = (setup != null) ? engineTuning.Find(setup + "_ET.xml") : null;
-                    if (fallback == null)
+                    byte[] fallbackData = (setup != null) ? this.ReadTuning(engineTuning, setup) : null;
+                    if (fallbackData == null)
                     {
                         this.Line("engine sound {0}: no tuning", media);
                         continue;
                     }
-                    data = engineTuning.Read(fallback);
+                    data = fallbackData;
                     this.donorContent.Add(string.Format("engine sound {0}: {1} tuning {2}_ET.xml ({3} lacks {4})", media, picked ? "the picked" : "the donor's", setup, this.game, lacks));
                     this.Line("engine sound {0}: {1} ({2}; " + this.game + " lacks {3})", media, picked ? "the picked FM4 setup" : "the donor's", setup, lacks);
                     // FM4's tunings, but their banks may be missing from this FM4 too: they come from the
@@ -5414,7 +5456,7 @@ namespace ForzaStudio
                         if (!checkedHarmonics.Contains(name) && !imported.Contains(name))
                         {
                             checkedHarmonics.Add(name);
-                            if (this.ImportHarmonic(harmonic, sourceHarmonic, harmonicPath, name, sourceBanks, targetBanks) < 0)
+                            if (this.ImportHarmonicAny(harmonic, sourceHarmonic, harmonicPath, name, sourceBanks, targetBanks) < 0)
                             {
                                 silent.Add(name);
                                 this.Line("  WARNING harmonic tuning {0} of {1}: a sound bank is in neither game", name, setup);
@@ -5521,8 +5563,8 @@ namespace ForzaStudio
             {
                 this.Line("  engine sound {0}: DSP blocks from {1}, same sound banks ({2})", media, sameBanks, shared);
             }
-            ForzaZip.Entry layoutEntry = (layoutName != null) ? engineTuning.Find(layoutName + "_ET.xml") : null;
-            string layout = (layoutEntry != null) ? Encoding.UTF8.GetString(engineTuning.Read(layoutEntry)) : null;
+            byte[] layoutData = (layoutName != null) ? this.ReadTuning(engineTuning, layoutName) : null;
+            string layout = (layoutData != null) ? Encoding.UTF8.GetString(layoutData) : null;
             if (layout == null || layout.IndexOf("<DSPScalar", StringComparison.Ordinal) < 0)
             {
                 this.Line("  WARNING engine sound {0}: {1} tuning lacks FM4's DSP blocks and {2}_ET.xml is no complete FM4 tuning; left as is (silent when upgraded)", media, this.game, layoutName);
@@ -5761,6 +5803,52 @@ namespace ForzaStudio
         // holds 356 banks against FH1's 937, and its own tunings name banks it does not have
         // (MER_S65AMG_12's exhaust 12T1_Bently_Exh: "Disc Read Error" while loading the race).
         // 1 = something imported, 0 = all already in FM4, -1 = the source game lacks a piece.
+        // The donor's engine tuning (<engine>_ET.xml): in the game's EngineTuning.zip, or for a donor of a DLC pack in the
+        // pack's own. null when neither has it.
+        private byte[] ReadTuning(ForzaZip engineTuning, string setup)
+        {
+            ForzaZip.Entry entry = engineTuning.Find(setup + "_ET.xml");
+            if (entry != null)
+            {
+                return engineTuning.Read(entry);
+            }
+            string pack = this.DonorAudio("EngineTuning.zip");
+            if (pack != null)
+            {
+                ForzaZip zip = new ForzaZip(pack);
+                entry = zip.Find(setup + "_ET.xml");
+                if (entry != null)
+                {
+                    return zip.Read(entry);
+                }
+            }
+            return null;
+        }
+
+        // A file of the donor pack's engine audio (Media\audio\cars\Engines\<name>), or null.
+        private string DonorAudio(string name)
+        {
+            if (this.DonorRoot == null)
+            {
+                return null;
+            }
+            string path = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.Combine(this.DonorRoot, "Media"), "audio"), "cars"), "Engines"), name);
+            return (File.Exists(path) || Directory.Exists(path)) ? path : null;
+        }
+
+        // ImportHarmonic from the source game, and when it has no such harmonic tuning or bank, from the donor's pack.
+        private int ImportHarmonicAny(ForzaZip targetHarmonic, ForzaZip sourceHarmonic, string harmonicPath, string name, string sourceBanks, string targetBanks)
+        {
+            int result = this.ImportHarmonic(targetHarmonic, sourceHarmonic, harmonicPath, name, sourceBanks, targetBanks);
+            string packHarmonic = this.DonorAudio("HarmonicTuning.zip");
+            string packBanks = this.DonorAudio(Path.Combine("Soundbanks", "LOD1"));
+            if (result < 0 && packHarmonic != null && packBanks != null)
+            {
+                result = this.ImportHarmonic(targetHarmonic, new ForzaZip(packHarmonic), harmonicPath, name, packBanks, targetBanks);
+            }
+            return result;
+        }
+
         private int ImportHarmonic(ForzaZip targetHarmonic, ForzaZip sourceHarmonic, string harmonicPath, string name, string sourceBanks, string targetBanks)
         {
             ForzaZip.Entry own = targetHarmonic.Find(name);
@@ -5864,9 +5952,21 @@ namespace ForzaStudio
                 return;
             }
             string thumbnail = this.source.Scalar("SELECT Thumbnail FROM Data_Car WHERE Id = ?", this.carId) as string;
-            string donorThumbnail = this.target.Scalar("SELECT Thumbnail FROM Data_Car WHERE Id = ?", this.donorId) as string;
+            string donorThumbnail = this.DonorScalar("SELECT Thumbnail FROM Data_Car WHERE Id = ?", this.donorId) as string;
             GamePaths.GameFile from = GamePaths.Locate(this.SourceRoot, thumbnail);
             GamePaths.GameFile like = GamePaths.Locate(this.TargetRoot, donorThumbnail);
+            if ((like == null || !like.InZip) && this.DonorRoot != null)
+            {
+                // a DLC donor's thumbnail is a loose file of its pack: the new one goes in the game's thumbnail zip, beside a car the game has
+                foreach (object[] row in this.target.Query("SELECT Thumbnail FROM Data_Car WHERE Thumbnail IS NOT NULL ORDER BY Id LIMIT 30").Rows)
+                {
+                    like = (row[0] is string) ? GamePaths.Locate(this.TargetRoot, (string) row[0]) : null;
+                    if (like != null && like.InZip)
+                    {
+                        break;
+                    }
+                }
+            }
             if (from == null || like == null || !like.InZip)
             {
                 this.Line("thumbnail: not found, skipped");
@@ -6041,6 +6141,83 @@ namespace ForzaStudio
             File.Copy(path, copy);
         }
 
+        // ---- Donor from an installed DLC pack (TODO D-18) ----
+
+        private static readonly Dictionary<string, string> donorRoots = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // The donor is a car of a pack installed in Xenia (not in the target game's folder): the pack is laid out as a game
+        // folder once (DlcSource.Stage, kept under %TEMP%) and the donor's zips, wheels and rows are read from there.
+        // Nothing is written to the pack.
+        private void ResolveDonor()
+        {
+            this.donorDb = null;
+            if (GamePaths.FindCar(this.TargetRoot, this.DonorMediaName) != null)
+            {
+                return;
+            }
+            string notFound = "The donor " + this.DonorMediaName + " has no zip in the FM4 folder and no DLC pack installed in Xenia has it" + (string.IsNullOrEmpty(this.XeniaContent) || !Directory.Exists(this.XeniaContent) ? " (Xenia's content folder is not set: Tools > Settings)" : "") + ". Pick another donor.";
+            if (string.IsNullOrEmpty(this.XeniaContent) || !Directory.Exists(this.XeniaContent))
+            {
+                throw new InvalidOperationException(notFound);
+            }
+            string root;
+            if (!donorRoots.TryGetValue(this.XeniaContent + "|" + this.DonorMediaName, out root))
+            {
+                root = null;
+                foreach (InstalledDlc dlc in InstalledDlc.Scan(ForzaGame.Motorsport4, this.XeniaContent, null))
+                {
+                    if (dlc.Source == null || dlc.Problem != null)
+                    {
+                        continue;
+                    }
+                    if (dlc.Source.Cars().Exists(delegate(string c) { return string.Equals(c, this.DonorMediaName, StringComparison.OrdinalIgnoreCase); }))
+                    {
+                        root = dlc.Source.Stage(new StringBuilder());
+                        break;
+                    }
+                }
+                donorRoots[this.XeniaContent + "|" + this.DonorMediaName] = root;
+            }
+            if (root == null)
+            {
+                throw new InvalidOperationException(notFound);
+            }
+            this.DonorRoot = root;
+            this.donorDb = SqliteDatabase.FromBytes(File.ReadAllBytes(Path.Combine(Path.Combine(Path.Combine(root, "Media"), "db"), "gamedb.slt")));
+            this.Line("donor {0}: a car of the DLC pack installed in Xenia (read from {1})", this.DonorMediaName, root);
+        }
+
+        // A value of the donor: in the target database, else in its pack's.
+        private object DonorScalar(string sql, params object[] args)
+        {
+            object value = this.target.Scalar(sql, args);
+            if ((value == null || value == DBNull.Value) && this.donorDb != null)
+            {
+                value = this.donorDb.Scalar(sql, args);
+            }
+            return value;
+        }
+
+        // The zipmanifest lines a new zip can be modelled on: the donor's, and for a DLC donor (it has no line in the game's
+        // manifest) the lines of cars or wheels the game has.
+        private List<string> ManifestLikes(string folder, string donorMedia)
+        {
+            List<string> likes = new List<string>();
+            likes.Add("game:\\media\\" + folder + "\\" + donorMedia.ToLowerInvariant() + ".zip");
+            if (this.DonorRoot != null)
+            {
+                string sql = (folder == "cars") ? "SELECT MediaName FROM Data_Car ORDER BY Id LIMIT 40" : "SELECT MediaName FROM List_Wheels ORDER BY ID LIMIT 40";
+                foreach (object[] row in this.target.Query(sql).Rows)
+                {
+                    if (row[0] is string)
+                    {
+                        likes.Add("game:\\media\\" + folder + "\\" + ((string) row[0]).ToLowerInvariant() + ".zip");
+                    }
+                }
+            }
+            return likes;
+        }
+
         private void UpdateManifest()
         {
             string manifest = this.Out(ZipManifest.PathFor(this.TargetRoot));
@@ -6056,8 +6233,17 @@ namespace ForzaStudio
             foreach (string path in this.newZips)
             {
                 string folder = Path.GetFileName(Path.GetDirectoryName(path)).ToLowerInvariant();
-                string like = "game:\\media\\" + folder + "\\" + ((folder == "cars") ? this.DonorMediaName : this.DonorWheel()).ToLowerInvariant() + ".zip";
-                if (!ZipManifest.Add(manifest, ZipManifest.GamePath(this.TargetRoot, path), this.Out(path), like))
+                string like = null;
+                foreach (string candidate in this.ManifestLikes(folder, (folder == "cars") ? this.DonorMediaName : this.DonorWheel()))
+                {
+                    like = candidate;
+                    if (ZipManifest.Add(manifest, ZipManifest.GamePath(this.TargetRoot, path), this.Out(path), candidate))
+                    {
+                        like = null;
+                        break;
+                    }
+                }
+                if (like != null)
                 {
                     throw new InvalidOperationException("zipmanifest.xml has no line like " + like + ".");
                 }
@@ -6086,7 +6272,7 @@ namespace ForzaStudio
 
         private string DonorWheel()
         {
-            return (this.target.Scalar("SELECT w.MediaName FROM List_Wheels w JOIN Data_Car c ON c.StockWheelID = w.ID WHERE c.Id = ?", this.donorId) as string) ?? this.DonorMediaName;
+            return (this.DonorScalar("SELECT w.MediaName FROM List_Wheels w JOIN Data_Car c ON c.StockWheelID = w.ID WHERE c.Id = ?", this.donorId) as string) ?? this.DonorMediaName;
         }
 
         private string Relative(string path)

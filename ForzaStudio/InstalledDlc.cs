@@ -41,7 +41,7 @@ namespace ForzaStudio
             {
                 return null;
             }
-            string folder = Path.Combine(Path.Combine(xenia, title.ToString("X8", CultureInfo.InvariantCulture)), "00000002");
+            string folder = DlcPackage.XeniaContent(xenia, title.ToString("X8", CultureInfo.InvariantCulture));
             return Directory.Exists(folder) ? folder : null;
         }
 

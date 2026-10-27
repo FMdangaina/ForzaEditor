@@ -164,7 +164,7 @@ namespace ForzaStudio
 
             public override string ToString()
             {
-                return this.Car.Name + "  (" + this.Car.MediaName + ", " + this.Car.Year + ")";
+                return this.Car.Name + "  (" + this.Car.MediaName + ", " + this.Car.Year + ")" + (string.IsNullOrEmpty(this.Car.Dlc) ? "" : "  [DLC: " + this.Car.Dlc + "]");
             }
         }
 
@@ -2036,8 +2036,58 @@ namespace ForzaStudio
                     motorsport.Remove(car);
                 }
                 string targetCars = Path.Combine(Path.Combine(target, "Media"), "cars");
-                motorsport.RemoveAll(delegate(Car car) { return !File.Exists(Path.Combine(targetCars, car.MediaName + ".zip")); });
+                // Donors: FM4's own cars, and the cars of the DLC packs installed in Xenia (their zips are read from the package).
+                Dictionary<string, string> packCars = InstalledPackCars();
+                foreach (Car car in motorsport)
+                {
+                    string pack;
+                    if (!File.Exists(Path.Combine(targetCars, car.MediaName + ".zip")) && packCars.TryGetValue(car.MediaName, out pack))
+                    {
+                        car.Dlc = pack;
+                    }
+                }
+                motorsport.RemoveAll(delegate(Car car) { return !File.Exists(Path.Combine(targetCars, car.MediaName + ".zip")) && string.IsNullOrEmpty(car.Dlc); });
             }
+        }
+
+        private static Dictionary<string, string> packCarsCache;
+
+        // The cars of the DLC packages installed in Xenia for FM4 (MediaName -> the package's name), read once: the packages
+        // are extracted to %TEMP% the first time, then only their headers and merge databases are read.
+        private static Dictionary<string, string> InstalledPackCars()
+        {
+            if (packCarsCache != null)
+            {
+                return packCarsCache;
+            }
+            Dictionary<string, string> cars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                string folder = InstalledDlc.ContentFolder(ForzaGame.Motorsport4);
+                if (folder != null)
+                {
+                    foreach (InstalledDlc dlc in InstalledDlc.Scan(ForzaGame.Motorsport4, folder, null))
+                    {
+                        if (dlc.Source == null || dlc.Problem != null)
+                        {
+                            continue;
+                        }
+                        foreach (string media in dlc.Source.Cars())
+                        {
+                            if (!cars.ContainsKey(media))
+                            {
+                                cars[media] = dlc.Name;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // no readable packages: the donors are the game's own cars
+            }
+            packCarsCache = cars;
+            return cars;
         }
 
         // FM4's cars come from the list inside the program (Fm4CarList: the game and its official DLC), not from reading the
@@ -2241,6 +2291,11 @@ namespace ForzaStudio
             if (car.State == Status.New || car.State == Status.Ported || car.State == Status.InFm4)
             {
                 List<Car> ranked = new List<Car>(this.fm4Cars);
+                if (this.sourceTag == "FM2")
+                {
+                    // an FM2 port is built on a car of the FM4 game folder itself: no donor from a DLC pack
+                    ranked.RemoveAll(delegate(Car donorCar) { return !string.IsNullOrEmpty(donorCar.Dlc); });
+                }
                 Dictionary<Car, double> score = new Dictionary<Car, double>();
                 foreach (Car donor in ranked)
                 {
