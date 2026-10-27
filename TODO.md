@@ -174,7 +174,7 @@ Tools > Import Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`). All 7
       `soundbanks\lod1`); swap engines whose sound is on DVD2 crash the race with an I/O error (BMW M3 GTR V8 `8N1_E92M3_Exh.fsb`;
       M5 / M6 V10 are fine). When DVD2 is found: read it as a second FM4 source; until then maybe hide or flag swap engines with a missing
       bank (ET → HT → `<Soundbank>` check, as `CarPort.ImportHarmonic`).
-- [ ] 3.5 Missing sounds across generations (ex C6). One case classified and fixed (FM3 engine tuning format); banks: source game first,
+- [x] 3.5 (CLOSED 2026-10-27, tests passed by the user) Missing sounds across generations (ex C6). One case classified and fixed (FM3 engine tuning format); banks: source game first,
       FM4 car picked in the review for what is missing, `NA.fsb` = no sound. Left:
   - [x] 3.5.1 Classify more real cases (missing reference / asset / format / audio system). CENSUS 2026-10-27 (harness `E:\DEV\fm4dev\Sound35`: cen.exe, cend2.exe;
         every car of every source ported to a scratch folder, donor LAM_LP6704SV_10, sound lines of the report grouped; results in fh1/fh2/fm2/fm3/dlc_*.txt there).
@@ -187,8 +187,11 @@ Tools > Import Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`). All 7
         - **D. the tuning names a harmonic tuning (`*_HT.xml`) that the source game lacks**: FH1 2 + DLC 9, FM3 1 + DLC 10 (e.g. Huayra, Zagato TZ3, Apollo S, CCX,
           MP4-12C, Cobra Daytona): the donor's sound for that car, REVIEW line.
         - Not sound: FM3 104 + FM2 76 database rows without a car zip (cannot be ported); DLC packages without cars (rims, tracks, textures, incomplete files).
-        Next 3.5.2: the mapping table / procedure for A and D (which FM4 car to suggest per missing bank).
-  - [ ] 3.5.2 Mapping table between the generations; written procedure to find invalid references
+        DECIDED by the user 2026-10-27: no suggestions. The review only says the sound is missing and that another car's is used (cases A, B, D: text
+        "<game> has no <X>: the engine sound of another car (<name>) is used", nothing preselected; "Leave as is" keeps what the port used). Coded in `CarPort.cs`
+        (the two `sound` issues), checked by the user (FH2 Transit, FH1 Huayra, FM3 X5).
+        3.5.2 (mapping table, which car to suggest) is therefore dropped.
+  - [x] 3.5.2 (dropped: no suggestions) Mapping table between the generations; written procedure to find invalid references
   - [ ] 3.5.3 💤 Engine sound listening tool: same-name banks of source and FM4 played at chosen RPM / throttle, then pick one (needs the
         .fsb / .xma decoder, RPM-to-sample mapping, crossfade)
 - Tyre width of ported cars: see 10.4.

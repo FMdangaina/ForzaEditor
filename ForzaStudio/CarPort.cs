@@ -5571,9 +5571,9 @@ namespace ForzaStudio
                         issue.Kind = "sound";
                         issue.Where = media + "_ET.xml";
                         issue.Value = setup;
-                        issue.Problem = string.Format("{0} lacks {1}: engine sound of {2}{3}; pick the FM4 car whose full sound setup to use", this.game, lacks, setup, (silent.Count > 0) ? " (but it misses " + string.Join(", ", silent.ToArray()) + ": silent at some levels)" : "");
+                        issue.Problem = string.Format("{0} has no {1}: the engine sound of another car ({2}) is used{3}", this.game, lacks, setup, (silent.Count > 0) ? " (but it misses " + string.Join(", ", silent.ToArray()) + ": silent at some levels)" : "");
                         issue.Choices.AddRange(this.EngineTuningChoices(engineTuning));
-                        issue.Suggested = setup;
+                        issue.Suggested = null;   // no suggestion: the user picks the car, else it stays as it is
                         this.Issues.Add(issue);
                         this.Line("  REVIEW {0}", issue.Problem);
                     }
@@ -5726,9 +5726,9 @@ namespace ForzaStudio
                 issue.Kind = "sound";
                 issue.Where = media + "_ET.xml";
                 issue.Value = layoutName;
-                issue.Problem = string.Format("{0} engine tuning lacks FM4's DSP blocks (silent when upgraded): taken from {1}{2}; pick the FM4 car whose sound setup to use", this.game, layoutName, (sameBanks != null) ? " (same sound banks: " + shared + ")" : " (the donor's: no FM4 tuning plays the same sound banks)");
+                issue.Problem = string.Format("{0} engine tuning has no FM4 DSP blocks (silent when upgraded): those of another car ({1}) are used", this.game, layoutName);
                 issue.Choices.AddRange(this.EngineTuningChoices(engineTuning));
-                issue.Suggested = layoutName;
+                issue.Suggested = null;   // no suggestion: the user picks the car, else it stays as it is
                 this.Issues.Add(issue);
                 this.Line("  REVIEW {0}", issue.Problem);
             }
@@ -6267,7 +6267,7 @@ namespace ForzaStudio
                 root = null;
                 foreach (InstalledDlc dlc in InstalledDlc.Scan(ForzaGame.Motorsport4, this.XeniaContent, null))
                 {
-                    if (dlc.Source == null || dlc.Problem != null)
+                    if (dlc.Source == null || dlc.Source.Problem != null)
                     {
                         continue;
                     }
@@ -6277,7 +6277,10 @@ namespace ForzaStudio
                         break;
                     }
                 }
-                donorRoots[this.XeniaContent + "|" + this.DonorMediaName] = root;
+                if (root != null)
+                {
+                    donorRoots[this.XeniaContent + "|" + this.DonorMediaName] = root;   // a miss is not kept: a pack installed meanwhile is found next time
+                }
             }
             if (root == null)
             {
