@@ -366,7 +366,7 @@ namespace ForzaStudio
         }
 
         // Who still uses an engine, drivetrain, wheel or torque curve id, or null.
-        private static string StillUsed(SqliteDatabase db, string column, long id)
+        internal static string StillUsed(SqliteDatabase db, string column, long id)
         {
             string[][] users =
             {
@@ -406,7 +406,7 @@ namespace ForzaStudio
 
         // A row CopyReferences added (a key other rows point at): still referenced by a column named as
         // the port reads references (the key's own name, or the table name without prefix + ID).
-        private static string Referenced(SqliteDatabase db, string table, string keyColumn, long id)
+        internal static string Referenced(SqliteDatabase db, string table, string keyColumn, long id)
         {
             List<string> names = new List<string>();
             if (!string.Equals(keyColumn, "Id", StringComparison.OrdinalIgnoreCase))
@@ -437,7 +437,7 @@ namespace ForzaStudio
         }
 
         // The 16-bit string keys of the values that no row of the table still names.
-        private static List<int> UnusedKeys(SqliteDatabase db, string table, string[] columns, List<string> values)
+        internal static List<int> UnusedKeys(SqliteDatabase db, string table, string[] columns, List<string> values)
         {
             List<int> keys = new List<int>();
             foreach (string value in values)
@@ -603,7 +603,7 @@ namespace ForzaStudio
             return path.StartsWith(this.TargetRoot, StringComparison.OrdinalIgnoreCase) ? path.Substring(this.TargetRoot.TrimEnd('\\').Length + 1) : path;
         }
 
-        private static List<long> Longs(SqliteDatabase db, string sql, params object[] args)
+        internal static List<long> Longs(SqliteDatabase db, string sql, params object[] args)
         {
             List<long> list = new List<long>();
             foreach (object[] row in db.Query(sql, args).Rows)
@@ -616,7 +616,7 @@ namespace ForzaStudio
             return list;
         }
 
-        private static List<string> Tables(SqliteDatabase db)
+        internal static List<string> Tables(SqliteDatabase db)
         {
             List<string> tables = new List<string>();
             foreach (object[] row in db.Query("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").Rows)
@@ -626,7 +626,7 @@ namespace ForzaStudio
             return tables;
         }
 
-        private static List<string> Columns(SqliteDatabase db, string table)
+        internal static List<string> Columns(SqliteDatabase db, string table)
         {
             List<string> columns = new List<string>();
             foreach (object[] column in db.Query("PRAGMA table_info(" + SqliteDatabase.Quote(table) + ")").Rows)
@@ -636,7 +636,7 @@ namespace ForzaStudio
             return columns;
         }
 
-        private static bool Has(List<string> columns, string name)
+        internal static bool Has(List<string> columns, string name)
         {
             return columns.Exists(delegate(string c) { return string.Equals(c, name, StringComparison.OrdinalIgnoreCase); });
         }

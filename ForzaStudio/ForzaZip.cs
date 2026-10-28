@@ -137,9 +137,11 @@ namespace ForzaStudio
 
         // Zips that are not files on disk (a zip inside an Xbox 360 package, read in place): a made-up path
         // that opens a stream. Read-only; Save and the folder modes are for real files.
-        private static readonly Dictionary<string, Func<Stream>> mounted = new Dictionary<string, Func<Stream>>(StringComparer.OrdinalIgnoreCase);
+        public delegate Stream StreamOpener();
 
-        public static void Mount(string path, Func<Stream> open)
+        private static readonly Dictionary<string, StreamOpener> mounted = new Dictionary<string, StreamOpener>(StringComparer.OrdinalIgnoreCase);
+
+        public static void Mount(string path, StreamOpener open)
         {
             lock (mounted)
             {
@@ -150,7 +152,7 @@ namespace ForzaStudio
         // Opened for each read and closed again, so the file is never kept locked.
         private static Stream OpenRead(string path)
         {
-            Func<Stream> open;
+            StreamOpener open;
             lock (mounted)
             {
                 mounted.TryGetValue(path, out open);
@@ -361,21 +363,17 @@ namespace ForzaStudio
 
         private int InsertPosition(string name)
         {
-            for (int i = 1; i < this.Entries.Count; i++)
-            {
-                if (StringComparer.OrdinalIgnoreCase.Compare(this.Entries[i - 1].Name, this.Entries[i].Name) > 0)
-                {
-                    return this.Entries.Count;
-                }
-            }
+            // Right after the last entry that sorts before the name, so a few misplaced entries (a game archive
+            // that is sorted differently, files added earlier) do not push the new file to the end of the archive.
+            int after = -1;
             for (int i = 0; i < this.Entries.Count; i++)
             {
-                if (StringComparer.OrdinalIgnoreCase.Compare(name, this.Entries[i].Name) < 0)
+                if (StringComparer.OrdinalIgnoreCase.Compare(this.Entries[i].Name, name) < 0)
                 {
-                    return i;
+                    after = i;
                 }
             }
-            return this.Entries.Count;
+            return after + 1;
         }
 
         // An existing entry with the same extension, else one with the archive's most common method.

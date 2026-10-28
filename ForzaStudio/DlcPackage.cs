@@ -149,7 +149,7 @@ namespace ForzaStudio
             {
                 CopyForConsole(packageFolder, stage, report);
                 string id = StfsPackage.Write(stage, temp, uint.Parse(TitleId, NumberStyles.HexNumber, CultureInfo.InvariantCulture), 2, name,
-                    "Forza Studio DLC pack", "Forza Motorsport 4", thumbnail);
+                    "ForzaStudio EVO DLC pack", "Forza Motorsport 4", thumbnail);
                 // Straight into the folder the user chose: no Content\0000000000000000\<title>\00000002
                 // tree (user 2026-10-20); the file name is the content id, as the console wants it.
                 Directory.CreateDirectory(output);
@@ -196,7 +196,8 @@ namespace ForzaStudio
             }
         }
 
-        // A zip of a folder's files (names relative to it, '/' separated, sorted), stored, in the layout of
+        // A zip of a folder's files (names relative to it, '/' separated, sorted), LZX like the game's own zips (stored only
+        // when LZX does not make a file smaller), in the layout of
         // the game's zips: version 10, date field 0x21 as Jew's fm4dlc writes them, and the
         // 0x1123 extra field of the central record holding the data offset the game reads.
         internal static int WriteStoredZip(string folder, string path)
@@ -224,18 +225,25 @@ namespace ForzaStudio
                 foreach (string file in files)
                 {
                     byte[] name = Encoding.ASCII.GetBytes(Path.GetFullPath(file).Substring(root.Length).Replace('\\', '/'));
-                    byte[] data = File.ReadAllBytes(file);
-                    uint crc = ForzaZip.Crc32(data);
+                    byte[] raw = File.ReadAllBytes(file);
+                    uint crc = ForzaZip.Crc32(raw);
+                    byte[] data = XMemLzx.Compress(raw);
+                    ushort method = ForzaZip.MethodLzx;
+                    if (data.Length >= raw.Length)
+                    {
+                        data = raw;
+                        method = ForzaZip.MethodStored;
+                    }
                     uint offset = (uint) zip.Position;
                     writer.Write(0x04034b50);
                     writer.Write((ushort) 10);
                     writer.Write((ushort) 0);
-                    writer.Write((ushort) 0);
+                    writer.Write(method);
                     writer.Write((ushort) 0);
                     writer.Write((ushort) 0x21);
                     writer.Write(crc);
                     writer.Write(data.Length);
-                    writer.Write(data.Length);
+                    writer.Write(raw.Length);
                     writer.Write((ushort) name.Length);
                     writer.Write((ushort) 0);
                     writer.Write(name);
@@ -246,12 +254,12 @@ namespace ForzaStudio
                     record.Write((ushort) 10);
                     record.Write((ushort) 10);
                     record.Write((ushort) 0);
-                    record.Write((ushort) 0);
+                    record.Write(method);
                     record.Write((ushort) 0);
                     record.Write((ushort) 0x21);
                     record.Write(crc);
                     record.Write(data.Length);
-                    record.Write(data.Length);
+                    record.Write(raw.Length);
                     record.Write((ushort) name.Length);
                     record.Write((ushort) 8);
                     record.Write((ushort) 0);
@@ -499,7 +507,7 @@ namespace ForzaStudio
             return id;
         }
 
-        private static void WriteXml(string path, string root, string[] lines)
+        internal static void WriteXml(string path, string root, string[] lines)
         {
             StringBuilder xml = new StringBuilder();
             xml.Append("<?xml version=\"1.0\" ?> \r\n<").Append(root).Append("> \r\n");
@@ -933,6 +941,85 @@ namespace ForzaStudio
                 AddOffer(before, merge, offer, cars, report);
                 report.AppendLine(string.Format(CultureInfo.InvariantCulture, "merge: {0} rows in {1} tables, {2} cars, offer {3}; {4} rows already in the game, {5} removed", rows, tables, cars.Count, offer, replaced, removed));
                 return merge.ToBytes();
+            }
+        }
+
+        // The rows of a merge built for the same offer (BuildMerge) added to the merge of a package that already exists
+        // (Add To Package): the offer row stays the package's, the new cars' mapping rows continue its numbering
+        // (offer * 1000 + n), every other row is appended unless the package has the same row already. A row whose first
+        // column is in the package with other values is added anyway and reported, as BuildMerge does for the game.
+        public static byte[] AppendMerge(byte[] old, byte[] added, int offer, StringBuilder report)
+        {
+            using (SqliteDatabase target = SqliteDatabase.FromBytes(old))
+            using (SqliteDatabase extra = SqliteDatabase.FromBytes(added))
+            {
+                if (Convert.ToInt64(target.Scalar("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'ContentOffers'")) == 0
+                    || Convert.ToInt64(target.Scalar("SELECT count(*) FROM ContentOffers WHERE PubOfferingID = ?", (long) offer)) == 0)
+                {
+                    throw new InvalidOperationException("The package's merge database has no ContentOffers row for offer " + offer + ".");
+                }
+                int rows = 0;
+                int same = 0;
+                foreach (object[] table in extra.Query("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").Rows)
+                {
+                    string name = (string) table[0];
+                    if (name == "ContentOffers" || name.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                    string quoted = SqliteDatabase.Quote(name);
+                    bool exists = Convert.ToInt64(target.Scalar("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?", name)) > 0;
+                    Dictionary<string, bool> have = new Dictionary<string, bool>(StringComparer.Ordinal);
+                    Dictionary<string, bool> haveFirst = new Dictionary<string, bool>(StringComparer.Ordinal);
+                    if (exists)
+                    {
+                        foreach (object[] row in target.Query("SELECT * FROM " + quoted).Rows)
+                        {
+                            have[RowKey(row)] = true;
+                            haveFirst[Value(row[0])] = true;
+                        }
+                    }
+                    List<string> columns = CreateLike(extra, target, name);
+                    int idColumn = columns.FindIndex(delegate(string c) { return string.Equals(c, "Id", StringComparison.OrdinalIgnoreCase); });
+                    long nextMapping = 0;
+                    if (name == "ContentOffersMapping" && idColumn >= 0)
+                    {
+                        nextMapping = offer * 1000L;
+                        foreach (object[] row in target.Query("SELECT Id FROM ContentOffersMapping").Rows)
+                        {
+                            if (row[0] is long && (long) row[0] >= nextMapping && (long) row[0] < (offer + 1) * 1000L)
+                            {
+                                nextMapping = (long) row[0] + 1;
+                            }
+                        }
+                    }
+                    List<object[]> append = new List<object[]>();
+                    foreach (object[] row in extra.Query("SELECT * FROM " + quoted).Rows)
+                    {
+                        if (name == "ContentOffersMapping" && idColumn >= 0)
+                        {
+                            row[idColumn] = nextMapping++;
+                        }
+                        if (have.ContainsKey(RowKey(row)))
+                        {
+                            same++;
+                            continue;
+                        }
+                        if (haveFirst.ContainsKey(Value(row[0])) && name != "ContentOffersMapping")
+                        {
+                            report.AppendLine(string.Format(CultureInfo.InvariantCulture, "  WARNING {0}: a row with the first column {1} is already in the package (added anyway)", name, Value(row[0])));
+                        }
+                        append.Add(row);
+                    }
+                    if (append.Count > 0)
+                    {
+                        Insert(target, name, columns, append);
+                        rows += append.Count;
+                        report.AppendLine(string.Format(CultureInfo.InvariantCulture, "  {0}: +{1}", name, append.Count));
+                    }
+                }
+                report.AppendLine(string.Format(CultureInfo.InvariantCulture, "merge: {0} rows added, {1} identical rows already in the package", rows, same));
+                return target.ToBytes();
             }
         }
 

@@ -173,7 +173,7 @@
             forza.Font = new Font("Segoe UI", 11f, FontStyle.Bold | FontStyle.Italic);
             forza.ForeColor = ForzaTheme.Red;
             forza.Margin = new Padding(6, 1, 0, 2);
-            ToolStripLabel studio = new ToolStripLabel("STUDIO");
+            ToolStripLabel studio = new ToolStripLabel("STUDIO EVO");
             studio.Font = new Font("Segoe UI Light", 11f, FontStyle.Italic);
             studio.Margin = new Padding(0, 1, 18, 2);
             this.menu.Items.Insert(0, studio);
@@ -200,7 +200,9 @@
             file.DropDownItems.Add(new ToolStripSeparator());
             ToolStripMenuItem rebuild = new ToolStripMenuItem("&Rebuild DLC Package", null, delegate { this.RebuildPackageCommand(); });
             file.DropDownItems.Add(rebuild);
-            file.DropDownOpening += delegate { rebuild.Enabled = this.package != null; };
+            ToolStripMenuItem deletePackageCar = new ToolStripMenuItem("Delete Car from DLC Package...", null, delegate { this.DeletePackageCar(); });
+            file.DropDownItems.Add(deletePackageCar);
+            file.DropDownOpening += delegate { rebuild.Enabled = this.package != null; deletePackageCar.Enabled = this.package != null; };
             file.DropDownItems.Add(new ToolStripSeparator());
             file.DropDownItems.Add(new ToolStripMenuItem("E&xit", null, delegate { this.Close(); }));
 
@@ -213,7 +215,9 @@
             archive.DropDownItems.Add(addFile);
             ToolStripMenuItem newFolder = new ToolStripMenuItem("New &Folder...", null, delegate { this.NewArchiveFolder(); });
             archive.DropDownItems.Add(newFolder);
-            ToolStripMenuItem extract = new ToolStripMenuItem("&Extract Selected File...", null, delegate { this.ExtractSelected(); });
+            ToolStripMenuItem copyDash = new ToolStripMenuItem("Copy &Dash From Another Car...", null, delegate { this.CopyDashFromCar(); });
+            archive.DropDownItems.Add(copyDash);
+            ToolStripMenuItem extract =new ToolStripMenuItem("&Extract Selected File...", null, delegate { this.ExtractSelected(); });
             ToolStripMenuItem replace = new ToolStripMenuItem("&Replace Selected File...", null, delegate { this.ReplaceSelected(); });
             ToolStripMenuItem revert = new ToolStripMenuItem("Re&vert Selected File", null, delegate { this.RevertSelected(); });
             archive.DropDownItems.Add(extract);
@@ -233,6 +237,7 @@
                 openSelected.Enabled = this.CanOpenSelectedArchive;
                 addFile.Enabled = this.zip != null;
                 newFolder.Enabled = this.zip != null;
+                copyDash.Enabled = this.zip != null;
                 extract.Enabled = entry != null;
                 replace.Enabled = entry != null;
                 revert.Enabled = entry != null && entry.IsModified;
@@ -273,6 +278,7 @@
             tools.DropDownItems.Add(new ToolStripMenuItem("Database &SQL...", null, delegate { this.ShowSqlConsole(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Car &Performance From Game...", null, delegate { this.ShowPerformanceFromGame(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Change Car &Sound...", null, delegate { this.ShowChangeSound(); }));
+            tools.DropDownItems.Add(new ToolStripMenuItem("Chec&k and Validate DLC...", null, delegate { using (DlcValidatorForm form = new DlcValidatorForm()) { form.ShowDialog(this); } }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Set Generated &Thumbnail...", null, delegate { using (SetThumbnailsForm form = new SetThumbnailsForm()) { form.ShowDialog(this); } }));
             tools.DropDownItems.Add(new ToolStripSeparator());
             tools.DropDownItems.Add(new ToolStripMenuItem("&Settings...", null, delegate { this.ShowSettings(); }));

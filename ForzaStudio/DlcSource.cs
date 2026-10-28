@@ -641,6 +641,61 @@ namespace ForzaStudio
             return found;
         }
 
+        private Dictionary<string, LayerFile> mounted;
+
+        // Every file of the package as the game sees it: path from the game root ('/', e.g. "Media/cars/x/x_lod0.carbin"),
+        // a higher priority layer replacing a lower one. Used by the validator; nothing is extracted.
+        public List<string> MountedPaths()
+        {
+            return new List<string>(this.Mounted().Keys);
+        }
+
+        public long MountedSize(string path)
+        {
+            LayerFile file;
+            return this.Mounted().TryGetValue(path.Replace('\\', '/'), out file) ? file.Size : -1;
+        }
+
+        public byte[] ReadMounted(string path)
+        {
+            LayerFile file;
+            return this.Mounted().TryGetValue(path.Replace('\\', '/'), out file) ? file.Value() : null;
+        }
+
+        // A file of the package volume itself (not of a zip): path from the package root ('\'), or -1.
+        public long VolumeSize(string relative)
+        {
+            return this.volume.Size(relative);
+        }
+
+        public byte[] ReadVolume(string relative)
+        {
+            return this.volume.Read(relative);
+        }
+
+        public List<string> LayerPaths()
+        {
+            return this.layers.ConvertAll<string>(delegate(Layer layer) { return layer.Path; });
+        }
+
+        private Dictionary<string, LayerFile> Mounted()
+        {
+            if (this.mounted == null)
+            {
+                Dictionary<string, LayerFile> found = new Dictionary<string, LayerFile>(StringComparer.OrdinalIgnoreCase);
+                foreach (Layer layer in this.layers)
+                {
+                    string prefix = (layer.Mount.Length > 0) ? layer.Mount.Replace('\\', '/') + "/" : string.Empty;
+                    foreach (LayerFile file in this.Files(layer))
+                    {
+                        found[(prefix + file.Key).Replace('\\', '/')] = file;
+                    }
+                }
+                this.mounted = found;
+            }
+            return this.mounted;
+        }
+
         // A layer's files: name relative to its mount ('/'), and how to read it.
         private List<LayerFile> Files(Layer layer)
         {

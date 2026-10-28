@@ -115,7 +115,7 @@ namespace ForzaStudio
         public static int Export(Dictionary<string, string> names, Dictionary<string, CarbinModel> models, string path, string source, List<string> wanted)
         {
             string car = CarModelFolder.FolderName(names.ContainsKey(CarModelFolder.Main) ? names[CarModelFolder.Main] : First(names));
-            FbxBuilder builder = new FbxBuilder("Forza Studio: " + source);
+            FbxBuilder builder = new FbxBuilder("ForzaStudio EVO: " + source);
             long root = builder.AddNull(car, 0);
             int count = 0;
             foreach (string kind in new string[] { CarModelFolder.Main, CarModelFolder.Lod0, CarModelFolder.Cockpit })
@@ -399,7 +399,7 @@ namespace ForzaStudio
                         }
                         else
                         {
-                            mine.Mesh.Save(obj, section.Name, "Forza Studio: " + section.Name + " from FBX", CarModelFolder.MaterialsName);
+                            mine.Mesh.Save(obj, section.Name, "ForzaStudio EVO: " + section.Name + " from FBX", CarModelFolder.MaterialsName);
                             changed++;
                         }
                     }
@@ -413,7 +413,7 @@ namespace ForzaStudio
                     }
                     string directory = Path.Combine(folder, "lod" + item.Lod.ToString(CultureInfo.InvariantCulture));
                     Directory.CreateDirectory(directory);
-                    item.Mesh.Save(Path.Combine(directory, item.Part + ".obj"), item.Part, "Forza Studio: " + item.Part + " from FBX", CarModelFolder.MaterialsName);
+                    item.Mesh.Save(Path.Combine(directory, item.Part + ".obj"), item.Part, "ForzaStudio EVO: " + item.Part + " from FBX", CarModelFolder.MaterialsName);
                     added++;
                 }
             }

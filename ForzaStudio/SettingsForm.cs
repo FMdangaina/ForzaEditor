@@ -62,7 +62,7 @@ namespace ForzaStudio
         // tab: "Folders", "Port", "Upgrades" or "Viewer" to open on (the port window opens Upgrades).
         public SettingsForm(string tab)
         {
-            this.Text = "Settings - Forza Studio";
+            this.Text = "Settings - ForzaStudio EVO";
             this.ClientSize = new Size(900, 640);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.StartPosition = FormStartPosition.CenterParent;
@@ -76,7 +76,7 @@ namespace ForzaStudio
             forza.Font = new Font("Segoe UI", 11f, FontStyle.Bold | FontStyle.Italic);
             forza.ForeColor = ForzaTheme.Red;
             forza.Margin = new Padding(6, 1, 0, 2);
-            ToolStripLabel studio = new ToolStripLabel("STUDIO");
+            ToolStripLabel studio = new ToolStripLabel("STUDIO EVO");
             studio.Font = new Font("Segoe UI Light", 11f, FontStyle.Italic);
             studio.Margin = new Padding(0, 1, 18, 2);
             ToolStripLabel title = new ToolStripLabel("SETTINGS");

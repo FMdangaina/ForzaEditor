@@ -382,7 +382,7 @@ namespace ForzaStudio
                 Dictionary<string, bool> materials = new Dictionary<string, bool>();
                 using (StreamWriter obj = new StreamWriter(dialog.FileName))
                 {
-                    obj.WriteLine("# Exported by Forza Studio from " + this.currentEntry.Name);
+                    obj.WriteLine("# Exported by ForzaStudio EVO from " + this.currentEntry.Name);
                     obj.WriteLine("mtllib " + mtlName);
                     int baseIndex = 1;
                     foreach (ForzaMesh mesh in meshes)

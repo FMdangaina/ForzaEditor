@@ -164,6 +164,8 @@
     <Compile Include="ForzaStudio\StrFile.cs" />
     <Compile Include="ForzaStudio\CarPort.cs" />
     <Compile Include="ForzaStudio\CarUninstall.cs" />
+    <Compile Include="ForzaStudio\DlcCarDelete.cs" />
+    <Compile Include="ForzaStudio\DlcPackageAdd.cs" />
     <Compile Include="ForzaStudio\CarUpgrades.cs" />
     <Compile Include="ForzaStudio\DbIds.cs" />
     <Compile Include="ForzaStudio\GameIdLimits.cs" />
@@ -177,6 +179,8 @@
     <Compile Include="ForzaStudio\TurboPreview.cs" />
     <Compile Include="ForzaStudio\TempCleanup.cs" />
     <Compile Include="ForzaStudio\ChangeSoundForm.cs" />
+    <Compile Include="ForzaStudio\DlcValidator.cs" />
+    <Compile Include="ForzaStudio\DlcValidatorForm.cs" />
     <Compile Include="ForzaStudio\PerformanceFromGameForm.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Transmission.cs" />
     <Compile Include="ForzaStudio\CurveGenerateDialog.cs" />
@@ -230,6 +234,7 @@
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartEdit.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartImport.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.AddFile.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.DashCopy.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Delete.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.ModelFolder.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.cs">

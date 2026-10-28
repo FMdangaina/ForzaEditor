@@ -15,7 +15,7 @@ namespace ForzaStudio
         public const string FileName = AppIni.FileName;
 
         public const string DefaultIni =
-@"; Forza Studio - port settings (ROADMAP C2, 14.1)
+@"; ForzaStudio EVO - port settings (ROADMAP C2, 14.1)
 ;
 ; Edit freely, here or in Tools > Settings > PORT. The sections [General] ... [List_Upgrade...] below are the
 ; generic upgrades of ported cars.

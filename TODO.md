@@ -268,9 +268,8 @@ game shaders, in-game-like preview; notes `docs/internal_traffic_conversion.md`)
   - [x] 9.1.2 Instructions and documentation (`docs/MANUAL.md` sections 5 and 11)
 - [x] 9.2 Document the game materials: the shader format and the similarity score (car shaders in `Media\Shaders\Cars\*.fxobj`)
 - [x] 9.3 Imitate the FM shaders in the viewer from their parameters (carbin viewer with real materials)
-- [ ] 9.4 💤 Automatic FH → FM4 material mapping instead of the manual fix (9.1 only suggests; the choice stays the user's).
-      @BlackBirdOsaka (Discord) is writing down the materials they replace: a starting point
-- [ ] 9.5 💤 New renderer in place of XNA (a dream; almost impossible)
+- [x] 9.4 OBSOLETE (user 2026-10-28): the manual editor (Rename Material + suggestions) is reliable and fast, no automatic mapping needed
+- [ ] 9.5 💤 New renderer in place of XNA: stays a dream (user 2026-10-28); first understand why XNA is needed at all
 
 ### 10. Wheels: morph targets and resizing ⏸
 
@@ -322,6 +321,7 @@ Background C3 (research). Paused by the user 2026-10-19.
 
 ### 14. Cameras 💤
 
+- [ ] 14.0 ⬜ REVIEW the camera work (user 2026-10-28): a **preview** of the exterior and interior cameras and of the thumbnail camera in the viewer, and then **create / edit** them (hood, bumper, chase, cockpit, `ThumbnailCamSettings.xml`). Start by re-reading what exists (cockpit camera panel, CameraOverrides, 14.1 notes below) and decide the first step with the user
 - [ ] 14.1 💤 Exterior cameras (hood, bumper, chase, thumbnails). Known: per car only `CameraOverrides` in the DB (hood height / Z on 501 of 503
       cars, chase / bumper offsets 0 on all but one); global plain text in `Media\Camera` (`CameraSettings.ini`, `CameraPhysics.xml`,
       `CameraPhysicsSansEffects.xml`); replay / menu cameras `CarRelativeCams.xml` (138), `321Cams.xml`, `carrevealcams.xml`, `HomeSpaceCams.xml`,
@@ -329,6 +329,8 @@ Background C3 (research). Paused by the user 2026-10-19.
       A hood camera panel was written and dropped.
 
 ### 15. Platform and UI ⏸
+
+Both points wait for a proper release (user 2026-10-28), not before.
 
 - [ ] 15.1 Conversion tool as MDI (child windows inside the main window)
 - [ ] 15.2 Recent .NET Framework (today `v2.0` with XNA, x86): newest one XNA allows; check SQLite, HexBox. Last, it touches everything
@@ -409,7 +411,10 @@ Problems seen in game, cause unknown or check pending. When fixed they move to t
 - 2026-10-19: no real hardware any more (the Xbox 360 was sold). Not a port bug: FM4's own cars do the same in Xenia. If the tyre changes on a
   real console, look at what picks `Media\wheels\TireA/B/C.zip` (`List_Wheels`, `WheelLayouts`, `Combo_TireBrandCompound`).
 
-### B4. Corvette C5R (`CHE_50_CorvetteC5R_03`, FM3 port in the DLC pack offer 200) looks corrupted in game (open, cause unknown)
+### B4. Corvette C5R (`CHE_50_CorvetteC5R_03`, FM3 port in the DLC pack offer 200) looks corrupted in game (CLOSED 2026-10-28: the car is ported again)
+
+- **Closed by the user 2026-10-28**: no more analysis; the car is taken out of the pack (File > Delete Car from DLC Package) and ported again from
+  FM3 into the same pack with Add To Package (Car Port window, `DlcPackageAdd.cs`). The notes below stay as the record of what was checked.
 
 - **Seen 2026-10-28** in DEV (user screenshot of the showroom): silver body with black parts (corners of the front bumper, the vents, the area around
   the headlights). The user says something got corrupted. Context: the pack was opened with Open DLC Package and the car zip edited: a `digitalgauge`
@@ -424,6 +429,10 @@ Problems seen in game, cause unknown or check pending. When fixed they move to t
   - against FM4's own C5R the car lacks `shadersettings.xml` (FM3's source has none; FM4's only tunes lights and glass) and `buildnumber.txt`: not a
     cause of black body parts.
   - not related: `HON_8_NSX_05` in the same pack has a `digitalgauge` from the port itself (FM3 gauge 90, 13 textures from `UI\Textures.zip`).
+- **2026-10-28 evening**: user: after Add Folder / Add File the car shows a generic texture, as if `nodamage_lod0.xds` were not loaded. Found
+  and fixed (ForzaZip.InsertPosition): added files went to the END of the zip, not in place; the package was then rebuilt with the files in place
+  and the car did NOT change, so the order is not the cause. The pack is also now LZX (was stored; DlcPackage.WriteStoredZip now writes LZX
+  like the game's zips). The installed package is intact (478 entries, 0 offset/CRC errors, `nodamage_lod0.xds` CRC A9B1A317 = fresh port).
 - **To do (rule "check the source game first")**: the user looks at the same car in FM3 (are those parts black there too?) and says whether the screenshot
   was taken before or after the pack edit and which parts are black. Then, if it is the port: install the fresh trial port (no edit) in DEV and compare.
 

@@ -1,6 +1,7 @@
 namespace ForzaStudio
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
     using System.Windows.Forms;
 
@@ -182,6 +183,101 @@ namespace ForzaStudio
                 return;
             }
             this.RebuildPackage();
+        }
+
+        // File > Delete Car from DLC Package: picks one of the pack's cars, shows what goes (DlcCarDelete), then edits the
+        // pack's zips in the work folder and packs the package again.
+        private void DeletePackageCar()
+        {
+            if (this.package == null)
+            {
+                return;
+            }
+            if (this.zip != null && (this.zip.IsModified || this.xmlDirty))
+            {
+                MessageBox.Show(this, "This window has changes not saved yet. Save or discard them first: deleting a car rewrites the pack's zips.", "Delete Car from DLC Package", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            List<string> cars;
+            try
+            {
+                cars = DlcCarDelete.Cars(this.packageFolder);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Delete Car from DLC Package", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            if (cars.Count == 0)
+            {
+                MessageBox.Show(this, "The package's merge database has no car.", "Delete Car from DLC Package", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            List<object[]> rows = new List<object[]>();
+            foreach (string car in cars)
+            {
+                rows.Add(new object[] { car });
+            }
+            string media;
+            using (PickDialog dialog = new PickDialog("Delete Car from DLC Package", new string[] { "Media name" }, new int[] { 380 }, rows, null))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+                media = (string) dialog.SelectedKey;
+            }
+            DlcCarDelete delete = new DlcCarDelete();
+            delete.PackageFolder = this.packageFolder;
+            delete.MediaName = media;
+            List<string> plan;
+            try
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                plan = delete.Plan();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Delete Car from DLC Package", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+            }
+            string intro = "Delete " + media + " from the DLC package\n" + Path.GetFileName(this.package.Path) + "\n\nThis is what goes (only what belongs to this car and no other car of the package uses). The package is written again afterwards.";
+            if (!ConfirmText("Delete Car from DLC Package", intro, string.Join("\r\n", plan.ToArray())))
+            {
+                return;
+            }
+            if (CarPortForm.XeniaRunning())
+            {
+                MessageBox.Show(this, "Close Xenia first: it keeps the package open.", "Delete Car from DLC Package", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            try
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                this.CloseArchiveCore();
+                delete.Run();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Delete Car from DLC Package", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                this.OpenFolder(this.packageFolder);
+                return;
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+            }
+            this.packagePending = true;
+            bool written = this.RebuildPackage();
+            this.OpenFolder(this.packageFolder);
+            if (written)
+            {
+                this.SetStatus(media + " deleted from the DLC package and the package written.");
+            }
         }
 
         // Before leaving a package whose last rebuild failed.

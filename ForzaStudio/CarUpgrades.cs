@@ -19,7 +19,7 @@ namespace ForzaStudio
         public const string FileName = AppIni.FileName;
 
         public const string DefaultIni =
-@"; Forza Studio - generic upgrades for ported cars (ROADMAP 14.1f)
+@"; ForzaStudio EVO - generic upgrades for ported cars (ROADMAP 14.1f)
 ;
 ; A ported car whose part table holds only the stock part gets FM4's Street / Sport / Race levels
 ; from these rules. FH traffic cars come that way: one stock row per part, most at level 3, which

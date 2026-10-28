@@ -48,7 +48,7 @@ namespace ForzaStudio
             // EventRestrictions.Value, decoded (EventRestriction.cs).
             if (schema.ContainsKey("EventRestrictions") && schema.ContainsKey("Events"))
             {
-                list.Add(new Query("Event restrictions decoded (the Value of EventRestrictions in words)", "-- built by Forza Studio (EventRestriction.Decode), not a SELECT: press Run", DecodedRestrictions));
+                list.Add(new Query("Event restrictions decoded (the Value of EventRestrictions in words)", "-- built by ForzaStudio EVO (EventRestriction.Decode), not a SELECT: press Run", DecodedRestrictions));
             }
 
             // Rows per table.
@@ -124,7 +124,7 @@ namespace ForzaStudio
                     list.Add(new Query("Cars without their Data_CarBody row (Id * 1000)", "SELECT Id, MediaName FROM Data_Car WHERE Id * 1000 NOT IN (SELECT Id FROM Data_CarBody)"));
                 }
                 list.Add(new Query("MediaName on more than one car", "SELECT MediaName, count(*) AS n, group_concat(Id) AS ids FROM Data_Car GROUP BY MediaName COLLATE NOCASE HAVING count(*) > 1"));
-                list.Add(new Query("Cars above FM4's last official car (installed by Forza Studio or a pack)", "SELECT Id, MediaName FROM Data_Car WHERE Id > " + GameIdLimits.Max(game, "Data_Car", "Id").ToString(CultureInfo.InvariantCulture) + " ORDER BY Id"));
+                list.Add(new Query("Cars above FM4's last official car (installed by ForzaStudio EVO or a pack)", "SELECT Id, MediaName FROM Data_Car WHERE Id > " + GameIdLimits.Max(game, "Data_Car", "Id").ToString(CultureInfo.InvariantCulture) + " ORDER BY Id"));
                 list.Add(new Query("Rows of a car in every table (change the Id)", CarRows(db, schema, tables)));
             }
 

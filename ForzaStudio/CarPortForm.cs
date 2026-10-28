@@ -45,6 +45,7 @@ namespace ForzaStudio
         private readonly Button buildPack;
         private readonly Button removePack;
         private readonly Button buildXbox;
+        private readonly Button addToPackage;
         private readonly List<PackEntry> pack = new List<PackEntry>();
         private readonly TextBox packOfferBox;
         private readonly PortMode mode;
@@ -209,7 +210,7 @@ namespace ForzaStudio
             forza.Font = new Font("Segoe UI", 11f, FontStyle.Bold | FontStyle.Italic);
             forza.ForeColor = ForzaTheme.Red;
             forza.Margin = new Padding(6, 1, 0, 2);
-            ToolStripLabel studio = new ToolStripLabel("STUDIO");
+            ToolStripLabel studio = new ToolStripLabel("STUDIO EVO");
             studio.Font = new Font("Segoe UI Light", 11f, FontStyle.Italic);
             studio.Margin = new Padding(0, 1, 18, 2);
             ToolStripLabel title = new ToolStripLabel((mode == PortMode.Dlc) ? "CREATE A DLC PACKAGE FOR FORZA MOTORSPORT 4" : "IMPORT A CAR FROM ANOTHER FORZA INTO FORZA MOTORSPORT 4");
@@ -570,6 +571,8 @@ namespace ForzaStudio
             this.removePack.Click += delegate { this.RemovePack(); };
             this.buildXbox = PackButton(packPanel, "Build for Xbox 360...", 8, bottom, 238);
             this.buildXbox.Click += delegate { this.BuildXbox(); };
+            this.addToPackage = PackButton(packPanel, "Add To Package...", 250, bottom, 108);
+            this.addToPackage.Click += delegate { this.AddToPackage(); };
             this.packStatus = new Label();
             this.packStatus.Size = new Size(350, 48);
             this.packStatus.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -592,7 +595,7 @@ namespace ForzaStudio
                 int h = packPanel.ClientSize.Height;
                 int w = packPanel.ClientSize.Width;
                 this.packStatus.Bounds = new Rectangle(8, h - 52, w - 16, 48);
-                this.buildXbox.Top = h - 84;
+                this.buildXbox.Top = this.addToPackage.Top = h - 84;
                 this.trialPack.Top = this.buildPack.Top = this.removePack.Top = h - 116;
                 this.xeniaBox.Bounds = new Rectangle(8, h - 148, w - 54, this.xeniaBox.Height);
                 xeniaBrowse.Location = new Point(w - 40, h - 150);
@@ -1048,6 +1051,7 @@ namespace ForzaStudio
             this.buildPack.Enabled = !this.busy && this.packOffer > 0 && this.packTrialFolder != null && Directory.Exists(this.packTrialFolder) && this.packName.Text.Trim().Length > 0 && this.XeniaContent() != null;
             this.buildXbox.Enabled = !this.busy && this.packOffer > 0 && this.packTrialFolder != null && Directory.Exists(this.packTrialFolder) && this.packName.Text.Trim().Length > 0;
             this.removePack.Enabled = !this.busy && this.packOffer > 0 && this.XeniaContent() != null && Directory.Exists(DlcPackage.PackagePath(this.XeniaContent(), this.packOffer));
+            this.addToPackage.Enabled = !this.busy && this.packTrialFolder != null && Directory.Exists(this.packTrialFolder) && this.XeniaContent() != null;
         }
 
         private static Button PackButton(Panel parent, string text, int x, int y, int width)
@@ -1623,6 +1627,98 @@ namespace ForzaStudio
             return shadowed.Count == 0 || MessageBox.Show(this, "The FM4 folder already has these zips of the pack's cars (from an earlier Install In FM4):\n\n" + string.Join("\n", shadowed.ToArray())
                 + "\n\nThe game loads them instead of the pack's files, so the pack's changes (material fixes...) would not show. Take them out of the FM4 folder and its zipmanifest.xml first.\n\nBuild anyway?",
                 this.Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
+        }
+
+        // The pack trial's cars added to a DLC package that already exists (an STFS file in Xenia's content folder): the
+        // package keeps its offer, name and cars (DlcPackageAdd).
+        private void AddToPackage()
+        {
+            string content = this.XeniaContent();
+            string trial = this.packTrialFolder;
+            string target = this.targetBox.Text.Trim();
+            if (content == null || trial == null || !this.ReadyToBuild(target))
+            {
+                return;
+            }
+            if (XeniaRunning())
+            {
+                MessageBox.Show(this, "Close Xenia first: the game keeps the DLC packages open.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            string file;
+            using (OpenFileDialog dialog = new OpenFileDialog())
+            {
+                dialog.Title = "Add the pack's cars to which DLC package?";
+                dialog.Filter = "Xbox 360 package (STFS)|*.*";
+                dialog.InitialDirectory = content;
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+                file = dialog.FileName;
+            }
+            string title;
+            try
+            {
+                if (!StfsReader.IsPackage(file))
+                {
+                    MessageBox.Show(this, "That file is not an Xbox 360 package.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                title = StfsReader.Open(file).DisplayName;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            if (!string.Equals(Path.GetFullPath(Path.GetDirectoryName(file)).TrimEnd('\\'), Path.GetFullPath(content).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)
+                && MessageBox.Show(this, "The package is not in Xenia's content folder:\n" + content + "\n\nThe ids and strings of the new cars were chosen against the packages installed there, so the cars may clash with this package's. Continue?",
+                    this.Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            {
+                return;
+            }
+            List<string> names = new List<string>();
+            foreach (PackEntry entry in this.pack)
+            {
+                names.Add(entry.Car.MediaName);
+            }
+            if (MessageBox.Show(this, string.Format("Add {0} car(s) to the package \"{1}\"?\n\n{2}\n\n{3}\n\nThe package keeps its offer and its cars; the file is written again.",
+                names.Count, title, string.Join(", ", names.ToArray()), file), this.Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
+            {
+                return;
+            }
+            this.bottomTabs.SelectedIndex = 0;
+            this.report.Text = string.Format("Adding {0} car(s) to the DLC package \"{1}\" ({2})\r\n", names.Count, title, file);
+            this.packStatus.Text = "Adding to the package...";
+            this.Background(delegate
+            {
+                System.Text.StringBuilder text = new System.Text.StringBuilder();
+                Exception error = null;
+                try
+                {
+                    DlcPackageAdd.Add(file, target, target, trial, content, text);
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                }
+                return delegate
+                {
+                    this.report.Text += text.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n");
+                    if (error != null)
+                    {
+                        this.report.Text += "\r\nFAILED: " + error.Message + "\r\n";
+                        this.packStatus.Text = "Adding failed (see the report); the package file was not changed.";
+                    }
+                    else
+                    {
+                        this.packStatus.Text = string.Format("{0} car(s) added to \"{1}\". Start FM4 from {2}.", names.Count, title, target);
+                    }
+                    this.report.SelectionStart = this.report.TextLength;
+                    this.report.ScrollToCaret();
+                };
+            });
         }
 
         // The pack as an Xbox 360 package (STFS file) for a modded console: built in a temporary folder

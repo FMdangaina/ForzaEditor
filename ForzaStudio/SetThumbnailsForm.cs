@@ -175,7 +175,7 @@ namespace ForzaStudio
             forza.Font = new Font("Segoe UI", 11f, FontStyle.Bold | FontStyle.Italic);
             forza.ForeColor = ForzaTheme.Red;
             forza.Margin = new Padding(6, 1, 0, 2);
-            ToolStripLabel studio = new ToolStripLabel("STUDIO");
+            ToolStripLabel studio = new ToolStripLabel("STUDIO EVO");
             studio.Font = new Font("Segoe UI Light", 11f, FontStyle.Italic);
             studio.Margin = new Padding(0, 1, 18, 2);
             ToolStripLabel title = new ToolStripLabel("SET GENERATED THUMBNAIL");

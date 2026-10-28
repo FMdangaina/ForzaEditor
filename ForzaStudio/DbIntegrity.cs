@@ -165,7 +165,7 @@ namespace ForzaStudio
         }
 
         // The rows of every table of a merge database, added to the same table of db (columns by name).
-        private static void AddRows(SqliteDatabase db, SqliteDatabase merge)
+        internal static void AddRows(SqliteDatabase db, SqliteDatabase merge)
         {
             Dictionary<string, List<string>> own = DbIds.Schema(db);
             foreach (KeyValuePair<string, List<string>> table in DbIds.Schema(merge))
