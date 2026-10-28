@@ -48,6 +48,15 @@ exe. They are not in this repository but are shipped in the release zip, with vg
 The full notice, with the portions copyrighted by others, is in vgmstream's `COPYING`.
 Project: https://github.com/vgmstream/vgmstream
 
+## Credits (no code included)
+
+- [Aiden-Piercee](https://github.com/Aiden-Piercee), `fm4dlc` toolchain: reference for the DLC package and
+  carbin files.
+- soulbrix's FM4 car and part tools (no license published) and the Fm4 Sound SDK: studied for ideas; no code
+  from them is used.
+- Jew (@mr.abortion) and XTD (@xtd_ac): the Xbox 360 DLC package format, Xenia folder DLC, console tests.
+- BlackBirdOsaka: engine power calculation notes.
+
 ## MIT License
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -76,6 +85,7 @@ These files are needed at build time or runtime but are not committed. Place the
 | File | Why it is excluded |
 |------|--------------------|
 | `xcompress.dll` | Microsoft Xbox 360 SDK, proprietary. Not in the release zip either. |
+| `xma2encode.exe` | Microsoft Xbox 360 SDK, proprietary. Only needed by Add song (FM4); the user copies their own to `xma2encode\` next to the exe. |
 | `xds.dll` | Comes from the Forza Studio 4.6 release. Shipped in the release zip, not kept in the repository. |
 
 Game data (Forza `.zip`, `.carbin`, `.xds`, `.xpr`, gamedb, etc.) is copyrighted

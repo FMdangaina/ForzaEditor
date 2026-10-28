@@ -2,18 +2,22 @@
 
 (Repository: ForzaStudio-EVO, exe: ForzaStudioEVO.exe.)
 
-Complete utility for Xbox 360 era Forza games modding: Forza Motorsport 4 first, with Forza
-Horizon 1 and 2 and Forza Motorsport 3 as sources (Forza Motorsport 2: archives, textures, model
-viewing and export, music).
+**Version 0.0.1 (beta).** Complete utility for Xbox 360 era Forza games modding: Forza
+Motorsport 4 first, with Forza Horizon 1 and 2 and Forza Motorsport 2 and 3 as car sources.
 
-Edits the game's zip archives directly: `.carbin` car models (OBJ export/import,
+Edits the game's zip archives directly: `.carbin` car models (OBJ and FBX export/import,
 part transplant and duplication), `.xds` textures (import, export, creation from
-images), livery masks, the gamedb, the digital dashes and the cockpit camera,
-with the game's music and radio in the status bar.
+images), livery masks, the gamedb, the digital dashes, the cockpit camera and the driver
+position, with the game's music and radio in the status bar.
 
-Ports cars from Forza Horizon, Forza Horizon 2 and Forza Motorsport 3 to FM4, either into the
-game's files or as a **DLC package** that leaves the game untouched, for Xenia or a modded
-Xbox 360: see [docs/DLC_PACKAGES.md](docs/DLC_PACKAGES.md).
+Ports cars from Forza Horizon, Forza Horizon 2, Forza Motorsport 3 and Forza Motorsport 2 to FM4,
+either into the game's files or as a **DLC package** that leaves the game untouched, for Xenia
+or a modded Xbox 360: see [docs/DLC_PACKAGES.md](docs/DLC_PACKAGES.md). Other tools: Duplicate
+Car with an engine and gearbox of its own, new car makes, change a car's engine sound, car
+performance from the garage's numbers, DLC package validation, and adding your own songs.
+
+Some features are experimental (digital dash structure edits, OBJ onto wheels, a new country):
+the list is in [Known limitations](docs/MANUAL.md#13-known-limitations).
 
 User manual: [docs/MANUAL.md](docs/MANUAL.md). Quick start for the beta zip:
 [docs/INSTRUCTIONS.txt](docs/INSTRUCTIONS.txt).
@@ -22,7 +26,9 @@ Derived from Forza Studio 4.6 by Mike Davis, with an earlier edit by JYSB59.
 Maintained by FMdangaina. The DLC package format was worked out with help from Jew
 (@mr.abortion) and XTD (@xtd_ac) on Discord. The engine power calculation (the torque a
 given power needs at its rpm, as a scalar of the peak torque) follows BlackBirdOsaka's notes
-on Discord.
+on Discord. [Aiden-Piercee](https://github.com/Aiden-Piercee)'s `fm4dlc` toolchain was a
+reference for the DLC and carbin files; soulbrix's FM4 tools and the Fm4 Sound SDK were
+studied for ideas (no code taken). Full credits in [docs/MANUAL.md](docs/MANUAL.md#16-credits-and-license).
 
 ## License
 

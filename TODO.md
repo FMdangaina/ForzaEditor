@@ -19,6 +19,16 @@ Build: `C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\
 
 ---
 
+# 0. Release 0.0.1 (decided 2026-10-28)
+
+Focus: finish and fix, no new topics. Done 2026-10-28: build + commit of the 26-28 work; B4 closed (re-port); MANUAL / README / INSTRUCTIONS /
+THIRD-PARTY-NOTICES / credits updated (docs say what is experimental).
+**Experimental / dream group** (labelled as such in the docs, not fixed for 0.0.1): Anark dash structure edits (12.6-12.9), OBJ onto wheels
+(11.1 / 11.2, T-G10), FBX in Blender (11.8.2), 14.x cameras (14.0 review comes after the release), new country (8.2), generic brakes (3.3 / T-G7), 9.5, 15.x.
+Dropped: 9.4. Left before the tag: 7.4 New Folder seen in the interface, version number 0.0.1 in the program and ini, Release build + clean zip, push (D-4, the user says when).
+
+---
+
 # 1. Test queue (code exists, nothing left to write)
 
 ## 1a. In the editor, no game needed (do first, quick)

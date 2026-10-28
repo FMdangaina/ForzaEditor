@@ -3,7 +3,7 @@
 Forza Studio is a modding tool for the Xbox 360 Forza games. It works directly on the game's
 files: you open a game folder or one of its `.zip` archives, change what you need, and save.
 
-> **Beta.** Some features are not fully tested in game yet (see
+> **Version 0.0.1 (beta).** Some features are experimental or not fully tested in game (see
 > [Known limitations](#13-known-limitations)). Always work on a copy of your game folder.
 
 ## Contents
@@ -35,7 +35,7 @@ files: you open a game folder or one of its `.zip` archives, change what you nee
 | Forza Horizon 2 | Models, textures, XML, database, music. Source for car ports. |
 | Forza Horizon (1) | Textures, XML, database, music. Source for car ports. |
 | Forza Motorsport 3 | Models can be viewed (not edited), textures, database, music. Source for car ports. |
-| Forza Motorsport 2 | Archives, textures, model viewing and export, music. Models cannot be imported back. |
+| Forza Motorsport 2 | Archives, textures, model viewing and export, music. Models cannot be imported back. Source for car ports. |
 
 The game is detected from its `default.xex`. You need the game **extracted** to a folder, the one
 that holds `default.xex` and `Media`.
@@ -79,8 +79,8 @@ ForzaStudioEVO.exe <archive.zip | folder | file> [entry to select]
 The menu bar holds:
 
 - **File**: open, save, close.
-- **Archive**: add, extract, replace and revert files of the open folder or archive.
-- **Model**: OBJ export and import of the model shown.
+- **Archive**: add, extract, replace, delete and revert files of the open folder or archive, and make new folders.
+- **Model**: OBJ and FBX export and import of the model shown.
 - **Texture**: new textures, image export and import of the texture shown.
 - **Tools**, **Help** and **◀ Back**.
 
@@ -110,7 +110,12 @@ game folder, with the package's name at the top of the tree:
 - **Save** (Ctrl+S) writes the work folder **and packs the package file again**, in place, with
   its own header (title, names, licences, thumbnails); the hash tables and the content id are
   recomputed. The original file is copied to `bak\` the first time;
-- **File > Rebuild DLC Package** packs it again by hand (for example after a failed save).
+- **File > Rebuild DLC Package** packs it again by hand (for example after a failed save);
+- **File > Delete Car from DLC Package...** takes one car of the pack out (rows, strings and files;
+  the list shows what goes before anything is changed). Save or discard your edits first.
+
+The package is read in place: only the files you open are unpacked, so a large pack does not fill the
+temp folder.
 
 The RSA signature is not renewed: the package works in Xenia and on a modded (RGH/JTAG) console,
 not on a retail one. File names longer than 40 characters do not fit in a package: put such files
@@ -137,6 +142,10 @@ The **Archive** menu works on the file selected in the tree (the same commands a
 - **Replace Selected File...** puts any file from disk in its place.
 - **Revert Selected File** undoes the pending change. On a file you added it reads **Remove Added File**.
 - **Add File...** adds a file (see [section 7](#7-adding-files-and-new-textures)); on the right-click menu it is **Add File Here...**.
+- **Delete Selected File or Folder...** removes it (**Undo Delete** brings it back until you save).
+- **New Folder...** (right-click: **New Folder Here...**) makes a folder in a game folder or a DLC
+  package. In a zip the folder only shows in the tree until a file is added to it: a zip stores no
+  empty folder.
 - **Extract All...** writes the whole archive to a folder.
 
 The tree marks pending changes: an edited file is **bold** with `*`, and an added file has `+`.
@@ -161,6 +170,9 @@ Many actions jump to another file:
 - **Archive > Revert Selected File** undoes everything not yet saved on it.
 - **Every save makes a backup first.** The version being overwritten is copied to `bak\` next to
   the exe, named `yyyy-MM-dd_HH-mm-ss_bak_<file>`. To undo a save, copy the backup back.
+  Backups can be switched off with `Enabled = off` in the `[Backup]` section of `ForzaStudio.ini`
+  (a port otherwise copies the 436 MB `UI\Textures.zip` every time). With them off, work on a copy
+  of your game folder.
 - **Save As...** writes an archive under a new name. It works for zips only.
 - When a saved zip is listed in `Media\zipmanifest.xml`, the manifest is updated as well, after
   its own backup. The game needs this to load an edited zip.
@@ -433,7 +445,36 @@ thumbnail and database rows. Pages:
 
 The Game Database tab **Transmission** lists the gearbox levels of a car, next to **Engine** and **Power**.
 
+### Deleting a car (Delete Car...)
+
+On the car's header, **Delete Car...** takes a car that was added to this game (ported or duplicated) out of
+it: rows, strings and files. Cars of FM4 itself cannot be deleted.
+
+### Car Performance From Game (Tools > Car Performance From Game...)
+
+The performance index (PI) and the five bars of a car are computed by the game, and the estimate of a port can
+be off (for example an off-roader that exists only in Horizon). Type the PI and the five bars the **garage**
+shows for the car, and they are written into the car with its class, so the showroom shows the same numbers.
+It works on the open database: the game's, or a DLC pack's.
+
+### Change Car Sound (Tools > Change Car Sound...)
+
+Gives a car the engine sound of another FM4 car. The list can be filtered by engine type. It works on the game
+folder and on a DLC pack, and the database is updated with it.
+
+### Settings and thumbnails
+
+- **Tools > Settings...** sets the folders (the games, Xenia) and the options.
+- **Tools > Set Generated Thumbnail...** puts a car's Xenia thumbnail on the picture the game generated.
+- **Tools > Database SQL...** runs one SELECT / INSERT / UPDATE / DELETE statement. A write is checked first
+  (keys, references, cars) and refused when it would break the database; nothing else (DROP, ALTER...) is allowed.
+
 ## 10. Digital dash (.fbf)
+
+> **Experimental.** Editing a value of an element in place (position, size, colour, text, font) is the part
+> that has been checked in game. Duplicate, Delete, Add and **Texts from another car's dash...** change the
+> structure of the dash and have **not** been tested in game (a duplicated gear text once crashed the game).
+> Use them on a copy.
 
 Select a dash file (`.fbf`, `.bgf` or `.bsg`) to see the car's digital dash:
 
@@ -463,8 +504,9 @@ the middle or right mouse button.
 
 ## 11. Porting cars from Forza Horizon or Forza Motorsport 3 to FM4
 
-**Tools > Port Car From Another Forza...** converts a Forza Horizon 1, Forza Horizon 2 or Forza
-Motorsport 3 car into FM4. A port includes:
+**Tools > Import Car From Another Forza...** (into the game's files) and **Tools > Create DLC Package...** (into a
+package) open the same window. It converts a Forza Horizon 1, Forza Horizon 2, Forza Motorsport 3 or Forza
+Motorsport 2 car into FM4. A port includes:
 
 - the model, wheels and brakes;
 - textures and dash;
@@ -493,7 +535,15 @@ listed as "an FM4 car" / "an FM4 DLC car" and left out unless you tick **Also sh
    - **Only cars FM4 lacks** hides the cars FM4 already has.
    - Dimmed rows cannot be ported. The **In FM4** column says why.
 3. Select a car and choose its **FM4 template car** (the donor): the FM4 car used as a template for the data FM4
-   needs. The ★ cars are the closest matches.
+   needs. The ★ cars are the closest matches. Cars of DLC packs installed in Xenia can be donors too (marked
+   `[DLC: pack]`), except with Forza Motorsport 2 as source.
+4. Choose the **Tires**: *Normal* keeps the tire models the source car has (the Raptor and the Wrangler of
+   Horizon have their own), else FM4's generic tires; *Offroad (H1)* gives the car the deep-tread tires of
+   FM4's Hummer H1.
+
+Everything the port needs from the source stays the source's (names, sound, values), and the donor only
+supplies what the source lacks. The window also lists the problems it found, with a choice for each, in the
+**Review** tab.
 
 ### Way 1: DLC package for Xenia (recommended)
 
@@ -505,8 +555,10 @@ The game's own files are not touched. The cars live in a package you can remove 
 4. Check the **Review** column. Select a car in the pack to see its review in the **Review** tab,
    and pick a fix for each line, or leave it as is. The usual lines are:
    - a value pointing at data FM4 lacks;
-   - a material FM4 renders black (the choices start with the ★ recommended ones; instructions still
-     to be written, ROADMAP 4.1).
+   - a material FM4 renders black (the choices start with the ★ recommended ones, then the common ones; the
+     editor shows such materials in red and **Rename Material...** fixes them by hand);
+   - a missing engine sound: the line says the source game has none and that another car's sound is used.
+     Pick the FM4 car whose sound you want, or leave it.
 
    If you change fixes, run **Trial Pack** again.
 5. Set **Xenia's folder** (the one with `xenia_canary.exe`).
@@ -519,11 +571,19 @@ The other buttons:
 - **Remove** takes a car out of the pack.
 - **New Pack** starts a new empty pack.
 - **Remove Pack** deletes the built package from Xenia.
+- **Add To Package...** adds the cars of the trial to a DLC package that already exists, without rebuilding it.
+- A car can also be taken out of a built package later: **File > Delete Car from DLC Package...** (section 3).
+- **Tools > Chec&k and Validate DLC...** checks a built package (installed in Xenia, a package file or a folder)
+  and lists the problems it finds without writing anything: structure, database, files of each car, engine
+  sounds and string tables.
+
+A make or a country FM4 does not have (the Porsches, Bowler...) can be added with the pack: the **+** next to
+the make asks for the name and the logo, and for the country's flag when FM4 lacks the country too.
 
 **Important**
 
-- **Put all your cars in one pack.** With two Forza Studio packs installed, only one shows its car
-  names.
+- Several Forza Studio packs can be installed together; the names of every pack show. Two packs that use the
+  same offer number or the same string keys clash: the Review warns about it.
 - Use an FM4 folder where these cars were **never installed with Install In FM4**. The game loads
   the old installed copy instead of the pack's. Build DLC Package warns you about this.
 - A pack trial keeps a copy of a large game file (about 440 MB) in
@@ -564,19 +624,30 @@ The controls:
 - the **♪** menu, to choose a playlist or station, turn on **Shuffle**, choose whether music
   starts when a game folder opens, or **Stop**.
 
+**♪ > Add song (FM4)...** puts your own song into FM4: in a race, in the menu music, or both. The audio is
+converted with `xma2encode` from the Xbox 360 SDK, which is Microsoft's and **not included**: copy it to
+`xma2encode\` next to the exe (the program asks for its path if it is missing). The song is written to
+`Media\audio\Music` and to the game's playlist file (the original is kept once as `.orig`).
+
 ## 13. Known limitations
 
-**Not fully tested in game yet**
+**Experimental: not tested in game, or known to be fragile**
 
-- Packs with several cars.
-- Material fixes for lights, number plates and fog lamps.
-- Models rebuilt from an OBJ work folder.
-- **Merge Into**.
+- **Digital dash editing** beyond changing a value in place: Duplicate, Delete, Add, and Texts from another
+  car's dash (section 10).
+- **Model editing**: OBJ import onto a **wheel** zip, a whole model rebuilt from an OBJ work folder, edited
+  parts and **Merge Into**. FBX export and import was checked with 3ds Max and in game, not with Blender.
+- **Generic brakes** for cars with a placeholder caliper: they work, but the discs can look plain close up.
+- **A new country** added with a new make in a DLC pack: tested on a trial, not in game. Uninstalling a car
+  does not remove the country.
+- **Add song**: tested in game with stereo 44.1 kHz input; mono or 48 kHz input is not.
 
 **Known problems**
 
-- Tyres may look too narrow on ported cars with unusually wide wheels.
-- Only one Forza Studio DLC pack at a time shows its car names.
+- The car-specific **offroad** and small tires are a copy of the Hummer H1's, not a model of their own.
+- Cars from Forza Motorsport 2 cannot use a car of a DLC pack as donor.
+- Engine swaps whose sound is on FM4's second disc may crash the race with an I/O error: only the first
+  disc's files are known.
 
 **Not available yet**
 
@@ -591,7 +662,15 @@ All in the **Tools** menu.
 
 | Command | What it does |
 |---|---|
-| **Port Car From Another Forza...** | See [Porting cars](#11-porting-cars-from-forza-horizon-or-forza-motorsport-3-to-fm4). |
+| **Import Car From Another Forza...** | Port a car into the game's files. See [Porting cars](#11-porting-cars-from-forza-horizon-or-forza-motorsport-3-to-fm4). |
+| **Create DLC Package...** | Port cars into a DLC package. Same section. |
+| **Duplicate Car...** | See [section 9](#duplicating-a-car-tools--duplicate-car). |
+| **Database SQL...** | One checked SQL statement on the open database. |
+| **Car Performance From Game...** | Type the PI and bars the garage shows for a car. |
+| **Change Car Sound...** | Give a car another FM4 car's engine sound. |
+| **Check and Validate DLC...** | Check a DLC package without changing it. |
+| **Set Generated Thumbnail...** | Replace a car's Xenia thumbnail. |
+| **Settings...** | Folders and options. |
 | **Pay Respects (F)** | The original Forza Studio 4.6 window, kept as a tribute. |
 
 ## 15. Files Forza Studio writes
@@ -600,9 +679,9 @@ Forza Studio writes only these files:
 
 | Where | What |
 |---|---|
-| `settings.txt` (next to the exe) | Folders, language, music and port window options |
-| `bak\` (next to the exe) | A copy of every file before it is overwritten |
-| `%TEMP%\ForzaStudio\CarPort\` | Port trial folders; safe to delete |
+| `ForzaStudio.ini` (next to the exe) | All the settings: folders, language, music, viewer, port rules, generic upgrades, backup switch |
+| `bak\` (next to the exe) | A copy of every file before it is overwritten (can be switched off) |
+| `%TEMP%\ForzaStudio\` | Work folders of the port, of opened DLC packages and of previews; cleaned up by the program, safe to delete |
 | The files you save | In the game folder you opened |
 | `Xenia\content\...` | DLC packages you build |
 
@@ -615,6 +694,11 @@ Forza Studio writes only these files:
 - The engine power calculation (the torque a power needs at its rpm, as a scalar of the peak
   torque; Generate curve in the engine dialog) follows the notes of **BlackBirdOsaka** on
   Discord.
+- The DLC toolchain **fm4dlc** by **Aiden-Piercee** (https://github.com/Aiden-Piercee) was the reference for the
+  package contents and for checking the carbin files.
+- The FM4 car and part tools by **soulbrix** and the **Fm4 Sound SDK** were studied for ideas (the song
+  installer follows the SDK's approach). No code was taken from them.
+- **Be.HexEditor** (Bernhard Elbl, MIT) is the hex view of the classic window.
 - Music is played with **vgmstream** (https://github.com/vgmstream/vgmstream, ISC-style license,
   see `vgmstream\COPYING`).
 - `texconv.exe` is from Microsoft **DirectXTex** (MIT). `xds.dll` comes from Forza Studio 4.6.

@@ -104,6 +104,7 @@ namespace ForzaStudio
             public SqliteDatabase Merge;                             // the package's database, or null
             public SqliteDatabase Base;                              // the base game's, or null
             public Dictionary<string, List<string>> ByName;          // file name (lower case) -> mounted paths
+            public List<KeyValuePair<string, Dictionary<string, bool>>> Others;   // the other packages of the folder: name, file names
             public ForzaZip BaseEngineTuning;
             public ForzaZip BaseHarmonic;
             public ForzaZip BaseModelTuning;
@@ -436,7 +437,9 @@ namespace ForzaStudio
             }
             catch (Exception e)
             {
-                cx.Add(Error, "database", "the package's rows cannot be added to the game's database, row checks skipped: " + e.Message);
+                // the same failure is reported by the integrity check above; find the rows that collide
+                cx.Add(Info, "database", "the package's rows do not merge into the game's database (" + e.Message + "): the colliding rows are listed under keys.");
+                KeysAgainstGame(cx, own, e.Message);
             }
             if (cx.Source.Game == ForzaGame.Motorsport4)
             {
@@ -471,6 +474,112 @@ namespace ForzaStudio
 
         // Keys of the package's rows, on the game's database with the package added: a key that was already there
         // (the package would replace or double a game row), and a key at or below FM4's largest.
+        // When the merge fails: the package's rows whose key is already in the game's table, for the column the
+        // failure names ("UNIQUE constraint failed: Table.Column") and for each table's key column.
+        private static void KeysAgainstGame(Context cx, Dictionary<string, List<string>> own, string failure)
+        {
+            Match named = Regex.Match(failure, "failed: (\\w+)\\.(\\w+)");
+            foreach (KeyValuePair<string, List<string>> table in own)
+            {
+                if (table.Key.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase) || !DbIds.HasTable(cx.Base, table.Key))
+                {
+                    continue;
+                }
+                string key = DbIds.KeyColumn(cx.Merge, table.Key, table.Value);
+                if (named.Success && string.Equals(named.Groups[1].Value, table.Key, StringComparison.OrdinalIgnoreCase))
+                {
+                    key = named.Groups[2].Value;
+                }
+                if (key == null)
+                {
+                    continue;
+                }
+                try
+                {
+                    Dictionary<string, bool> inGame = new Dictionary<string, bool>();
+                    foreach (object[] row in cx.Base.Query("SELECT " + SqliteDatabase.Quote(key) + " FROM " + SqliteDatabase.Quote(table.Key)).Rows)
+                    {
+                        inGame[Str(row[0])] = true;
+                    }
+                    int shown = 0;
+                    foreach (object[] row in cx.Merge.Query("SELECT " + SqliteDatabase.Quote(key) + " FROM " + SqliteDatabase.Quote(table.Key)).Rows)
+                    {
+                        if (inGame.ContainsKey(Str(row[0])) && shown++ < 40)
+                        {
+                            cx.Add(Error, "keys", table.Key + "." + key + " = " + Str(row[0]) + " is in the game's table already: the merge fails on this row and the game ignores the whole pack's database.");
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    // a column the game's table lacks: reported under database
+                }
+            }
+        }
+
+        // A file the package lacks: found in another package of the same folder it is only information, else the
+        // given level. The other packages are read once, by file name.
+        private static void Absent(Context cx, int level, string car, string name, string text)
+        {
+            if (level != Info)
+            {
+                string pack = OtherPackage(cx, name);
+                if (pack != null)
+                {
+                    cx.Add(Info, car, name + " is not in this package or the game, but package " + pack + " has it (it must stay installed).");
+                    return;
+                }
+                text += " Other packages of the folder were searched too.";
+            }
+            cx.Add(level, car, text);
+        }
+
+        private static string OtherPackage(Context cx, string name)
+        {
+            if (cx.Others == null)
+            {
+                cx.Others = new List<KeyValuePair<string, Dictionary<string, bool>>>();
+                string self = Path.GetFullPath(cx.Report.Package.TrimEnd('\\'));
+                string parent = Path.GetDirectoryName(self);
+                if (parent != null && Directory.Exists(parent))
+                {
+                    foreach (string other in Directory.GetFileSystemEntries(parent))
+                    {
+                        if (string.Equals(Path.GetFullPath(other), self, StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+                        try
+                        {
+                            DlcSource source = Directory.Exists(other) ? DlcSource.Open(other) : (StfsReader.IsPackage(other) ? DlcSource.OpenPackage(other, true) : null);
+                            if (source == null || source.Problem != null)
+                            {
+                                continue;
+                            }
+                            Dictionary<string, bool> names = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                            foreach (string path in source.MountedPaths())
+                            {
+                                names[path.Substring(path.LastIndexOf('/') + 1)] = true;
+                            }
+                            cx.Others.Add(new KeyValuePair<string, Dictionary<string, bool>>(string.IsNullOrEmpty(source.Title) ? Path.GetFileName(other) : source.Title + " (" + Path.GetFileName(other) + ")", names));
+                        }
+                        catch (Exception)
+                        {
+                            // not a package
+                        }
+                    }
+                }
+            }
+            foreach (KeyValuePair<string, Dictionary<string, bool>> other in cx.Others)
+            {
+                if (other.Value.ContainsKey(name))
+                {
+                    return other.Key;
+                }
+            }
+            return null;
+        }
+
         private static void Keys(Context cx, SqliteDatabase merged, Dictionary<string, List<string>> own)
         {
             foreach (KeyValuePair<string, List<string>> table in own)
@@ -760,7 +869,7 @@ namespace ForzaStudio
                 string media = Lookup(cx, "SELECT MediaName FROM List_Wheels WHERE ID = ?", wheelId) as string;
                 if (media == null)
                 {
-                    cx.Add(Error, car, "StockWheelID " + wheelId.ToString(CultureInfo.InvariantCulture) + " has no List_Wheels row (package or game).");
+                    cx.Add(cx.Base == null ? Warning : Error, car, "StockWheelID " + wheelId.ToString(CultureInfo.InvariantCulture) + " has no List_Wheels row (package or game).");
                 }
                 else if (!HasPrefix(cx, "Media/wheels/" + media + "/") && cx.Source.MountedSize("Media/wheels/" + media + ".zip") < 0
                     && (cx.BaseRoot == null || !File.Exists(Path.Combine(Path.Combine(Path.Combine(cx.BaseRoot, "Media"), "wheels"), media + ".zip"))))
@@ -806,7 +915,7 @@ namespace ForzaStudio
                 string media = Lookup(cx, "SELECT MediaName FROM Data_Engine WHERE EngineID = ?", engineId) as string;
                 if (media == null)
                 {
-                    cx.Add(Error, car, "engine " + engineId.ToString(CultureInfo.InvariantCulture) + " has no Data_Engine row (package or game): no sound, maybe a crash.");
+                    cx.Add(cx.Base == null ? Warning : Error, car, "engine " + engineId.ToString(CultureInfo.InvariantCulture) + " has no Data_Engine row (package or game): no sound, maybe a crash.");
                     continue;
                 }
                 if (checkedTunings.Contains(media.ToLowerInvariant()))
@@ -819,7 +928,7 @@ namespace ForzaStudio
             string model = car + "_CMT.xml";
             if (!InPackage(cx, model) && (cx.BaseModelTuning == null || cx.BaseModelTuning.Find(model) == null))
             {
-                cx.Add(cx.BaseModelTuning == null ? Info : Warning, car, "car model tuning " + model + " is in neither the package nor the game.");
+                Absent(cx, cx.BaseModelTuning == null ? Info : Warning, car, model, "car model tuning " + model + " is in neither the package nor the game.");
             }
         }
 
@@ -847,7 +956,7 @@ namespace ForzaStudio
             byte[] data = ReadTuning(cx, file, cx.BaseEngineTuning);
             if (data == null)
             {
-                cx.Add(cx.BaseEngineTuning == null ? Info : Error, car, "engine tuning " + file + " is in neither the package nor the game: the engine is silent.");
+                Absent(cx, cx.BaseEngineTuning == null ? Info : Error, car, file, "engine tuning " + file + " is in neither the package nor the game: the engine is silent.");
                 return;
             }
             string text = Encoding.UTF8.GetString(data);
@@ -862,6 +971,7 @@ namespace ForzaStudio
                 return;
             }
             int references = 0;
+            List<string> missingHarmonics = new List<string>();
             List<string> banks = new List<string>();
             foreach (string element in new string[] { "EngineAmbient", "EngineIntake", "Exhaust" })
             {
@@ -878,7 +988,11 @@ namespace ForzaStudio
                     byte[] ht = ReadTuning(cx, harmonic, cx.BaseHarmonic);
                     if (ht == null)
                     {
-                        cx.Add(cx.BaseHarmonic == null ? Info : Error, car, file + " (" + element + " " + reference.Groups[1].Value + ") names " + harmonic + ", in neither the package nor the game.");
+                        if (!missingHarmonics.Contains(harmonic.ToLowerInvariant()))
+                        {
+                            missingHarmonics.Add(harmonic.ToLowerInvariant());
+                            Absent(cx, cx.BaseHarmonic == null ? Info : Error, car, harmonic, file + " (" + element + ", from level " + reference.Groups[1].Value + ") names " + harmonic + ", in neither the package nor the game: that part of the engine sound is silent.");
+                        }
                         continue;
                     }
                     Match bank = Regex.Match(Encoding.UTF8.GetString(ht), "<Soundbank\\s+name=\"([^\"]+)\"", RegexOptions.IgnoreCase);
@@ -906,7 +1020,7 @@ namespace ForzaStudio
                 }
                 if (!InPackage(cx, bank) && !inGame)
                 {
-                    cx.Add(cx.BaseRoot == null ? Info : Error, car, "sound bank " + bank + " (of " + file + ") is in neither the package nor the game: that sound is missing.");
+                    Absent(cx, cx.BaseRoot == null ? Info : Error, car, bank, "sound bank " + bank + " (of " + file + ") is in neither the package nor the game: that sound is missing.");
                 }
             }
         }
@@ -1006,17 +1120,19 @@ namespace ForzaStudio
                     {
                         continue;
                     }
-                    int missing = 0;
+                    List<string> missing = new List<string>();
                     foreach (int key in all.Keys)
                     {
                         if (!keys.ContainsKey(key))
                         {
-                            missing++;
+                            missing.Add(key.ToString(CultureInfo.InvariantCulture));
                         }
                     }
-                    if (missing > 0)
+                    if (missing.Count > 0)
                     {
-                        cx.Add(Warning, "strings", string.Format(CultureInfo.InvariantCulture, "{0}/{1}: {2} key(s) other languages have are missing.", language.Key, table, missing));
+                        missing.Sort();
+                        cx.Add(Warning, "strings", string.Format(CultureInfo.InvariantCulture, "{0}/{1}.str lacks key(s) {2}{3} that other languages have: the game shows blank text there.",
+                            language.Key, table, string.Join(", ", missing.GetRange(0, Math.Min(8, missing.Count)).ToArray()), missing.Count > 8 ? " and " + (missing.Count - 8).ToString(CultureInfo.InvariantCulture) + " more" : ""));
                     }
                 }
             }

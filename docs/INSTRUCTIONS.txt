@@ -37,9 +37,10 @@ Keep the files together: do not move ForzaStudioEVO.exe out of its folder.
 2. Run ForzaStudioEVO.exe.
 
 Forza Studio writes only inside its own folder:
-- settings.txt   your folders and options
-- bak\           a copy of every file before it is overwritten
-Car port trials go to %TEMP%\ForzaStudio\CarPort (they can be deleted).
+- ForzaStudio.ini   your folders and all the options
+- bak\              a copy of every file before it is overwritten
+                    (switch off with Enabled = off under [Backup] in the ini)
+Work folders go to %TEMP%\ForzaStudio (the program cleans them; safe to delete).
 
 
 3. FIRST STEPS
@@ -56,9 +57,10 @@ Car port trials go to %TEMP%\ForzaStudio\CarPort (they can be deleted).
 
 4. PORT A CAR FROM FORZA HORIZON TO FM4 (DLC FOR XENIA)
 -------------------------------------------------------
-Tools > Port Car From Another Forza...
+Tools > Create DLC Package...   (Tools > Import Car From Another Forza... writes
+into the game's own files instead)
 
-1. Set the source folder (Forza Horizon 1 or 2, or Forza Motorsport 3) and the
+1. Set the source folder (Forza Horizon 1 or 2, or Forza Motorsport 2 or 3) and the
    Forza Motorsport 4 folder,
    then press Load Cars.
 2. Select a car, choose its FM4 donor (a star = closest match),
@@ -71,8 +73,9 @@ Tools > Port Car From Another Forza...
 6. CLOSE XENIA, then press Build DLC Package.
 7. Start FM4 in Xenia: the cars are listed under their makes, like any other car.
 
-Put all your cars in ONE pack: with two Forza Studio packs installed,
-only one of them shows its car names.
+Several packs can be installed together. Cars can be added to a built pack
+later (Add To Package...) or taken out (File > Delete Car from DLC Package...),
+and Tools > Check and Validate DLC... checks a pack without changing it.
 
 Use an FM4 folder where these cars were never installed with
 "Install In FM4": an old install hides the pack's version of the car.
@@ -80,12 +83,17 @@ Use an FM4 folder where these cars were never installed with
 
 5. KNOWN PROBLEMS IN THIS BETA
 ------------------------------
-- Packs with several cars: tested, but more in-game testing is needed.
-- Tyres can look too narrow on some ported cars with wide wheels.
-- Material fixes for lights, plates and fog lamps on ported cars are new:
-  please report what you see.
-- Models rebuilt from OBJ, and "Merge Into", are not fully tested in game.
-- The digital dash view is read-only.
+EXPERIMENTAL (not tested in game, use on a copy):
+- Digital dash: changing a value in place works; Duplicate, Delete, Add and
+  "Texts from another car's dash" are NOT tested in game.
+- Models rebuilt from OBJ, OBJ onto wheel zips, "Merge Into".
+  FBX export/import: checked with 3ds Max, not with Blender.
+- A new country added with a new make in a pack.
+- Add song needs xma2encode (Xbox 360 SDK, not included).
+
+KNOWN LIMITS:
+- Offroad tires are a copy of the Hummer H1's.
+- Engine swaps whose sound is on FM4's second disc can crash a race.
 - Tools > Hex View only works after a model was opened in
   Tools > Pay Respects (the classic Forza Studio window).
 - FM2 models can be exported but not imported back.
@@ -114,6 +122,9 @@ DLC package format worked out with help from Jew (@mr.abortion) and
 XTD (@xtd_ac) on Discord.
 Engine power calculation (torque needed at the power peak, as a scalar of the
 peak torque) after BlackBirdOsaka's notes on Discord.
+fm4dlc by Aiden-Piercee was a reference for the DLC and carbin files.
+Ideas studied from soulbrix's FM4 tools and the Fm4 Sound SDK (no code used).
+Hex view: Be.HexEditor by Bernhard Elbl (MIT).
 Music playback by vgmstream (https://github.com/vgmstream/vgmstream),
 see vgmstream\COPYING. xds.dll comes from Forza Studio 4.6.
 texconv.exe is from Microsoft DirectXTex (MIT).
