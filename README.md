@@ -27,7 +27,7 @@ Maintained by FMdangaina. The DLC package format was worked out with help from J
 (@mr.abortion) and XTD (@xtd_ac) on Discord. The engine power calculation (the torque a
 given power needs at its rpm, as a scalar of the peak torque) follows BlackBirdOsaka's notes
 on Discord. [Aiden-Piercee](https://github.com/Aiden-Piercee)'s `fm4dlc` toolchain was a
-reference for the DLC and carbin files; soulbrix's FM4 tools and the Fm4 Sound SDK were
+reference for the DLC and carbin files; soulbrix's FM4 tools were
 studied for ideas (no code taken). Full credits in [docs/MANUAL.md](docs/MANUAL.md#16-credits-and-license).
 
 ## License

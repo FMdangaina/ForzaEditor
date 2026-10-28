@@ -52,7 +52,7 @@ Project: https://github.com/vgmstream/vgmstream
 
 - [Aiden-Piercee](https://github.com/Aiden-Piercee), `fm4dlc` toolchain: reference for the DLC package and
   carbin files.
-- soulbrix's FM4 car and part tools (no license published) and the Fm4 Sound SDK: studied for ideas; no code
+- soulbrix's FM4 car and part tools (no license published): studied for ideas; no code
   from them is used.
 - Jew (@mr.abortion) and XTD (@xtd_ac): the Xbox 360 DLC package format, Xenia folder DLC, console tests.
 - BlackBirdOsaka: engine power calculation notes.

@@ -123,7 +123,7 @@ XTD (@xtd_ac) on Discord.
 Engine power calculation (torque needed at the power peak, as a scalar of the
 peak torque) after BlackBirdOsaka's notes on Discord.
 fm4dlc by Aiden-Piercee was a reference for the DLC and carbin files.
-Ideas studied from soulbrix's FM4 tools and the Fm4 Sound SDK (no code used).
+Ideas studied from soulbrix's FM4 tools (no code used).
 Hex view: Be.HexEditor by Bernhard Elbl (MIT).
 Music playback by vgmstream (https://github.com/vgmstream/vgmstream),
 see vgmstream\COPYING. xds.dll comes from Forza Studio 4.6.

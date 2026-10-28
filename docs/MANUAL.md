@@ -696,8 +696,7 @@ Forza Studio writes only these files:
   Discord.
 - The DLC toolchain **fm4dlc** by **Aiden-Piercee** (https://github.com/Aiden-Piercee) was the reference for the
   package contents and for checking the carbin files.
-- The FM4 car and part tools by **soulbrix** and the **Fm4 Sound SDK** were studied for ideas (the song
-  installer follows the SDK's approach). No code was taken from them.
+- The FM4 car and part tools by **soulbrix** were studied for ideas. No code was taken from them.
 - **Be.HexEditor** (Bernhard Elbl, MIT) is the hex view of the classic window.
 - Music is played with **vgmstream** (https://github.com/vgmstream/vgmstream, ISC-style license,
   see `vgmstream\COPYING`).
