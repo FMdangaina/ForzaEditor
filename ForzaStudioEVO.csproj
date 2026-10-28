@@ -235,6 +235,7 @@
     <Compile Include="ForzaStudio\ArchiveEditorForm.PartImport.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.AddFile.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.DashCopy.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.UvMap.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Delete.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.ModelFolder.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.cs">
