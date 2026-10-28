@@ -44,6 +44,8 @@ namespace ForzaStudio
             public ForzaGame Game;
             public int Cars;
             public readonly List<Finding> Findings = new List<Finding>();
+            public readonly List<string[]> Missing = new List<string[]>();      // file name, car: in no package and not in the game
+            public readonly List<string[]> Elsewhere = new List<string[]>();    // file name, package name, package file, mounted path: only another package has it
 
             public int Count(int level)
             {
@@ -104,7 +106,7 @@ namespace ForzaStudio
             public SqliteDatabase Merge;                             // the package's database, or null
             public SqliteDatabase Base;                              // the base game's, or null
             public Dictionary<string, List<string>> ByName;          // file name (lower case) -> mounted paths
-            public List<KeyValuePair<string, Dictionary<string, bool>>> Others;   // the other packages of the folder: name, file names
+            public List<OtherPack> Others;                           // the other packages of the folder
             public ForzaZip BaseEngineTuning;
             public ForzaZip BaseHarmonic;
             public ForzaZip BaseModelTuning;
@@ -179,7 +181,46 @@ namespace ForzaStudio
                     cx.Base.Dispose();
                 }
             }
+            CollapseLanguages(report);
             return report;
+        }
+
+        // The same string finding in every language ("DE/List_CarMake.str lacks key 4235") becomes one line that names
+        // the languages: "[DE, ES, FR] List_CarMake.str lacks key 4235".
+        private static void CollapseLanguages(Report report)
+        {
+            List<Finding> result = new List<Finding>();
+            Dictionary<string, Finding> groups = new Dictionary<string, Finding>();
+            Dictionary<string, List<string>> languages = new Dictionary<string, List<string>>();
+            foreach (Finding f in report.Findings)
+            {
+                Match m = (f.Area == "strings") ? Regex.Match(f.Text, "^([A-Za-z]{2,3})/(.+)$") : Match.Empty;
+                if (!m.Success)
+                {
+                    result.Add(f);
+                    continue;
+                }
+                string key = f.Level.ToString(CultureInfo.InvariantCulture) + "|" + m.Groups[2].Value;
+                Finding group;
+                if (!groups.TryGetValue(key, out group))
+                {
+                    group = new Finding();
+                    group.Level = f.Level;
+                    group.Area = f.Area;
+                    group.Text = m.Groups[2].Value;
+                    groups[key] = group;
+                    languages[key] = new List<string>();
+                    result.Add(group);
+                }
+                languages[key].Add(m.Groups[1].Value);
+            }
+            foreach (KeyValuePair<string, Finding> group in groups)
+            {
+                List<string> list = languages[group.Key];
+                group.Value.Text = ((list.Count > 1) ? "[" + string.Join(", ", list.ToArray()) + "] " : list[0] + ": ") + group.Value.Text;
+            }
+            report.Findings.Clear();
+            report.Findings.AddRange(result);
         }
 
         private static void Index(Context cx)
@@ -347,6 +388,7 @@ namespace ForzaStudio
                 return;
             }
             string db = Path.Combine(Path.Combine(Path.Combine(cx.BaseRoot, "Media"), "db"), "gamedb.slt");
+            cx.Add(Info, "base game", "compared with the game folder " + cx.BaseRoot + " (rows already in its database, from packages merged into it, show as conflicts).");
             if (File.Exists(db))
             {
                 cx.BaseDb = File.ReadAllBytes(db);
@@ -422,8 +464,8 @@ namespace ForzaStudio
             {
                 DbIntegrity.Result check = DbIntegrity.CheckMerge(cx.BaseDb, new List<string>(), cx.Source.Merge(), ForzaGame.Motorsport4);
                 // the per-row lists below replace the integrity check's counts of dangling ids
-                Lines(cx, Error, "database", check.Errors.FindAll(delegate(string s) { return s.IndexOf("that do not exist", StringComparison.Ordinal) < 0; }));
-                Lines(cx, Warning, "database", check.Warnings.FindAll(delegate(string s) { return s.IndexOf("that do not exist", StringComparison.Ordinal) < 0; }));
+                Lines(cx, Error, "database", check.Errors.FindAll(delegate(string s) { return s.IndexOf("that do not exist", StringComparison.Ordinal) < 0 && s.IndexOf("is not above FM4", StringComparison.Ordinal) < 0 && !s.StartsWith("the package's database does not merge", StringComparison.Ordinal); }));
+                Lines(cx, Warning, "database", check.Warnings.FindAll(delegate(string s) { return s.IndexOf("that do not exist", StringComparison.Ordinal) < 0 && s.IndexOf("is not above FM4", StringComparison.Ordinal) < 0 && !s.StartsWith("the package's database does not merge", StringComparison.Ordinal); }));
                 CheckOffer(cx);
             }
             try
@@ -496,18 +538,37 @@ namespace ForzaStudio
                 }
                 try
                 {
-                    Dictionary<string, bool> inGame = new Dictionary<string, bool>();
-                    foreach (object[] row in cx.Base.Query("SELECT " + SqliteDatabase.Quote(key) + " FROM " + SqliteDatabase.Quote(table.Key)).Rows)
+                    // the columns both tables have, compared row against row: an identical row is a harmless repeat
+                    List<string> gameColumns = DbIds.Schema(cx.Base)[table.Key];
+                    List<string> shared = table.Value.FindAll(delegate(string c) { return gameColumns.Exists(delegate(string g) { return string.Equals(g, c, StringComparison.OrdinalIgnoreCase); }); });
+                    string select = string.Join(", ", shared.ConvertAll<string>(delegate(string c) { return SqliteDatabase.Quote(c); }).ToArray());
+                    int at = shared.FindIndex(delegate(string c) { return string.Equals(c, key, StringComparison.OrdinalIgnoreCase); });
+                    Dictionary<string, string> inGame = new Dictionary<string, string>();
+                    foreach (object[] row in cx.Base.Query("SELECT " + select + " FROM " + SqliteDatabase.Quote(table.Key)).Rows)
                     {
-                        inGame[Str(row[0])] = true;
+                        inGame[Str(row[at])] = DbIntegrity.RowText(row);
                     }
                     int shown = 0;
-                    foreach (object[] row in cx.Merge.Query("SELECT " + SqliteDatabase.Quote(key) + " FROM " + SqliteDatabase.Quote(table.Key)).Rows)
+                    int identical = 0;
+                    foreach (object[] row in cx.Merge.Query("SELECT " + select + " FROM " + SqliteDatabase.Quote(table.Key)).Rows)
                     {
-                        if (inGame.ContainsKey(Str(row[0])) && shown++ < 40)
+                        string game;
+                        if (!inGame.TryGetValue(Str(row[at]), out game))
                         {
-                            cx.Add(Error, "keys", table.Key + "." + key + " = " + Str(row[0]) + " is in the game's table already: the merge fails on this row and the game ignores the whole pack's database.");
+                            continue;
                         }
+                        if (game == DbIntegrity.RowText(row))
+                        {
+                            identical++;
+                        }
+                        else if (shown++ < 40)
+                        {
+                            cx.Add(Error, "keys", table.Key + "." + key + " = " + Str(row[at]) + " is in the game's table with other values (package: " + DbIntegrity.RowText(row) + "; game: " + game + "): the merge fails on this row.");
+                        }
+                    }
+                    if (identical > 0)
+                    {
+                        cx.Add(Warning, "keys", table.Key + ": " + identical.ToString(CultureInfo.InvariantCulture) + " row(s) repeat the game's row exactly (same " + key + ", same values). The merge still fails on them (UNIQUE), so they should be left out of the package's database.");
                     }
                 }
                 catch (Exception)
@@ -516,29 +577,38 @@ namespace ForzaStudio
                 }
             }
         }
-
         // A file the package lacks: found in another package of the same folder it is only information, else the
-        // given level. The other packages are read once, by file name.
+        // given level. The other packages are read once, by file name. What is missing and what another package
+        // has is kept in the report for the fixer.
         private static void Absent(Context cx, int level, string car, string name, string text)
         {
             if (level != Info)
             {
-                string pack = OtherPackage(cx, name);
+                OtherPack pack = OtherPackage(cx, name);
                 if (pack != null)
                 {
-                    cx.Add(Info, car, name + " is not in this package or the game, but package " + pack + " has it (it must stay installed).");
+                    cx.Report.Elsewhere.Add(new string[] { name, pack.Name, pack.File, pack.Names[name] });
+                    cx.Add(Info, car, name + " is not in this package or the game, but package " + pack.Name + " has it (it must stay installed).");
                     return;
                 }
+                cx.Report.Missing.Add(new string[] { name, car });
                 text += " Other packages of the folder were searched too.";
             }
             cx.Add(level, car, text);
         }
 
-        private static string OtherPackage(Context cx, string name)
+        private class OtherPack
+        {
+            public string Name;
+            public string File;
+            public Dictionary<string, string> Names;    // file name -> mounted path
+        }
+
+        private static OtherPack OtherPackage(Context cx, string name)
         {
             if (cx.Others == null)
             {
-                cx.Others = new List<KeyValuePair<string, Dictionary<string, bool>>>();
+                cx.Others = new List<OtherPack>();
                 string self = Path.GetFullPath(cx.Report.Package.TrimEnd('\\'));
                 string parent = Path.GetDirectoryName(self);
                 if (parent != null && Directory.Exists(parent))
@@ -556,12 +626,15 @@ namespace ForzaStudio
                             {
                                 continue;
                             }
-                            Dictionary<string, bool> names = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                            OtherPack pack = new OtherPack();
+                            pack.File = other;
+                            pack.Name = string.IsNullOrEmpty(source.Title) ? Path.GetFileName(other) : source.Title + " (" + Path.GetFileName(other) + ")";
+                            pack.Names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                             foreach (string path in source.MountedPaths())
                             {
-                                names[path.Substring(path.LastIndexOf('/') + 1)] = true;
+                                pack.Names[path.Substring(path.LastIndexOf('/') + 1)] = path;
                             }
-                            cx.Others.Add(new KeyValuePair<string, Dictionary<string, bool>>(string.IsNullOrEmpty(source.Title) ? Path.GetFileName(other) : source.Title + " (" + Path.GetFileName(other) + ")", names));
+                            cx.Others.Add(pack);
                         }
                         catch (Exception)
                         {
@@ -570,11 +643,11 @@ namespace ForzaStudio
                     }
                 }
             }
-            foreach (KeyValuePair<string, Dictionary<string, bool>> other in cx.Others)
+            foreach (OtherPack other in cx.Others)
             {
-                if (other.Value.ContainsKey(name))
+                if (other.Names.ContainsKey(name))
                 {
-                    return other.Key;
+                    return other;
                 }
             }
             return null;
@@ -600,18 +673,27 @@ namespace ForzaStudio
                 }
                 long limit = (cx.Source.Game == ForzaGame.Motorsport4) ? GameIdLimits.Max(ForzaGame.Motorsport4, table.Key, key) : -1;
                 int shown = 0;
+                List<string> low = new List<string>();
+                int at = table.Value.FindIndex(delegate(string c) { return string.Equals(c, key, StringComparison.OrdinalIgnoreCase); });
                 foreach (object[] row in cx.Merge.Query("SELECT * FROM " + SqliteDatabase.Quote(table.Key)).Rows)
                 {
-                    int at = table.Value.FindIndex(delegate(string c) { return string.Equals(c, key, StringComparison.OrdinalIgnoreCase); });
                     object value = row[at];
-                    if (twice.ContainsKey(Str(value)) && shown++ < 40)
+                    if (twice.ContainsKey(Str(value)))
                     {
-                        cx.Add(Error, "keys", table.Key + "." + key + " = " + Str(value) + " is in the game's table (or twice in the package) already: the game gets two rows with the same key.");
+                        if (shown++ < 40)
+                        {
+                            cx.Add(Error, "keys", table.Key + "." + key + " = " + Str(value) + " is in the game's table (or twice in the package) already: the game gets two rows with the same key.");
+                        }
                     }
-                    else if (limit >= 0 && value is long && (long) value <= limit && !(table.Key.Equals("ContentOffers", StringComparison.OrdinalIgnoreCase) && key.Equals("OfferId", StringComparison.OrdinalIgnoreCase)) && shown++ < 40)
+                    else if (limit >= 0 && value is long && (long) value <= limit && !(table.Key.Equals("ContentOffers", StringComparison.OrdinalIgnoreCase) && key.Equals("OfferId", StringComparison.OrdinalIgnoreCase)))
                     {
-                        cx.Add(Warning, "keys", table.Key + "." + key + " = " + Str(value) + " is not above FM4's largest (" + limit.ToString(CultureInfo.InvariantCulture) + "): another pack may use the same key.");
+                        low.Add(Str(value));
                     }
+                }
+                if (low.Count > 0)
+                {
+                    cx.Add(Warning, "keys", string.Format(CultureInfo.InvariantCulture, "{0}.{1}: {2} key(s) at or below FM4's largest ({3}), e.g. {4}: another pack may use the same keys (normal for an official pack).",
+                        table.Key, key, low.Count, limit, string.Join(", ", low.GetRange(0, Math.Min(5, low.Count)).ToArray())));
                 }
             }
         }
@@ -1116,6 +1198,10 @@ namespace ForzaStudio
                 foreach (KeyValuePair<string, Dictionary<string, Dictionary<int, StrFile.Entry>>> language in parsed)
                 {
                     Dictionary<int, StrFile.Entry> keys;
+                    if (language.Key.Equals("DEV", StringComparison.OrdinalIgnoreCase) || language.Key.Equals("LOC", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;   // the developers' pseudo locales hold part of the keys
+                    }
                     if (!language.Value.TryGetValue(table, out keys))
                     {
                         continue;
@@ -1186,7 +1272,7 @@ namespace ForzaStudio
                             bad++;
                             if (bad <= 25)
                             {
-                                cx.Add(Warning, "strings", table.Key + "." + column + " = " + text + ": key " + key.ToString(CultureInfo.InvariantCulture) + " is in none of the package's tables.");
+                                cx.Add(Info, "strings", table.Key + "." + column + " = " + text + ": key " + key.ToString(CultureInfo.InvariantCulture) + " is in none of the package's tables (a base game string, or missing).");
                             }
                         }
                     }
@@ -1215,7 +1301,7 @@ namespace ForzaStudio
                             StrFile.Entry entry;
                             if (!keys.TryGetValue((int) (reference & 0xFFFF), out entry) || string.IsNullOrEmpty(entry.Text))
                             {
-                                cx.Add(Error, "strings", language.Key + "/ContentOffers: the pack's " + ((i == 0) ? "name" : "description") + " (key " + (reference & 0xFFFF).ToString(CultureInfo.InvariantCulture) + ") is missing or empty.");
+                                cx.Add(Warning, "strings", language.Key + "/ContentOffers: the pack's " + ((i == 0) ? "name" : "description") + " (key " + (reference & 0xFFFF).ToString(CultureInfo.InvariantCulture) + ") is missing or empty in the package's table: the game lists the pack with a blank " + ((i == 0) ? "name" : "description") + " unless its own strings hold the key.");
                             }
                         }
                     }

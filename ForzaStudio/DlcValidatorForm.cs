@@ -27,6 +27,9 @@ namespace ForzaStudio
         private readonly CheckBox deep = new CheckBox();
         private readonly Label status = new Label();
         private readonly Button run = new Button();
+        private readonly Button fix = new Button();
+        private string lastPath;
+        private DlcValidator.Report lastReport;
 
         public DlcValidatorForm()
         {
@@ -62,9 +65,14 @@ namespace ForzaStudio
             this.deep.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
 
             this.run.Text = "Validate";
-            this.run.SetBounds(300, 562, 112, 28);
+            this.run.SetBounds(248, 562, 80, 28);
             this.run.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
             this.run.Click += delegate { this.ValidateSelected(); };
+            this.fix.Text = "Fix...";
+            this.fix.Enabled = false;
+            this.fix.SetBounds(336, 562, 76, 28);
+            this.fix.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
+            this.fix.Click += delegate { this.FixLast(); };
 
             this.output.Multiline = true;
             this.output.ReadOnly = true;
@@ -81,7 +89,7 @@ namespace ForzaStudio
             close.SetBounds(910, 596, 78, 28);
             close.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
             this.CancelButton = close;
-            this.Controls.AddRange(new Control[] { head, this.list, browseFile, browseFolder, this.run, this.deep, this.output, this.status, close });
+            this.Controls.AddRange(new Control[] { head, this.list, browseFile, browseFolder, this.run, this.fix, this.deep, this.output, this.status, close });
             ForzaTheme.Apply(this);
         }
 
@@ -159,6 +167,7 @@ namespace ForzaStudio
         {
             StringBuilder text = new StringBuilder();
             int errors = 0;
+            DlcValidator.Report last = null;
             int warnings = 0;
             this.run.Enabled = false;
             Cursor previous = this.Cursor;
@@ -170,6 +179,7 @@ namespace ForzaStudio
                     this.status.Text = "Checking " + Path.GetFileName(path) + "...";
                     this.status.Refresh();
                     DlcValidator.Report report = DlcValidator.Validate(path, this.deep.Checked);
+                    last = report;
                     errors += report.Count(DlcValidator.Error);
                     warnings += report.Count(DlcValidator.Warning);
                     text.AppendLine(report.Text());
@@ -182,6 +192,80 @@ namespace ForzaStudio
             }
             this.output.Text = text.ToString();
             this.status.Text = string.Format("{0} package(s): {1} error(s), {2} warning(s).", paths.Length, errors, warnings);
+            this.lastPath = (paths.Length == 1) ? paths[0] : null;
+            this.lastReport = (paths.Length == 1) ? last : null;
+            this.fix.Enabled = this.lastPath != null && this.lastReport != null && this.lastReport.Game != ForzaGame.Unknown;
+        }
+
+        // Fix...: what can be changed in the package just checked, ticked off by the user, then checked again.
+        private void FixLast()
+        {
+            if (this.lastPath == null)
+            {
+                return;
+            }
+            if (CarPortForm.XeniaRunning())
+            {
+                if (MessageBox.Show(this, "Xenia is running. Close it before the package is changed (it may keep the file open), then press OK.\n\nContinue anyway?", "Fix DLC package", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                {
+                    return;
+                }
+            }
+            Cursor previous = this.Cursor;
+            this.Cursor = Cursors.WaitCursor;
+            DlcFixer fixer = null;
+            try
+            {
+                this.status.Text = "Looking for what can be fixed...";
+                this.status.Refresh();
+                fixer = new DlcFixer(this.lastPath);
+                fixer.Analyze(this.lastReport);
+            }
+            catch (Exception e)
+            {
+                this.Cursor = previous;
+                if (fixer != null)
+                {
+                    fixer.Dispose();
+                }
+                MessageBox.Show(this, "The package cannot be analysed: " + e.Message, "Fix DLC package", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            this.Cursor = previous;
+            try
+            {
+                List<DlcFixer.Item> chosen;
+                using (DlcFixForm form = new DlcFixForm(fixer))
+                {
+                    if (form.ShowDialog(this) != DialogResult.OK)
+                    {
+                        return;
+                    }
+                    chosen = form.Chosen;
+                }
+                if (chosen.Count == 0)
+                {
+                    return;
+                }
+                this.Cursor = Cursors.WaitCursor;
+                this.status.Text = "Fixing...";
+                this.status.Refresh();
+                string backup = fixer.Apply(chosen);
+                this.Cursor = previous;
+                string log = fixer.Log.ToString();
+                this.Run(new string[] { this.lastPath });
+                this.output.Text = "FIX DONE" + ((backup != null) ? " (original kept: " + backup + ")" : " (no backup: Backup is off in the ini)") + "\r\n" + log.Replace("\n", "\r\n") + "\r\nNew check:\r\n" + this.output.Text;
+            }
+            catch (Exception e)
+            {
+                this.Cursor = previous;
+                MessageBox.Show(this, "The fix failed, the package is as it was (or its backup is in bak\\): " + e.Message, "Fix DLC package", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                this.Cursor = previous;
+                fixer.Dispose();
+            }
         }
     }
 }

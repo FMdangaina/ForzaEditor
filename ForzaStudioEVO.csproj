@@ -181,6 +181,8 @@
     <Compile Include="ForzaStudio\ChangeSoundForm.cs" />
     <Compile Include="ForzaStudio\DlcValidator.cs" />
     <Compile Include="ForzaStudio\DlcValidatorForm.cs" />
+    <Compile Include="ForzaStudio\DlcFixer.cs" />
+    <Compile Include="ForzaStudio\DlcFixForm.cs" />
     <Compile Include="ForzaStudio\PerformanceFromGameForm.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Transmission.cs" />
     <Compile Include="ForzaStudio\CurveGenerateDialog.cs" />
@@ -245,6 +247,9 @@
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="ForzaStudio\ArchiveEditorForm.Texture.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.UvView.cs">
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="ForzaStudio\ArchiveEditorForm.Materials.cs">

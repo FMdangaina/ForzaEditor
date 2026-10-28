@@ -131,6 +131,7 @@ namespace ForzaStudio
             textures.Controls.Add(this.cmbMeshUV);
             textures.Controls.Add(this.chkSameMaterial);
             textures.Controls.Add(this.chkAlphaMask);
+            this.AddUvViewControls(textures);
             textures.Controls.Add(SideNote("(auto): the texture the game draws the material with (its shader's samplers and Shared.zip\\textures.xml), from the car's files or Shared.zip. Pick another to override it; choices are remembered per material and only change the preview."));
 
             // Kept in the tabs until a model loads, so the theme reaches it (LoadCockpitCamera hides it).
@@ -517,6 +518,7 @@ namespace ForzaStudio
             finally
             {
                 this.updatingMeshPanel = false;
+                this.RefreshUvView();
             }
         }
 
@@ -731,6 +733,7 @@ namespace ForzaStudio
                     this.materialSecondUV[material] = second;
                 }
             }
+            this.RefreshUvView();
             if (this.scene != null)
             {
                 this.scene.Update(true);
@@ -795,6 +798,7 @@ namespace ForzaStudio
                 }
             }
             this.scene.Update(true);
+            this.RefreshUvView();
         }
 
         private void ClearPreviewCache()
