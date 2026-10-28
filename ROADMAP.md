@@ -1,4 +1,4 @@
-# Forza Studio roadmap
+# ForzaStudio EVO roadmap
 
 The **goals** of Forza Studio, topic by topic. What we have to do to reach them, with states and dates, is in
 `TODO.md`; research notes are in `docs/RESEARCH_NOTES.md`. Numbers are permanent (topic `N`, point `N.m`): the

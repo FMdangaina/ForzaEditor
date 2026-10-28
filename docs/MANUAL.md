@@ -1,4 +1,4 @@
-# Forza Studio user manual (beta)
+# ForzaStudio EVO user manual (beta)
 
 Forza Studio is a modding tool for the Xbox 360 Forza games. It works directly on the game's
 files: you open a game folder or one of its `.zip` archives, change what you need, and save.

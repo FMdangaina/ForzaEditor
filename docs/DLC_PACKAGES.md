@@ -1,6 +1,6 @@
 # Ported cars as FM4 DLC packages
 
-Forza Studio can put cars ported from Forza Horizon or Forza Horizon 2 into a **DLC package** for
+ForzaStudio EVO can put cars ported from Forza Horizon or Forza Horizon 2 into a **DLC package** for
 Forza Motorsport 4. The game's own files are left alone. The package is a folder that Xenia
 loads like real downloadable content: install it, remove it, or rebuild it whenever you like.
 

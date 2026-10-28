@@ -1,4 +1,4 @@
-# Forza Studio TODO
+# ForzaStudio EVO TODO
 
 What we have to do, with the state and the date it was reached. The **goals** are in `ROADMAP.md`; the
 numbers here are the roadmap's permanent numbers (topic `N`, point `N.m`). Research notes: `docs/RESEARCH_NOTES.md`.

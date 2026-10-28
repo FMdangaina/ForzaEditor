@@ -1,4 +1,4 @@
-// Assembly ForzaEditor (shown as Forza Studio), derived from Forza Studio 4.6
+// Assembly ForzaEditor (shown as ForzaStudio EVO), derived from Forza Studio 4.6
 
 [assembly: System.Runtime.InteropServices.ComVisible(false)]
 [assembly: System.Reflection.AssemblyFileVersion("4.6.0.0")]
@@ -8,9 +8,9 @@
 [assembly: System.Runtime.CompilerServices.CompilationRelaxations(8)]
 [assembly: System.Runtime.CompilerServices.RuntimeCompatibility(WrapNonExceptionThrows=true)]
 [assembly: System.Reflection.AssemblyTrademark("")]
-[assembly: System.Reflection.AssemblyTitle("Forza Studio")]
+[assembly: System.Reflection.AssemblyTitle("ForzaStudio EVO")]
 [assembly: System.Reflection.AssemblyDescription("Xbox 360 era Forza modding editor, derived from Forza Studio 4.6")]
 [assembly: System.Reflection.AssemblyConfiguration("")]
 [assembly: System.Reflection.AssemblyCompany("")]
-[assembly: System.Reflection.AssemblyProduct("Forza Studio")]
+[assembly: System.Reflection.AssemblyProduct("ForzaStudio EVO")]
 [assembly: System.Security.Permissions.SecurityPermission(System.Security.Permissions.SecurityAction.RequestMinimum, SkipVerification=true)]

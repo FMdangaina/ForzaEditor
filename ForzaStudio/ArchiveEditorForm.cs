@@ -38,7 +38,7 @@
         private Label lblInfo;
 
         // The name shown in titles and dialogs (the exe stays ForzaEditor.exe).
-        public const string AppName = "Forza Studio";
+        public const string AppName = "ForzaStudio EVO";
 
         public ArchiveEditorForm()
         {
