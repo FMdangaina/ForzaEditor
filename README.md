@@ -1,6 +1,6 @@
 # ForzaStudio EVO
 
-(Repository and exe name: ForzaEditor.)
+(Repository: ForzaStudio-EVO, exe: ForzaStudioEVO.exe.)
 
 Complete utility for Xbox 360 era Forza games modding: Forza Motorsport 4 first, with Forza
 Horizon 1 and 2 and Forza Motorsport 3 as sources (Forza Motorsport 2: archives, textures, model
@@ -36,7 +36,7 @@ based on is MIT-licensed (Copyright (C) 2012 Mike Davis); its notice is kept in
 - XNA Game Studio 3.1 (Microsoft.Xna.Framework in the GAC)
 
 ```
-MSBuild ForzaEditor.csproj -p:Configuration=Debug -p:Platform=x86
+MSBuild ForzaStudioEVO.csproj -p:Configuration=Debug -p:Platform=x86
 ```
 
 `!ForzaStudio release/` must also contain the non-redistributable files listed in

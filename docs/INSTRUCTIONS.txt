@@ -23,18 +23,18 @@ The full manual is MANUAL.md (open it with any text editor or a Markdown viewer)
 - An extracted copy of the game (the folder holding default.xex and Media).
 - For DLC packages: Xenia Canary.
 - xcompress.dll (Microsoft, from the Xbox 360 SDK). NOT included: it is
-  Microsoft's and cannot be shared. Copy your own next to ForzaEditor.exe.
+  Microsoft's and cannot be shared. Copy your own next to ForzaStudioEVO.exe.
   Without it the game's compressed zips cannot be opened or saved.
 
-Everything else is already in this zip, next to ForzaEditor.exe.
-Keep the files together: do not move ForzaEditor.exe out of its folder.
+Everything else is already in this zip, next to ForzaStudioEVO.exe.
+Keep the files together: do not move ForzaStudioEVO.exe out of its folder.
 
 
 2. INSTALL
 ----------
 1. Unzip the whole folder anywhere you can write to (for example the Desktop,
    not Program Files).
-2. Run ForzaEditor.exe.
+2. Run ForzaStudioEVO.exe.
 
 Forza Studio writes only inside its own folder:
 - settings.txt   your folders and options

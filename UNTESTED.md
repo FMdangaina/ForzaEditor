@@ -5,7 +5,7 @@ test each point, then tick it here and update `TODO.md` (state and date). Roadma
 
 How a test build was made on this machine (the project targets .NET 2.0, which this PC cannot build):
 `MSBuild v4.0` with `-p:Platform=x86 -p:PlatformTarget=x86 -p:AllowUnsafeBlocks=true -p:TargetFrameworkVersion=v4.0`,
-output in the session's scratchpad `out\`, `mscorlib.dll` / `norm*.nlp` deleted, `ForzaEditor.exe.config` with
+output in the session's scratchpad `out\`, `mscorlib.dll` / `norm*.nlp` deleted, `ForzaStudioEVO.exe.config` with
 `<startup useLegacyV2RuntimeActivationPolicy="true"><supportedRuntime version="v4.0"/></startup>`. Your own Visual Studio
 build is unchanged and is the real one to test.
 

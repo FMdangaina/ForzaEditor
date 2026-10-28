@@ -15,7 +15,7 @@ How we work:
 Status: ⬜ to do · 🔧 coded, not tested · 🧪 tested without the game, in game pending · ⏸ paused · 💤 maybe later · ✅ done (log only)
 
 Last review: 2026-10-27. Everything marked 🔧/🧪 up to 2026-10-23 is committed and **not pushed**; the work of 2026-10-26/27 (D-12 to D-17 below, `CarPerformance.cs`, `CarEngine.cs`, `CarDuplicate.cs`, `EngineDialog.cs`, `TurboPreview.cs`, `PerformanceFromGameForm.cs`, `CarPort.cs`, `ArchiveEditorForm.cs`) is **not committed**.
-Build: `C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe ForzaEditor.csproj /p:Configuration=Debug /p:Platform=x86` (the Framework MSBuild fails on resgen when the resource cache in `obj` is touched); Forza Studio must be closed.
+Build: `C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe ForzaStudioEVO.csproj /p:Configuration=Debug /p:Platform=x86` (the Framework MSBuild fails on resgen when the resource cache in `obj` is touched); Forza Studio must be closed.
 
 ---
 

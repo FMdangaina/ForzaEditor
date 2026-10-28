@@ -3,7 +3,7 @@ using System.IO;
 using System.Reflection;
 using ForzaStudio;
 class Q { static int Main(string[] a) {
- string exe = @"C:\Users\Dan\Desktop\ForzaEditor\bin\Debug\ForzaEditor.exe";
+ string exe = @"C:\Users\Dan\Desktop\ForzaEditor\bin\Debug\ForzaStudioEVO.exe";
  AppDomain.CurrentDomain.AssemblyResolve += delegate(object s, ResolveEventArgs e){ string p=Path.Combine(Path.GetDirectoryName(exe), new AssemblyName(e.Name).Name+".dll"); return File.Exists(p)?Assembly.LoadFrom(p):null; };
  return Go(a); }
  static int Go(string[] a) {

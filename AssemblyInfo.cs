@@ -1,4 +1,4 @@
-// Assembly ForzaEditor (shown as ForzaStudio EVO), derived from Forza Studio 4.6
+// Assembly ForzaStudioEVO (shown as ForzaStudio EVO), derived from Forza Studio 4.6
 
 [assembly: System.Runtime.InteropServices.ComVisible(false)]
 [assembly: System.Reflection.AssemblyFileVersion("4.6.0.0")]

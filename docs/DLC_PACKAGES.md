@@ -198,7 +198,7 @@ package XTD built with the Xbox 360 authoring tool, which a console loads:
 ## Test tools
 
 In `fm4dev\DEV_DLC\tools`, outside the repository. They are one-file C# harnesses built against
-`bin\Debug\ForzaEditor.exe`.
+`bin\Debug\ForzaStudioEVO.exe`.
 
 | Tool | What it does |
 |---|---|

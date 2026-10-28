@@ -37,7 +37,7 @@
         private Panel pnlInfo;
         private Label lblInfo;
 
-        // The name shown in titles and dialogs (the exe stays ForzaEditor.exe).
+        // The name shown in titles and dialogs (the exe is ForzaStudioEVO.exe).
         public const string AppName = "ForzaStudio EVO";
 
         public ArchiveEditorForm()
@@ -1373,7 +1373,7 @@
             this.split.SplitterDistance = 280;
         }
 
-        // Command line: ForzaEditor.exe archive.zip|folder [entry to select]
+        // Command line: ForzaStudioEVO.exe archive.zip|folder [entry to select]
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);

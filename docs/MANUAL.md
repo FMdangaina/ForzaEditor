@@ -50,7 +50,7 @@ that holds `default.xex` and `Media`.
 - **Microsoft XNA Framework Redistributable 3.1**, used by the 3D view.
 - **Xenia Canary**, only to play ported cars as DLC packages.
 - **`xcompress.dll`, not in the zip.** It comes from the Xbox 360 SDK and is Microsoft's, so it
-  cannot be shared. Copy your own next to `ForzaEditor.exe`. It opens and saves the game's
+  cannot be shared. Copy your own next to `ForzaStudioEVO.exe`. It opens and saves the game's
   compressed zips; without it, most game files cannot be read.
 
 **Steps**
@@ -58,7 +58,7 @@ that holds `default.xex` and `Media`.
 1. Unzip the whole Forza Studio folder somewhere you can write to, such as the Desktop. Avoid
    *Program Files*.
 2. Copy `xcompress.dll` next to the exe.
-3. Run `ForzaEditor.exe`.
+3. Run `ForzaStudioEVO.exe`.
 
 Keep every file of the zip next to the exe:
 
@@ -71,7 +71,7 @@ The program is 32-bit by design.
 You can also start it from a command line or a shortcut:
 
 ```
-ForzaEditor.exe <archive.zip | folder | file> [entry to select]
+ForzaStudioEVO.exe <archive.zip | folder | file> [entry to select]
 ```
 
 ## 3. The main window

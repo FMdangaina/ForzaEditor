@@ -14,7 +14,7 @@ class StrScan
 
     static int Main(string[] a)
     {
-        string exe = @"C:\Users\Dan\Desktop\ForzaEditor\bin\Debug\ForzaEditor.exe";
+        string exe = @"C:\Users\Dan\Desktop\ForzaEditor\bin\Debug\ForzaStudioEVO.exe";
         AppDomain.CurrentDomain.AssemblyResolve += delegate(object s, ResolveEventArgs e)
         {
             string n = new AssemblyName(e.Name).Name;
