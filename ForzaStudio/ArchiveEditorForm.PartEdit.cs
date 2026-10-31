@@ -133,12 +133,14 @@ namespace ForzaStudio
             ToolStripMenuItem focus = new ToolStripMenuItem("Focus On Part", null, delegate { this.FocusPart(); });
             ToolStripMenuItem duplicate = new ToolStripMenuItem("Duplicate Part...", null, delegate { this.DuplicateSelectedPart(); });
             ToolStripMenuItem rename = new ToolStripMenuItem("Rename Material...", null, delegate { this.RenameSelectedMaterial(); });
+            ToolStripMenuItem shader = new ToolStripMenuItem("Shader Settings...", null, delegate { this.OpenShaderSettingsOfSelection(); });
             ToolStripSeparator partSeparator = new ToolStripSeparator();
             ToolStripMenuItem newPart = new ToolStripMenuItem("New Empty Part...", null, delegate { this.NewEmptyPart(this.tvModel.SelectedNode); });
             menu.Items.Add(newPart);
             menu.Items.Add(focus);
             menu.Items.Add(duplicate);
             menu.Items.Add(rename);
+            menu.Items.Add(shader);
             menu.Items.Add(partSeparator);
             menu.Items.Add(delete);
             menu.Opening += delegate(object sender, System.ComponentModel.CancelEventArgs e)
@@ -156,6 +158,7 @@ namespace ForzaStudio
                 if (lodNode || empty)
                 {
                     rename.Visible = false;
+                    shader.Visible = false;
                     delete.Text = string.Format("Remove Empty Part \"{0}\"", (node != null) ? node.Text : "");
                     return;
                 }
@@ -166,6 +169,11 @@ namespace ForzaStudio
                     return;
                 }
                 rename.Visible = material != null;
+                shader.Visible = material != null;
+                if (shader.Visible)
+                {
+                    shader.Text = string.Format("Shader Settings of \"{0}\"...", material);
+                }
                 if (rename.Visible)
                 {
                     rename.Text = string.Format("Rename Material \"{0}\"...", material);

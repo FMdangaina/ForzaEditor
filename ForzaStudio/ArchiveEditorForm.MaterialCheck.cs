@@ -118,25 +118,69 @@ namespace ForzaStudio
         }
 
         // Selecting a node lights up its meshes in the viewport (a part, a LOD or one material); the file node lights none.
+        // The tree's selection moved (a click, or a Ctrl click that adds to the meshes already picked): the
+        // selected meshes are the node's own, or all of them when Ctrl is held.
+        private void TreeSelected()
+        {
+            if (!this.keepMeshSelection)
+            {
+                TreeNode selected = this.tvModel.SelectedNode;
+                List<ForzaMesh> own = new List<ForzaMesh>();
+                if (selected != null && selected.Parent != null)
+                {
+                    if (selected.Tag is ForzaMesh)
+                    {
+                        own.Add((ForzaMesh) selected.Tag);
+                    }
+                    else
+                    {
+                        own.AddRange(GetMeshes(selected.Nodes, false));
+                    }
+                }
+                if ((Control.ModifierKeys & System.Windows.Forms.Keys.Control) != 0 && this.meshSelection.Count > 0)
+                {
+                    bool allIn = own.Count > 0;
+                    foreach (ForzaMesh mesh in own)
+                    {
+                        allIn &= this.meshSelection.Contains(mesh);
+                    }
+                    foreach (ForzaMesh mesh in own)
+                    {
+                        if (allIn)
+                        {
+                            this.meshSelection.Remove(mesh);
+                        }
+                        else
+                        {
+                            this.meshSelection.Add(mesh);
+                        }
+                    }
+                }
+                else
+                {
+                    this.meshSelection.Clear();
+                    foreach (ForzaMesh mesh in own)
+                    {
+                        this.meshSelection.Add(mesh);
+                    }
+                }
+            }
+            this.UpdateMeshPanel();
+            this.HighlightSelection();
+        }
+
+        // Selected meshes light up in the viewport (no glow while the UV mapper is open).
         private void HighlightSelection()
         {
-            TreeNode selected = this.tvModel.SelectedNode;
             foreach (ForzaMesh mesh in GetMeshes(this.tvModel.Nodes, false))
             {
                 mesh.Selected = false;
             }
-            if (selected != null && selected.Parent != null)
+            if (this.uvMapper == null)
             {
-                if (selected.Tag is ForzaMesh)
+                foreach (ForzaMesh mesh in this.meshSelection)
                 {
-                    ((ForzaMesh) selected.Tag).Selected = true;
-                }
-                else
-                {
-                    foreach (ForzaMesh mesh in GetMeshes(selected.Nodes, false))
-                    {
-                        mesh.Selected = true;
-                    }
+                    mesh.Selected = true;
                 }
             }
             if (this.scene != null)

@@ -22,12 +22,13 @@ namespace ForzaStudio
         private ListView lvParameters;
         private ToolStripLabel lblShaderSummary;
         private Label lblShaderTechnique;
+        private ShaderSphere sphereShader;
         private ComboBox cmbAddParameter;
         private ComboBox cmbCopyFrom;
         private ComboBox cmbCopyCar;
         private Label lblCopyPreview;
         private Button btnAddParameter;
-        private Button btnEditParameter;
+        private FlowLayoutPanel pnlValueEditor;
         private Button btnRemoveParameter;
         private Button btnCopyFrom;
         private Button btnRemoveEntry;
@@ -36,6 +37,7 @@ namespace ForzaStudio
         private ForzaZip.Entry shaderEntry;
         private ShaderSettings shaderData;
         private SortedDictionary<string, List<string>> shaderUsed;
+        private ICollection<string> shaderKnown;     // every parameter name the game's shader files hold (null = unreadable)
         private bool shaderAsXml;          // "Edit as XML" chosen for the shown file
         private ShaderSettings copySource;    // the settings "Copy missing from" reads (this file or another car)
         private string copySourceName;        // that car's name, null = this file
@@ -67,9 +69,29 @@ namespace ForzaStudio
             this.lblShaderSummary.Alignment = ToolStripItemAlignment.Right;
             bar.Items.Add(this.lblShaderSummary);
 
+            // Techniques on the left at a fixed width (it keeps it when the window grows), everything else on the right.
             SplitContainer split = new SplitContainer();
             split.Dock = DockStyle.Fill;
-            split.SplitterDistance = 300;
+            split.FixedPanel = FixedPanel.Panel1;
+            // The sizes can only be set once the control has its real width (a new SplitContainer is 150 px wide:
+            // setting them now throws and the program does not start).
+            bool splitSet = false;
+            split.SizeChanged += delegate
+            {
+                if (!splitSet && split.Width > 800)
+                {
+                    splitSet = true;
+                    try
+                    {
+                        split.Panel1MinSize = 240;
+                        split.Panel2MinSize = 420;
+                        split.SplitterDistance = 360;
+                    }
+                    catch (ArgumentException)
+                    {
+                    }
+                }
+            };
 
             this.lvTechniques = new ListView();
             this.lvTechniques.Dock = DockStyle.Fill;
@@ -78,93 +100,302 @@ namespace ForzaStudio
             this.lvTechniques.HideSelection = false;
             this.lvTechniques.MultiSelect = false;
             this.lvTechniques.Columns.Add("Technique", 190);
-            this.lvTechniques.Columns.Add("Used in", 90);
+            this.lvTechniques.Columns.Add("Used in", 130);
             this.lvTechniques.ShowItemToolTips = true;
             this.lvTechniques.SelectedIndexChanged += delegate { this.FillShaderParameters(); };
             split.Panel1.Controls.Add(this.lvTechniques);
 
+            // Right side, top to bottom: title + sphere, parameter list, the value editor, add / remove, copy.
+            TableLayoutPanel right = new TableLayoutPanel();
+            right.Dock = DockStyle.Fill;
+            right.ColumnCount = 1;
+            right.RowCount = 5;
+            right.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            right.RowStyles.Add(new RowStyle(SizeType.Absolute, 200f));
+            right.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            // Row 0: title and the FM4 list on the left, the preview sphere and its buttons on the right.
+            this.lblShaderTechnique = new Label();
+            this.lblShaderTechnique.Dock = DockStyle.Fill;
+            this.lblShaderTechnique.Padding = new Padding(6, 6, 6, 6);
+            this.sphereShader = new ShaderSphere();
+            this.sphereShader.Dock = DockStyle.Fill;
+            this.sphereShader.DoubleClick += delegate { this.ShowBigSphere(); };
+            Button sphereFile = new Button();
+            sphereFile.Text = "Texture...";
+            sphereFile.AutoSize = true;
+            sphereFile.Click += delegate { this.PickSphereTexture(); };
+            Button sphereAuto = new Button();
+            sphereAuto.Text = "Auto";
+            sphereAuto.AutoSize = true;
+            sphereAuto.Click += delegate { this.AutoSphereTexture(); };
+            Button sphereBig = new Button();
+            sphereBig.Text = "Bigger";
+            sphereBig.AutoSize = true;
+            sphereBig.Click += delegate { this.ShowBigSphere(); };
+            FlowLayoutPanel sphereButtons = new FlowLayoutPanel();
+            sphereButtons.Dock = DockStyle.Bottom;
+            sphereButtons.AutoSize = true;
+            sphereButtons.Controls.AddRange(new Control[] { sphereFile, sphereAuto, sphereBig });
+            Panel sphereBox = new Panel();
+            sphereBox.Dock = DockStyle.Right;
+            sphereBox.Width = 230;
+            sphereBox.Controls.Add(this.sphereShader);
+            sphereBox.Controls.Add(sphereButtons);
+            Panel head = new Panel();
+            head.Dock = DockStyle.Fill;
+            head.Controls.Add(this.lblShaderTechnique);
+            head.Controls.Add(sphereBox);
+            right.Controls.Add(head, 0, 0);
+
+            // Row 1: the parameters of the technique.
             this.lvParameters = new ListView();
             this.lvParameters.Dock = DockStyle.Fill;
             this.lvParameters.View = View.Details;
             this.lvParameters.FullRowSelect = true;
             this.lvParameters.HideSelection = false;
             this.lvParameters.MultiSelect = false;
-            this.lvParameters.Columns.Add("Parameter", 180);
-            this.lvParameters.Columns.Add("Value", 220);
-            this.lvParameters.Columns.Add("Check", 320);
-            this.lvParameters.DoubleClick += delegate { this.EditShaderParameter(); };
-            this.lvParameters.SelectedIndexChanged += delegate { this.EnableShaderButtons(); };
+            this.lvParameters.Columns.Add("Parameter", 200);
+            this.lvParameters.Columns.Add("Value", 230);
+            this.lvParameters.Columns.Add("Check", 260);
+            this.lvParameters.SelectedIndexChanged += delegate { this.EnableShaderButtons(); this.BuildValueEditor(); };
+            right.Controls.Add(this.lvParameters, 0, 1);
 
-            this.lblShaderTechnique = new Label();
-            this.lblShaderTechnique.Dock = DockStyle.Top;
-            this.lblShaderTechnique.Height = 40;
-            this.lblShaderTechnique.Padding = new Padding(4);
+            // Row 2: editor of the selected parameter (number boxes, colour swatch + picker).
+            this.pnlValueEditor = new FlowLayoutPanel();
+            this.pnlValueEditor.Dock = DockStyle.Fill;
+            this.pnlValueEditor.AutoSize = true;
+            this.pnlValueEditor.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            this.pnlValueEditor.MinimumSize = new Size(0, 44);
+            this.pnlValueEditor.Padding = new Padding(4, 6, 4, 6);
+            right.Controls.Add(this.pnlValueEditor, 0, 2);
 
-            // Grows with its rows, so a narrow window wraps the buttons instead of hiding them.
-            FlowLayoutPanel buttons = new FlowLayoutPanel();
-            buttons.Dock = DockStyle.Bottom;
-            buttons.AutoSize = true;
-            buttons.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            buttons.Padding = new Padding(2, 2, 2, 6);
+            // Row 3: add / remove.
+            FlowLayoutPanel edit = new FlowLayoutPanel();
+            edit.Dock = DockStyle.Fill;
+            edit.AutoSize = true;
+            edit.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            edit.Padding = new Padding(4, 2, 4, 2);
             this.cmbAddParameter = new ComboBox();
             this.cmbAddParameter.DropDownStyle = ComboBoxStyle.DropDownList;
             this.cmbAddParameter.Width = 220;
             ForzaTheme.GreenItems(this.cmbAddParameter);
             this.cmbAddParameter.MaxDropDownItems = 24;
             this.btnAddParameter = new Button();
-            this.btnAddParameter.Text = "Add";
+            this.btnAddParameter.Text = "Add Parameter";
             this.btnAddParameter.AutoSize = true;
             this.btnAddParameter.Click += delegate { this.AddShaderParameter(); };
-            this.btnEditParameter = new Button();
-            this.btnEditParameter.Text = "Edit...";
-            this.btnEditParameter.AutoSize = true;
-            this.btnEditParameter.Click += delegate { this.EditShaderParameter(); };
             this.btnRemoveParameter = new Button();
-            this.btnRemoveParameter.Text = "Remove";
+            this.btnRemoveParameter.Text = "Remove Parameter";
             this.btnRemoveParameter.AutoSize = true;
             this.btnRemoveParameter.Click += delegate { this.RemoveShaderParameter(); };
-            this.cmbCopyFrom = new ComboBox();
-            this.cmbCopyFrom.DropDownStyle = ComboBoxStyle.DropDownList;
-            this.cmbCopyFrom.Width = 220;
-            this.cmbCopyFrom.MaxDropDownItems = 24;
-            this.cmbCopyFrom.SelectedIndexChanged += delegate { this.ShowCopyPreview(); };
-            this.cmbCopyCar = new ComboBox();
-            this.cmbCopyCar.DropDownStyle = ComboBoxStyle.DropDownList;
-            this.cmbCopyCar.Width = 220;
-            this.cmbCopyCar.MaxDropDownItems = 24;
-            this.cmbCopyCar.SelectedIndexChanged += delegate { this.CopyCarChanged(); };
-            this.lblCopyPreview = new Label();
-            this.lblCopyPreview.AutoSize = true;
-            this.lblCopyPreview.MaximumSize = new Size(700, 0);
-            this.lblCopyPreview.Margin = new Padding(156, 2, 3, 3);
-            this.lblCopyPreview.ForeColor = ForzaTheme.TextDim;
-            this.btnCopyFrom = new Button();
-            this.btnCopyFrom.Text = "Copy Missing From";
-            this.btnCopyFrom.AutoSize = true;
-            this.btnCopyFrom.Click += delegate { this.CopyShaderEntry(); };
             this.btnRemoveEntry = new Button();
-            this.btnRemoveEntry.Text = "Remove Settings";
+            this.btnRemoveEntry.Text = "Remove All Settings";
             this.btnRemoveEntry.AutoSize = true;
             this.btnRemoveEntry.Click += delegate { this.RemoveShaderEntry(); };
-            // Labels: the add list holds the parameters the technique lacks (green = FM4 sets it on that
-            // technique), the copy list the file's other entries with settings.
-            Label addLabel = ShaderButtonLabel("Add parameter (green = FM4):");
-            Label carLabel = ShaderButtonLabel("Settings of car:");
-            Label copyLabel = ShaderButtonLabel("Copy missing from:");
-            buttons.Controls.AddRange(new Control[] { addLabel, this.cmbAddParameter, this.btnAddParameter, this.btnEditParameter, this.btnRemoveParameter, this.btnRemoveEntry });
-            buttons.SetFlowBreak(this.btnRemoveEntry, true);
-            buttons.Controls.AddRange(new Control[] { carLabel, this.cmbCopyCar });
-            buttons.SetFlowBreak(this.cmbCopyCar, true);
-            buttons.Controls.AddRange(new Control[] { copyLabel, this.cmbCopyFrom, this.btnCopyFrom });
-            buttons.SetFlowBreak(this.btnCopyFrom, true);
-            buttons.Controls.Add(this.lblCopyPreview);
+            Label addLabel = new Label();
+            addLabel.Text = "Add (green = FM4 sets it):";
+            addLabel.AutoSize = true;
+            addLabel.Margin = new Padding(3, 7, 3, 3);
+            edit.Controls.AddRange(new Control[] { addLabel, this.cmbAddParameter, this.btnAddParameter, this.btnRemoveParameter, this.btnRemoveEntry });
+            right.Controls.Add(edit, 0, 3);
 
-            split.Panel2.Controls.Add(this.lvParameters);
-            split.Panel2.Controls.Add(buttons);
-            split.Panel2.Controls.Add(this.lblShaderTechnique);
+            // Row 4: copy missing values from another entry or car.
+            FlowLayoutPanel copy = new FlowLayoutPanel();
+            copy.Dock = DockStyle.Fill;
+            copy.AutoSize = true;
+            copy.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            copy.Padding = new Padding(4, 2, 4, 6);
+            this.cmbCopyCar = new ComboBox();
+            this.cmbCopyCar.DropDownStyle = ComboBoxStyle.DropDownList;
+            this.cmbCopyCar.Width = 200;
+            this.cmbCopyCar.MaxDropDownItems = 24;
+            this.cmbCopyCar.SelectedIndexChanged += delegate { this.CopyCarChanged(); };
+            this.cmbCopyFrom = new ComboBox();
+            this.cmbCopyFrom.DropDownStyle = ComboBoxStyle.DropDownList;
+            this.cmbCopyFrom.Width = 200;
+            this.cmbCopyFrom.MaxDropDownItems = 24;
+            this.cmbCopyFrom.SelectedIndexChanged += delegate { this.ShowCopyPreview(); };
+            this.btnCopyFrom = new Button();
+            this.btnCopyFrom.Text = "Copy Missing";
+            this.btnCopyFrom.AutoSize = true;
+            this.btnCopyFrom.Click += delegate { this.CopyShaderEntry(); };
+            this.lblCopyPreview = new Label();
+            this.lblCopyPreview.AutoSize = true;
+            this.lblCopyPreview.MaximumSize = new Size(640, 0);
+            this.lblCopyPreview.ForeColor = ForzaTheme.TextDim;
+            this.lblCopyPreview.Margin = new Padding(3, 4, 3, 3);
+            Label copyLabel = new Label();
+            copyLabel.Text = "Copy from car / entry:";
+            copyLabel.AutoSize = true;
+            copyLabel.Margin = new Padding(3, 7, 3, 3);
+            copy.Controls.AddRange(new Control[] { copyLabel, this.cmbCopyCar, this.cmbCopyFrom, this.btnCopyFrom, this.lblCopyPreview });
+            right.Controls.Add(copy, 0, 4);
+
+            split.Panel2.Controls.Add(right);
 
             this.pnlShader.Controls.Add(split);
             this.pnlShader.Controls.Add(bar);
+        }
+
+        // Editor of the selected parameter: one number box per attribute (colours: r g b a) and, for colours, a swatch
+        // that opens the same picker as the car colours. Every change is stored at once (pending until Save).
+        private void BuildValueEditor()
+        {
+            Control[] olds = new Control[this.pnlValueEditor.Controls.Count];
+            this.pnlValueEditor.Controls.CopyTo(olds, 0);
+            foreach (Control old in olds)
+            {
+                this.pnlValueEditor.Controls.Remove(old);
+                old.Dispose();
+            }
+            if (this.lvParameters.SelectedItems.Count == 0)
+            {
+                return;
+            }
+            ShaderSettings.Parameter p = (ShaderSettings.Parameter) this.lvParameters.SelectedItems[0].Tag;
+            List<string[]> attributes = ShaderSettings.Attributes(p.Xml);
+            if (attributes.Count == 0)
+            {
+                Label none = new Label();
+                none.Text = p.Name + " has no values to edit here: use Edit as XML.";
+                none.AutoSize = true;
+                this.pnlValueEditor.Controls.Add(none);
+                return;
+            }
+            Label title = new Label();
+            title.Text = p.Name;
+            title.Font = ForzaTheme.Bold;
+            title.AutoSize = true;
+            title.Margin = new Padding(3, 6, 12, 3);
+            this.pnlValueEditor.Controls.Add(title);
+            bool colour = attributes.Count >= 3 && attributes[0][0] == "r" && attributes[1][0] == "g" && attributes[2][0] == "b";
+            NumericUpDown[] boxes = new NumericUpDown[attributes.Count];
+            Panel swatch = null;
+            bool loading = true;
+            for (int i = 0; i < attributes.Count; i++)
+            {
+                Label caption = new Label();
+                caption.Text = attributes[i][0];
+                caption.AutoSize = true;
+                caption.Margin = new Padding(8, 6, 2, 3);
+                NumericUpDown box = new NumericUpDown();
+                box.DecimalPlaces = 3;
+                box.Increment = colour ? 0.05m : 0.1m;
+                box.Minimum = -100000m;
+                box.Maximum = 100000m;
+                box.Width = 78;
+                box.BackColor = ForzaTheme.Raised;
+                box.ForeColor = ForzaTheme.Text;
+                decimal number;
+                decimal.TryParse(attributes[i][1], NumberStyles.Float, CultureInfo.InvariantCulture, out number);
+                box.Value = Math.Max(box.Minimum, Math.Min(box.Maximum, number));
+                boxes[i] = box;
+                this.pnlValueEditor.Controls.Add(caption);
+                this.pnlValueEditor.Controls.Add(box);
+            }
+            if (colour)
+            {
+                swatch = new Panel();
+                swatch.Size = new Size(46, 24);
+                swatch.Margin = new Padding(14, 3, 3, 3);
+                swatch.Cursor = Cursors.Hand;
+                swatch.BorderStyle = BorderStyle.FixedSingle;
+                this.pnlValueEditor.Controls.Add(swatch);
+            }
+            Action refresh = delegate
+            {
+                if (swatch != null)
+                {
+                    swatch.BackColor = SwatchColor(boxes);
+                }
+            };
+            Action store = delegate
+            {
+                if (loading)
+                {
+                    return;
+                }
+                for (int i = 0; i < attributes.Count; i++)
+                {
+                    attributes[i][1] = boxes[i].Value.ToString("0.######", CultureInfo.InvariantCulture);
+                }
+                p.Xml = ShaderSettings.BuildXml(p.Name, attributes);
+                this.StoreShaderValueLive(p);
+                refresh();
+            };
+            foreach (NumericUpDown box in boxes)
+            {
+                box.ValueChanged += delegate { store(); };
+            }
+            if (swatch != null)
+            {
+                swatch.MouseClick += delegate
+                {
+                    Rectangle near = swatch.RectangleToScreen(swatch.ClientRectangle);
+                    ForzaColorPicker.Popup(this, this.RectangleToClient(near), SwatchColor(boxes), delegate(Color picked)
+                    {
+                        boxes[0].Value = Math.Round((decimal) picked.R / 255m, 3);
+                        boxes[1].Value = Math.Round((decimal) picked.G / 255m, 3);
+                        boxes[2].Value = Math.Round((decimal) picked.B / 255m, 3);
+                    });
+                };
+                refresh();
+            }
+            loading = false;
+        }
+
+        // The colour a r g b triple shows as (values above 1, as FH lamps use, are drawn at full).
+        private static Color SwatchColor(NumericUpDown[] boxes)
+        {
+            Func<decimal, int> channel = delegate(decimal v) { return (int) Math.Round(255 * Math.Max(0m, Math.Min(1m, v))); };
+            return Color.FromArgb(channel(boxes[0].Value), channel(boxes[1].Value), channel(boxes[2].Value));
+        }
+
+        // A value edited in the box: stored in the archive, the viewport and the sphere follow, the list row is renamed.
+        private void StoreShaderValueLive(ShaderSettings.Parameter p)
+        {
+            this.zip.Replace(this.shaderEntry, this.shaderData.ToBytes());
+            this.RefreshEntryNode(this.shaderEntry);
+            this.ApplyShaderSettingsToMeshes();
+            string technique = this.SelectedTechnique;
+            if (technique != null)
+            {
+                this.UpdateShaderSphere(technique);
+            }
+            foreach (ListViewItem item in this.lvParameters.Items)
+            {
+                if (item.Tag == p)
+                {
+                    item.SubItems[1].Text = ShaderValueText(p);
+                }
+            }
+            this.SetStatus((technique ?? "") + ": " + p.Name + " changed (pending: Save to write the archive)");
+        }
+
+        // "r 0.50  g 0.50  b 0.50  a 0.00" for colours, the number for a single value.
+        private static string ShaderValueText(ShaderSettings.Parameter p)
+        {
+            List<string> values = new List<string>();
+            foreach (string[] a in ShaderSettings.Attributes(p.Xml))
+            {
+                double number;
+                string text = double.TryParse(a[1], NumberStyles.Float, CultureInfo.InvariantCulture, out number) ? number.ToString("0.###", CultureInfo.InvariantCulture) : a[1];
+                values.Add((a[0] == "value") ? text : a[0] + " " + text);
+            }
+            return string.Join("   ", values.ToArray());
+        }
+
+        private void UpdateShaderSphere(string technique)
+        {
+            ShaderLookValues preview = ShaderLook.Look(ShaderLook.For(technique));
+            if (preview.Kind == ShaderKind.Pass) { preview = ShaderLook.Look(ShaderKind.Generic); }
+            ShaderLookValues applied = ShaderLook.Apply(preview, ShaderValues(this.shaderData, technique));
+            this.sphereShader.SetLook(applied);
+            this.UpdateSphereTexture(technique, applied);
         }
 
         // A label in front of a list in the button rows, the same width on both rows so the lists line up.
@@ -184,8 +415,10 @@ namespace ForzaStudio
             this.shaderData = ShaderSettings.Parse(data);
             string folder = entry.Name.Substring(0, entry.Name.LastIndexOf('/') + 1);
             this.shaderUsed = ShaderSettings.Techniques(this.zip, folder);
+            this.shaderKnown = ShaderTextures.For(this.GameRoot).ParameterNames;
             this.FillCopyCars();
-            this.FillShaderTechniques(null);
+            this.FillShaderTechniques(this.pendingShaderTechnique);
+            this.pendingShaderTechnique = null;
             this.ShowView(this.pnlShader);
         }
 
@@ -213,7 +446,13 @@ namespace ForzaStudio
                     letters += kind;
                 }
             }
-            return letters;
+            // Spelled out for the lists: Main = the car model (LODs 1-5), LOD0 = the close-up file, Cockpit, Brakes.
+            List<string> words = new List<string>();
+            foreach (char letter in letters)
+            {
+                words.Add(letter == 'M' ? "Main" : letter == 'L' ? "LOD0" : letter == 'C' ? "Cockpit" : "Brakes");
+            }
+            return string.Join(", ", words.ToArray());
         }
 
         private int ErrorsOf(ShaderSettings.Entry entry)
@@ -221,7 +460,7 @@ namespace ForzaStudio
             int errors = 0;
             foreach (ShaderSettings.Parameter p in entry.Parameters)
             {
-                errors += (ShaderSettings.Check(entry.Name, p) != ShaderSettings.Problem.None) ? 1 : 0;
+                errors += (ShaderSettings.Check(entry.Name, p, this.shaderKnown) == ShaderSettings.Problem.UnknownParameter) ? 1 : 0;
             }
             return errors;
         }
@@ -297,6 +536,7 @@ namespace ForzaStudio
             if (technique == null)
             {
                 this.lblShaderTechnique.Text = "Pick a technique on the left.";
+                this.sphereShader.Clear();
             }
             else
             {
@@ -304,29 +544,36 @@ namespace ForzaStudio
                 this.lblShaderTechnique.Text = string.Format("{0}  -  used in: {1}{2}\nFM4 cars set on it: {3}", technique, this.UsedIn(technique),
                     (entry == null) ? "  -  no settings: shader defaults" : "",
                     (fm4 != null) ? string.Join(", ", fm4) : "nothing (no FM4 car lists it)");
+                this.UpdateShaderSphere(technique);
                 if (entry != null)
                 {
                     foreach (ShaderSettings.Parameter p in entry.Parameters)
                     {
-                        List<string> values = new List<string>();
-                        foreach (string[] a in ShaderSettings.Attributes(p.Xml))
-                        {
-                            values.Add((a[0] == "value") ? a[1] : a[0] + " " + a[1]);
-                        }
-                        ShaderSettings.Problem problem = ShaderSettings.Check(technique, p);
-                        string note = (problem == ShaderSettings.Problem.UnknownParameter) ? "ERROR: FM4 has no such parameter"
-                            : (problem == ShaderSettings.Problem.UnusualParameter) ? "ERROR: no FM4 car sets it on " + technique : "";
-                        ListViewItem item = new ListViewItem(new string[] { p.Name, string.Join("  ", values.ToArray()), note });
+                        ShaderSettings.Problem problem = ShaderSettings.Check(technique, p, this.shaderKnown);
+                        string note = (problem == ShaderSettings.Problem.UnknownParameter) ? "ERROR: no shader of the game has this parameter"
+                            : (problem == ShaderSettings.Problem.UnusualParameter) ? "unusual: no FM4 car sets it on " + technique + " (not an error)" : "";
+                        ListViewItem item = new ListViewItem(new string[] { p.Name, ShaderValueText(p), note });
                         item.Tag = p;
-                        if (problem != ShaderSettings.Problem.None)
+                        if (problem == ShaderSettings.Problem.UnknownParameter)
                         {
                             item.ForeColor = ForzaTheme.Red;
+                        }
+                        else if (problem == ShaderSettings.Problem.UnusualParameter)
+                        {
+                            item.ForeColor = ForzaTheme.Yellow;
                         }
                         this.lvParameters.Items.Add(item);
                     }
                 }
                 // Add: green = FM4 cars set it on this technique, first; then the other FM4 parameters.
                 List<string> names = new List<string>(CarPort.ShaderParameterNames);
+                foreach (string known in this.shaderKnown ?? new string[0])
+                {
+                    if (known.Length > 0 && char.IsUpper(known[0]) && !names.Contains(known))
+                    {
+                        names.Add(known);
+                    }
+                }
                 names.Sort(StringComparer.Ordinal);
                 foreach (bool starred in new bool[] { true, false })
                 {
@@ -512,7 +759,6 @@ namespace ForzaStudio
             bool parameter = this.lvParameters.SelectedItems.Count > 0;
             this.cmbAddParameter.Enabled = technique;
             this.btnAddParameter.Enabled = technique && this.cmbAddParameter.Items.Count > 0;
-            this.btnEditParameter.Enabled = parameter;
             this.btnRemoveParameter.Enabled = parameter;
             this.cmbCopyFrom.Enabled = technique && this.cmbCopyFrom.Items.Count > 0;
             this.btnCopyFrom.Enabled = this.cmbCopyFrom.Enabled;
@@ -524,6 +770,7 @@ namespace ForzaStudio
         {
             this.zip.Replace(this.shaderEntry, this.shaderData.ToBytes());
             this.RefreshEntryNode(this.shaderEntry);
+            this.ApplyShaderSettingsToMeshes();
             this.FillShaderTechniques(null);
             this.SetStatus(status + " (pending: Save to write the archive)");
         }
@@ -551,6 +798,8 @@ namespace ForzaStudio
             }
         }
 
+        // Adds the chosen parameter with every value 0 (nothing is made up) and selects it: its values are set
+        // in the editor under the list.
         private void AddShaderParameter()
         {
             string technique = this.SelectedTechnique;
@@ -562,12 +811,7 @@ namespace ForzaStudio
             List<string[]> attributes = new List<string[]>();
             foreach (string a in ShaderSettings.AttributeNames(name))
             {
-                attributes.Add(new string[] { a, "" });
-            }
-            // No value is made up: the user types it.
-            if (!this.AskShaderValues(technique, name, attributes))
-            {
-                return;
+                attributes.Add(new string[] { a, "0" });
             }
             ShaderSettings.Entry entry = this.shaderData.Find(technique);
             if (entry == null)
@@ -577,76 +821,15 @@ namespace ForzaStudio
                 this.shaderData.Entries.Add(entry);
             }
             entry.Parameters.Add(new ShaderSettings.Parameter { Name = name, Xml = ShaderSettings.BuildXml(name, attributes) });
-            this.StoreShaderSettings(technique + ": " + name + " added");
-        }
-
-        private void EditShaderParameter()
-        {
-            string technique = this.SelectedTechnique;
-            if (technique == null || this.lvParameters.SelectedItems.Count == 0)
+            this.StoreShaderSettings(technique + ": " + name + " added, set its value below");
+            foreach (ListViewItem item in this.lvParameters.Items)
             {
-                return;
-            }
-            ShaderSettings.Parameter p = (ShaderSettings.Parameter) this.lvParameters.SelectedItems[0].Tag;
-            List<string[]> attributes = ShaderSettings.Attributes(p.Xml);
-            if (attributes.Count == 0)
-            {
-                MessageBox.Show(this, p.Name + " has no values to edit here: use Edit as XML.", "Shader Settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-            if (!this.AskShaderValues(technique, p.Name, attributes))
-            {
-                return;
-            }
-            p.Xml = ShaderSettings.BuildXml(p.Name, attributes);
-            this.StoreShaderSettings(technique + ": " + p.Name + " changed");
-        }
-
-        // One text box per attribute; every value must be a number.
-        private bool AskShaderValues(string technique, string name, List<string[]> attributes)
-        {
-            Panel content = new Panel();
-            content.Size = new Size(300, 30 + (attributes.Count * 28));
-            Label label = new Label();
-            label.Text = technique + " / " + name + ":";
-            label.AutoSize = true;
-            label.Location = new Point(0, 4);
-            content.Controls.Add(label);
-            List<TextBox> boxes = new List<TextBox>();
-            for (int i = 0; i < attributes.Count; i++)
-            {
-                Label caption = new Label();
-                caption.Text = attributes[i][0];
-                caption.AutoSize = true;
-                caption.Location = new Point(0, 32 + (i * 28));
-                TextBox box = new TextBox();
-                box.Text = attributes[i][1];
-                box.Width = 180;
-                box.Location = new Point(60, 28 + (i * 28));
-                content.Controls.Add(caption);
-                content.Controls.Add(box);
-                boxes.Add(box);
-            }
-            if (!this.ShowOptions("Shader Settings", content))
-            {
-                return false;
-            }
-            List<string> values = new List<string>();
-            foreach (TextBox box in boxes)
-            {
-                double number;
-                if (!double.TryParse(box.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out number))
+                if (((ShaderSettings.Parameter) item.Tag).Name == name)
                 {
-                    MessageBox.Show(this, "Every value must be a number, with a point for decimals (e.g. 0.8). Nothing changed.", "Shader Settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return false;
+                    item.Selected = true;
+                    item.EnsureVisible();
                 }
-                values.Add(box.Text.Trim());
             }
-            for (int i = 0; i < attributes.Count; i++)
-            {
-                attributes[i][1] = values[i];
-            }
-            return true;
         }
 
         private void RemoveShaderParameter()

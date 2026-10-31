@@ -20,7 +20,7 @@ namespace ForzaStudio
     //                ALF_ZagatoTZ3Stradale_12) is offered as a copy under the name the database asks for (not ticked).
     // Not fixed here, on purpose: keys that exist in the game with other values, dangling references, the OfferId, and
     // a tuning or sound bank that exists nowhere (the sound is the user's choice: Tools > Change Car Sound).
-    public sealed class DlcFixer : IDisposable
+    public sealed partial class DlcFixer : IDisposable
     {
         public delegate void Step();
 

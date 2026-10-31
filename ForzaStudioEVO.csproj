@@ -188,6 +188,10 @@
     <Compile Include="ForzaStudio\DlcValidator.cs" />
     <Compile Include="ForzaStudio\DlcValidatorForm.cs" />
     <Compile Include="ForzaStudio\DlcFixer.cs" />
+    <Compile Include="ForzaStudio\DlcFixer.Install.cs" />
+    <Compile Include="ForzaStudio\DlcInstallForm.cs" />
+    <Compile Include="ForzaStudio\DlcRelocate.cs" />
+    <Compile Include="ForzaStudio\DlcWorld.cs" />
     <Compile Include="ForzaStudio\DlcFixForm.cs" />
     <Compile Include="ForzaStudio\PerformanceFromGameForm.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Transmission.cs" />
@@ -206,6 +210,29 @@
     <Compile Include="ForzaStudio\SettingsForm.cs" />
     <Compile Include="ForzaStudio\CarCamera.cs" />
     <Compile Include="ForzaStudio\ThumbnailCamera.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.CollisionGenerate.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\Set2.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.PaintColor.cs"></Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.StockOnly.cs"></Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.ViewMenu.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.ClickPick.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ToolIcons.cs" />
+    <Compile Include="ForzaStudio\CarbinMeshEdit.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.UvMapperOpen.cs" />
+    <Compile Include="ForzaStudio\UvSession.cs" />
+    <Compile Include="ForzaStudio\UvMapperForm.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.MeshEdit.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.ViewControl.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="ForzaStudio\ArchiveEditorForm.ExteriorCamera.cs">
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>
@@ -215,6 +242,7 @@
     <Compile Include="ForzaStudio\MaterialSuggestions.cs" />
     <Compile Include="ForzaStudio\ShaderSettings.cs" />
     <Compile Include="ForzaStudio\ShaderLook.cs" />
+    <Compile Include="ForzaStudio\ShaderSphere.cs" />
     <Compile Include="ForzaStudio\ShaderLookNames.cs" />
     <Compile Include="ForzaStudio\ShaderTextures.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.Camera.cs">
@@ -230,6 +258,8 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="ForzaStudio\CarMake.cs" />
+    <Compile Include="ForzaStudio\MakeTitles.cs" />
+    <Compile Include="ForzaStudio\MakeDecals.cs" />
     <Compile Include="ForzaStudio\NewMakeForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -238,6 +268,7 @@
     </Compile>
     <Compile Include="ForzaStudio\AnarkFbf.cs" />
     <Compile Include="ForzaStudio\AnarkBgf.cs" />
+    <Compile Include="ForzaStudio\DashFonts.cs" />
     <Compile Include="ForzaStudio\AnarkBsg.cs" />
     <Compile Include="ForzaStudio\AnarkDash.cs" />
     <Compile Include="ForzaStudio\DashInspector.cs" />
@@ -275,6 +306,9 @@
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="ForzaStudio\ArchiveEditorForm.ShaderSettings.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.ShaderLook.cs">
       <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="ForzaStudio\ArchiveEditorForm.Package.cs">
@@ -343,8 +377,20 @@
     <EmbeddedResource Include="docs\Fm4Cars.tsv">
       <LogicalName>Fm4Cars.tsv</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="docs\GameIdLimits.json">
-      <LogicalName>GameIdLimits.json</LogicalName>
+    <EmbeddedResource Include="docs\IdMax\FM2.json">
+      <LogicalName>IdMax.FM2.json</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="docs\IdMax\FM3.json">
+      <LogicalName>IdMax.FM3.json</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="docs\IdMax\FM4.json">
+      <LogicalName>IdMax.FM4.json</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="docs\IdMax\FH1.json">
+      <LogicalName>IdMax.FH1.json</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="docs\IdMax\FH2.json">
+      <LogicalName>IdMax.FH2.json</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\EnvMap.png">
       <LogicalName>EnvMap.png</LogicalName>

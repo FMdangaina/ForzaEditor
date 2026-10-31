@@ -216,6 +216,10 @@ namespace ForzaStudio
             this.thumbPending = true;
             this.UpdateThumbnailLabel();
             this.UpdateCameraOverlay();
+            if (this.LiveCameraView)
+            {
+                this.ViewFromThumbnailCamera();
+            }
         }
 
         private void UpdateThumbnailLabel()

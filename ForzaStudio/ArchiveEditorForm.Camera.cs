@@ -20,6 +20,7 @@ namespace ForzaStudio
         private NumericUpDown[] numCamOffset;
         private Label lblCamEye;
         private CheckBox chkCamShow;
+        private CheckBox chkCamLive;
         private Button btnCamFromModel;
         private Button btnCamView;
         private Button btnCamSave;
@@ -40,6 +41,12 @@ namespace ForzaStudio
             side.Controls.Add(this.CameraNumberRow(out this.numCamOffset));
             this.lblCamEye = SideNote("");
             side.Controls.Add(this.lblCamEye);
+
+            this.chkCamLive = new CheckBox();
+            this.chkCamLive.Text = "Live: look through the camera while editing";
+            this.chkCamLive.Checked = true;
+            this.chkCamLive.Size = new Size(SideWidth, 22);
+            side.Controls.Add(this.chkCamLive);
 
             this.chkCamShow = new CheckBox();
             this.chkCamShow.Text = "Show in the view";
@@ -234,6 +241,16 @@ namespace ForzaStudio
             this.camPending = true;
             this.UpdateCameraLabels();
             this.UpdateCameraOverlay();
+            if (this.LiveCameraView)
+            {
+                this.ViewFromCockpitCamera();
+            }
+        }
+
+        // Camera editors show the view from the camera at once, with every change of a number.
+        private bool LiveCameraView
+        {
+            get { return this.chkCamLive != null && this.chkCamLive.Checked && this.scene != null; }
         }
 
         private bool camPending;
@@ -322,14 +339,6 @@ namespace ForzaStudio
             }
             Vector3 eye = CarCamera.ToModel(this.camState.Eye);
             this.scene.Camera.LookFrom(eye, eye + new Vector3(0f, 0f, -1f));
-            // The cockpit FOV of the list (CameraSettings.ini Driver\FOV).
-            for (int i = 0; i < this.cmbCameraFov.Items.Count; i++)
-            {
-                if (((ComboBoxItem<float>) this.cmbCameraFov.Items[i]).Value == CarCamera.CockpitFov)
-                {
-                    this.cmbCameraFov.SelectedIndex = i;
-                }
-            }
             this.scene.Camera.FieldOfViewDegrees = CarCamera.CockpitFov;
             this.scene.Update(true);
         }

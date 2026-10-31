@@ -25,6 +25,7 @@ namespace ForzaStudio
         private ToolStripButton btnMusicPrevious;
         private ToolStripButton btnMusicPlay;
         private ToolStripButton btnMusicNext;
+        private ToolStripDropDownButton btnMusicTracks;
         private ToolStripLabel lblMusicTime;
         private ToolStripControlHost hostMusicVolume;
         private ToolStripDropDownButton btnMusicOptions;
@@ -45,6 +46,10 @@ namespace ForzaStudio
             this.btnMusicPrevious = MusicButton("⏮", "Previous track", delegate { this.PlayMusic(this.musicIndex <= 0 ? this.musicTracks.Count - 1 : this.musicIndex - 1); });
             this.btnMusicPlay = MusicButton("⏸", "Pause / play", delegate { this.ToggleMusic(); });
             this.btnMusicNext = MusicButton("⏭", "Next track", delegate { this.NextMusic(); });
+            this.btnMusicTracks = new ToolStripDropDownButton("☰");
+            this.btnMusicTracks.ToolTipText = "Songs of the playlist";
+            this.btnMusicTracks.Font = new Font("Segoe UI Symbol", 9f);
+            this.btnMusicTracks.DropDownOpening += delegate { this.BuildMusicTrackMenu(); };
             this.lblMusicTime = new ToolStripLabel();
             this.lblMusicTime.ForeColor = ForzaTheme.TextDim;
 
@@ -93,7 +98,7 @@ namespace ForzaStudio
             this.mnuMusicAutoPlay.Checked = MusicSetting("MusicAutoPlay", 1) != 0;
             this.BuildMusicMenu();
 
-            this.status.Items.AddRange(new ToolStripItem[] { this.sepMusic, this.lblMusic, this.btnMusicPrevious, this.btnMusicPlay, this.btnMusicNext, this.lblMusicTime, this.hostMusicVolume, this.btnMusicOptions });
+            this.status.Items.AddRange(new ToolStripItem[] { this.sepMusic, this.lblMusic, this.btnMusicPrevious, this.btnMusicPlay, this.btnMusicNext, this.btnMusicTracks, this.lblMusicTime, this.hostMusicVolume, this.btnMusicOptions });
             this.ShowMusicControls(false);
 
             this.musicTimer = new Timer();
@@ -131,6 +136,19 @@ namespace ForzaStudio
             this.btnMusicOptions.DropDownItems.Add(new ToolStripMenuItem("Stop", null, delegate { this.StopMusic(); }));
         }
 
+        // The ☰ menu: every song of the current list, the playing one checked; a click plays it.
+        private void BuildMusicTrackMenu()
+        {
+            this.btnMusicTracks.DropDownItems.Clear();
+            for (int i = 0; i < this.musicTracks.Count; i++)
+            {
+                int index = i;
+                ToolStripMenuItem item = new ToolStripMenuItem(string.Format("{0}. {1}", i + 1, this.musicTracks[i].Display.Replace("&", "&&")), null, delegate { this.PlayMusic(index); });
+                item.Checked = i == this.musicIndex;
+                this.btnMusicTracks.DropDownItems.Add(item);
+            }
+        }
+
         private static ToolStripButton MusicButton(string text, string tip, EventHandler click)
         {
             ToolStripButton button = new ToolStripButton(text, null, click);
@@ -147,7 +165,7 @@ namespace ForzaStudio
 
         private void ShowMusicControls(bool visible)
         {
-            foreach (ToolStripItem item in new ToolStripItem[] { this.sepMusic, this.lblMusic, this.btnMusicPrevious, this.btnMusicPlay, this.btnMusicNext, this.lblMusicTime, this.hostMusicVolume, this.btnMusicOptions })
+            foreach (ToolStripItem item in new ToolStripItem[] { this.sepMusic, this.lblMusic, this.btnMusicPrevious, this.btnMusicPlay, this.btnMusicNext, this.btnMusicTracks, this.lblMusicTime, this.hostMusicVolume, this.btnMusicOptions })
             {
                 item.Visible = visible;
             }

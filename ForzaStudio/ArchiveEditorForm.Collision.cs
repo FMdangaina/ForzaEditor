@@ -105,9 +105,11 @@ namespace ForzaStudio
             side.Controls.Add(SideCaption("Type (Flags)"));
             side.Controls.Add(this.cmbCollFlags);
             side.Controls.Add(SideButtonRow(this.btnCollAdd, this.btnCollDelete, this.btnCollMirror));
+            this.btnCollGenerate = SideWideButton("Generate Basic Collision...", delegate { this.GenerateBasicCollision(); });
+            side.Controls.Add(this.btnCollGenerate);
             side.Controls.Add(this.chkCollShow);
             side.Controls.Add(this.chkCollBox);
-            side.Controls.Add(SideNote("Blue: body spheres (2). Orange: contact points (1). Magenta: other types. Yellow: the selected one. Grey: the bounding box. Z points forward. Add copies the selected sphere, Mirror copies it to the other side (X negated). Edits are pending until File > Save."));
+            side.Controls.Add(SideNote("Blue: body spheres (2). Orange: contact points (1). Magenta: other types. Yellow: the selected one. Grey: the bounding box. Z points forward. Add copies the selected sphere, Mirror copies it to the other side (X negated). Generate Basic Collision rebuilds the box and the spheres from the shown model (for cars whose own is wrong); Top and Left views (numpad 6 and 2) help to edit it. Edits are pending until File > Save."));
             this.EnableCollisionEdit(false);
         }
 
@@ -124,6 +126,7 @@ namespace ForzaStudio
             this.btnCollDelete.Enabled = sphere;
             this.btnCollMirror.Enabled = sphere;
             this.lstCollSpheres.Enabled = enabled;
+            this.btnCollGenerate.Enabled = enabled;
         }
 
         // Called with every model shown: the car's physics/maxdata.xml from the same folder.

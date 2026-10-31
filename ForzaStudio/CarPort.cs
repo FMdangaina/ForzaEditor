@@ -108,6 +108,8 @@ namespace ForzaStudio
         private long donorId;
         private SqliteDatabase donorDb;  // the donor pack's rows (DonorRoot), when the donor is not in the target database
         private long? newMake;          // a make the port added to List_CarMake (PortMake)
+        private string titleRule;       // the new make's Drive_ rule for the badge rules (PortTitles), written with the files
+        private string titleBase;       // the new make's logo name, the rule's name
         private string motorsport3Dash; // List_DigitalGauges.MediaName of an FM3 car's dash, or null
         private readonly List<string> engineMedia = new List<string>();
         private bool fm2Stage;
@@ -375,6 +377,7 @@ namespace ForzaStudio
 
                 this.PortDatabase();
                 this.PortStrings();
+                this.PortTitles();
                 this.BuildCarZip();
                 this.SteeringWheelPosition();
                 this.ReviewMaterials();
@@ -416,6 +419,10 @@ namespace ForzaStudio
                     this.Backup(output);
                     pair.Value.Save(output);
                     this.Line("saved {0}", this.Relative(pair.Key));
+                }
+                if (this.titleRule != null)
+                {
+                    this.WriteTitleRule();
                 }
                 foreach (KeyValuePair<string, string> file in this.newFiles)
                 {
@@ -2113,6 +2120,115 @@ namespace ForzaStudio
             }
         }
 
+        // The titles of a make the port added (MakeTitles): FM4's "<Make> Fan / Enthusiast / Aficionado" for it,
+        // the unlock rows and strings now, the rule with the files (WriteTitleRule).
+        private void PortTitles()
+        {
+            if (!this.newMake.HasValue)
+            {
+                return;
+            }
+            string logoBase = this.target.Scalar("SELECT IconPathBase FROM List_CarMake WHERE ID = ?", this.newMake.Value) as string;
+            Dictionary<string, ForzaZip> zips = new Dictionary<string, ForzaZip>(StringComparer.OrdinalIgnoreCase);
+            foreach (string zip in Directory.GetFiles(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "StringTables"), "*.zip"))
+            {
+                ForzaZip archive = this.OpenChanged(zip);
+                if (archive.Find(MakeTitles.Table + ".str") != null)
+                {
+                    zips[zip] = archive;
+                }
+            }
+            string name = null;
+            string reference = this.target.Scalar("SELECT DisplayName FROM List_CarMake WHERE ID = ?", this.newMake.Value) as string;
+            uint id;
+            if (reference != null && reference.StartsWith("_&") && uint.TryParse(reference.Substring(2), NumberStyles.None, CultureInfo.InvariantCulture, out id))
+            {
+                string english = Path.Combine(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "StringTables"), "EN.zip");
+                ForzaZip.Entry table = this.OpenChanged(english).Find("List_CarMake.str");
+                StrFile.Entry text = (table == null) ? null : Find(new StrFile(this.OpenChanged(english).Read(table)), (int) (id & 0xFFFF));
+                name = (text == null) ? null : text.Text;
+            }
+            if (string.IsNullOrEmpty(logoBase) || string.IsNullOrEmpty(name))
+            {
+                this.Line("  titles: the make has no logo name or English name, none added");
+                return;
+            }
+            StringBuilder lines = new StringBuilder();
+            this.titleRule = MakeTitles.Add(this.target, this.newMake.Value, name, logoBase, zips, lines);
+            this.titleBase = logoBase;
+            foreach (string line in lines.ToString().Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                this.Line("{0}", line);
+            }
+            this.PortDecals(name);
+        }
+
+        // The livery decals of a make the port added (MakeDecals): when PortMake kept no Livery_DecalsSortOrder row (the
+        // source's rows name decals FM4 lacks, as FH2's Bowler: its own logo decal), the make gets the common decals
+        // and its own decal, the source's texture put on FM4's decal carbin. Without the source's decal file
+        // nothing is added.
+        private void PortDecals(string name)
+        {
+            if (!MakeDecals.Supported(this.target) || !MakeDecals.Supported(this.source)
+                || Convert.ToInt64(this.target.Scalar("SELECT count(*) FROM " + MakeDecals.Sort + " WHERE MakeID = ?", this.newMake.Value)) > 0)
+            {
+                return;
+            }
+            string file = this.source.Scalar("SELECT d.Filename FROM " + MakeDecals.Sort + " s JOIN " + MakeDecals.Table + " d ON d.ID = s.Livery_DecalID WHERE s.MakeID = ? AND s.Sequence = 1", this.newMake.Value) as string;
+            string sourceLivery = MakeDecals.LiveryPath(this.SourceRoot);
+            if (file == null || !File.Exists(sourceLivery))
+            {
+                this.Line("  decals: the source has no decal of its own for the make, none added");
+                return;
+            }
+            ForzaZip from = new ForzaZip(sourceLivery);
+            ForzaZip.Entry own = from.Find("decals/" + file.Substring(file.LastIndexOfAny(new char[] { '\\', '/' }) + 1));
+            string livery = MakeDecals.LiveryPath(this.TargetRoot);
+            if (own == null || !File.Exists(livery))
+            {
+                this.Line("  decals: the source's decal {0} is not in its Livery.zip, none added", file);
+                return;
+            }
+            ForzaZip target = this.OpenChanged(livery);
+            ForzaZip.Entry model = target.Find(MakeDecals.TemplateEntry);
+            if (model == null)
+            {
+                this.Line("  decals: Livery.zip has no {0} to build the decal on, none added", MakeDecals.TemplateEntry);
+                return;
+            }
+            byte[] carbin = MakeDecals.BuildCarbin(MakeDecals.ReadTexels(from.Read(own)), target.Read(model));
+            Dictionary<string, ForzaZip> zips = new Dictionary<string, ForzaZip>(StringComparer.OrdinalIgnoreCase);
+            foreach (string zip in Directory.GetFiles(Path.Combine(Path.Combine(this.TargetRoot, "Media"), "StringTables"), "*.zip"))
+            {
+                zips[zip] = this.OpenChanged(zip);
+            }
+            StringBuilder lines = new StringBuilder();
+            this.Put(target, MakeDecals.Add(this.target, this.newMake.Value, name, target, zips, lines), carbin);
+            foreach (string line in lines.ToString().Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                this.Line("{0}", line);
+            }
+        }
+
+        // The rule of PortTitles: added to the game's BadgeAndTitleRules.xml (backed up), which is the file the game
+        // reads; in a trial folder a file of its own, which the pack build joins into the pack's <offer>.xml.
+        private void WriteTitleRule()
+        {
+            if (this.OutputRoot == null)
+            {
+                string rules = MakeTitles.GameRules(this.TargetRoot);
+                string text = File.ReadAllText(rules);
+                if (text.IndexOf("id=\"Drive_" + this.titleBase + "\"", StringComparison.Ordinal) >= 0)
+                {
+                    this.Line("titles: {0} has Drive_{1} already", MakeTitles.RulesFile, this.titleBase);
+                    return;
+                }
+                this.Write(rules, new UTF8Encoding(false).GetBytes(MakeTitles.AddRule(text, this.titleRule)));
+                return;
+            }
+            this.Write(Path.Combine(MakeTitles.RulesFolder(this.TargetRoot), this.titleBase + ".xml"), new UTF8Encoding(false).GetBytes(MakeTitles.Document(new string[] { this.titleRule })));
+        }
+
         // The strings of one row (table.keyColumn = id) into <table>.str of every FM4 language; a
         // language the source lacks gets the source's EN text (FM3 has no BR, GB, NL).
         private void PortStrings(string table, string keyColumn, long id, params string[] columns)
@@ -2379,6 +2495,10 @@ namespace ForzaStudio
                     int layers;
                     data = ConvertAnarkLayout(data, out layers);
                     this.Line("  dash {0}: {1} text layers to the FM4 layout", Path.GetFileName(name), layers);
+                }
+                if (name.EndsWith(".bgf"))
+                {
+                    data = this.FixDashFonts(data, Path.GetFileName(name));
                 }
                 if (name.EndsWith(".carbin"))
                 {
@@ -3630,7 +3750,25 @@ namespace ForzaStudio
                 record.Text = "";
                 layers++;
             }
+            DashFonts.Fix(fbf, null);
             return fbf.Write();
+        }
+
+        // .bgf font names FM4's fontmap does not know become FM4's names (DashFonts); a name with no rule is reported.
+        private byte[] FixDashFonts(byte[] bgf, string label)
+        {
+            int changed;
+            List<string> unknown = new List<string>();
+            byte[] fixedData = DashFonts.Fix(bgf, out changed, unknown);
+            if (changed > 0)
+            {
+                this.Line("  dash {0}: {1} font names changed to FM4's", label, changed);
+            }
+            if (unknown.Count > 0)
+            {
+                this.Line("  WARNING dash {0}: font {1} has no FM4 equivalent rule, FM4 may show a generic font", label, string.Join(", ", unknown.ToArray()));
+            }
+            return fixedData;
         }
 
         // The FM3 car's digital dash into the car zip, as FM4 keeps it: digitalgauge/dash_<car>.fbf/.bgf/.bsg
@@ -3715,7 +3853,7 @@ namespace ForzaStudio
             });
             string prefix = "digitalgauge/dash_" + this.MediaName.ToLowerInvariant();
             car.Add(prefix + ".fbf", fbf);
-            car.Add(prefix + ".bgf", gauges.Read(bgf));
+            car.Add(prefix + ".bgf", this.FixDashFonts(gauges.Read(bgf), prefix + ".bgf"));
             car.Add(prefix + ".bsg", gauges.Read(bsg));
             foreach (KeyValuePair<string, byte[]> image in images)
             {
@@ -3807,6 +3945,7 @@ namespace ForzaStudio
                     record.Path = @"GAME:\MEDIA\CARS\" + mediaName.ToUpperInvariant() + @"\DIGITALGAUGE\" + Path.GetFileNameWithoutExtension(record.Path.Replace('\\', '/')).ToUpperInvariant() + ".TGA";
                 }
             }
+            DashFonts.Fix(fbf, null);
             return fbf.Write();
         }
 
@@ -6315,6 +6454,7 @@ namespace ForzaStudio
             List<string> files = new List<string>();
             files.Add(databasePath);
             files.Add(ZipManifest.PathFor(this.TargetRoot));
+            files.Add(MakeTitles.GameRules(this.TargetRoot));
             files.Add(Path.Combine(Path.Combine(media, "UI"), "Textures.zip"));
             files.Add(Path.Combine(Path.Combine(Path.Combine(media, "audio"), "Cars"), "CarModelTuning.zip"));
             files.Add(Path.Combine(Path.Combine(Path.Combine(Path.Combine(media, "audio"), "Cars"), "Engines"), "enginetuning.zip"));

@@ -281,6 +281,7 @@
             tools.DropDownItems.Add(new ToolStripMenuItem("Car &Performance From Game...", null, delegate { this.ShowPerformanceFromGame(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Change Car &Sound...", null, delegate { this.ShowChangeSound(); }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Chec&k and Validate DLC...", null, delegate { using (DlcValidatorForm form = new DlcValidatorForm()) { form.ShowDialog(this); } }));
+            tools.DropDownItems.Add(new ToolStripMenuItem("Validate DLC for &Installation...", null, delegate { using (DlcInstallForm form = new DlcInstallForm()) { form.ShowDialog(this); } }));
             tools.DropDownItems.Add(new ToolStripMenuItem("Set Generated &Thumbnail...", null, delegate { using (SetThumbnailsForm form = new SetThumbnailsForm()) { form.ShowDialog(this); } }));
             tools.DropDownItems.Add(new ToolStripSeparator());
             tools.DropDownItems.Add(new ToolStripMenuItem("&Settings...", null, delegate { this.ShowSettings(); }));

@@ -313,6 +313,36 @@ namespace ForzaStudio
             this.Entries.Remove(entry);
         }
 
+        // Gives an entry another name without touching its data: the name in its local header and central record is
+        // replaced (Save writes both and recomputes the data offsets), so a rename costs no recompression.
+        public void Rename(Entry entry, string name)
+        {
+            if (this.IsFolder || entry.LocalHeader == null || entry.CentralRecord == null)
+            {
+                throw new InvalidOperationException("Only an entry of a zip file can be renamed.");
+            }
+            if (!string.Equals(entry.Name, name, StringComparison.OrdinalIgnoreCase) && this.Find(name) != null)
+            {
+                throw new ArgumentException("The archive already has " + name + ".");
+            }
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(name);
+            entry.LocalHeader = Respell(entry.LocalHeader, 30, 26, bytes);
+            entry.CentralRecord = Respell(entry.CentralRecord, 46, 28, bytes);
+            entry.Name = name;
+        }
+
+        // The record with the name at 'start' (its length at 'lengthAt') replaced.
+        private static byte[] Respell(byte[] record, int start, int lengthAt, byte[] name)
+        {
+            int old = BitConverter.ToUInt16(record, lengthAt);
+            byte[] result = new byte[record.Length - old + name.Length];
+            Buffer.BlockCopy(record, 0, result, 0, start);
+            Buffer.BlockCopy(name, 0, result, start, name.Length);
+            Buffer.BlockCopy(record, start + old, result, start + name.Length, record.Length - start - old);
+            Buffer.BlockCopy(BitConverter.GetBytes((ushort) name.Length), 0, result, lengthAt, 2);
+            return result;
+        }
+
         // Takes the deletion mark off (a replaced file keeps its replacement).
         public void Undelete(Entry entry)
         {

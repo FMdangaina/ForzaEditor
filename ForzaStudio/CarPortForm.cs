@@ -48,6 +48,7 @@ namespace ForzaStudio
         private readonly Button addToPackage;
         private readonly List<PackEntry> pack = new List<PackEntry>();
         private readonly TextBox packOfferBox;
+        private bool packIdsTyped;      // the user wrote an id by hand: the automatic suggestion leaves it alone
         private readonly PortMode mode;
 
         // The offer number is the user's, typed in the box (at their own risk: a package with the same
@@ -412,7 +413,7 @@ namespace ForzaStudio
             if (mode == PortMode.Dlc)
             {
                 // The pack window never writes the game: the one-car actions belong to the import window.
-                this.Shown += delegate { this.SuggestPackIds(); };
+                this.Shown += delegate { this.SuggestPackIds(this.pack.Count == 0 && !this.packIdsTyped); };
                 this.trial.Visible = false;
                 this.install.Visible = false;
                 this.openTrial.Visible = false;
@@ -458,7 +459,7 @@ namespace ForzaStudio
             this.packOfferBox.Width = 70;
             this.packOfferBox.MaxLength = 5;
             this.packOfferBox.Text = (AppSettings.Get("CarPort.PackOffer", "") == "0") ? "" : AppSettings.Get("CarPort.PackOffer", "");
-            this.packOfferBox.TextChanged += delegate { AppSettings.Set("CarPort.PackOffer", this.packOfferBox.Text.Trim()); this.UpdatePackInfo(); };
+            this.packOfferBox.TextChanged += delegate { this.packIdsTyped |= this.packOfferBox.Focused; AppSettings.Set("CarPort.PackOffer", this.packOfferBox.Text.Trim()); this.UpdatePackInfo(); };
             new ToolTip().SetToolTip(this.packOfferBox, "The package's offer number (1-65535), yours to choose at your own risk: a package with this number already in Xenia is replaced by the build. Same number = same package for the game.");
             Button suggest = new Button();
             suggest.Text = "Free";
@@ -481,6 +482,7 @@ namespace ForzaStudio
             this.packFirstCarBox.Text = AppSettings.Get("CarPort.PackFirstCar", "");
             this.packFirstCarBox.TextChanged += delegate
             {
+                this.packIdsTyped |= this.packFirstCarBox.Focused;
                 AppSettings.Set("CarPort.PackFirstCar", this.packFirstCarBox.Text.Trim());
                 this.PackChanged();     // the cars' ids change: the last trial no longer matches
             };
@@ -1238,7 +1240,6 @@ namespace ForzaStudio
         // After the cars are loaded: the pack kept in the settings, when it was made from this source.
         private void RestorePack()
         {
-            this.SuggestPackIds();
             this.pack.Clear();
             if (string.Equals(AppSettings.Get("CarPort.PackSource", ""), this.sourceBox.Text.Trim(), StringComparison.OrdinalIgnoreCase))
             {
@@ -1270,6 +1271,7 @@ namespace ForzaStudio
                     }
                 }
             }
+            this.SuggestPackIds(this.pack.Count == 0 && !this.packIdsTyped);
             this.packTrialFolder = null;
             this.RefreshPack();
         }
@@ -1326,13 +1328,15 @@ namespace ForzaStudio
             }
             this.pack.Clear();
             this.packOfferBox.Text = string.Empty;
-            this.SuggestPackIds();
+            this.packIdsTyped = false;
+            this.SuggestPackIds(true);
             this.PackChanged();
         }
 
         // The pack window fills what the user has not chosen: an empty offer number, and a first car Id that is empty or
         // not above the cars of FM4 and its DLC (GameIdLimits); the Id also clears the target database and Xenia's packs.
-        private void SuggestPackIds()
+        // force: an empty pack has no ids worth keeping, so both are recomputed (max + 1) instead of the saved ones.
+        private void SuggestPackIds(bool force)
         {
             string target = this.targetBox.Text.Trim();
             if (this.mode != PortMode.Dlc || !File.Exists(CarMake.DatabasePath(target)))
@@ -1342,11 +1346,11 @@ namespace ForzaStudio
             try
             {
                 string content = this.XeniaContent() ?? "";
-                if (this.packOffer == 0)
+                if (force || this.packOffer == 0)
                 {
                     this.packOfferBox.Text = DlcPackage.FreeOffer(target, content).ToString(CultureInfo.InvariantCulture);
                 }
-                if (this.packFirstCar <= GameIdLimits.Max(ForzaGame.Motorsport4, "Data_Car", "Id"))
+                if (force || this.packFirstCar <= GameIdLimits.Max(ForzaGame.Motorsport4, "Data_Car", "Id"))
                 {
                     using (SqliteDatabase game = SqliteDatabase.FromBytes(File.ReadAllBytes(CarMake.DatabasePath(target))))
                     {

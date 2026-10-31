@@ -1,0 +1,1057 @@
+{
+  "format": "forza-id-max",
+  "version": 2,
+  "game": "FH2",
+  "name": "Forza Horizon 2",
+  "titleId": "4D530AA4",
+  "generated": "2026-10-31",
+  "notes": [
+    "Every table of the game's database. max = largest value of the column in the base game and in its official DLC packages (archives); a new row's key is max + 1 or more.",
+    "keys = the primary key; without one (keySource firstIdColumn) the first id column; keySource none = the table has no id (nothing to number).",
+    "columns = the keys and every other id column (…Id, …ID, Ordinal) that holds an integer. maxIn / byArchive say which archive has the largest.",
+    "Packs made by Forza Studio or anyone else are NOT counted here; Forza Studio reads the installed packages at run time (DbIds, DlcWorld)."
+  ],
+  "archives": [
+    { "id": "base", "kind": "base", "name": "base game", "databases": ["media\\db\\gamedb.slt"], "pubOffers": [] }
+  ],
+  "tables": {
+    "AIDiff": { "rows": 3, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } }
+    } },
+    "AILineChoices": { "rows": 81, "keySource": "firstIdColumn", "keys": ["AISkills_id"], "columns": {
+      "AISkills_id": { "key": true, "numeric": true, "max": 104, "maxIn": "base", "min": 1, "byArchive": { "base": 104 } },
+      "LineID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "AIPlayerColors": { "rows": 159, "keySource": "firstIdColumn", "keys": ["PlayerId"], "columns": {
+      "PlayerId": { "key": true, "numeric": true, "max": 231, "maxIn": "base", "min": 1, "byArchive": { "base": 231 } },
+      "SpecialColorId": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "AIPlayers": { "rows": 251, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 253, "maxIn": "base", "min": 1, "byArchive": { "base": 253 } },
+      "CountryId": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } },
+      "DriverTypeID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "AIRubberbandModeChoices": { "rows": 36, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 38, "maxIn": "base", "min": 1, "byArchive": { "base": 38 } },
+      "AIRubberbands_id": { "key": false, "numeric": true, "max": 44, "maxIn": "base", "min": 1, "byArchive": { "base": 44 } },
+      "AIRubberbandModes_id": { "key": false, "numeric": true, "max": 4, "maxIn": "base", "min": 0, "byArchive": { "base": 4 } }
+    } },
+    "AIRubberbands": { "rows": 24, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 44, "maxIn": "base", "min": 1, "byArchive": { "base": 44 } }
+    } },
+    "AISkillAdjustments": { "rows": 21, "keySource": "none", "keys": [], "columns": { } },
+    "AISkills": { "rows": 87, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 207, "maxIn": "base", "min": 1, "byArchive": { "base": 207 } },
+      "Rubberbands_id": { "key": false, "numeric": true, "max": 10, "maxIn": "base", "min": 0, "byArchive": { "base": 10 } }
+    } },
+    "AITemperaments": { "rows": 10, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 10, "maxIn": "base", "min": 1, "byArchive": { "base": 10 } }
+    } },
+    "Achievements": { "rows": 20, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 45, "maxIn": "base", "min": 6, "byArchive": { "base": 45 } }
+    } },
+    "AffinityLevelDef": { "rows": 51, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 50, "maxIn": "base", "min": 0, "byArchive": { "base": 50 } }
+    } },
+    "Anthem360OnlineEvents": { "rows": 1293, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1577, "maxIn": "base", "min": 46, "byArchive": { "base": 1577 } },
+      "RoadTripLocationId": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 3, "byArchive": { "base": 8 } },
+      "TrackId": { "key": false, "numeric": true, "max": 1002, "maxIn": "base", "min": 560, "byArchive": { "base": 1002 } }
+    } },
+    "Anthem360RaceModeMapper": { "rows": 38, "keySource": "firstIdColumn", "keys": ["RaceModeId"], "columns": {
+      "RaceModeId": { "key": true, "numeric": true, "max": 30, "maxIn": "base", "min": 0, "byArchive": { "base": 30 } }
+    } },
+    "ArcadeCarList": { "rows": 215, "keySource": "primaryKey", "keys": ["CarId"], "columns": {
+      "CarId": { "key": true, "numeric": true, "max": 601, "maxIn": "base", "min": 247, "byArchive": { "base": 601 } }
+    } },
+    "AuctionSearchValues": { "rows": 26, "keySource": "primaryKey", "keys": ["ValueId"], "columns": {
+      "ValueId": { "key": true, "numeric": true, "max": 91, "maxIn": "base", "min": 33, "byArchive": { "base": 91 } }
+    } },
+    "AutoSteerOverrides": { "rows": 3, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "BackfireLevels": { "rows": 16, "keySource": "none", "keys": [], "columns": { } },
+    "BarnfindCars": { "rows": 10, "keySource": "firstIdColumn", "keys": ["Ordinal"], "columns": {
+      "Ordinal": { "key": true, "numeric": true, "max": 51536, "maxIn": "base", "min": 358, "byArchive": { "base": 51536 } }
+    } },
+    "BristolLayouts": { "rows": 3, "keySource": "primaryKey", "keys": ["LayoutId"], "columns": {
+      "LayoutId": { "key": true, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } }
+    } },
+    "CameraOverrides": { "rows": 761, "keySource": "primaryKey", "keys": ["CarId"], "columns": {
+      "CarId": { "key": true, "numeric": true, "max": 51558, "maxIn": "base", "min": 247, "byArchive": { "base": 51558 } }
+    } },
+    "CampaignEvents": { "rows": 672, "keySource": "firstIdColumn", "keys": ["EventId"], "columns": {
+      "EventId": { "key": true, "numeric": true, "max": 901, "maxIn": "base", "min": 1, "byArchive": { "base": 901 } },
+      "CampaignId": { "key": false, "numeric": true, "max": 195, "maxIn": "base", "min": 1, "byArchive": { "base": 195 } }
+    } },
+    "Campaigns": { "rows": 168, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 195, "maxIn": "base", "min": 1, "byArchive": { "base": 195 } },
+      "RoadTripLocationId": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 3, "byArchive": { "base": 8 } }
+    } },
+    "CarBuckets": { "rows": 40, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 40, "maxIn": "base", "min": 1, "byArchive": { "base": 40 } },
+      "ParentBucketId": { "key": false, "numeric": true, "max": 41, "maxIn": "base", "min": 0, "byArchive": { "base": 41 } }
+    } },
+    "CarChallengeTitles": { "rows": 706, "keySource": "firstIdColumn", "keys": ["CarId"], "columns": {
+      "CarId": { "key": true, "numeric": true, "max": 1684, "maxIn": "base", "min": 249, "byArchive": { "base": 1684 } }
+    } },
+    "CarChallenges": { "rows": 135, "keySource": "primaryKey", "keys": ["CarId"], "columns": {
+      "CarId": { "key": true, "numeric": true, "max": 1684, "maxIn": "base", "min": 249, "byArchive": { "base": 1684 } }
+    } },
+    "CarClasses": { "rows": 7, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 6, "maxIn": "base", "min": 0, "byArchive": { "base": 6 } }
+    } },
+    "CarDetails": { "rows": 35, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 50, "maxIn": "base", "min": 1, "byArchive": { "base": 50 } }
+    } },
+    "CarExceptions": { "rows": 572, "keySource": "primaryKey", "keys": ["CarID"], "columns": {
+      "CarID": { "key": true, "numeric": true, "max": 51529, "maxIn": "base", "min": 247, "byArchive": { "base": 51529 } }
+    } },
+    "CarInvalidDefaultParts": { "rows": 0, "keySource": "firstIdColumn", "keys": ["Ordinal"], "columns": {
+      "Ordinal": { "key": true, "numeric": true }
+    } },
+    "CarListFilters": { "rows": 1, "keySource": "primaryKey", "keys": ["CarID"], "columns": {
+      "CarID": { "key": true, "numeric": true, "max": 1215, "maxIn": "base", "min": 1215, "byArchive": { "base": 1215 } }
+    } },
+    "CarPIOverrides": { "rows": 40, "keySource": "primaryKey", "keys": ["CarID"], "columns": {
+      "CarID": { "key": true, "numeric": true, "max": 1523, "maxIn": "base", "min": 251, "byArchive": { "base": 1523 } }
+    } },
+    "CarPartPositions": { "rows": 2160, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 51558009, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558009 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "PartId": { "key": false, "numeric": true, "max": 9, "maxIn": "base", "min": 0, "byArchive": { "base": 9 } }
+    } },
+    "CarTrackOffsets": { "rows": 170, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1473, "maxIn": "base", "min": 248, "byArchive": { "base": 1473 } }
+    } },
+    "CarUpgradeExceptions": { "rows": 2, "keySource": "primaryKey", "keys": ["CarID"], "columns": {
+      "CarID": { "key": true, "numeric": true, "max": 1545, "maxIn": "base", "min": 1520, "byArchive": { "base": 1545 } }
+    } },
+    "CareerEventTypes": { "rows": 15, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 22, "maxIn": "base", "min": 1, "byArchive": { "base": 22 } },
+      "BannerId": { "key": false, "numeric": true, "max": 99, "maxIn": "base", "min": 1, "byArchive": { "base": 99 } },
+      "RaceModeId": { "key": false, "numeric": true, "max": 15, "maxIn": "base", "min": 1, "byArchive": { "base": 15 } }
+    } },
+    "CareerStage": { "rows": 2, "keySource": "firstIdColumn", "keys": ["CareerStageId"], "columns": {
+      "CareerStageId": { "key": true, "numeric": true, "max": 1, "maxIn": "base", "min": 0, "byArchive": { "base": 1 } }
+    } },
+    "CareerTargetScores": { "rows": 32, "keySource": "primaryKey", "keys": ["RaceId"], "columns": {
+      "RaceId": { "key": true, "numeric": true, "max": 848, "maxIn": "base", "min": 60, "byArchive": { "base": 848 } }
+    } },
+    "CareerWristbandLevels": { "rows": 7, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 6, "maxIn": "base", "min": 0, "byArchive": { "base": 6 } }
+    } },
+    "Combo_Colors": { "rows": 1569, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 51558001, "maxIn": "base", "min": 249001, "byArchive": { "base": 51558001 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "ColorClassId": { "key": false, "numeric": true, "max": 24, "maxIn": "base", "min": 0, "byArchive": { "base": 24 } }
+    } },
+    "Combo_Colors_Exceptions": { "rows": 670, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 670, "maxIn": "base", "min": 1, "byArchive": { "base": 670 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 2016, "maxIn": "base", "min": 252, "byArchive": { "base": 2016 } }
+    } },
+    "Combo_Engines": { "rows": 312, "keySource": "primaryKey", "keys": ["EngineComboID"], "columns": {
+      "EngineComboID": { "key": true, "numeric": true, "max": 313, "maxIn": "base", "min": 2, "byArchive": { "base": 313 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 558, "maxIn": "base", "min": 247, "byArchive": { "base": 558 } },
+      "EngineID": { "key": false, "numeric": true, "max": 312, "maxIn": "base", "min": 1, "byArchive": { "base": 312 } }
+    } },
+    "Combo_TireBrandCompound": { "rows": 30, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 30, "maxIn": "base", "min": 1, "byArchive": { "base": 30 } },
+      "TireBrandId": { "key": false, "numeric": true, "max": 289, "maxIn": "base", "min": 273, "byArchive": { "base": 289 } },
+      "TireCompoundId": { "key": false, "numeric": true, "max": 7, "maxIn": "base", "min": 5, "byArchive": { "base": 7 } }
+    } },
+    "ContentOffers": { "rows": 1, "keySource": "primaryKey", "keys": ["OfferId"], "columns": {
+      "OfferId": { "key": true, "numeric": true, "max": 5571808866901483520, "maxIn": "base", "min": 5571808866901483520, "byArchive": { "base": 5571808866901483520 } },
+      "PubOfferingID": { "key": false, "numeric": true, "max": 888, "maxIn": "base", "min": 888, "byArchive": { "base": 888 } }
+    } },
+    "ContentOffersMapping": { "rows": 1, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1053, "maxIn": "base", "min": 1053, "byArchive": { "base": 1053 } },
+      "OfferId": { "key": false, "numeric": true, "max": 5571807926275688448, "maxIn": "base", "min": 5571807926275688448, "byArchive": { "base": 5571807926275688448 } },
+      "ContentId": { "key": false, "numeric": true, "max": 111, "maxIn": "base", "min": 111, "byArchive": { "base": 111 } }
+    } },
+    "ContentRestrictions": { "rows": 0, "keySource": "primaryKey", "keys": ["ContentMappingId"], "columns": {
+      "ContentMappingId": { "key": true, "numeric": true }
+    } },
+    "ControllerLayouts": { "rows": 5, "keySource": "primaryKey", "keys": ["LayoutId"], "columns": {
+      "LayoutId": { "key": true, "numeric": true, "max": 4, "maxIn": "base", "min": 0, "byArchive": { "base": 4 } }
+    } },
+    "DamageDiffSettings": { "rows": 3, "keySource": "primaryKey", "keys": ["DamageDiff"], "columns": {
+      "DamageDiff": { "key": true, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } }
+    } },
+    "Data_Car": { "rows": 216, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "MakeID": { "key": false, "numeric": true, "max": 107, "maxIn": "base", "min": 1, "byArchive": { "base": 107 } },
+      "ClassID": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 0, "byArchive": { "base": 5 } },
+      "CarTypeID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "FamilyModelID": { "key": false, "numeric": true, "max": 51, "maxIn": "base", "min": 1, "byArchive": { "base": 51 } },
+      "FamilyBodyID": { "key": false, "numeric": true, "max": 38, "maxIn": "base", "min": 1, "byArchive": { "base": 38 } },
+      "EnginePlacementID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "MaterialTypeID": { "key": false, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } },
+      "PowertrainID": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 0, "byArchive": { "base": 5 } },
+      "TireBrandID": { "key": false, "numeric": true, "max": 13, "maxIn": "base", "min": 0, "byArchive": { "base": 13 } },
+      "SpeedLimiterID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } },
+      "AutoSteerOverrideID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "AIPlayerID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } },
+      "ContentId": { "key": false, "numeric": true, "max": 99, "maxIn": "base", "min": 0, "byArchive": { "base": 99 } },
+      "StockWheelID": { "key": false, "numeric": true, "max": 5011150, "maxIn": "base", "min": 3, "byArchive": { "base": 5011150 } },
+      "GaugeID": { "key": false, "numeric": true, "max": -1, "maxIn": "base", "min": -1, "byArchive": { "base": -1 } },
+      "FamilySpecialID": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5 } },
+      "EngineConfigID": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5 } },
+      "DriveTypeID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "RegionID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "CountryID": { "key": false, "numeric": true, "max": 10, "maxIn": "base", "min": 2, "byArchive": { "base": 10 } },
+      "CylinderID": { "key": false, "numeric": true, "max": 11, "maxIn": "base", "min": 1, "byArchive": { "base": 11 } },
+      "AspirationTypeId": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5 } },
+      "ModelId": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } }
+    } },
+    "Data_CarBody": { "rows": 216, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } }
+    } },
+    "Data_Car_Buckets": { "rows": 216, "keySource": "firstIdColumn", "keys": ["CarId"], "columns": {
+      "CarId": { "key": true, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } }
+    } },
+    "Data_Drivetrain": { "rows": 216, "keySource": "primaryKey", "keys": ["DrivetrainID"], "columns": {
+      "DrivetrainID": { "key": true, "numeric": true, "max": 5968, "maxIn": "base", "min": 3, "byArchive": { "base": 5968 } },
+      "DrivetypeID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "Data_Engine": { "rows": 216, "keySource": "primaryKey", "keys": ["EngineID"], "columns": {
+      "EngineID": { "key": true, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ConfigID": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5 } },
+      "CylinderID": { "key": false, "numeric": true, "max": 11, "maxIn": "base", "min": 1, "byArchive": { "base": 11 } },
+      "VariableTimingID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "Data_Motor": { "rows": 0, "keySource": "primaryKey", "keys": ["MotorID"], "columns": {
+      "MotorID": { "key": true, "numeric": true },
+      "TorqueCurveFullThrottleID": { "key": false, "numeric": true },
+      "ConfigID": { "key": false, "numeric": true }
+    } },
+    "Demo_CarList": { "rows": 12, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 569, "maxIn": "base", "min": 263, "byArchive": { "base": 569 } }
+    } },
+    "DestinationEventSets": { "rows": 13, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 12, "maxIn": "base", "min": 0, "byArchive": { "base": 12 } },
+      "DestinationId": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 0, "byArchive": { "base": 8 } },
+      "RoadTripId": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": -1, "byArchive": { "base": 3 } }
+    } },
+    "DestinationEvents": { "rows": 54, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 77, "maxIn": "base", "min": 0, "byArchive": { "base": 77 } },
+      "DestinationEventSetId": { "key": false, "numeric": true, "max": 12, "maxIn": "base", "min": -1, "byArchive": { "base": 12 } },
+      "EventId": { "key": false, "numeric": true, "max": 839, "maxIn": "base", "min": 5, "byArchive": { "base": 839 } },
+      "SponsorshipDealID": { "key": false, "numeric": true, "max": 53, "maxIn": "base", "min": 0, "byArchive": { "base": 53 } },
+      "PlayerCarId": { "key": false, "numeric": true, "max": 1683, "maxIn": "base", "min": 0, "byArchive": { "base": 1683 } }
+    } },
+    "DestinationFMVCutscenes": { "rows": 1, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } },
+      "RoadTripLocationId": { "key": false, "numeric": true, "max": 6, "maxIn": "base", "min": 6, "byArchive": { "base": 6 } }
+    } },
+    "E3Drivers": { "rows": 7, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 7, "maxIn": "base", "min": 1, "byArchive": { "base": 7 } },
+      "AIPlayerId": { "key": false, "numeric": true, "max": 92, "maxIn": "base", "min": 7, "byArchive": { "base": 92 } },
+      "CarId": { "key": false, "numeric": true, "max": 1388, "maxIn": "base", "min": 348, "byArchive": { "base": 1388 } }
+    } },
+    "EnvironmentTimeOfDay": { "rows": 36, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 36, "maxIn": "base", "min": 0, "byArchive": { "base": 36 } },
+      "EnvironmentId": { "key": false, "numeric": true, "max": 62, "maxIn": "base", "min": 0, "byArchive": { "base": 62 } }
+    } },
+    "Environments": { "rows": 55, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 78, "maxIn": "base", "min": 2, "byArchive": { "base": 78 } },
+      "CountryId": { "key": false, "numeric": true, "max": 24, "maxIn": "base", "min": 1, "byArchive": { "base": 24 } }
+    } },
+    "EventBonuses": { "rows": 46, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 46, "maxIn": "base", "min": 1, "byArchive": { "base": 46 } },
+      "BonusTypeId": { "key": false, "numeric": true, "max": 9, "maxIn": "base", "min": 0, "byArchive": { "base": 9 } }
+    } },
+    "EventGroups": { "rows": 18, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 30, "maxIn": "base", "min": 1, "byArchive": { "base": 30 } }
+    } },
+    "EventHubInitialEvents": { "rows": 2, "keySource": "firstIdColumn", "keys": ["HubId"], "columns": {
+      "HubId": { "key": true, "numeric": true, "max": 2, "maxIn": "base", "min": 1, "byArchive": { "base": 2 } },
+      "EventId": { "key": false, "numeric": true, "max": 2, "maxIn": "base", "min": 1, "byArchive": { "base": 2 } }
+    } },
+    "EventHubs": { "rows": 3, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "EventParticipants": { "rows": 4754, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 4754, "maxIn": "base", "min": 1, "byArchive": { "base": 4754 } },
+      "EventID": { "key": false, "numeric": true, "max": 904, "maxIn": "base", "min": 1, "byArchive": { "base": 904 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 249, "maxIn": "base", "min": 249, "byArchive": { "base": 249 } },
+      "BucketId": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } },
+      "AIPlayerID": { "key": false, "numeric": true, "max": 2, "maxIn": "base", "min": 2, "byArchive": { "base": 2 } }
+    } },
+    "EventRandomBonuses": { "rows": 81, "keySource": "firstIdColumn", "keys": ["RandomBonusTypeId"], "columns": {
+      "RandomBonusTypeId": { "key": true, "numeric": true, "max": 8, "maxIn": "base", "min": 2, "byArchive": { "base": 8 } },
+      "BonusId": { "key": false, "numeric": true, "max": 44, "maxIn": "base", "min": 1, "byArchive": { "base": 44 } }
+    } },
+    "EventRecommendedCars": { "rows": 0, "keySource": "firstIdColumn", "keys": ["EventID"], "columns": {
+      "EventID": { "key": true, "numeric": true },
+      "CarID": { "key": false, "numeric": true }
+    } },
+    "EventRestrictions": { "rows": 716, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 716, "maxIn": "base", "min": 1, "byArchive": { "base": 716 } },
+      "EventID": { "key": false, "numeric": true, "max": 911, "maxIn": "base", "min": 1, "byArchive": { "base": 911 } },
+      "BucketId": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "EventScoring": { "rows": 8, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 8, "maxIn": "base", "min": 1, "byArchive": { "base": 8 } },
+      "ScoringID": { "key": false, "numeric": true, "max": 1, "maxIn": "base", "min": 1, "byArchive": { "base": 1 } }
+    } },
+    "EventShowroomChallenges": { "rows": 26, "keySource": "primaryKey", "keys": ["CarID"], "columns": {
+      "CarID": { "key": true, "numeric": true, "max": 1388, "maxIn": "base", "min": 333, "byArchive": { "base": 1388 } },
+      "EventID": { "key": false, "numeric": true, "max": 726, "maxIn": "base", "min": 701, "byArchive": { "base": 726 } }
+    } },
+    "EventUIColors": { "rows": 119, "keySource": "primaryKey", "keys": ["EventId"], "columns": {
+      "EventId": { "key": true, "numeric": true, "max": 287, "maxIn": "base", "min": 4, "byArchive": { "base": 287 } }
+    } },
+    "Event_Music": { "rows": 4, "keySource": "primaryKey", "keys": ["EventId"], "columns": {
+      "EventId": { "key": true, "numeric": true, "max": 561, "maxIn": "base", "min": 92, "byArchive": { "base": 561 } }
+    } },
+    "Events": { "rows": 716, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 911, "maxIn": "base", "min": 1, "byArchive": { "base": 911 } },
+      "CareerTypeId": { "key": false, "numeric": true, "max": 14, "maxIn": "base", "min": 1, "byArchive": { "base": 14 } },
+      "PittingProfileID": { "key": false, "numeric": true, "max": 1, "maxIn": "base", "min": 1, "byArchive": { "base": 1 } },
+      "BonusId": { "key": false, "numeric": true, "max": 1, "maxIn": "base", "min": 0, "byArchive": { "base": 1 } },
+      "PlayerCarId": { "key": false, "numeric": true, "max": 1496, "maxIn": "base", "min": 0, "byArchive": { "base": 1496 } },
+      "TimeOfDayDescriptionID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } },
+      "HubId": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } },
+      "CampaignId": { "key": false, "numeric": true, "max": 195, "maxIn": "base", "min": 0, "byArchive": { "base": 195 } }
+    } },
+    "FirstTimeCareerDrivers": { "rows": 5, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5 } },
+      "AIPlayerId": { "key": false, "numeric": true, "max": 253, "maxIn": "base", "min": 45, "byArchive": { "base": 253 } },
+      "CarId": { "key": false, "numeric": true, "max": 2034, "maxIn": "base", "min": 1397, "byArchive": { "base": 2034 } }
+    } },
+    "FlyingStartPositions": { "rows": 52, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 1046, "maxIn": "base", "min": 0, "byArchive": { "base": 1046 } }
+    } },
+    "FreeRoamDrivers": { "rows": 91, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 252, "maxIn": "base", "min": 1, "byArchive": { "base": 252 } },
+      "AIPlayerId": { "key": false, "numeric": true, "max": 195, "maxIn": "base", "min": 1, "byArchive": { "base": 195 } },
+      "CarId": { "key": false, "numeric": true, "max": 51082, "maxIn": "base", "min": 289, "byArchive": { "base": 51082 } }
+    } },
+    "GameOptionCategories": { "rows": 19, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 20, "maxIn": "base", "min": 0, "byArchive": { "base": 20 } }
+    } },
+    "GameOptionCategoryMap": { "rows": 391, "keySource": "firstIdColumn", "keys": ["GroupId"], "columns": {
+      "GroupId": { "key": true, "numeric": true, "max": 20, "maxIn": "base", "min": 1, "byArchive": { "base": 20 } },
+      "CatId": { "key": false, "numeric": true, "max": 20, "maxIn": "base", "min": 0, "byArchive": { "base": 20 } },
+      "OptionId": { "key": false, "numeric": true, "max": 148, "maxIn": "base", "min": 0, "byArchive": { "base": 148 } }
+    } },
+    "GameOptionGroups": { "rows": 17, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 20, "maxIn": "base", "min": 1, "byArchive": { "base": 20 } }
+    } },
+    "GameOptionMap": { "rows": 253, "keySource": "firstIdColumn", "keys": ["OptionId"], "columns": {
+      "OptionId": { "key": true, "numeric": true, "max": 133, "maxIn": "base", "min": 0, "byArchive": { "base": 133 } },
+      "ValueId": { "key": false, "numeric": true, "max": 187, "maxIn": "base", "min": 0, "byArchive": { "base": 187 } }
+    } },
+    "GameOptionValues": { "rows": 148, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 187, "maxIn": "base", "min": 0, "byArchive": { "base": 187 } }
+    } },
+    "GameOptions": { "rows": 123, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 148, "maxIn": "base", "min": 0, "byArchive": { "base": 148 } }
+    } },
+    "GraffitiPoints": { "rows": 0, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true },
+      "TrackId": { "key": false, "numeric": true }
+    } },
+    "HasCarExperience": { "rows": 26, "keySource": "primaryKey", "keys": ["CarId"], "columns": {
+      "CarId": { "key": true, "numeric": true, "max": 1388, "maxIn": "base", "min": 333, "byArchive": { "base": 1388 } }
+    } },
+    "HopperRaces": { "rows": 4, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 4, "maxIn": "base", "min": 1, "byArchive": { "base": 4 } },
+      "TrackId": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 3, "byArchive": { "base": 3 } }
+    } },
+    "IECars": { "rows": 3, "keySource": "primaryKey", "keys": ["CarId"], "columns": {
+      "CarId": { "key": true, "numeric": true, "max": 1218, "maxIn": "base", "min": 289, "byArchive": { "base": 1218 } }
+    } },
+    "KinectSplitscreenCars": { "rows": 40, "keySource": "firstIdColumn", "keys": ["Ordinal"], "columns": {
+      "Ordinal": { "key": true, "numeric": true, "max": 1473, "maxIn": "base", "min": 290, "byArchive": { "base": 1473 } }
+    } },
+    "KinectSplitscreenTracks": { "rows": 4, "keySource": "firstIdColumn", "keys": ["TrackId"], "columns": {
+      "TrackId": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 0, "byArchive": { "base": 3 } }
+    } },
+    "List_AeroPhysics": { "rows": 310, "keySource": "primaryKey", "keys": ["AeroPhysicsID"], "columns": {
+      "AeroPhysicsID": { "key": true, "numeric": true, "max": 51082901, "maxIn": "base", "min": 1, "byArchive": { "base": 51082901 } }
+    } },
+    "List_AntiSwayPhysics": { "rows": 1222, "keySource": "primaryKey", "keys": ["AntiSwayPhysicsID"], "columns": {
+      "AntiSwayPhysicsID": { "key": true, "numeric": true, "max": 51558103, "maxIn": "base", "min": 249001, "byArchive": { "base": 51558103 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } }
+    } },
+    "List_Aspiration": { "rows": 8, "keySource": "primaryKey", "keys": ["AspirationID"], "columns": {
+      "AspirationID": { "key": true, "numeric": true, "max": 8, "maxIn": "base", "min": 1, "byArchive": { "base": 8 } }
+    } },
+    "List_BadgeAndTitleUnlocks": { "rows": 0, "keySource": "primaryKey", "keys": ["UnlockId"], "columns": {
+      "UnlockId": { "key": true, "numeric": true }
+    } },
+    "List_BrakeType": { "rows": 5, "keySource": "primaryKey", "keys": ["BrakeTypeID"], "columns": {
+      "BrakeTypeID": { "key": true, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5 } }
+    } },
+    "List_CarMake": { "rows": 51, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 107, "maxIn": "base", "min": 1, "byArchive": { "base": 107 } },
+      "CountryID": { "key": false, "numeric": true, "max": 10, "maxIn": "base", "min": 2, "byArchive": { "base": 10 } }
+    } },
+    "List_CarType": { "rows": 3, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "List_ColorClass": { "rows": 24, "keySource": "primaryKey", "keys": ["ColorClassId"], "columns": {
+      "ColorClassId": { "key": true, "numeric": true, "max": 24, "maxIn": "base", "min": 1, "byArchive": { "base": 24 } }
+    } },
+    "List_ColorFinish": { "rows": 3, "keySource": "primaryKey", "keys": ["ColorFinishID"], "columns": {
+      "ColorFinishID": { "key": true, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } }
+    } },
+    "List_Country": { "rows": 22, "keySource": "primaryKey", "keys": ["CountryID"], "columns": {
+      "CountryID": { "key": true, "numeric": true, "max": 23, "maxIn": "base", "min": 1, "byArchive": { "base": 23 } },
+      "RegionID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "List_Cylinders": { "rows": 12, "keySource": "primaryKey", "keys": ["CylinderID"], "columns": {
+      "CylinderID": { "key": true, "numeric": true, "max": 12, "maxIn": "base", "min": 1, "byArchive": { "base": 12 } }
+    } },
+    "List_DamageModDef": { "rows": 11, "keySource": "primaryKey", "keys": ["DamageModDefID"], "columns": {
+      "DamageModDefID": { "key": true, "numeric": true, "max": 11, "maxIn": "base", "min": 1, "byArchive": { "base": 11 } }
+    } },
+    "List_DriveType": { "rows": 3, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "List_EngineConfig": { "rows": 9, "keySource": "primaryKey", "keys": ["ConfigID"], "columns": {
+      "ConfigID": { "key": true, "numeric": true, "max": 9, "maxIn": "base", "min": 1, "byArchive": { "base": 9 } }
+    } },
+    "List_EnginePlacement": { "rows": 3, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "List_FamilyBody": { "rows": 22, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 22, "maxIn": "base", "min": 1, "byArchive": { "base": 22 } }
+    } },
+    "List_FamilyModel": { "rows": 37, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 38, "maxIn": "base", "min": 1, "byArchive": { "base": 38 } }
+    } },
+    "List_FamilySpecial": { "rows": 5, "keySource": "primaryKey", "keys": ["FamilySpecialID"], "columns": {
+      "FamilySpecialID": { "key": true, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5 } }
+    } },
+    "List_MaterialType": { "rows": 2, "keySource": "primaryKey", "keys": ["MaterialTypeID"], "columns": {
+      "MaterialTypeID": { "key": true, "numeric": true, "max": 2, "maxIn": "base", "min": 1, "byArchive": { "base": 2 } },
+      "PhysicsMaterialID": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 7, "byArchive": { "base": 8 } }
+    } },
+    "List_NAEngineUpgradeTorque": { "rows": 0, "keySource": "firstIdColumn", "keys": ["EngineID"], "columns": {
+      "EngineID": { "key": true, "numeric": true }
+    } },
+    "List_PartAttribute": { "rows": 546, "keySource": "primaryKey", "keys": ["PartAttributeID"], "columns": {
+      "PartAttributeID": { "key": true, "numeric": true, "max": 546, "maxIn": "base", "min": 1, "byArchive": { "base": 546 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 53, "maxIn": "base", "min": 1, "byArchive": { "base": 53 } }
+    } },
+    "List_PartManufacturer": { "rows": 573, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 633, "maxIn": "base", "min": 1, "byArchive": { "base": 633 } }
+    } },
+    "List_PartsStrings": { "rows": 136, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 136, "maxIn": "base", "min": 1, "byArchive": { "base": 136 } }
+    } },
+    "List_Region": { "rows": 3, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "List_ShiftSystem": { "rows": 7, "keySource": "primaryKey", "keys": ["ShiftSystemID"], "columns": {
+      "ShiftSystemID": { "key": true, "numeric": true, "max": 7, "maxIn": "base", "min": 1, "byArchive": { "base": 7 } }
+    } },
+    "List_SpecialColors": { "rows": 102, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 102, "maxIn": "base", "min": 1, "byArchive": { "base": 102 } }
+    } },
+    "List_SpringDamperPhysics": { "rows": 1304, "keySource": "primaryKey", "keys": ["SpringDamperPhysicsID"], "columns": {
+      "SpringDamperPhysicsID": { "key": true, "numeric": true, "max": 51558103, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558103 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "SuspensionPhysicsTypeID": { "key": false, "numeric": true, "max": 1, "maxIn": "base", "min": 0, "byArchive": { "base": 1 } }
+    } },
+    "List_SuspensionPhysicsType": { "rows": 2, "keySource": "firstIdColumn", "keys": ["SuspensionPhysicsTypeID"], "columns": {
+      "SuspensionPhysicsTypeID": { "key": true, "numeric": true, "max": 1, "maxIn": "base", "min": 0, "byArchive": { "base": 1 } }
+    } },
+    "List_SuspensionType": { "rows": 6, "keySource": "primaryKey", "keys": ["SuspensionTypeID"], "columns": {
+      "SuspensionTypeID": { "key": true, "numeric": true, "max": 8, "maxIn": "base", "min": 3, "byArchive": { "base": 8 } }
+    } },
+    "List_TireAffectCurve": { "rows": 108, "keySource": "primaryKey", "keys": ["AffectCurveID"], "columns": {
+      "AffectCurveID": { "key": true, "numeric": true, "max": 108, "maxIn": "base", "min": 1, "byArchive": { "base": 108 } }
+    } },
+    "List_TireBrand": { "rows": 13, "keySource": "primaryKey", "keys": ["TireBrandID"], "columns": {
+      "TireBrandID": { "key": true, "numeric": true, "max": 13, "maxIn": "base", "min": 1, "byArchive": { "base": 13 } }
+    } },
+    "List_TireCompound": { "rows": 9, "keySource": "primaryKey", "keys": ["TireCompoundID"], "columns": {
+      "TireCompoundID": { "key": true, "numeric": true, "max": 9, "maxIn": "base", "min": 1, "byArchive": { "base": 9 } },
+      "FrictionMultiCurveLateralID": { "key": false, "numeric": true, "max": 15, "maxIn": "base", "min": 1, "byArchive": { "base": 15 } },
+      "FrictionMultiCurveLongitudinalID": { "key": false, "numeric": true, "max": 16, "maxIn": "base", "min": 2, "byArchive": { "base": 16 } },
+      "AffectCurveTempAffectFrictionID": { "key": false, "numeric": true, "max": 85, "maxIn": "base", "min": 1, "byArchive": { "base": 85 } },
+      "AffectCurveTempAffectWearID": { "key": false, "numeric": true, "max": 86, "maxIn": "base", "min": 2, "byArchive": { "base": 86 } },
+      "AffectCurvePressureAffectFrictionID": { "key": false, "numeric": true, "max": 87, "maxIn": "base", "min": 3, "byArchive": { "base": 87 } },
+      "AffectCurvePressureAffectWearID": { "key": false, "numeric": true, "max": 88, "maxIn": "base", "min": 4, "byArchive": { "base": 88 } },
+      "AffectCurveStartPressureAffectPeakSASRID": { "key": false, "numeric": true, "max": 89, "maxIn": "base", "min": 5, "byArchive": { "base": 89 } },
+      "AffectCurveCamberAffectLatFrictionID": { "key": false, "numeric": true, "max": 90, "maxIn": "base", "min": 6, "byArchive": { "base": 90 } },
+      "AffectCurveCamberAffectLongFrictionID": { "key": false, "numeric": true, "max": 91, "maxIn": "base", "min": 7, "byArchive": { "base": 91 } },
+      "AffectCurveWearAffectFrictionID": { "key": false, "numeric": true, "max": 92, "maxIn": "base", "min": 8, "byArchive": { "base": 92 } },
+      "AffectCurveSpeedAffectFrictionID": { "key": false, "numeric": true, "max": 93, "maxIn": "base", "min": 9, "byArchive": { "base": 93 } },
+      "AffectCurveNormSlipAngleAffectAlignTorqueID": { "key": false, "numeric": true, "max": 95, "maxIn": "base", "min": 11, "byArchive": { "base": 95 } },
+      "AffectCurveNormSlipRatioAffectAlignTorqueID": { "key": false, "numeric": true, "max": 96, "maxIn": "base", "min": 12, "byArchive": { "base": 96 } },
+      "AffectCurveLoadAffectAlignTorqueID": { "key": false, "numeric": true, "max": 94, "maxIn": "base", "min": 10, "byArchive": { "base": 94 } }
+    } },
+    "List_TireFrictionCurve": { "rows": 36, "keySource": "primaryKey", "keys": ["FrictionCurveID"], "columns": {
+      "FrictionCurveID": { "key": true, "numeric": true, "max": 36, "maxIn": "base", "min": 1, "byArchive": { "base": 36 } }
+    } },
+    "List_TireFrictionMultiCurve": { "rows": 18, "keySource": "primaryKey", "keys": ["FrictionMultiCurveID"], "columns": {
+      "FrictionMultiCurveID": { "key": true, "numeric": true, "max": 18, "maxIn": "base", "min": 1, "byArchive": { "base": 18 } }
+    } },
+    "List_TorqueCurve": { "rows": 681, "keySource": "primaryKey", "keys": ["TorqueCurveID"], "columns": {
+      "TorqueCurveID": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } }
+    } },
+    "List_Unlocks": { "rows": 4, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 4, "maxIn": "base", "min": 1, "byArchive": { "base": 4 } }
+    } },
+    "List_UpgradeAntiSwayFront": { "rows": 607, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558003, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558003 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 418, "maxIn": "base", "min": 0, "byArchive": { "base": 418 } },
+      "AntiSwayPhysicsID": { "key": false, "numeric": true, "max": 51558003, "maxIn": "base", "min": 249001, "byArchive": { "base": 51558003 } }
+    } },
+    "List_UpgradeAntiSwayRear": { "rows": 615, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558003, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558003 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 418, "maxIn": "base", "min": 0, "byArchive": { "base": 418 } },
+      "AntiSwayPhysicsID": { "key": false, "numeric": true, "max": 51558103, "maxIn": "base", "min": 249101, "byArchive": { "base": 51558103 } }
+    } },
+    "List_UpgradeBrakes": { "rows": 656, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558003, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558003 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 607, "maxIn": "base", "min": 0, "byArchive": { "base": 607 } },
+      "FrontBrakeTypeID": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5 } },
+      "RearBrakeTypeID": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5 } },
+      "DamageModDefID": { "key": false, "numeric": true, "max": 7, "maxIn": "base", "min": 7, "byArchive": { "base": 7 } }
+    } },
+    "List_UpgradeCarBody": { "rows": 216, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "CarBodyID": { "key": false, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "List_UpgradeCarBodyChassisStiffness": { "rows": 628, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "CarbodyId": { "key": false, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 569, "maxIn": "base", "min": 0, "byArchive": { "base": 569 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 136, "maxIn": "base", "min": 0, "byArchive": { "base": 136 } }
+    } },
+    "List_UpgradeCarBodyFrontBumper": { "rows": 601, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558001, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558001 } },
+      "CarBodyID": { "key": false, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 631, "maxIn": "base", "min": 0, "byArchive": { "base": 631 } },
+      "AeroPhysicsID": { "key": false, "numeric": true, "max": 50006403, "maxIn": "base", "min": 1, "byArchive": { "base": 50006403 } }
+    } },
+    "List_UpgradeCarBodyHood": { "rows": 307, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "CarBodyID": { "key": false, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 621, "maxIn": "base", "min": 0, "byArchive": { "base": 621 } }
+    } },
+    "List_UpgradeCarBodyRearBumper": { "rows": 358, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "CarBodyID": { "key": false, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 631, "maxIn": "base", "min": 0, "byArchive": { "base": 631 } }
+    } },
+    "List_UpgradeCarBodySideSkirt": { "rows": 326, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "CarBodyID": { "key": false, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 626, "maxIn": "base", "min": 0, "byArchive": { "base": 626 } }
+    } },
+    "List_UpgradeCarBodyTireWidthFront": { "rows": 998, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558007, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558007 } },
+      "CarBodyId": { "key": false, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } }
+    } },
+    "List_UpgradeCarBodyTireWidthRear": { "rows": 1082, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558007, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558007 } },
+      "CarBodyId": { "key": false, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } }
+    } },
+    "List_UpgradeCarBodyWeight": { "rows": 754, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "CarBodyId": { "key": false, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 135, "maxIn": "base", "min": 0, "byArchive": { "base": 135 } }
+    } },
+    "List_UpgradeDrivetrain": { "rows": 216, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "DrivetrainID": { "key": false, "numeric": true, "max": 5968, "maxIn": "base", "min": 3, "byArchive": { "base": 5968 } },
+      "PowertrainId": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 0, "byArchive": { "base": 5 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 107, "maxIn": "base", "min": 1, "byArchive": { "base": 107 } }
+    } },
+    "List_UpgradeDrivetrainClutch": { "rows": 724, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 5968000, "maxIn": "base", "min": 3000, "byArchive": { "base": 5968000 } },
+      "DrivetrainID": { "key": false, "numeric": true, "max": 5968, "maxIn": "base", "min": 3, "byArchive": { "base": 5968 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 569, "maxIn": "base", "min": 0, "byArchive": { "base": 569 } }
+    } },
+    "List_UpgradeDrivetrainDifferential": { "rows": 652, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 5968000, "maxIn": "base", "min": 3000, "byArchive": { "base": 5968000 } },
+      "DrivetrainID": { "key": false, "numeric": true, "max": 5968, "maxIn": "base", "min": 3, "byArchive": { "base": 5968 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 569, "maxIn": "base", "min": 0, "byArchive": { "base": 569 } }
+    } },
+    "List_UpgradeDrivetrainDriveline": { "rows": 767, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 5968000, "maxIn": "base", "min": 3000, "byArchive": { "base": 5968000 } },
+      "DrivetrainId": { "key": false, "numeric": true, "max": 5968, "maxIn": "base", "min": 3, "byArchive": { "base": 5968 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 569, "maxIn": "base", "min": 0, "byArchive": { "base": 569 } }
+    } },
+    "List_UpgradeDrivetrainTransmission": { "rows": 718, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 5968000, "maxIn": "base", "min": 3000, "byArchive": { "base": 5968000 } },
+      "DrivetrainID": { "key": false, "numeric": true, "max": 5968, "maxIn": "base", "min": 3, "byArchive": { "base": 5968 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "List_UpgradeEngine": { "rows": 335, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 107, "maxIn": "base", "min": 1, "byArchive": { "base": 107 } }
+    } },
+    "List_UpgradeEngineCSC": { "rows": 174, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 37001, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 37, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 294, "maxIn": "base", "min": 0, "byArchive": { "base": 294 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "List_UpgradeEngineCamshaft": { "rows": 680, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 607, "maxIn": "base", "min": 0, "byArchive": { "base": 607 } },
+      "TorqueCurveFullThrottleID": { "key": false, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } }
+    } },
+    "List_UpgradeEngineDSC": { "rows": 228, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 5996003, "maxIn": "base", "min": 40000, "byArchive": { "base": 5996003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 5996, "maxIn": "base", "min": 40, "byArchive": { "base": 5996 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 418, "maxIn": "base", "min": 0, "byArchive": { "base": 418 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "List_UpgradeEngineDisplacement": { "rows": 671, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 607, "maxIn": "base", "min": 0, "byArchive": { "base": 607 } }
+    } },
+    "List_UpgradeEngineExhaust": { "rows": 650, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 569, "maxIn": "base", "min": 0, "byArchive": { "base": 569 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "List_UpgradeEngineFlywheel": { "rows": 766, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 569, "maxIn": "base", "min": 0, "byArchive": { "base": 569 } }
+    } },
+    "List_UpgradeEngineFuelSystem": { "rows": 615, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 418, "maxIn": "base", "min": 0, "byArchive": { "base": 418 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "List_UpgradeEngineIgnition": { "rows": 645, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 569, "maxIn": "base", "min": 0, "byArchive": { "base": 569 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "List_UpgradeEngineIntake": { "rows": 679, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 569, "maxIn": "base", "min": 0, "byArchive": { "base": 569 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "List_UpgradeEngineIntercooler": { "rows": 591, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038002, "maxIn": "base", "min": 5000, "byArchive": { "base": 51038002 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 5, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 569, "maxIn": "base", "min": 0, "byArchive": { "base": 569 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "List_UpgradeEngineManifold": { "rows": 383, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 445, "maxIn": "base", "min": 0, "byArchive": { "base": 445 } }
+    } },
+    "List_UpgradeEngineOilCooling": { "rows": 645, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 418, "maxIn": "base", "min": 0, "byArchive": { "base": 418 } }
+    } },
+    "List_UpgradeEnginePistonsCompression": { "rows": 599, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 607, "maxIn": "base", "min": 0, "byArchive": { "base": 607 } }
+    } },
+    "List_UpgradeEngineRestrictorPlate": { "rows": 3, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 945002, "maxIn": "base", "min": 945000, "byArchive": { "base": 945002 } },
+      "EngineID": { "key": false, "numeric": true, "max": 945, "maxIn": "base", "min": 945, "byArchive": { "base": 945 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "List_UpgradeEngineTurboQuad": { "rows": 0, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true },
+      "EngineID": { "key": false, "numeric": true },
+      "ManufacturerID": { "key": false, "numeric": true }
+    } },
+    "List_UpgradeEngineTurboSingle": { "rows": 309, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51029000, "maxIn": "base", "min": 5001, "byArchive": { "base": 51029000 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51029, "maxIn": "base", "min": 5, "byArchive": { "base": 51029 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 418, "maxIn": "base", "min": 0, "byArchive": { "base": 418 } }
+    } },
+    "List_UpgradeEngineTurboTwin": { "rows": 273, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 11001, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 11, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 445, "maxIn": "base", "min": 0, "byArchive": { "base": 445 } }
+    } },
+    "List_UpgradeEngineValves": { "rows": 670, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51038003, "maxIn": "base", "min": 3000, "byArchive": { "base": 51038003 } },
+      "EngineID": { "key": false, "numeric": true, "max": 51038, "maxIn": "base", "min": 3, "byArchive": { "base": 51038 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 569, "maxIn": "base", "min": 0, "byArchive": { "base": 569 } }
+    } },
+    "List_UpgradeMotor": { "rows": 0, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true },
+      "Ordinal": { "key": false, "numeric": true },
+      "MotorID": { "key": false, "numeric": true },
+      "ManufacturerID": { "key": false, "numeric": true }
+    } },
+    "List_UpgradeMotorParts": { "rows": 0, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true },
+      "MotorID": { "key": false, "numeric": true },
+      "ManufacturerID": { "key": false, "numeric": true }
+    } },
+    "List_UpgradeRearWing": { "rows": 536, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558001, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558001 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 628, "maxIn": "base", "min": 0, "byArchive": { "base": 628 } },
+      "AeroPhysicsID": { "key": false, "numeric": true, "max": 51082901, "maxIn": "base", "min": 5, "byArchive": { "base": 51082901 } }
+    } },
+    "List_UpgradeRimSizeFront": { "rows": 868, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558004, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558004 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } }
+    } },
+    "List_UpgradeRimSizeRear": { "rows": 870, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558004, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558004 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } }
+    } },
+    "List_UpgradeSpringDamper": { "rows": 652, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558000, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 607, "maxIn": "base", "min": 0, "byArchive": { "base": 607 } },
+      "SuspensionDamageModDefID": { "key": false, "numeric": true, "max": 9, "maxIn": "base", "min": 9, "byArchive": { "base": 9 } },
+      "TiresDamageModDefID": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 8, "byArchive": { "base": 8 } },
+      "FrontSpringDamperPhysicsID": { "key": false, "numeric": true, "max": 51558003, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558003 } },
+      "RearSpringDamperPhysicsID": { "key": false, "numeric": true, "max": 51558103, "maxIn": "base", "min": 249100, "byArchive": { "base": 51558103 } }
+    } },
+    "List_UpgradeTireCompound": { "rows": 794, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51558003, "maxIn": "base", "min": 249000, "byArchive": { "base": 51558003 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } },
+      "TireCompoundID": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 1, "byArchive": { "base": 8 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "List_VariableTiming": { "rows": 3, "keySource": "primaryKey", "keys": ["VariableTimingID"], "columns": {
+      "VariableTimingID": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "List_WheelStyle": { "rows": 0, "keySource": "primaryKey", "keys": ["WheelStyleID"], "columns": {
+      "WheelStyleID": { "key": true, "numeric": true }
+    } },
+    "List_Wheels": { "rows": 738, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 5011150, "maxIn": "base", "min": 1, "byArchive": { "base": 5011150 } },
+      "PartManufacturerID": { "key": false, "numeric": true, "max": 479, "maxIn": "base", "min": 0, "byArchive": { "base": 479 } }
+    } },
+    "Livery_Categories": { "rows": 35, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 65, "maxIn": "base", "min": 1, "byArchive": { "base": 65 } }
+    } },
+    "Livery_Decals": { "rows": 100, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 526, "maxIn": "base", "min": 12, "byArchive": { "base": 526 } }
+    } },
+    "Livery_DecalsSortOrder": { "rows": 101, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 101, "maxIn": "base", "min": 1, "byArchive": { "base": 101 } },
+      "MakeID": { "key": false, "numeric": true, "max": 105, "maxIn": "base", "min": -1, "byArchive": { "base": 105 } },
+      "Livery_DecalID": { "key": false, "numeric": true, "max": 526, "maxIn": "base", "min": 12, "byArchive": { "base": 526 } }
+    } },
+    "Livery_VinylNames": { "rows": 40, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 40, "maxIn": "base", "min": 1, "byArchive": { "base": 40 } }
+    } },
+    "Livery_VinylsDecals": { "rows": 840, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 2240, "maxIn": "base", "min": 101, "byArchive": { "base": 2240 } }
+    } },
+    "MPAIDifficultyMap": { "rows": 4, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 0, "byArchive": { "base": 3 } }
+    } },
+    "MultiDiscContentPacks": { "rows": 5, "keySource": "firstIdColumn", "keys": ["intID"], "columns": {
+      "intID": { "key": true, "numeric": true, "max": 99, "maxIn": "base", "min": 19, "byArchive": { "base": 99 } },
+      "PubOfferingID": { "key": false, "numeric": true, "max": 99, "maxIn": "base", "min": 19, "byArchive": { "base": 99 } }
+    } },
+    "MultiDiscSlides": { "rows": 3, "keySource": "none", "keys": [], "columns": { } },
+    "MultiStageSeriesEvents": { "rows": 7, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 7, "maxIn": "base", "min": 1, "byArchive": { "base": 7 } },
+      "EventId": { "key": false, "numeric": true, "max": 277, "maxIn": "base", "min": 271, "byArchive": { "base": 277 } }
+    } },
+    "MultiStageSeriesRaces": { "rows": 28, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 31, "maxIn": "base", "min": 1, "byArchive": { "base": 31 } },
+      "MultiStageSeriesEventId": { "key": false, "numeric": true, "max": 7, "maxIn": "base", "min": 1, "byArchive": { "base": 7 } },
+      "EventId": { "key": false, "numeric": true, "max": 286, "maxIn": "base", "min": 247, "byArchive": { "base": 286 } }
+    } },
+    "NewProfile_BadgeTitleProgress": { "rows": 0, "keySource": "primaryKey", "keys": ["RuleId"], "columns": {
+      "RuleId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_BadgeTitleUnlocks": { "rows": 0, "keySource": "primaryKey", "keys": ["UnlockId"], "columns": {
+      "UnlockId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_CarExperienceRevealsSeen": { "rows": 0, "keySource": "primaryKey", "keys": ["CarID"], "columns": {
+      "CarID": { "key": true, "numeric": true }
+    } },
+    "NewProfile_CarExperienceUnlocks": { "rows": 4, "keySource": "primaryKey", "keys": ["CarID"], "columns": {
+      "CarID": { "key": true, "numeric": true, "max": 1260, "maxIn": "base", "min": 348, "byArchive": { "base": 1260 } }
+    } },
+    "NewProfile_CarPointsOfInterestProgress": { "rows": 0, "keySource": "primaryKey", "keys": ["CarOrdinal"], "columns": {
+      "CarOrdinal": { "key": true, "numeric": true }
+    } },
+    "NewProfile_CareerEventUnlocks": { "rows": 0, "keySource": "primaryKey", "keys": ["EventId"], "columns": {
+      "EventId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_CareerHubUnlocks": { "rows": 0, "keySource": "primaryKey", "keys": ["HubId"], "columns": {
+      "HubId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Career_AIHistory": { "rows": 0, "keySource": "primaryKey", "keys": ["AIPlayerId"], "columns": {
+      "AIPlayerId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Career_Affinity": { "rows": 0, "keySource": "primaryKey", "keys": ["GroupId"], "columns": {
+      "GroupId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Career_CarGroups": { "rows": 0, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Career_EventCarsClaimed": { "rows": 0, "keySource": "primaryKey", "keys": ["RewardsEventCarsId"], "columns": {
+      "RewardsEventCarsId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Career_EventResults": { "rows": 0, "keySource": "primaryKey", "keys": ["EventId"], "columns": {
+      "EventId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Career_Garage": { "rows": 0, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true },
+      "CarId": { "key": false, "numeric": true },
+      "ClassID": { "key": false, "numeric": true },
+      "AspirationTypeId": { "key": false, "numeric": true },
+      "SharedID": { "key": false, "numeric": true }
+    } },
+    "NewProfile_Career_PurchasedParts": { "rows": 0, "keySource": "firstIdColumn", "keys": ["GarageId"], "columns": {
+      "GarageId": { "key": true, "numeric": true },
+      "PartId": { "key": false, "numeric": true },
+      "ManufacturerId": { "key": false, "numeric": true }
+    } },
+    "NewProfile_Career_RaceResults": { "rows": 0, "keySource": "primaryKey", "keys": ["RaceId"], "columns": {
+      "RaceId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Career_TrackUsage": { "rows": 0, "keySource": "primaryKey", "keys": ["TrackId"], "columns": {
+      "TrackId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_ChangeTracking": { "rows": 0, "keySource": "firstIdColumn", "keys": ["TableID"], "columns": {
+      "TableID": { "key": true, "numeric": true },
+      "RowID": { "key": false, "numeric": true },
+      "TransactionId": { "key": false, "numeric": true }
+    } },
+    "NewProfile_ContentSeen": { "rows": 0, "keySource": "primaryKey", "keys": ["ContentType_ContentId"], "columns": {
+      "ContentType_ContentId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_GameplayAggregate": { "rows": 0, "keySource": "primaryKey", "keys": ["EntryType"], "columns": {
+      "EntryType": { "key": true, "numeric": true }
+    } },
+    "NewProfile_LastUsedGarageId": { "rows": 1, "keySource": "primaryKey", "keys": ["LastUsedGarageId"], "columns": {
+      "LastUsedGarageId": { "key": true, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "NewProfile_PerkUnlock": { "rows": 0, "keySource": "firstIdColumn", "keys": ["UnlockId"], "columns": {
+      "UnlockId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_RoadTripDestinationEventSetUnlocks": { "rows": 0, "keySource": "primaryKey", "keys": ["DestinationEventSetId"], "columns": {
+      "DestinationEventSetId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_RoadTripDestinationVisits": { "rows": 10, "keySource": "primaryKey", "keys": ["RoadTripLocationID"], "columns": {
+      "RoadTripLocationID": { "key": true, "numeric": true, "max": 9, "maxIn": "base", "min": 0, "byArchive": { "base": 9 } }
+    } },
+    "NewProfile_RoadTripEventProgress": { "rows": 0, "keySource": "firstIdColumn", "keys": ["EventId"], "columns": {
+      "EventId": { "key": true, "numeric": true }
+    } },
+    "OnlinePlayerLevelDef": { "rows": 52, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 51, "maxIn": "base", "min": 0, "byArchive": { "base": 51 } }
+    } },
+    "OnlineWristbandLevels": { "rows": 10, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 9, "maxIn": "base", "min": 0, "byArchive": { "base": 9 } }
+    } },
+    "OptionalRallyUpgrades": { "rows": 23, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 23, "maxIn": "base", "min": 1, "byArchive": { "base": 23 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1517, "maxIn": "base", "min": 365, "byArchive": { "base": 1517 } },
+      "PartId": { "key": false, "numeric": true, "max": 1517003, "maxIn": "base", "min": 365001, "byArchive": { "base": 1517003 } }
+    } },
+    "PerformanceBudget": { "rows": 276, "keySource": "none", "keys": [], "columns": { } },
+    "PerformanceBudgetCameras": { "rows": 5, "keySource": "primaryKey", "keys": ["CameraType"], "columns": {
+      "CameraType": { "key": true, "numeric": true, "max": 4, "maxIn": "base", "min": 0, "byArchive": { "base": 4 } }
+    } },
+    "Perks": { "rows": 25, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 24, "maxIn": "base", "min": 0, "byArchive": { "base": 24 } },
+      "SlotId": { "key": false, "numeric": true, "max": 24, "maxIn": "base", "min": 0, "byArchive": { "base": 24 } }
+    } },
+    "PittingProfiles": { "rows": 18, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 331, "maxIn": "base", "min": 0, "byArchive": { "base": 331 } }
+    } },
+    "PlayerLevelDef": { "rows": 1000, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 999, "maxIn": "base", "min": 0, "byArchive": { "base": 999 } }
+    } },
+    "Powertrains": { "rows": 8, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 7, "maxIn": "base", "min": 0, "byArchive": { "base": 7 } },
+      "DrivetrainId": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "EnginePlacementId": { "key": false, "numeric": true, "max": 4, "maxIn": "base", "min": 1, "byArchive": { "base": 4 } }
+    } },
+    "PrizeCarTombola": { "rows": 10, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 9, "maxIn": "base", "min": 0, "byArchive": { "base": 9 } }
+    } },
+    "RaceModes": { "rows": 31, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 30, "maxIn": "base", "min": 0, "byArchive": { "base": 30 } },
+      "RaceModeId": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 1, "byArchive": { "base": 8 } }
+    } },
+    "Races": { "rows": 716, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 716, "maxIn": "base", "min": 1, "byArchive": { "base": 716 } },
+      "EventId": { "key": false, "numeric": true, "max": 911, "maxIn": "base", "min": 1, "byArchive": { "base": 911 } },
+      "TrackId": { "key": false, "numeric": true, "max": 10961, "maxIn": "base", "min": 0, "byArchive": { "base": 10961 } },
+      "RaceModeId": { "key": false, "numeric": true, "max": 7, "maxIn": "base", "min": 0, "byArchive": { "base": 7 } }
+    } },
+    "RacesSpecial": { "rows": 86, "keySource": "primaryKey", "keys": ["RaceId"], "columns": {
+      "RaceId": { "key": true, "numeric": true, "max": 3645, "maxIn": "base", "min": 1183, "byArchive": { "base": 3645 } },
+      "CollObjLayoutId": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 0, "byArchive": { "base": 8 } }
+    } },
+    "RallyScoring": { "rows": 50, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 50, "maxIn": "base", "min": 1, "byArchive": { "base": 50 } }
+    } },
+    "RallyUpgraded": { "rows": 2, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 1, "maxIn": "base", "min": 0, "byArchive": { "base": 1 } }
+    } },
+    "RallyWristbandLevels": { "rows": 2, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1, "maxIn": "base", "min": 0, "byArchive": { "base": 1 } }
+    } },
+    "Rewards_DriverLevelv3": { "rows": 203, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 219, "maxIn": "base", "min": 1, "byArchive": { "base": 219 } },
+      "RewardCarId": { "key": false, "numeric": true, "max": 1473, "maxIn": "base", "min": 252, "byArchive": { "base": 1473 } }
+    } },
+    "Rewards_EventCars": { "rows": 4, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 4, "maxIn": "base", "min": 1, "byArchive": { "base": 4 } },
+      "EventId": { "key": false, "numeric": true, "max": 561, "maxIn": "base", "min": 92, "byArchive": { "base": 561 } },
+      "CarId": { "key": false, "numeric": true, "max": 1683, "maxIn": "base", "min": 513, "byArchive": { "base": 1683 } }
+    } },
+    "Rewards_EventPrizes": { "rows": 0, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true },
+      "EventId": { "key": false, "numeric": true },
+      "RewardCarId": { "key": false, "numeric": true }
+    } },
+    "Rewards_EventUnlock": { "rows": 3, "keySource": "primaryKey", "keys": ["EventId"], "columns": {
+      "Id": { "key": false, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } },
+      "EventId": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "UnlockEventId": { "key": false, "numeric": true, "max": 4, "maxIn": "base", "min": 2, "byArchive": { "base": 4 } }
+    } },
+    "Rewards_LoyaltyCars": { "rows": 8, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 7, "maxIn": "base", "min": 0, "byArchive": { "base": 7 } },
+      "RewardCarId": { "key": false, "numeric": true, "max": 1537, "maxIn": "base", "min": 289, "byArchive": { "base": 1537 } }
+    } },
+    "Rewards_ShowroomUnlocks": { "rows": 2, "keySource": "primaryKey", "keys": ["RewardCarId"], "columns": {
+      "RewardCarId": { "key": true, "numeric": true, "max": 1372, "maxIn": "base", "min": 1346, "byArchive": { "base": 1372 } }
+    } },
+    "Rewards_Wristband": { "rows": 3, "keySource": "primaryKey", "keys": ["WristbandLevel"], "columns": {
+      "WristbandLevel": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "RewardCarId": { "key": false, "numeric": true, "max": 1434, "maxIn": "base", "min": 424, "byArchive": { "base": 1434 } }
+    } },
+    "RoadTripEventTypes": { "rows": 6, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 5, "maxIn": "base", "min": 0, "byArchive": { "base": 5 } }
+    } },
+    "RoadTripLocationTypes": { "rows": 2, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1, "maxIn": "base", "min": 0, "byArchive": { "base": 1 } }
+    } },
+    "RoadTripLocations": { "rows": 7, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 8, "maxIn": "base", "min": 0, "byArchive": { "base": 8 } }
+    } },
+    "RoadTrips": { "rows": 3, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "SplitPoints": { "rows": 0, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true },
+      "TrackId": { "key": false, "numeric": true }
+    } },
+    "SponsorshipDeals": { "rows": 49, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 53, "maxIn": "base", "min": 0, "byArchive": { "base": 53 } },
+      "BucketId": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0 } }
+    } },
+    "StartGridPositions": { "rows": 1073, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 308, "maxIn": "base", "min": 0, "byArchive": { "base": 308 } }
+    } },
+    "StripeColors": { "rows": 243, "keySource": "firstIdColumn", "keys": ["Ordinal"], "columns": {
+      "Ordinal": { "key": true, "numeric": true, "max": 1432, "maxIn": "base", "min": 299, "byArchive": { "base": 1432 } }
+    } },
+    "TeamColors": { "rows": 4, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 0, "byArchive": { "base": 3 } }
+    } },
+    "ThumbnailTypes": { "rows": 6, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 5, "maxIn": "base", "min": 0, "byArchive": { "base": 5 } }
+    } },
+    "TimeOfDayDescriptions": { "rows": 11, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 11, "maxIn": "base", "min": 1, "byArchive": { "base": 11 } }
+    } },
+    "TireMod_FrictionScale": { "rows": 10, "keySource": "primaryKey", "keys": ["Ordinal"], "columns": {
+      "Ordinal": { "key": true, "numeric": true, "max": 633, "maxIn": "base", "min": 287, "byArchive": { "base": 633 } }
+    } },
+    "ToggleActive": { "rows": 216, "keySource": "firstIdColumn", "keys": ["Ordinal"], "columns": {
+      "Ordinal": { "key": true, "numeric": true, "max": 51558, "maxIn": "base", "min": 249, "byArchive": { "base": 51558 } }
+    } },
+    "TrackPittingZones": { "rows": 80, "keySource": "primaryKey", "keys": ["Tracks_id"], "columns": {
+      "Tracks_id": { "key": true, "numeric": true, "max": 263, "maxIn": "base", "min": 0, "byArchive": { "base": 263 } }
+    } },
+    "TrackSpecificAI": { "rows": 12, "keySource": "primaryKey", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 12, "maxIn": "base", "min": 1, "byArchive": { "base": 12 } },
+      "Tracks_id": { "key": false, "numeric": true, "max": 31, "maxIn": "base", "min": 8, "byArchive": { "base": 31 } },
+      "AIDiff_id": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 0, "byArchive": { "base": 3 } }
+    } },
+    "TrackStartingMerges": { "rows": 157, "keySource": "primaryKey", "keys": ["Tracks_id"], "columns": {
+      "Tracks_id": { "key": true, "numeric": true, "max": 290, "maxIn": "base", "min": 0, "byArchive": { "base": 290 } }
+    } },
+    "Tracks": { "rows": 630, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 11004, "maxIn": "base", "min": 0, "byArchive": { "base": 11004 } },
+      "DefaultStartGridPositionsId": { "key": false, "numeric": true, "max": 826, "maxIn": "base", "min": 0, "byArchive": { "base": 826 } },
+      "FlyingStartPosId": { "key": false, "numeric": true, "max": 100, "maxIn": "base", "min": 0, "byArchive": { "base": 100 } },
+      "ContentId": { "key": false, "numeric": true, "max": 99, "maxIn": "base", "min": 0, "byArchive": { "base": 99 } },
+      "EnvironmentId": { "key": false, "numeric": true, "max": 78, "maxIn": "base", "min": 2, "byArchive": { "base": 78 } },
+      "RouteId": { "key": false, "numeric": true, "max": 9014, "maxIn": "base", "min": -1, "byArchive": { "base": 9014 } }
+    } },
+    "TrialLoadingImages": { "rows": 7, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 6, "maxIn": "base", "min": 0, "byArchive": { "base": 6 } }
+    } },
+    "TurnSections": { "rows": 0, "keySource": "firstIdColumn", "keys": ["TrackId"], "columns": {
+      "TrackId": { "key": true, "numeric": true }
+    } },
+    "UpgradeAreas": { "rows": 7, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 9, "maxIn": "base", "min": 1, "byArchive": { "base": 9 } }
+    } },
+    "UpgradeTypes": { "rows": 46, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 58, "maxIn": "base", "min": 1, "byArchive": { "base": 58 } },
+      "AreaId": { "key": false, "numeric": true, "max": 9, "maxIn": "base", "min": 1, "byArchive": { "base": 9 } }
+    } },
+    "UpgradeWizardParts": { "rows": 83, "keySource": "none", "keys": [], "columns": { } },
+    "UpgradeWizardPartsRemoval": { "rows": 30, "keySource": "primaryKey", "keys": ["PartEnum"], "columns": {
+      "PartEnum": { "key": true, "numeric": true, "max": 42, "maxIn": "base", "min": 4, "byArchive": { "base": 42 } }
+    } },
+    "UpgradeWizardPowerRemoval": { "rows": 17, "keySource": "primaryKey", "keys": ["PartEnum"], "columns": {
+      "PartEnum": { "key": true, "numeric": true, "max": 42, "maxIn": "base", "min": 12, "byArchive": { "base": 42 } }
+    } },
+    "Upgrades": { "rows": 206, "keySource": "primaryKey", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 272, "maxIn": "base", "min": 1, "byArchive": { "base": 272 } }
+    } },
+    "VersionInfo": { "rows": 1, "keySource": "primaryKey", "keys": ["database_version"], "columns": {
+      "database_version": { "key": true, "numeric": true, "max": -519351302, "maxIn": "base", "min": -519351302, "byArchive": { "base": -519351302 } }
+    } },
+    "VipDiscounts": { "rows": 0, "keySource": "primaryKey", "keys": ["Original"], "columns": {
+      "Original": { "key": true, "numeric": true }
+    } },
+    "VolatileHostOptions": { "rows": 11, "keySource": "firstIdColumn", "keys": ["OptionId"], "columns": {
+      "OptionId": { "key": true, "numeric": true, "max": 41, "maxIn": "base", "min": 7, "byArchive": { "base": 41 } }
+    } },
+    "WheelExceptions": { "rows": 30, "keySource": "primaryKey", "keys": ["WheelID"], "columns": {
+      "WheelID": { "key": true, "numeric": true, "max": 710, "maxIn": "base", "min": 342, "byArchive": { "base": 710 } }
+    } },
+    "WheelLayouts": { "rows": 3, "keySource": "primaryKey", "keys": ["LayoutId"], "columns": {
+      "LayoutId": { "key": true, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } }
+    } },
+    "WheelNormOffsets": { "rows": 111, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 712, "maxIn": "base", "min": 314, "byArchive": { "base": 712 } }
+    } },
+    "WristbandScoring": { "rows": 56, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 56, "maxIn": "base", "min": 1, "byArchive": { "base": 56 } }
+    } },
+    "Wristbands": { "rows": 11, "keySource": "primaryKey", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 10, "maxIn": "base", "min": 0, "byArchive": { "base": 10 } }
+    } }
+  }
+}

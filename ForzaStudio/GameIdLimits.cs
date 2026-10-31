@@ -8,16 +8,13 @@ namespace ForzaStudio
     using System.Text;
 
     // The largest Id of every table column in each game, base game plus every DLC / title update
-    // package (docs/GameIdLimits.json, built by tools/IdLimits; embedded in the exe). A new row never
-    // takes an Id at or below it (user 2026-10-21: inserts in any table start from these limits), so a
-    // ported or created row cannot share an Id with a row of an official package that is installed
-    // later.
+    // package: one file per game, docs/IdMax/<FM2|FM3|FM4|FH1|FH2>.json, every table of the game's database
+    // (built by tools/IdMax; embedded in the exe as IdMax.<game>.json). A new row never takes an Id at or
+    // below it (user 2026-10-21: inserts in any table start from these limits), so a ported or created row
+    // cannot share an Id with a row of an official package that is installed later.
     public static class GameIdLimits
     {
-        private const string ResourceName = "GameIdLimits.json";
-
-        private static Dictionary<string, object> root;
-        private static bool loaded;
+        private static readonly Dictionary<string, Dictionary<string, object>> roots = new Dictionary<string, Dictionary<string, object>>();
 
         // The key of a game in the file.
         public static string Key(ForzaGame game)
@@ -63,13 +60,7 @@ namespace ForzaStudio
 
         private static Dictionary<string, object> Columns(ForzaGame game, string table)
         {
-            Dictionary<string, object> data = Load();
-            if (data == null)
-            {
-                return null;
-            }
-            Dictionary<string, object> games = Child(data, "games");
-            Dictionary<string, object> one = (games != null) ? Child(games, Key(game)) : null;
+            Dictionary<string, object> one = Load(game);
             Dictionary<string, object> tables = (one != null) ? Child(one, "tables") : null;
             if (tables == null)
             {
@@ -92,14 +83,17 @@ namespace ForzaStudio
             return node.TryGetValue(name, out value) ? value as Dictionary<string, object> : null;
         }
 
-        private static Dictionary<string, object> Load()
+        // The file of one game, or null when the exe holds none.
+        private static Dictionary<string, object> Load(ForzaGame game)
         {
-            if (!loaded)
+            string key = Key(game);
+            Dictionary<string, object> root;
+            if (!roots.TryGetValue(key, out root))
             {
-                loaded = true;
+                root = null;
                 try
                 {
-                    using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName))
+                    using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("IdMax." + key + ".json"))
                     {
                         if (stream != null)
                         {
@@ -115,6 +109,7 @@ namespace ForzaStudio
                 {
                     root = null;
                 }
+                roots[key] = root;
             }
             return root;
         }

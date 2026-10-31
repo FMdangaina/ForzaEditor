@@ -1,0 +1,743 @@
+{
+  "format": "forza-id-max",
+  "version": 2,
+  "game": "FM2",
+  "name": "Forza Motorsport 2",
+  "titleId": "4D5307EA",
+  "generated": "2026-10-31",
+  "notes": [
+    "Every table of the game's database. max = largest value of the column in the base game and in its official DLC packages (archives); a new row's key is max + 1 or more.",
+    "keys = the primary key; without one (keySource firstIdColumn) the first id column; keySource none = the table has no id (nothing to number).",
+    "columns = the keys and every other id column (…Id, …ID, Ordinal) that holds an integer. maxIn / byArchive say which archive has the largest.",
+    "Packs made by Forza Studio or anyone else are NOT counted here; Forza Studio reads the installed packages at run time (DbIds, DlcWorld)."
+  ],
+  "archives": [
+    { "id": "base", "kind": "base", "name": "base game", "databases": ["Media\\DB\\gamedb.slt"], "pubOffers": [] },
+    { "id": "02DE6F0E37EA0998ECC94207230865163037A8C94D", "kind": "package", "name": "Pre-order car", "databases": [], "pubOffers": [] },
+    { "id": "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D", "kind": "package", "name": "Road America Pack", "databases": ["Media/DLCZips/DLC5_pri_64.zip!media/db/patch/50000_merge.slt"], "pubOffers": [] },
+    { "id": "101F7B0B7EB276A8201C2259DFD4565A85D847E84D", "kind": "package", "name": "Limited Edition Cars", "databases": [], "pubOffers": [] },
+    { "id": "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D", "kind": "package", "name": "Nissan Tournament Pack", "databases": ["Media/DLCZips/DLC1_pri_60.zip!media/db/patch/10000_merge.slt"], "pubOffers": [] },
+    { "id": "323B57FEF5C697FEEB3867466928EF1D903313984D", "kind": "package", "name": "December Car Pack", "databases": ["Media/DLCZips/DLC3_pri_62.zip!media/db/patch/30000_merge.slt"], "pubOffers": [] },
+    { "id": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "kind": "package", "name": "March Car Pack", "databases": ["Media/DLCZips/DLC7_pri_66.zip!media/db/patch/70000_merge.slt"], "pubOffers": [] },
+    { "id": "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D", "kind": "package", "name": "The September Car Pack", "databases": ["Media/DLCZips/DLC2_pri_61.zip!media/db/patch/20000_merge.slt"], "pubOffers": [] },
+    { "id": "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D", "kind": "package", "name": "Nissan and Peugeot Car Pack", "databases": ["Media/DLCZips/DLC1_pri_60.zip!media/db/patch/10000_merge.slt"], "pubOffers": [] },
+    { "id": "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D", "kind": "package", "name": "February Car Pack", "databases": ["Media/DLCZips/DLC7_pri_66.zip!media/db/patch/70000_merge.slt"], "pubOffers": [] },
+    { "id": "DF5F06FFD06C059806034E8C1D3B9815809450EF4D", "kind": "package", "name": "Motegi Pack", "databases": ["Media/DLCZips/DLC4_pri_63.zip!media/db/patch/40000_merge.slt"], "pubOffers": [] }
+  ],
+  "tables": {
+    "AIDiff": { "rows": 3, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } }
+    } },
+    "AILineChoices": { "rows": 66, "keySource": "firstIdColumn", "keys": ["AISkills_id"], "columns": {
+      "AISkills_id": { "key": true, "numeric": true, "max": 22, "maxIn": "base", "min": 1, "byArchive": { "base": 22 } },
+      "LineID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "AIPlayers": { "rows": 163, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 171, "maxIn": "base", "min": 1, "byArchive": { "base": 171 } },
+      "CountryId": { "key": false, "numeric": true, "max": 18, "maxIn": "base", "min": 0, "byArchive": { "base": 18 } },
+      "DriverTypeID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "FavoriteColorClassId": { "key": false, "numeric": true, "max": 24, "maxIn": "base", "min": 0, "byArchive": { "base": 24 } }
+    } },
+    "AIRubberbandModeChoices": { "rows": 18, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 22, "maxIn": "base", "min": 1, "byArchive": { "base": 22 } },
+      "AIRubberbands_id": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "AIRubberbandModes_id": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 1, "byArchive": { "base": 8 } }
+    } },
+    "AIRubberbands": { "rows": 3, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "AISkills": { "rows": 22, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 22, "maxIn": "base", "min": 1, "byArchive": { "base": 22 } },
+      "Rubberbands_id": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "AITemperaments": { "rows": 10, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 10, "maxIn": "base", "min": 1, "byArchive": { "base": 10 } }
+    } },
+    "ArcadeCarList": { "rows": 311, "keySource": "firstIdColumn", "keys": ["CarId"], "columns": {
+      "CarId": { "key": true, "numeric": true, "max": 617, "maxIn": "base", "min": 247, "byArchive": { "base": 617 } }
+    } },
+    "Assist_Values": { "rows": 19, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 21, "maxIn": "base", "min": 1, "byArchive": { "base": 21 } },
+      "AssistId": { "key": false, "numeric": true, "max": 7, "maxIn": "base", "min": 0, "byArchive": { "base": 7 } },
+      "SortId": { "key": false, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } }
+    } },
+    "Assists": { "rows": 8, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 7, "maxIn": "base", "min": 0, "byArchive": { "base": 7 } }
+    } },
+    "AuctionSearchValues": { "rows": 26, "keySource": "firstIdColumn", "keys": ["ValueId"], "columns": {
+      "ValueId": { "key": true, "numeric": true, "max": 91, "maxIn": "base", "min": 33, "byArchive": { "base": 91 } }
+    } },
+    "CarClasses": { "rows": 10, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 9, "maxIn": "base", "min": 0, "byArchive": { "base": 9 } }
+    } },
+    "CarDetails": { "rows": 31, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 35, "maxIn": "base", "min": 1, "byArchive": { "base": 35 } }
+    } },
+    "CarDiscountExceptions": { "rows": 165, "keySource": "firstIdColumn", "keys": ["Ordinal"], "columns": {
+      "Ordinal": { "key": true, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 615, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 657, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } }
+    } },
+    "CarExceptions": { "rows": 228, "keySource": "firstIdColumn", "keys": ["CarID"], "columns": {
+      "CarID": { "key": true, "numeric": true, "max": 617, "maxIn": "base", "min": 247, "byArchive": { "base": 617 } }
+    } },
+    "CarHistory": { "rows": 18, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 18, "maxIn": "base", "min": 1, "byArchive": { "base": 18 } }
+    } },
+    "CarLevels": { "rows": 6, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 5, "maxIn": "base", "min": 0, "byArchive": { "base": 5 } }
+    } },
+    "CarTrackOffsets": { "rows": 63, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 588, "maxIn": "base", "min": 248, "byArchive": { "base": 588 } }
+    } },
+    "CareerEventTypes": { "rows": 9, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 9, "maxIn": "base", "min": 1, "byArchive": { "base": 9 } }
+    } },
+    "CareerPoints": { "rows": 12, "keySource": "none", "keys": [], "columns": { } },
+    "Career_StartingGrid_PIScalar": { "rows": 2, "keySource": "none", "keys": [], "columns": { } },
+    "Combo_Colors": { "rows": 1611, "keySource": "firstIdColumn", "keys": ["Ordinal"], "columns": {
+      "Ordinal": { "key": true, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } }
+    } },
+    "Combo_Engines": { "rows": 312, "keySource": "firstIdColumn", "keys": ["EngineComboID"], "columns": {
+      "EngineComboID": { "key": true, "numeric": true, "max": 313, "maxIn": "base", "min": 2, "byArchive": { "base": 313 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 558, "maxIn": "base", "min": 247, "byArchive": { "base": 558 } },
+      "EngineID": { "key": false, "numeric": true, "max": 312, "maxIn": "base", "min": 1, "byArchive": { "base": 312 } }
+    } },
+    "Combo_TireBrandCompound": { "rows": 30, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 30, "maxIn": "base", "min": 1, "byArchive": { "base": 30 } },
+      "TireBrandId": { "key": false, "numeric": true, "max": 289, "maxIn": "base", "min": 273, "byArchive": { "base": 289 } },
+      "TireCompoundId": { "key": false, "numeric": true, "max": 7, "maxIn": "base", "min": 5, "byArchive": { "base": 7 } }
+    } },
+    "ControllerActions": { "rows": 15, "keySource": "firstIdColumn", "keys": ["ActionId"], "columns": {
+      "ActionId": { "key": true, "numeric": true, "max": 14, "maxIn": "base", "min": 0, "byArchive": { "base": 14 } }
+    } },
+    "ControllerLayouts": { "rows": 6, "keySource": "firstIdColumn", "keys": ["LayoutId"], "columns": {
+      "LayoutId": { "key": true, "numeric": true, "max": 5, "maxIn": "base", "min": 0, "byArchive": { "base": 5 } }
+    } },
+    "DamagePenalties": { "rows": 8, "keySource": "none", "keys": [], "columns": { } },
+    "Data_Car": { "rows": 310, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "MakeID": { "key": false, "numeric": true, "max": 53, "maxIn": "base", "min": 1, "byArchive": { "base": 53, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 36, "323B57FEF5C697FEEB3867466928EF1D903313984D": 41, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 39, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 46, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 36, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 39 } },
+      "ClassID": { "key": false, "numeric": true, "max": 9, "maxIn": "base", "min": 0, "byArchive": { "base": 9, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 9, "323B57FEF5C697FEEB3867466928EF1D903313984D": 5, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 5, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 9, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 9, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 5 } },
+      "CarTypeID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 3, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 3, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 3, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1 } },
+      "FamilyModelID": { "key": false, "numeric": true, "max": 24, "maxIn": "base", "min": 1, "byArchive": { "base": 24, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 15, "323B57FEF5C697FEEB3867466928EF1D903313984D": 24, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 24, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 24, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 15, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 24 } },
+      "FamilyBodyID": { "key": false, "numeric": true, "max": 9, "maxIn": "base", "min": 1, "byArchive": { "base": 9, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 9, "323B57FEF5C697FEEB3867466928EF1D903313984D": 8, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 8, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 9, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 9, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 8 } },
+      "EnginePlacementID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 2, "323B57FEF5C697FEEB3867466928EF1D903313984D": 2, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 3, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 3, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 2, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 3 } },
+      "MaterialTypeID": { "key": false, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 2, "323B57FEF5C697FEEB3867466928EF1D903313984D": 2, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 2, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 2, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 2, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 2 } },
+      "PowertrainID": { "key": false, "numeric": true, "max": 6, "maxIn": "base", "min": 0, "byArchive": { "base": 6, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 2, "323B57FEF5C697FEEB3867466928EF1D903313984D": 5, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 5, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 3, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 2, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 5 } },
+      "SuspensionTypeFrontID": { "key": false, "numeric": true, "max": 7, "maxIn": "base", "min": 4, "byArchive": { "base": 7, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 7, "323B57FEF5C697FEEB3867466928EF1D903313984D": 6, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 7, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 6, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 7, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 7 } },
+      "SuspensionTypeRearID": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 3, "byArchive": { "base": 8, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 8, "323B57FEF5C697FEEB3867466928EF1D903313984D": 8, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 8, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 7, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 8, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 8 } },
+      "ShiftSystemID": { "key": false, "numeric": true, "max": 6, "maxIn": "base", "min": 1, "byArchive": { "base": 6, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 2, "323B57FEF5C697FEEB3867466928EF1D903313984D": 6, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 6, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 6, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 2, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 6 } },
+      "TireBrandID": { "key": false, "numeric": true, "max": 12, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 0, "byArchive": { "base": 10, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 8, "323B57FEF5C697FEEB3867466928EF1D903313984D": 10, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 12, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 10, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 8, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 12 } },
+      "SpeedLimiterID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 3, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 1, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 3, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1 } },
+      "GearBoxDamageModDefID": { "key": false, "numeric": true, "max": 1, "maxIn": "base", "min": 1, "byArchive": { "base": 1, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 1, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 1, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 1, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1 } },
+      "DrivelineDamageModDefID": { "key": false, "numeric": true, "max": 2, "maxIn": "base", "min": 2, "byArchive": { "base": 2, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 2, "323B57FEF5C697FEEB3867466928EF1D903313984D": 2, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 2, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 2, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 2, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 2 } },
+      "BodyDragDamageModDefID": { "key": false, "numeric": true, "max": 4, "maxIn": "base", "min": 4, "byArchive": { "base": 4, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 4, "323B57FEF5C697FEEB3867466928EF1D903313984D": 4, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 4, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 4, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 4, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 4 } },
+      "FrontDownforceDamageModDefID": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 5, "byArchive": { "base": 5, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 5, "323B57FEF5C697FEEB3867466928EF1D903313984D": 5, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 5, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 5, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 5, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 5 } },
+      "RearDownforceDamageModDefID": { "key": false, "numeric": true, "max": 6, "maxIn": "base", "min": 6, "byArchive": { "base": 6, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 6, "323B57FEF5C697FEEB3867466928EF1D903313984D": 6, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 6, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 6, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 6, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 6 } },
+      "AIPlayerID": { "key": false, "numeric": true, "max": 150, "maxIn": "base", "min": 0, "byArchive": { "base": 150, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } },
+      "ContentId": { "key": false, "numeric": true, "max": 39, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 0, "byArchive": { "base": 2, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 4, "323B57FEF5C697FEEB3867466928EF1D903313984D": 26, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 39, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 15, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 4, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 39 } },
+      "StockWheelID": { "key": false, "numeric": true, "max": 456, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 409, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 413, "323B57FEF5C697FEEB3867466928EF1D903313984D": 442, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 456, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 430, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 413, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 456 } }
+    } },
+    "Data_Engine": { "rows": 321, "keySource": "firstIdColumn", "keys": ["EngineID"], "columns": {
+      "EngineID": { "key": true, "numeric": true, "max": 472, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 393, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472 } },
+      "DriveTypeID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 2, "323B57FEF5C697FEEB3867466928EF1D903313984D": 3, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 3, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 3, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 2, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 3 } },
+      "ConfigID": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 3, "323B57FEF5C697FEEB3867466928EF1D903313984D": 5, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 5, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 5, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 3, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 5 } },
+      "CylinderID": { "key": false, "numeric": true, "max": 9, "maxIn": "base", "min": 1, "byArchive": { "base": 9, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 6, "323B57FEF5C697FEEB3867466928EF1D903313984D": 6, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 6, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 6, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 6, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 6 } },
+      "VariableTimingID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 3, "323B57FEF5C697FEEB3867466928EF1D903313984D": 3, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 3, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 3, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 3, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 3 } },
+      "EngineDamageModDefID": { "key": false, "numeric": true, "max": 10, "maxIn": "base", "min": 10, "byArchive": { "base": 10, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 10, "323B57FEF5C697FEEB3867466928EF1D903313984D": 10, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 10, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 10, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 10, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 10 } }
+    } },
+    "Demo_CarList": { "rows": 12, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 569, "maxIn": "base", "min": 263, "byArchive": { "base": 569 } }
+    } },
+    "EventParticipants": { "rows": 742, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 8289, "maxIn": "base", "min": 3306, "byArchive": { "base": 8289 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 617, "maxIn": "base", "min": 0, "byArchive": { "base": 617 } },
+      "ColorSequenceId": { "key": false, "numeric": true, "max": 22, "maxIn": "base", "min": 0, "byArchive": { "base": 22 } },
+      "EventID": { "key": false, "numeric": true, "max": 477, "maxIn": "base", "min": 1, "byArchive": { "base": 477 } },
+      "AIPlayers_PlayerId": { "key": false, "numeric": true, "max": 150, "maxIn": "base", "min": 0, "byArchive": { "base": 150 } },
+      "Easy_AISkill_Id": { "key": false, "numeric": true, "max": 20, "maxIn": "base", "min": 0, "byArchive": { "base": 20 } },
+      "Easy_AITemperament_id": { "key": false, "numeric": true, "max": 10, "maxIn": "base", "min": 0, "byArchive": { "base": 10 } },
+      "Medium_AISkill_Id": { "key": false, "numeric": true, "max": 20, "maxIn": "base", "min": 2, "byArchive": { "base": 20 } },
+      "Medium_AITemperament_id": { "key": false, "numeric": true, "max": 10, "maxIn": "base", "min": 1, "byArchive": { "base": 10 } },
+      "Hard_AISkill_Id": { "key": false, "numeric": true, "max": 15, "maxIn": "base", "min": 0, "byArchive": { "base": 15 } },
+      "Hard_AITemperament_id": { "key": false, "numeric": true, "max": 7, "maxIn": "base", "min": 0, "byArchive": { "base": 7 } }
+    } },
+    "EventRestrictions": { "rows": 147, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1345, "maxIn": "base", "min": 4, "byArchive": { "base": 1345 } },
+      "Event_ID": { "key": false, "numeric": true, "max": 477, "maxIn": "base", "min": 1, "byArchive": { "base": 477 } },
+      "FieldAttributeID": { "key": false, "numeric": true, "max": 19, "maxIn": "base", "min": 1, "byArchive": { "base": 19 } }
+    } },
+    "EventScoring": { "rows": 736, "keySource": "firstIdColumn", "keys": ["Event_ID"], "columns": {
+      "Event_ID": { "key": true, "numeric": true, "max": 478, "maxIn": "base", "min": 1, "byArchive": { "base": 478 } }
+    } },
+    "Events": { "rows": 178, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 491, "maxIn": "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D", "min": 1, "byArchive": { "base": 478, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 491, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 490 } },
+      "GameTypeId": { "key": false, "numeric": true, "max": 4, "maxIn": "base", "min": 0, "byArchive": { "base": 4, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 3, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 3 } },
+      "CareerTypeId": { "key": false, "numeric": true, "max": 9, "maxIn": "base", "min": 1, "byArchive": { "base": 9, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 4, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 4 } },
+      "PittingProfileID": { "key": false, "numeric": true, "max": 101, "maxIn": "base", "min": 0, "byArchive": { "base": 101, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 0, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 0 } }
+    } },
+    "FlyingStartPositions": { "rows": 48, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 1046, "maxIn": "DF5F06FFD06C059806034E8C1D3B9815809450EF4D", "min": 0, "byArchive": { "base": 71, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 3, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 1046 } }
+    } },
+    "GameOptionCategories": { "rows": 20, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 20, "maxIn": "base", "min": 0, "byArchive": { "base": 20 } }
+    } },
+    "GameOptionCategoryMap": { "rows": 367, "keySource": "firstIdColumn", "keys": ["GroupId"], "columns": {
+      "GroupId": { "key": true, "numeric": true, "max": 20, "maxIn": "base", "min": 1, "byArchive": { "base": 20 } },
+      "CatId": { "key": false, "numeric": true, "max": 20, "maxIn": "base", "min": 0, "byArchive": { "base": 20 } },
+      "OptionId": { "key": false, "numeric": true, "max": 133, "maxIn": "base", "min": 0, "byArchive": { "base": 133 } }
+    } },
+    "GameOptionGroupMap": { "rows": 51, "keySource": "firstIdColumn", "keys": ["GroupId"], "columns": {
+      "GroupId": { "key": true, "numeric": true, "max": 20, "maxIn": "base", "min": 1, "byArchive": { "base": 20 } },
+      "CatId": { "key": false, "numeric": true, "max": 20, "maxIn": "base", "min": 0, "byArchive": { "base": 20 } }
+    } },
+    "GameOptionGroups": { "rows": 17, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 20, "maxIn": "base", "min": 1, "byArchive": { "base": 20 } }
+    } },
+    "GameOptionMap": { "rows": 250, "keySource": "firstIdColumn", "keys": ["OptionId"], "columns": {
+      "OptionId": { "key": true, "numeric": true, "max": 133, "maxIn": "base", "min": 0, "byArchive": { "base": 133 } },
+      "ValueId": { "key": false, "numeric": true, "max": 184, "maxIn": "base", "min": 0, "byArchive": { "base": 184 } }
+    } },
+    "GameOptionValues": { "rows": 145, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 184, "maxIn": "base", "min": 0, "byArchive": { "base": 184 } }
+    } },
+    "GameOptions": { "rows": 111, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 133, "maxIn": "base", "min": 0, "byArchive": { "base": 133 } }
+    } },
+    "GamePlayTypeList": { "rows": 0, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true },
+      "OldID": { "key": false, "numeric": true }
+    } },
+    "GameTypes": { "rows": 5, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 4, "maxIn": "base", "min": 0, "byArchive": { "base": 4 } }
+    } },
+    "List_AeroPhysics": { "rows": 358, "keySource": "firstIdColumn", "keys": ["AeroPhysicsID"], "columns": {
+      "AeroPhysicsID": { "key": true, "numeric": true, "max": 393, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 358, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 360, "323B57FEF5C697FEEB3867466928EF1D903313984D": 378, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 393, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 367, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 360, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 393 } }
+    } },
+    "List_AntiSwayPhysics": { "rows": 1452, "keySource": "firstIdColumn", "keys": ["AntiSwayPhysicsID"], "columns": {
+      "AntiSwayPhysicsID": { "key": true, "numeric": true, "max": 1676, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 1452, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 1506, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1612, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1676, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 1580, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 1506, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1676 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } }
+    } },
+    "List_Aspiration": { "rows": 7, "keySource": "firstIdColumn", "keys": ["AspirationID"], "columns": {
+      "AspirationID": { "key": true, "numeric": true, "max": 7, "maxIn": "base", "min": 1, "byArchive": { "base": 7 } }
+    } },
+    "List_BrakeType": { "rows": 5, "keySource": "firstIdColumn", "keys": ["BrakeTypeID"], "columns": {
+      "BrakeTypeID": { "key": true, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5 } }
+    } },
+    "List_CarMake": { "rows": 48, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 53, "maxIn": "base", "min": 1, "byArchive": { "base": 53 } },
+      "CountryID": { "key": false, "numeric": true, "max": 10, "maxIn": "base", "min": 2, "byArchive": { "base": 10 } }
+    } },
+    "List_CarType": { "rows": 3, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "List_ColorClass": { "rows": 24, "keySource": "firstIdColumn", "keys": ["ColorClassId"], "columns": {
+      "ColorClassId": { "key": true, "numeric": true, "max": 24, "maxIn": "base", "min": 1, "byArchive": { "base": 24 } }
+    } },
+    "List_ColorFinish": { "rows": 3, "keySource": "firstIdColumn", "keys": ["ColorFinishID"], "columns": {
+      "ColorFinishID": { "key": true, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } }
+    } },
+    "List_Country": { "rows": 17, "keySource": "firstIdColumn", "keys": ["CountryID"], "columns": {
+      "CountryID": { "key": true, "numeric": true, "max": 18, "maxIn": "base", "min": 2, "byArchive": { "base": 18 } },
+      "RegionID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "List_Cylinders": { "rows": 10, "keySource": "firstIdColumn", "keys": ["CylinderID"], "columns": {
+      "CylinderID": { "key": true, "numeric": true, "max": 10, "maxIn": "base", "min": 1, "byArchive": { "base": 10 } }
+    } },
+    "List_DamageModDef": { "rows": 10, "keySource": "firstIdColumn", "keys": ["DamageModDefID"], "columns": {
+      "DamageModDefID": { "key": true, "numeric": true, "max": 10, "maxIn": "base", "min": 1, "byArchive": { "base": 10 } }
+    } },
+    "List_DriveType": { "rows": 3, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "List_EngineConfig": { "rows": 5, "keySource": "firstIdColumn", "keys": ["ConfigID"], "columns": {
+      "ConfigID": { "key": true, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5 } }
+    } },
+    "List_EnginePlacement": { "rows": 3, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "List_FamilyBody": { "rows": 9, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 9, "maxIn": "base", "min": 1, "byArchive": { "base": 9 } }
+    } },
+    "List_FamilyModel": { "rows": 24, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 24, "maxIn": "base", "min": 1, "byArchive": { "base": 24 } }
+    } },
+    "List_MaterialType": { "rows": 2, "keySource": "firstIdColumn", "keys": ["MaterialTypeID"], "columns": {
+      "MaterialTypeID": { "key": true, "numeric": true, "max": 2, "maxIn": "base", "min": 1, "byArchive": { "base": 2 } },
+      "PhysicsMaterialID": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 7, "byArchive": { "base": 8 } }
+    } },
+    "List_PartAttribute": { "rows": 546, "keySource": "firstIdColumn", "keys": ["PartAttributeID"], "columns": {
+      "PartAttributeID": { "key": true, "numeric": true, "max": 546, "maxIn": "base", "min": 1, "byArchive": { "base": 546 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 53, "maxIn": "base", "min": 1, "byArchive": { "base": 53 } }
+    } },
+    "List_PartManufacturer": { "rows": 288, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 289, "maxIn": "base", "min": 1, "byArchive": { "base": 289 } }
+    } },
+    "List_PartsStrings": { "rows": 136, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 136, "maxIn": "base", "min": 1, "byArchive": { "base": 136 } }
+    } },
+    "List_Region": { "rows": 3, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "List_ShiftSystem": { "rows": 6, "keySource": "firstIdColumn", "keys": ["ShiftSystemID"], "columns": {
+      "ShiftSystemID": { "key": true, "numeric": true, "max": 6, "maxIn": "base", "min": 1, "byArchive": { "base": 6 } }
+    } },
+    "List_SpecialColors": { "rows": 102, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 102, "maxIn": "base", "min": 1, "byArchive": { "base": 102 } }
+    } },
+    "List_SpringDamperPhysics": { "rows": 1452, "keySource": "firstIdColumn", "keys": ["SpringDamperPhysicsID"], "columns": {
+      "SpringDamperPhysicsID": { "key": true, "numeric": true, "max": 1676, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 1452, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 1506, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1612, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1676, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 1580, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 1506, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1676 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "SuspensionPhysicsTypeID": { "key": false, "numeric": true, "max": 1, "maxIn": "base", "min": 0, "byArchive": { "base": 1, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 1, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_SuspensionPhysicsType": { "rows": 2, "keySource": "firstIdColumn", "keys": ["SuspensionPhysicsTypeID"], "columns": {
+      "SuspensionPhysicsTypeID": { "key": true, "numeric": true, "max": 1, "maxIn": "base", "min": 0, "byArchive": { "base": 1 } }
+    } },
+    "List_SuspensionType": { "rows": 6, "keySource": "firstIdColumn", "keys": ["SuspensionTypeID"], "columns": {
+      "SuspensionTypeID": { "key": true, "numeric": true, "max": 8, "maxIn": "base", "min": 3, "byArchive": { "base": 8 } }
+    } },
+    "List_TireAffectCurve": { "rows": 96, "keySource": "firstIdColumn", "keys": ["AffectCurveID"], "columns": {
+      "AffectCurveID": { "key": true, "numeric": true, "max": 96, "maxIn": "base", "min": 1, "byArchive": { "base": 96 } }
+    } },
+    "List_TireCompound": { "rows": 7, "keySource": "firstIdColumn", "keys": ["TireCompoundID"], "columns": {
+      "TireCompoundID": { "key": true, "numeric": true, "max": 8, "maxIn": "base", "min": 1, "byArchive": { "base": 8 } },
+      "FrictionMultiCurveLateralID": { "key": false, "numeric": true, "max": 15, "maxIn": "base", "min": 1, "byArchive": { "base": 15 } },
+      "FrictionMultiCurveLongitudinalID": { "key": false, "numeric": true, "max": 16, "maxIn": "base", "min": 2, "byArchive": { "base": 16 } },
+      "AffectCurveTempAffectFrictionID": { "key": false, "numeric": true, "max": 85, "maxIn": "base", "min": 1, "byArchive": { "base": 85 } },
+      "AffectCurveTempAffectWearID": { "key": false, "numeric": true, "max": 86, "maxIn": "base", "min": 2, "byArchive": { "base": 86 } },
+      "AffectCurvePressureAffectFrictionID": { "key": false, "numeric": true, "max": 87, "maxIn": "base", "min": 3, "byArchive": { "base": 87 } },
+      "AffectCurvePressureAffectWearID": { "key": false, "numeric": true, "max": 88, "maxIn": "base", "min": 4, "byArchive": { "base": 88 } },
+      "AffectCurveStartPressureAffectPeakSASRID": { "key": false, "numeric": true, "max": 89, "maxIn": "base", "min": 5, "byArchive": { "base": 89 } },
+      "AffectCurveCamberAffectLatFrictionID": { "key": false, "numeric": true, "max": 90, "maxIn": "base", "min": 6, "byArchive": { "base": 90 } },
+      "AffectCurveCamberAffectLongFrictionID": { "key": false, "numeric": true, "max": 91, "maxIn": "base", "min": 7, "byArchive": { "base": 91 } },
+      "AffectCurveWearAffectFrictionID": { "key": false, "numeric": true, "max": 92, "maxIn": "base", "min": 8, "byArchive": { "base": 92 } },
+      "AffectCurveSpeedAffectFrictionID": { "key": false, "numeric": true, "max": 93, "maxIn": "base", "min": 9, "byArchive": { "base": 93 } },
+      "AffectCurveNormSlipAngleAffectAlignTorqueID": { "key": false, "numeric": true, "max": 95, "maxIn": "base", "min": 11, "byArchive": { "base": 95 } },
+      "AffectCurveNormSlipRatioAffectAlignTorqueID": { "key": false, "numeric": true, "max": 96, "maxIn": "base", "min": 12, "byArchive": { "base": 96 } },
+      "AffectCurveLoadAffectAlignTorqueID": { "key": false, "numeric": true, "max": 94, "maxIn": "base", "min": 10, "byArchive": { "base": 94 } }
+    } },
+    "List_TireFrictionCurve": { "rows": 32, "keySource": "firstIdColumn", "keys": ["FrictionCurveID"], "columns": {
+      "FrictionCurveID": { "key": true, "numeric": true, "max": 32, "maxIn": "base", "min": 1, "byArchive": { "base": 32 } }
+    } },
+    "List_TireFrictionMultiCurve": { "rows": 16, "keySource": "firstIdColumn", "keys": ["FrictionMultiCurveID"], "columns": {
+      "FrictionMultiCurveID": { "key": true, "numeric": true, "max": 16, "maxIn": "base", "min": 1, "byArchive": { "base": 16 } }
+    } },
+    "List_TorqueCurve": { "rows": 1650, "keySource": "firstIdColumn", "keys": ["TorqueCurveID"], "columns": {
+      "TorqueCurveID": { "key": true, "numeric": true, "max": 1888, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 1650, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 1714, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1822, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1888, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 1788, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 1714, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1888 } },
+      "EngineID": { "key": false, "numeric": true, "max": 472, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 393, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472 } }
+    } },
+    "List_Unlocks": { "rows": 4, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 4, "maxIn": "base", "min": 1, "byArchive": { "base": 4 } }
+    } },
+    "List_UpgradeAntiSway": { "rows": 726, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024003, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617003, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024003, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658003, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024003 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 248, "maxIn": "base", "min": 0, "byArchive": { "base": 248, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 248, "323B57FEF5C697FEEB3867466928EF1D903313984D": 213, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 248, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 248, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 248, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 248 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } },
+      "FrontAntiSwayPhysicsID": { "key": false, "numeric": true, "max": 1674, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 1449, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 1505, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1611, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1674, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 1576, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 1505, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1674 } },
+      "RearAntiSwayPhysicsID": { "key": false, "numeric": true, "max": 1676, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 5, "byArchive": { "base": 1452, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 1506, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1612, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1676, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 1580, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 1506, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1676 } }
+    } },
+    "List_UpgradeBrakes": { "rows": 895, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658003, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024001 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 283, "maxIn": "base", "min": 0, "byArchive": { "base": 283, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 138, "323B57FEF5C697FEEB3867466928EF1D903313984D": 269, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 138, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 269, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 138, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 138 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } },
+      "FrontBrakeTypeID": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 2, "byArchive": { "base": 5, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 5, "323B57FEF5C697FEEB3867466928EF1D903313984D": 5, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 5, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 5, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 5, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 5 } },
+      "RearBrakeTypeID": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 1, "byArchive": { "base": 5, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 5, "323B57FEF5C697FEEB3867466928EF1D903313984D": 5, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 5, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 5, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 5, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 5 } },
+      "DamageModDefID": { "key": false, "numeric": true, "max": 7, "maxIn": "base", "min": 7, "byArchive": { "base": 7, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 7, "323B57FEF5C697FEEB3867466928EF1D903313984D": 7, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 7, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 7, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 7, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 7 } }
+    } },
+    "List_UpgradeClutch": { "rows": 861, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007001, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658003, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024001 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 251, "maxIn": "base", "min": 0, "byArchive": { "base": 251, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 203, "323B57FEF5C697FEEB3867466928EF1D903313984D": 251, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 231, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 251, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 203, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 231 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeDifferential": { "rows": 799, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007001, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658002, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024001 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 272, "maxIn": "base", "min": 0, "byArchive": { "base": 272, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 23, "323B57FEF5C697FEEB3867466928EF1D903313984D": 272, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 254, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 243, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 23, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 254 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeDriveline": { "rows": 900, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658003, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024001 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 268, "maxIn": "base", "min": 0, "byArchive": { "base": 268, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 56, "323B57FEF5C697FEEB3867466928EF1D903313984D": 227, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 226, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 234, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 56, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 226 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeEngine": { "rows": 520, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024000, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617000, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024000, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "EngineID": { "key": false, "numeric": true, "max": 472, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 393, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 53, "maxIn": "base", "min": 1, "byArchive": { "base": 53, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 36, "323B57FEF5C697FEEB3867466928EF1D903313984D": 41, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 39, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 46, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 36, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 39 } }
+    } },
+    "List_UpgradeEngineBlock": { "rows": 808, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 472001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1000, "byArchive": { "base": 393002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472001 } },
+      "EngineID": { "key": false, "numeric": true, "max": 472, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 393, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 268, "maxIn": "base", "min": 0, "byArchive": { "base": 268, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 56, "323B57FEF5C697FEEB3867466928EF1D903313984D": 227, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 226, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 234, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 56, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 226 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeEngineCSC": { "rows": 243, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 470002, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1000, "byArchive": { "base": 366002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 401002, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455001, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 470002, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 417001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 401002, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 470002 } },
+      "EngineID": { "key": false, "numeric": true, "max": 470, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 366, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 401, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 470, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 417, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 401, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 470 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 286, "maxIn": "base", "min": 0, "byArchive": { "base": 286, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 165, "323B57FEF5C697FEEB3867466928EF1D903313984D": 286, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 286, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 286, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 165, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 286 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeEngineCamValves": { "rows": 824, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 472001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1000, "byArchive": { "base": 393002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472001 } },
+      "EngineID": { "key": false, "numeric": true, "max": 472, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 393, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 268, "maxIn": "base", "min": 0, "byArchive": { "base": 268, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 56, "323B57FEF5C697FEEB3867466928EF1D903313984D": 227, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 226, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 234, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 56, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 226 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } },
+      "TorqueCurveZeroThrottleID": { "key": false, "numeric": true, "max": 1888, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 2, "byArchive": { "base": 1650, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 1714, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1822, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1888, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 1788, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 1714, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1888 } },
+      "TorqueCurveFullThrottleID": { "key": false, "numeric": true, "max": 1887, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 1649, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 1713, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1821, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1887, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 1787, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 1713, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1887 } }
+    } },
+    "List_UpgradeEngineDSC": { "rows": 277, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 458001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1000, "byArchive": { "base": 393002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 401002, "323B57FEF5C697FEEB3867466928EF1D903313984D": 453002, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 458001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 418002, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 401002, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 458001 } },
+      "EngineID": { "key": false, "numeric": true, "max": 458, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 393, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 401, "323B57FEF5C697FEEB3867466928EF1D903313984D": 453, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 458, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 418, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 401, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 458 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 285, "maxIn": "base", "min": 0, "byArchive": { "base": 285, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 73, "323B57FEF5C697FEEB3867466928EF1D903313984D": 285, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 211, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 285, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 73, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 211 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeEngineExhaust": { "rows": 824, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 472001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1000, "byArchive": { "base": 393002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472001 } },
+      "EngineID": { "key": false, "numeric": true, "max": 472, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 393, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 258, "maxIn": "base", "min": 0, "byArchive": { "base": 258, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 165, "323B57FEF5C697FEEB3867466928EF1D903313984D": 258, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 258, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 258, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 165, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 258 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeEngineFuelSystem": { "rows": 832, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 472001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1000, "byArchive": { "base": 393002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472001 } },
+      "EngineID": { "key": false, "numeric": true, "max": 472, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 393, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 199, "maxIn": "base", "min": 0, "byArchive": { "base": 199, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 39, "323B57FEF5C697FEEB3867466928EF1D903313984D": 199, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 199, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 199, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 39, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 199 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeEngineIgnition": { "rows": 830, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 472001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1000, "byArchive": { "base": 393002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455001, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472001 } },
+      "EngineID": { "key": false, "numeric": true, "max": 472, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 393, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 202, "maxIn": "base", "min": 0, "byArchive": { "base": 202, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 202, "323B57FEF5C697FEEB3867466928EF1D903313984D": 191, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 202, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 202, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 202, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 202 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeEngineIntake": { "rows": 823, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 472001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1000, "byArchive": { "base": 393003, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455001, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472001 } },
+      "EngineID": { "key": false, "numeric": true, "max": 472, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 393, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 177, "maxIn": "base", "min": 0, "byArchive": { "base": 177, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 99, "323B57FEF5C697FEEB3867466928EF1D903313984D": 177, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 177, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 177, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 99, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 177 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeEngineIntercooler": { "rows": 587, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 472002, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1000, "byArchive": { "base": 393002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455001, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472002, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472002 } },
+      "EngineID": { "key": false, "numeric": true, "max": 472, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 393, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409, "323B57FEF5C697FEEB3867466928EF1D903313984D": 455, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 240, "maxIn": "base", "min": 0, "byArchive": { "base": 240, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 165, "323B57FEF5C697FEEB3867466928EF1D903313984D": 162, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 165, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 240, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 165, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 165 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeEngineTurbo": { "rows": 510, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 472002, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1000, "byArchive": { "base": 392002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 452001, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472002, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472002 } },
+      "EngineID": { "key": false, "numeric": true, "max": 472, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 392, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 409, "323B57FEF5C697FEEB3867466928EF1D903313984D": 452, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 472, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 436, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 409, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 472 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 271, "maxIn": "base", "min": 0, "byArchive": { "base": 271, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 165, "323B57FEF5C697FEEB3867466928EF1D903313984D": 242, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 226, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 271, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 165, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 226 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeFlywheel": { "rows": 854, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007001, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658003, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024001 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 253, "maxIn": "base", "min": 0, "byArchive": { "base": 253, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 252, "323B57FEF5C697FEEB3867466928EF1D903313984D": 143, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 252, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 252, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 252, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 252 } }
+    } },
+    "List_UpgradeFrontBumper": { "rows": 793, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024000, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617001, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024000, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 118, "maxIn": "base", "min": 0, "byArchive": { "base": 118, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 35, "323B57FEF5C697FEEB3867466928EF1D903313984D": 118, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 118, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 35, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 35, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 118 } },
+      "AeroPhysicsID": { "key": false, "numeric": true, "max": 391, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 357, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 359, "323B57FEF5C697FEEB3867466928EF1D903313984D": 377, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 391, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 366, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 359, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 391 } }
+    } },
+    "List_UpgradeHood": { "rows": 390, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024000, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617000, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024000, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658000, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 118, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 0, "byArchive": { "base": 93, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 118, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 118 } }
+    } },
+    "List_UpgradeRearBumper": { "rows": 746, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024000, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617001, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024000, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 118, "maxIn": "base", "min": 0, "byArchive": { "base": 118, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 35, "323B57FEF5C697FEEB3867466928EF1D903313984D": 35, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 35, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 35, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 35, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 35 } }
+    } },
+    "List_UpgradeRearWing": { "rows": 701, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024000, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617001, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024000, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658001, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 118, "maxIn": "base", "min": 0, "byArchive": { "base": 118, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 35, "323B57FEF5C697FEEB3867466928EF1D903313984D": 118, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 118, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 35, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 35, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 118 } },
+      "AeroPhysicsID": { "key": false, "numeric": true, "max": 393, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 5, "byArchive": { "base": 358, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 360, "323B57FEF5C697FEEB3867466928EF1D903313984D": 378, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 393, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 367, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 360, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 393 } }
+    } },
+    "List_UpgradeRimSize": { "rows": 959, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024002, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617003, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007002, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024002, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658002, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024002 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeSideSkirt": { "rows": 527, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024000, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617000, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024000, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658000, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerId": { "key": false, "numeric": true, "max": 93, "maxIn": "base", "min": 0, "byArchive": { "base": 93, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeSpringDamper": { "rows": 726, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024003, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617003, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024003, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658003, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024003 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 250, "maxIn": "base", "min": 0, "byArchive": { "base": 250, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 175, "323B57FEF5C697FEEB3867466928EF1D903313984D": 231, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 231, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 250, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 175, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 231 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } },
+      "SuspensionDamageModDefID": { "key": false, "numeric": true, "max": 9, "maxIn": "base", "min": 9, "byArchive": { "base": 9, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 9, "323B57FEF5C697FEEB3867466928EF1D903313984D": 9, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 9, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 9, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 9, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 9 } },
+      "TiresDamageModDefID": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 8, "byArchive": { "base": 8, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 8, "323B57FEF5C697FEEB3867466928EF1D903313984D": 8, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 8, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 8, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 8, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 8 } },
+      "FrontSpringDamperPhysicsID": { "key": false, "numeric": true, "max": 1674, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 1449, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 1505, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1611, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1674, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 1576, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 1505, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1674 } },
+      "RearSpringDamperPhysicsID": { "key": false, "numeric": true, "max": 1676, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 5, "byArchive": { "base": 1452, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 1506, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1612, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1676, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 1580, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 1506, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1676 } }
+    } },
+    "List_UpgradeTireCompound": { "rows": 895, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024000, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007001, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024000, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658003, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "TireCompoundID": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 1, "byArchive": { "base": 8, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 8, "323B57FEF5C697FEEB3867466928EF1D903313984D": 7, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 7, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 8, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 8, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 7 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 281, "maxIn": "base", "min": 0, "byArchive": { "base": 281, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 281, "323B57FEF5C697FEEB3867466928EF1D903313984D": 279, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 279, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 279, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 281, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 279 } }
+    } },
+    "List_UpgradeTireWidth": { "rows": 866, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024000, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617003, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024000, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658002, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeTransmission": { "rows": 876, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024000, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617002, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024000, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658003, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024000 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 268, "maxIn": "base", "min": 0, "byArchive": { "base": 268, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 56, "323B57FEF5C697FEEB3867466928EF1D903313984D": 227, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 226, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 234, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 56, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 226 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 0, "maxIn": "base", "min": 0, "byArchive": { "base": 0, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 0, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "List_UpgradeWeight": { "rows": 887, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1024001, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247000, "byArchive": { "base": 617003, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630000, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007000, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024001, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658003, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630000, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024001 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } },
+      "ManufacturerID": { "key": false, "numeric": true, "max": 237, "maxIn": "base", "min": 0, "byArchive": { "base": 237, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 126, "323B57FEF5C697FEEB3867466928EF1D903313984D": 237, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 237, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 237, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 126, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 237 } },
+      "PartsStringID": { "key": false, "numeric": true, "max": 136, "maxIn": "base", "min": 0, "byArchive": { "base": 136, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 134, "323B57FEF5C697FEEB3867466928EF1D903313984D": 134, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 136, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 135, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 134, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 136 } }
+    } },
+    "List_VariableTiming": { "rows": 3, "keySource": "firstIdColumn", "keys": ["VariableTimingID"], "columns": {
+      "VariableTimingID": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "List_WheelStyle": { "rows": 0, "keySource": "firstIdColumn", "keys": ["WheelStyleID"], "columns": {
+      "WheelStyleID": { "key": true, "numeric": true }
+    } },
+    "List_Wheels": { "rows": 373, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 456, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 409, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 413, "323B57FEF5C697FEEB3867466928EF1D903313984D": 442, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 456, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 430, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 413, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 456 } },
+      "PartManufacturerID": { "key": false, "numeric": true, "max": 281, "maxIn": "base", "min": 0, "byArchive": { "base": 281, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 0, "323B57FEF5C697FEEB3867466928EF1D903313984D": 142, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 0, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 0, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 0, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 0 } }
+    } },
+    "Livery_Categories": { "rows": 29, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 60, "maxIn": "base", "min": 1, "byArchive": { "base": 60 } }
+    } },
+    "Livery_Decals": { "rows": 347, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 386, "maxIn": "base", "min": 2, "byArchive": { "base": 386 } }
+    } },
+    "Livery_VinylNames": { "rows": 40, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 40, "maxIn": "base", "min": 1, "byArchive": { "base": 40 } }
+    } },
+    "Livery_VinylsDecals": { "rows": 800, "keySource": "firstIdColumn", "keys": ["ID"], "columns": {
+      "ID": { "key": true, "numeric": true, "max": 2040, "maxIn": "base", "min": 101, "byArchive": { "base": 2040 } }
+    } },
+    "MPAIDifficultyMap": { "rows": 3, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } }
+    } },
+    "MakeDiscounts": { "rows": 470, "keySource": "firstIdColumn", "keys": ["CarMakeId"], "columns": {
+      "CarMakeId": { "key": true, "numeric": true, "max": 53, "maxIn": "base", "min": 1, "byArchive": { "base": 53 } }
+    } },
+    "NewProfile_Arcade_Exhibition": { "rows": 0, "keySource": "firstIdColumn", "keys": ["RaceId"], "columns": {
+      "RaceId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Arcade_Garage": { "rows": 235, "keySource": "firstIdColumn", "keys": ["CarId"], "columns": {
+      "CarId": { "key": true, "numeric": true, "max": 617, "maxIn": "base", "min": 247, "byArchive": { "base": 617 } }
+    } },
+    "NewProfile_Arcade_TimeTrial": { "rows": 0, "keySource": "firstIdColumn", "keys": ["RaceId"], "columns": {
+      "RaceId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Career_AIHistory": { "rows": 0, "keySource": "firstIdColumn", "keys": ["AIPlayerId"], "columns": {
+      "AIPlayerId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Career_EventResults": { "rows": 0, "keySource": "firstIdColumn", "keys": ["EventId"], "columns": {
+      "EventId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Career_Garage": { "rows": 0, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true },
+      "CarId": { "key": false, "numeric": true },
+      "ClassID": { "key": false, "numeric": true },
+      "AspirationTypeId": { "key": false, "numeric": true }
+    } },
+    "NewProfile_Career_PurchasedParts": { "rows": 0, "keySource": "firstIdColumn", "keys": ["GarageId"], "columns": {
+      "GarageId": { "key": true, "numeric": true },
+      "PartId": { "key": false, "numeric": true },
+      "ManufacturerId": { "key": false, "numeric": true }
+    } },
+    "NewProfile_Career_RaceResults": { "rows": 0, "keySource": "firstIdColumn", "keys": ["RaceId"], "columns": {
+      "RaceId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Career_SeriesPoints": { "rows": 0, "keySource": "firstIdColumn", "keys": ["EventId"], "columns": {
+      "EventId": { "key": true, "numeric": true },
+      "PlayerId": { "key": false, "numeric": true }
+    } },
+    "NewProfile_Career_SeriesProgress": { "rows": 0, "keySource": "firstIdColumn", "keys": ["EventId"], "columns": {
+      "EventId": { "key": true, "numeric": true }
+    } },
+    "NewProfile_Career_UnlockedCars": { "rows": 0, "keySource": "firstIdColumn", "keys": ["CarId"], "columns": {
+      "CarId": { "key": true, "numeric": true }
+    } },
+    "Numbers": { "rows": 16, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 15, "maxIn": "base", "min": 0, "byArchive": { "base": 15 } }
+    } },
+    "PerformanceIndex": { "rows": 19, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 19, "maxIn": "base", "min": 1, "byArchive": { "base": 19 } },
+      "ClassId": { "key": false, "numeric": true, "max": 5, "maxIn": "base", "min": 0, "byArchive": { "base": 5 } }
+    } },
+    "PittingProfiles": { "rows": 16, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 101, "maxIn": "base", "min": 0, "byArchive": { "base": 101, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 100, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 100 } }
+    } },
+    "PlayerLevelDef": { "rows": 51, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 50, "maxIn": "base", "min": 0, "byArchive": { "base": 50 } }
+    } },
+    "Powertrains": { "rows": 7, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 6, "maxIn": "base", "min": 0, "byArchive": { "base": 6 } },
+      "DrivetrainId": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "EnginePlacementId": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "ProfileOptionFloatDefaults": { "rows": 24, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 132, "maxIn": "base", "min": 48, "byArchive": { "base": 132 } }
+    } },
+    "Races": { "rows": 402, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1543, "maxIn": "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D", "min": 177, "byArchive": { "base": 1531, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 1543, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 1542 } },
+      "EventId": { "key": false, "numeric": true, "max": 491, "maxIn": "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D", "min": 1, "byArchive": { "base": 478, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 491, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 490 } },
+      "TrackId": { "key": false, "numeric": true, "max": 70, "maxIn": "base", "min": 0, "byArchive": { "base": 70, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 3, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 46 } },
+      "CarId": { "key": false, "numeric": true, "max": 588, "maxIn": "base", "min": -1, "byArchive": { "base": 588, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 415, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 480 } },
+      "CarClassId": { "key": false, "numeric": true, "max": -1, "maxIn": "base", "min": -1, "byArchive": { "base": -1, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": -1, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": -1 } }
+    } },
+    "RarityBonuses": { "rows": 3, "keySource": "none", "keys": [], "columns": { } },
+    "RarityPrice_Asia": { "rows": 310, "keySource": "firstIdColumn", "keys": ["ComboRarityID"], "columns": {
+      "ComboRarityID": { "key": true, "numeric": true, "max": 353, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 310, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 319, "323B57FEF5C697FEEB3867466928EF1D903313984D": 340, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 353, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 333, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 319, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 353 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } }
+    } },
+    "RarityPrice_Europe": { "rows": 310, "keySource": "firstIdColumn", "keys": ["ComboRarityID"], "columns": {
+      "ComboRarityID": { "key": true, "numeric": true, "max": 353, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 310, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 319, "323B57FEF5C697FEEB3867466928EF1D903313984D": 340, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 353, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 333, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 319, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 353 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } }
+    } },
+    "RarityPrice_Namerica": { "rows": 310, "keySource": "firstIdColumn", "keys": ["ComboRarityID"], "columns": {
+      "ComboRarityID": { "key": true, "numeric": true, "max": 353, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 1, "byArchive": { "base": 310, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 319, "323B57FEF5C697FEEB3867466928EF1D903313984D": 340, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 353, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 333, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 319, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 353 } },
+      "Ordinal": { "key": false, "numeric": true, "max": 1024, "maxIn": "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D", "min": 247, "byArchive": { "base": 617, "1E18E5262C01CA9B9C17B76A0DD246344E41F7DB4D": 630, "323B57FEF5C697FEEB3867466928EF1D903313984D": 1007, "59C9301E651C8FBBFADA0884D51A501CDEF5F2D74D": 1024, "9AF54AC610BAF12C433C7E6B2EDED9D9C0512D2F4D": 658, "D8341201E7EFAD11D237DEF78E83EF3AB34ED6464D": 630, "DF292DCF9C99E2D92DC69E8C4BC8B5495D782BED4D": 1024 } }
+    } },
+    "RestrictionBool": { "rows": 2, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 1, "maxIn": "base", "min": 0, "byArchive": { "base": 1 } }
+    } },
+    "RestrictionEnum": { "rows": 8, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 8, "maxIn": "base", "min": 1, "byArchive": { "base": 8 } },
+      "FieldAttributeID": { "key": false, "numeric": true, "max": 17, "maxIn": "base", "min": 15, "byArchive": { "base": 17 } }
+    } },
+    "RestrictionFields": { "rows": 18, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 19, "maxIn": "base", "min": 1, "byArchive": { "base": 19 } }
+    } },
+    "RestrictionFuncOps": { "rows": 6, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 5, "maxIn": "base", "min": 0, "byArchive": { "base": 5 } }
+    } },
+    "Rewards_Arcade": { "rows": 70, "keySource": "firstIdColumn", "keys": ["EventId"], "columns": {
+      "EventId": { "key": true, "numeric": true, "max": 478, "maxIn": "base", "min": 200, "byArchive": { "base": 478 } },
+      "CarId": { "key": false, "numeric": true, "max": 601, "maxIn": "base", "min": 271, "byArchive": { "base": 601 } },
+      "TypeId": { "key": false, "numeric": true, "max": 1, "maxIn": "base", "min": 1, "byArchive": { "base": 1 } }
+    } },
+    "Rewards_CarGift": { "rows": 152, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 151, "maxIn": "base", "min": 0, "byArchive": { "base": 151 } },
+      "CarId": { "key": false, "numeric": true, "max": 590, "maxIn": "base", "min": 247, "byArchive": { "base": 590 } }
+    } },
+    "Rewards_CarLevelCompatibilityMessages": { "rows": 240, "keySource": "firstIdColumn", "keys": ["carMakeId"], "columns": {
+      "carMakeId": { "key": true, "numeric": true, "max": 53, "maxIn": "base", "min": 1, "byArchive": { "base": 53 } },
+      "MsgId": { "key": false, "numeric": true, "max": 134, "maxIn": "base", "min": 0, "byArchive": { "base": 134 } }
+    } },
+    "Rewards_CarLevelUnlockMessages": { "rows": 240, "keySource": "firstIdColumn", "keys": ["carMakeId"], "columns": {
+      "carMakeId": { "key": true, "numeric": true, "max": 53, "maxIn": "base", "min": 1, "byArchive": { "base": 53 } },
+      "MsgId": { "key": false, "numeric": true, "max": 259, "maxIn": "base", "min": 5, "byArchive": { "base": 259 } }
+    } },
+    "Rewards_CarPartDiscounts": { "rows": 888, "keySource": "firstIdColumn", "keys": ["CarMakeId"], "columns": {
+      "CarMakeId": { "key": true, "numeric": true, "max": 53, "maxIn": "base", "min": 1, "byArchive": { "base": 53 } },
+      "PartEnumId": { "key": false, "numeric": true, "max": 28, "maxIn": "base", "min": 1, "byArchive": { "base": 28 } },
+      "BrandId": { "key": false, "numeric": true, "max": 286, "maxIn": "base", "min": 12, "byArchive": { "base": 286 } }
+    } },
+    "Rewards_CareerEvents": { "rows": 90, "keySource": "firstIdColumn", "keys": ["CarId"], "columns": {
+      "CarId": { "key": true, "numeric": true, "max": 617, "maxIn": "base", "min": 252, "byArchive": { "base": 617 } },
+      "EventId": { "key": false, "numeric": true, "max": 477, "maxIn": "base", "min": 1, "byArchive": { "base": 477 } }
+    } },
+    "Rewards_DriverLevel": { "rows": 585, "keySource": "firstIdColumn", "keys": ["CarId"], "columns": {
+      "CarId": { "key": true, "numeric": true, "max": 616, "maxIn": "base", "min": 247, "byArchive": { "base": 616 } },
+      "RegionID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "TypeId": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } }
+    } },
+    "Rewards_DriverLevelMessages": { "rows": 150, "keySource": "firstIdColumn", "keys": ["RegionId"], "columns": {
+      "RegionId": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "MsgId": { "key": false, "numeric": true, "max": 406, "maxIn": "base", "min": 10, "byArchive": { "base": 406 } }
+    } },
+    "Rewards_FormatStrings": { "rows": 66, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 74, "maxIn": "base", "min": 6, "byArchive": { "base": 74 } }
+    } },
+    "Rewards_Messages": { "rows": 400, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 406, "maxIn": "base", "min": 5, "byArchive": { "base": 406 } },
+      "FormatId": { "key": false, "numeric": true, "max": 74, "maxIn": "base", "min": 6, "byArchive": { "base": 74 } }
+    } },
+    "Rewards_MessagesPartMap": { "rows": 28, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 28, "maxIn": "base", "min": 0, "byArchive": { "base": 28 } },
+      "PartEnumId": { "key": false, "numeric": true, "max": 28, "maxIn": "base", "min": 0, "byArchive": { "base": 28 } }
+    } },
+    "Rewards_RelationStrings": { "rows": 14, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 16, "maxIn": "base", "min": 1, "byArchive": { "base": 16 } }
+    } },
+    "SplitPoints": { "rows": 193, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 192, "maxIn": "base", "min": 0, "byArchive": { "base": 192, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 8, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 129 } },
+      "TrackId": { "key": false, "numeric": true, "max": 197, "maxIn": "base", "min": 0, "byArchive": { "base": 197, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 3, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 46 } }
+    } },
+    "StartGridPositions": { "rows": 46, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 1045, "maxIn": "DF5F06FFD06C059806034E8C1D3B9815809450EF4D", "min": 0, "byArchive": { "base": 71, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 3, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 1045 } }
+    } },
+    "StockGarage": { "rows": 303, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 617, "maxIn": "base", "min": 247, "byArchive": { "base": 617 } },
+      "MakeID": { "key": false, "numeric": true, "max": 53, "maxIn": "base", "min": 1, "byArchive": { "base": 53 } },
+      "ClassID": { "key": false, "numeric": true, "max": 9, "maxIn": "base", "min": 0, "byArchive": { "base": 9 } },
+      "RegionID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "CountryID": { "key": false, "numeric": true, "max": 10, "maxIn": "base", "min": 2, "byArchive": { "base": 10 } },
+      "ModelID": { "key": false, "numeric": true, "max": 617, "maxIn": "base", "min": 247, "byArchive": { "base": 617 } },
+      "FamilyModelID": { "key": false, "numeric": true, "max": 24, "maxIn": "base", "min": 1, "byArchive": { "base": 24 } },
+      "FamilyBodyID": { "key": false, "numeric": true, "max": 9, "maxIn": "base", "min": 2, "byArchive": { "base": 9 } },
+      "CarTypeID": { "key": false, "numeric": true, "max": 3, "maxIn": "base", "min": 1, "byArchive": { "base": 3 } },
+      "CylinderID": { "key": false, "numeric": true, "max": 8, "maxIn": "base", "min": 1, "byArchive": { "base": 8 } }
+    } },
+    "Tabs_AuctionHouse": { "rows": 3, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } }
+    } },
+    "TeamColors": { "rows": 5, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 4, "maxIn": "base", "min": 0, "byArchive": { "base": 4 } }
+    } },
+    "TireMod_FrictionScale": { "rows": 9, "keySource": "firstIdColumn", "keys": ["Ordinal"], "columns": {
+      "Ordinal": { "key": true, "numeric": true, "max": 633, "maxIn": "323B57FEF5C697FEEB3867466928EF1D903313984D", "min": 287, "byArchive": { "base": 617, "323B57FEF5C697FEEB3867466928EF1D903313984D": 633 } }
+    } },
+    "TrackPittingZones": { "rows": 27, "keySource": "firstIdColumn", "keys": ["Tracks_id"], "columns": {
+      "Tracks_id": { "key": true, "numeric": true, "max": 70, "maxIn": "base", "min": 0, "byArchive": { "base": 70, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 3, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 46 } }
+    } },
+    "TrackSpecificAI": { "rows": 9, "keySource": "firstIdColumn", "keys": ["Tracks_id"], "columns": {
+      "Tracks_id": { "key": true, "numeric": true, "max": 31, "maxIn": "base", "min": 8, "byArchive": { "base": 31 } },
+      "AIDiff_id": { "key": false, "numeric": true, "max": 2, "maxIn": "base", "min": 0, "byArchive": { "base": 2 } }
+    } },
+    "TrackStartingMerges": { "rows": 47, "keySource": "firstIdColumn", "keys": ["Tracks_id"], "columns": {
+      "Tracks_id": { "key": true, "numeric": true, "max": 70, "maxIn": "base", "min": 0, "byArchive": { "base": 70, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 46 } }
+    } },
+    "Tracks": { "rows": 50, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 197, "maxIn": "base", "min": 0, "byArchive": { "base": 197, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 3, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 46 } },
+      "DefaultStartGridPositionsId": { "key": false, "numeric": true, "max": 1045, "maxIn": "DF5F06FFD06C059806034E8C1D3B9815809450EF4D", "min": 0, "byArchive": { "base": 71, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 3, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 1045 } },
+      "DefaultStartGridParamsId": { "key": false, "numeric": true, "max": -1, "maxIn": "base", "min": -1, "byArchive": { "base": -1, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": -1, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": -1 } },
+      "FlyingStartPosId": { "key": false, "numeric": true, "max": 1046, "maxIn": "DF5F06FFD06C059806034E8C1D3B9815809450EF4D", "min": 0, "byArchive": { "base": 71, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 3, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 1046 } },
+      "ContentId": { "key": false, "numeric": true, "max": 97, "maxIn": "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D", "min": 0, "byArchive": { "base": 0, "0AD1F74947F14A8B58E6C98A97B528CCD79C64B94D": 97, "DF5F06FFD06C059806034E8C1D3B9815809450EF4D": 96 } }
+    } },
+    "Tuning_Options": { "rows": 65, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 66, "maxIn": "base", "min": 0, "byArchive": { "base": 66 } }
+    } },
+    "UpgradeAreas": { "rows": 4, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 4, "maxIn": "base", "min": 1, "byArchive": { "base": 4 } }
+    } },
+    "UpgradeRarity": { "rows": 28, "keySource": "none", "keys": [], "columns": { } },
+    "UpgradeTypes": { "rows": 30, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 30, "maxIn": "base", "min": 1, "byArchive": { "base": 30 } },
+      "AreaId": { "key": false, "numeric": true, "max": 4, "maxIn": "base", "min": 1, "byArchive": { "base": 4 } }
+    } },
+    "Upgrades": { "rows": 129, "keySource": "firstIdColumn", "keys": ["id"], "columns": {
+      "id": { "key": true, "numeric": true, "max": 129, "maxIn": "base", "min": 1, "byArchive": { "base": 129 } }
+    } },
+    "VolatileHostOptions": { "rows": 11, "keySource": "firstIdColumn", "keys": ["OptionId"], "columns": {
+      "OptionId": { "key": true, "numeric": true, "max": 41, "maxIn": "base", "min": 7, "byArchive": { "base": 41 } }
+    } },
+    "WheelLayouts": { "rows": 4, "keySource": "firstIdColumn", "keys": ["LayoutId"], "columns": {
+      "LayoutId": { "key": true, "numeric": true, "max": 3, "maxIn": "base", "min": 0, "byArchive": { "base": 3 } }
+    } },
+    "WheelNormOffsets": { "rows": 373, "keySource": "firstIdColumn", "keys": ["Id"], "columns": {
+      "Id": { "key": true, "numeric": true, "max": 409, "maxIn": "base", "min": 1, "byArchive": { "base": 409 } }
+    } }
+  }
+}

@@ -1,4 +1,4 @@
-﻿/*
+/*
     This is applicate to all source code of all project
     
     Forza Studio: Forza Motorsport resource extraction tool.
@@ -69,6 +69,7 @@ namespace ForzaStudio
         // Display images per mesh; GPU copies are rebuilt whenever the device is recreated.
         // Materials drawn from the game's shader classes (ShaderLook) instead of one flat grey.
         public bool UseShaderLook = true;
+        public Vector3? BodyColorOverride;   // colour picked from the viewport menu; replaces Viewer.BodyColor until reset
         private bool drawGlass;
         private EnvReflection env;
         private Vector3 bodyColor = new Vector3(140f / 255f, 140f / 255f, 140f / 255f);   // paint materials without a texture
@@ -182,6 +183,7 @@ namespace ForzaStudio
                         // engine passes (shadow, depth...) and the black fallback stay visible as plain parts
                         look = ShaderLook.Look(ShaderLook.For(mesh.Technique ?? mesh.MaterialName));
                         if (look.Kind == ShaderKind.Pass) { look = ShaderLook.Look(ShaderKind.Generic); }
+                        look = ShaderLook.Apply(look, mesh.Settings);
                         if (mesh.Unused) { look = ShaderLook.Look(ShaderKind.Missing); }
                         if ((look.Alpha < 1f) != this.drawGlass) { continue; }
                     }
@@ -189,7 +191,13 @@ namespace ForzaStudio
                     {
                         continue;
                     }
-                    Texture2D texture = (fill == FillMode.Solid && (!styled || look.UseTexture)) ? this.GetMeshTexture(mesh) : null;
+                    Texture2D texture = (fill == FillMode.Solid && (!styled || look.UseTexture || mesh.ForceTexture || look.Kind == ShaderKind.Glass)) ? this.GetMeshTexture(mesh) : null;
+                    if (mesh.Frozen && fill == FillMode.Solid)
+                    {
+                        texture = null;
+                    }
+                    bool glassTexture = styled && look.Kind == ShaderKind.Glass && texture != null;
+                    if (glassTexture && !look.OpacitySet) { look.Alpha = Math.Max(look.Alpha, ShaderLookValues.TexturedGlassAlpha); }
                     this.Ambiance.TextureEnabled = texture != null;
                     this.Ambiance.Texture = texture;
                     this.Ambiance.Alpha = styled ? look.Alpha : 1f;
@@ -199,10 +207,14 @@ namespace ForzaStudio
                     if (fill == FillMode.Solid)
                     {
                         this.Ambiance.VertexColorEnabled = false;
-                        this.Ambiance.DiffuseColor = (texture != null) ? Vector3.One : ((styled && look.Kind == ShaderKind.Paint) ? this.bodyColor : new Vector3(140f / 255f, 140f / 255f, 140f / 255f));
-                        if (styled)
+                        this.Ambiance.DiffuseColor = (texture != null) ? Vector3.One : (styled && look.HasPaintColor) ? new Vector3(look.PaintColor.X, look.PaintColor.Y, look.PaintColor.Z) : ((styled && look.Kind == ShaderKind.Paint) ? this.bodyColor : new Vector3(140f / 255f, 140f / 255f, 140f / 255f));
+                        if (styled && !(glassTexture && !look.GlassTinted))
                         {
                             this.Ambiance.DiffuseColor *= new Vector3(look.Diffuse.X, look.Diffuse.Y, look.Diffuse.Z);
+                        }
+                        if (mesh.Frozen)
+                        {
+                            this.Ambiance.DiffuseColor = new Vector3(0.32f, 0.32f, 0.35f);
                         }
                         if (mesh.Selected)
                         {
@@ -216,6 +228,7 @@ namespace ForzaStudio
                             this.Ambiance.DiffuseColor *= new Vector3(1f, 0.45f, 0.4f);
                         }
                     }
+                    mesh.UvScale = (styled && !mesh.ForceTexture) ? look.UvScale : 0f;
                     this.Ambiance.World = mesh.PreviewTransform * this.Camera.World;
                     this.Ambiance.Begin();
                     foreach (EffectPass pass in this.Ambiance.CurrentTechnique.Passes)
@@ -365,7 +378,7 @@ namespace ForzaStudio
                     if (forceRedraw || this.Camera.HasChanged)
                     {
                         int[] rgb = AppSettings.GetRgb("Viewer.BodyColor", "8C8C8C");   // ForzaStudio.ini [App], Tools > Settings > Viewer
-                        this.bodyColor = new Vector3(rgb[0] / 255f, rgb[1] / 255f, rgb[2] / 255f);
+                        this.bodyColor = this.BodyColorOverride.HasValue ? this.BodyColorOverride.Value : new Vector3(rgb[0] / 255f, rgb[1] / 255f, rgb[2] / 255f);
                         this.Ambiance.View = this.Camera.View;
                         this.Ambiance.Projection = this.Camera.Projection;
                         this.Ambiance.World = this.Camera.World;

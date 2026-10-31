@@ -202,6 +202,8 @@ namespace ForzaStudio
             string database = DatabasePath(targetRoot);
             SqliteDatabase db = SqliteDatabase.FromBytes(File.ReadAllBytes(In(database, targetRoot, outputRoot)));
             long id;
+            string titles;          // the make's Drive_ rule (MakeTitles), null when the database has no titles
+            ForzaZip liveryZip = null;  // Livery.zip with the make's decal added (MakeDecals), null when none
             Dictionary<string, ForzaZip> stringZips = new Dictionary<string, ForzaZip>(StringComparer.OrdinalIgnoreCase);
             try
             {
@@ -225,6 +227,27 @@ namespace ForzaStudio
                     Logos + @"Manufacturer_Logos_SM\L_MAN_" + spec.Base + "_Logo.tga",
                     spec.Base, strings[1]);
                 report.AppendLine(string.Format(CultureInfo.InvariantCulture, "List_CarMake: row {0} ({1}, {2}), country {3}, DisplayName {4}, Profile {5}", id, spec.Code, spec.Name, spec.CountryId, strings[0], strings[1]));
+                titles = MakeTitles.Add(db, id, spec.Name, spec.Base, stringZips, report);
+                string livery = MakeDecals.LiveryPath(targetRoot);
+                if (File.Exists(livery) && MakeDecals.Supported(db))
+                {
+                    liveryZip = new ForzaZip(In(livery, targetRoot, outputRoot));
+                    ForzaZip.Entry model = liveryZip.Find(MakeDecals.TemplateEntry);
+                    if (model == null)
+                    {
+                        throw new InvalidOperationException("Livery.zip has no " + MakeDecals.TemplateEntry + " to build the decal on.");
+                    }
+                    byte[] carbin;
+                    using (Image image = LoadImage(spec.Logo))
+                    {
+                        carbin = MakeDecals.BuildCarbin(image, liveryZip.Read(model));
+                    }
+                    liveryZip.Add(MakeDecals.Add(db, id, spec.Name, liveryZip, stringZips, report), carbin);
+                }
+                else
+                {
+                    report.AppendLine("  decals: no Livery.zip or no decal tables, none added");
+                }
 
                 foreach (KeyValuePair<string, byte[]> file in logoFiles)
                 {
@@ -250,6 +273,16 @@ namespace ForzaStudio
                 }
                 logos.Save(Out(textures, targetRoot, outputRoot, stamp));
                 written.Add(textures);
+                if (liveryZip != null)
+                {
+                    liveryZip.Save(Out(MakeDecals.LiveryPath(targetRoot), targetRoot, outputRoot, stamp));
+                    written.Add(MakeDecals.LiveryPath(targetRoot));
+                }
+
+                if (titles != null)
+                {
+                    WriteTitleRule(titles, spec.Base, targetRoot, outputRoot, stamp, report);
+                }
 
                 string manifest = ZipManifest.PathFor(targetRoot);
                 string manifestOut = Out(manifest, targetRoot, outputRoot, stamp);
@@ -267,9 +300,40 @@ namespace ForzaStudio
                 db.Dispose();
             }
             report.AppendLine(string.Format(CultureInfo.InvariantCulture, "make {0} \"{1}\" created {2}", id, spec.Name, (outputRoot == null) ? "in the game" : "in the DLC pack trial folder " + outputRoot));
-            report.AppendLine("  no Livery_DecalsSortOrder rows: the make has no decals of its own in the livery editor");
+            if (liveryZip == null)
+            {
+                report.AppendLine("  no Livery_DecalsSortOrder rows: the make has no decals in the livery editor");
+            }
+            if (titles == null)
+            {
+                report.AppendLine("  no titles: the database has no badge and title table");
+            }
             report.AppendLine("  the make shows in game once a car is under it (the port's Make choice)");
             return id;
+        }
+
+        // The make's Drive_ rule: in the game, added to BadgeAndTitleRules.xml (the game reads that file only;
+        // backed up first); in a DLC trial folder, a file of its own (<base>.xml) that the pack build joins
+        // into the pack's <offer>.xml.
+        private static void WriteTitleRule(string block, string logoBase, string targetRoot, string outputRoot, string stamp, StringBuilder report)
+        {
+            if (outputRoot == null)
+            {
+                string rules = MakeTitles.GameRules(targetRoot);
+                string text = File.ReadAllText(rules);
+                if (text.IndexOf("id=\"Drive_" + logoBase + "\"", StringComparison.Ordinal) >= 0)
+                {
+                    report.AppendLine("  titles: " + MakeTitles.RulesFile + " has Drive_" + logoBase + " already");
+                    return;
+                }
+                File.WriteAllText(Out(rules, targetRoot, null, stamp), MakeTitles.AddRule(text, block), new UTF8Encoding(false));
+                report.AppendLine("  titles: Drive_" + logoBase + " added to " + MakeTitles.RulesFile);
+                return;
+            }
+            string own = Path.Combine(MakeTitles.RulesFolder(outputRoot), logoBase + ".xml");
+            Directory.CreateDirectory(Path.GetDirectoryName(own));
+            File.WriteAllText(own, MakeTitles.Document(new string[] { block }), new UTF8Encoding(false));
+            report.AppendLine("  titles: Drive_" + logoBase + " in the trial folder's " + logoBase + ".xml (the pack's rules file)");
         }
 
         // DisplayName and Profile of the make in List_CarMake.str of every language: two keys free in all
@@ -503,7 +567,7 @@ namespace ForzaStudio
             return files;
         }
 
-        private static Image LoadImage(string path)
+        internal static Image LoadImage(string path)
         {
             using (Image loaded = Image.FromFile(path))
             {
@@ -512,7 +576,7 @@ namespace ForzaStudio
         }
 
         // The image scaled to fit the size (aspect kept, a small margin) on a transparent canvas.
-        private static Bitmap Fit(Image image, int width, int height)
+        internal static Bitmap Fit(Image image, int width, int height)
         {
             Bitmap canvas = new Bitmap(width, height, PixelFormat.Format32bppArgb);
             using (Graphics g = Graphics.FromImage(canvas))

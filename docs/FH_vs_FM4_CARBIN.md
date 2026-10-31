@@ -83,3 +83,16 @@ Conclusion: the FH words are copied into FM4 as they are, FM4 reads them as 11:1
 - **The 8 bytes** are `[flag][ID]` in front of every FH buffer (vertex pool and each table). The ID is random and different per buffer, so it is not damage data.
 - Section vertex counts differ between FM4 and FH for some sections (bumperRb 1600 / 1601, wingrace 1755 / 1754, bumperRc 1983 / 1982): `a` follows the vertex count, so a port must write a table of the new length.
 - **Test planned at home:** copy FH words as they are into the FM4 carbin (sections where the sign agrees first, bumperFb) and see what deforms; then the donor-words option (B).
+
+## 6. `stripped_*.carbin` (FH1 / FH2): what they are (2026-10-31)
+
+Question: do the stripped copies hold byte definitions FM4 lacks? **No.**
+
+- Every model carbin of an FH car has a `stripped_` twin (main, `_lod0`, `_cockpit`, calipers, rotors). Supra: 314 KB / 40 KB / 20 KB against 3.0 MB / 8.4 MB / 2.5 MB.
+- A stripped file is the full file's structure with the **data removed**: vertex buffers, index lists and damage tables A / B are empty (buffer flag word 3 + ID instead of data; sub-section `IndexWord` 2 = no index list, only count and size kept).
+- Checked on the Supra FH1 (main 53 sections, `_lod0` 38, `_cockpit` 24), stripped against full, field by field with `CarbinModel`: **zero differences** in marker, bounds, `Unk1c`, `A` / `B` blocks, `AfterA`, `PostName`, `AfterLod`, `AfterSubs`, `Post9`, `Mid`, vertex and table counts and strides, sub-section UV, `Fixed36`, `Fixed56`, tail, index counts. Buffer IDs were skipped (random per buffer).
+- So the unknown words (the one before table `a`, word 2 / 3, the 8 bytes `[flag][ID]`) have the same values in both files: a stripped file adds no information about them, nor about the damage words of section 4.
+- Purpose (not proven): a geometry-free index of the model the game can read without streaming the vertices.
+- Port: `stripped_*` stay out (CarPort.cs, PartImport.cs).
+- Viewer bug fixed the same day: opening a stripped file in the model view made `ForzaMesh.Draw` fail inside an effect pass (zero vertices); the error was swallowed and the device stayed half-begun, so the following models were not drawn. `ForzaMesh.Draw` now returns on a mesh without vertices or indices. Not reproduced, deduced from the code; fix built, not checked with a stripped file.
+- Not checked: FH2 stripped files, other cars. Tool: `tools\CarbinCompare\strippedcmp.cs` (C#, references the built exe: `csc -platform:x86 -r:ForzaStudioEVO.exe strippedcmp.cs`, then `strippedcmp full.carbin stripped.carbin`).

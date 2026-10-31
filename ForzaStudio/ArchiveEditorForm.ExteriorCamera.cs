@@ -42,7 +42,15 @@ namespace ForzaStudio
             this.cmbExterior.SelectedIndex = 0;
             this.cmbExterior.Width = SideWidth;
             this.cmbExterior.Margin = new Padding(0, 3, 0, 3);
-            this.cmbExterior.SelectedIndexChanged += delegate { this.FillExteriorControls(); };
+            this.cmbExterior.SelectedIndexChanged += delegate
+            {
+                this.FillExteriorControls();
+                this.UpdateCameraOverlay();
+                if (this.LiveCameraView && this.cmbExterior.SelectedIndex <= 2)
+                {
+                    this.ViewFromExteriorCamera();
+                }
+            };
             side.Controls.Add(this.cmbExterior);
 
             this.lblExterior = new Label[3];
@@ -70,9 +78,9 @@ namespace ForzaStudio
                 this.lblExterior[i] = label;
                 this.numExterior[i] = number;
             }
-            this.btnExteriorView = SideWideButton("View From Hood Camera", delegate { this.ViewFromHoodCamera(); });
+            this.btnExteriorView = SideWideButton("View From This Camera", delegate { this.ViewFromExteriorCamera(); });
             side.Controls.Add(this.btnExteriorView);
-            side.Controls.Add(SideNote("Green: hood eye and its view (FOV 66). A hood offset of 0, 0 puts the eye on the floor. Bumper and chase have no preview: the game's use of them is not decoded. Saved with Save to Game Database Now."));
+            side.Controls.Add(SideNote("Green: the eye of the chosen camera and its view (hood FOV 66, bumper 53). A hood offset of 0, 0 puts the eye on the floor. The bumper preview is an ESTIMATE: the game builds that camera from the car's box in a way not decoded, so the eye is assumed at the front of the model, at 45% (high) or 30% (low) of its height, plus your offsets. Chase has no preview. Saved with Save to Game Database Now."));
             this.FillExteriorControls();
         }
 
@@ -94,7 +102,7 @@ namespace ForzaStudio
                 }
             }
             this.fillingExterior = false;
-            this.btnExteriorView.Enabled = (this.camState != null) && choice == 0;
+            this.btnExteriorView.Enabled = (this.camState != null) && choice <= 2;
         }
 
         private void ExteriorValueChanged()
@@ -111,6 +119,10 @@ namespace ForzaStudio
             this.camPending = true;
             this.UpdateCameraLabels();
             this.UpdateCameraOverlay();
+            if (this.LiveCameraView && this.cmbExterior.SelectedIndex <= 2)
+            {
+                this.ViewFromExteriorCamera();
+            }
         }
 
         private void EnableExteriorEdit(bool enabled)
@@ -120,7 +132,7 @@ namespace ForzaStudio
             {
                 number.Enabled = enabled;
             }
-            this.btnExteriorView.Enabled = enabled && this.cmbExterior.SelectedIndex <= 0;
+            this.btnExteriorView.Enabled = enabled && this.cmbExterior.SelectedIndex <= 2;
         }
 
         private Vector3 HoodEye()
@@ -128,26 +140,73 @@ namespace ForzaStudio
             return new Vector3(0f, (float) this.camState.Exterior[CarCamera.HoodHeight], (float) this.camState.Exterior[CarCamera.HoodZ]);
         }
 
-        private void ViewFromHoodCamera()
+        // Bumper cameras: the game builds them from the car's box in a way not decoded (the offsets are 0
+        // on all but one car). The preview ASSUMES the eye on the centre line at the front of the model's
+        // shown parts, 5 cm back (CameraSettings.ini BumperHighCam CamZOffset -0.05), at this fraction of
+        // the car's height above its lowest point, plus the height / Z offsets of the row. FOV 53.
+        private const float BumperHighHeightFraction = 0.45f;
+        private const float BumperLowHeightFraction = 0.30f;
+        private const float BumperBackOffset = 0.05f;
+        private const float BumperFov = 53f;
+
+        // The eye of the chosen exterior camera in model axes, and its FOV. False when there is no
+        // preview (chase cameras) or the bumper needs a model and none is shown.
+        private bool ExteriorEye(int choice, out Vector3 eye, out float fov)
         {
-            if (this.scene == null || this.camState == null)
+            eye = Vector3.Zero;
+            fov = CarCamera.HoodFov;
+            if (this.camState == null)
+            {
+                return false;
+            }
+            if (choice == 0)
+            {
+                eye = CarCamera.ToModel(this.HoodEye());
+                return true;
+            }
+            if (choice == 1 || choice == 2)
+            {
+                Vector3 min, max;
+                if (!this.ModelBounds(out min, out max))
+                {
+                    return false;
+                }
+                float height = (float) this.camState.Exterior[ExteriorFirst[choice]];
+                float z = (float) this.camState.Exterior[ExteriorFirst[choice] + 1];
+                float fraction = (choice == 1) ? BumperHighHeightFraction : BumperLowHeightFraction;
+                eye = new Vector3(0f, min.Y + ((max.Y - min.Y) * fraction) + height, min.Z + BumperBackOffset - z);
+                fov = BumperFov;
+                return true;
+            }
+            return false;
+        }
+
+        private void ViewFromExteriorCamera()
+        {
+            Vector3 eye;
+            float fov;
+            if (this.scene == null || !this.ExteriorEye(Math.Max(0, this.cmbExterior.SelectedIndex), out eye, out fov))
             {
                 return;
             }
-            Vector3 eye = CarCamera.ToModel(this.HoodEye());
             this.scene.Camera.LookFrom(eye, eye + new Vector3(0f, 0f, -1f));
-            this.scene.Camera.FieldOfViewDegrees = CarCamera.HoodFov;
+            this.scene.Camera.FieldOfViewDegrees = fov;
             this.scene.Update(true);
         }
 
-        // The hood eye (green cross) and its view, 0.6 m deep, 16:9.
+        // The eye of the chosen camera (green cross) and its view, 0.6 m deep, 16:9.
         private void AddHoodOverlay(List<VertexPositionColor> lines)
         {
             Microsoft.Xna.Framework.Graphics.Color green = new Microsoft.Xna.Framework.Graphics.Color(90, 230, 90, 255);
-            Vector3 eye = CarCamera.ToModel(this.HoodEye());
+            Vector3 eye;
+            float fov;
+            if (!this.ExteriorEye(Math.Max(0, this.cmbExterior.SelectedIndex), out eye, out fov) && !this.ExteriorEye(0, out eye, out fov))
+            {
+                return;
+            }
             AddCross(lines, eye, 0.06f, green);
             float depth = 0.6f;
-            float halfHeight = depth * (float) Math.Tan(MathHelper.ToRadians(CarCamera.HoodFov) / 2f);
+            float halfHeight = depth * (float) Math.Tan(MathHelper.ToRadians(fov) / 2f);
             float halfWidth = halfHeight * 16f / 9f;
             Vector3 centre = eye + new Vector3(0f, 0f, -depth);
             Vector3[] corners =

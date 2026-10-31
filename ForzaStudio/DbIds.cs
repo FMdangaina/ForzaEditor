@@ -115,6 +115,15 @@ namespace ForzaStudio
             try
             {
                 found.AddRange(Directory.GetFiles(content, "*_merge.slt", SearchOption.AllDirectories));
+                // Xenia keeps a package as one STFS file: its merge database is taken out once (cached by size and date).
+                foreach (string file in Directory.GetFiles(content, "*", SearchOption.AllDirectories))
+                {
+                    string extracted = StfsMerge(file);
+                    if (extracted != null)
+                    {
+                        found.Add(extracted);
+                    }
+                }
             }
             catch (IOException)
             {
@@ -123,6 +132,47 @@ namespace ForzaStudio
             {
             }
             return found;
+        }
+
+        private static readonly Dictionary<string, string> stfsMerges = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // The merge database of an STFS package as a file in the temp folder, or null (not a package, or no merge).
+        private static string StfsMerge(string file)
+        {
+            FileInfo info = new FileInfo(file);
+            string key = info.FullName + "|" + info.Length.ToString(CultureInfo.InvariantCulture) + "|" + info.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture);
+            string cached;
+            if (stfsMerges.TryGetValue(key, out cached))
+            {
+                return (cached.Length > 0 && File.Exists(cached)) ? cached : (cached.Length > 0 ? StfsMergeExtract(file, key) : null);
+            }
+            return StfsMergeExtract(file, key);
+        }
+
+        private static string StfsMergeExtract(string file, string key)
+        {
+            string result = string.Empty;
+            try
+            {
+                if (StfsReader.IsPackage(file))
+                {
+                    DlcSource source = DlcSource.OpenPackage(file, true);
+                    byte[] merge = (source != null && source.Problem == null) ? source.Merge() : null;
+                    if (merge != null)
+                    {
+                        string folder = Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "PackMerges");
+                        Directory.CreateDirectory(folder);
+                        result = Path.Combine(folder, Math.Abs((long) key.GetHashCode()).ToString(CultureInfo.InvariantCulture) + "_" + Path.GetFileName(file) + "_merge.slt");
+                        File.WriteAllBytes(result, merge);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                result = string.Empty;
+            }
+            stfsMerges[key] = result;
+            return result.Length > 0 ? result : null;
         }
 
         // The first car Id for a DLC pack: above every car of FM4 and its official DLC (GameIdLimits), of the target

@@ -194,7 +194,26 @@ namespace ForzaStudio
             {
                 attributes.Add(new string[] { m.Groups[1].Value, m.Groups[2].Value });
             }
-            return attributes;
+            // Colours always come back as r g b a, whatever order the file wrote them in (some ports have a b g r);
+            // saving an edited parameter then writes them in the FM4 order. Other attributes keep their order.
+            string order = "rgba";
+            List<string[]> sorted = new List<string[]>();
+            for (int rank = 0; rank < 4; rank++)
+            {
+                string[] found = attributes.Find(delegate(string[] a) { return a[0] == order[rank].ToString(); });
+                if (found != null)
+                {
+                    sorted.Add(found);
+                }
+            }
+            foreach (string[] a in attributes)
+            {
+                if (!sorted.Contains(a))
+                {
+                    sorted.Add(a);
+                }
+            }
+            return sorted;
         }
 
         public static string BuildXml(string name, List<string[]> attributes)
@@ -233,9 +252,16 @@ namespace ForzaStudio
             return used.ContainsKey(entry.Name) ? Problem.None : Problem.UnusedEntry;
         }
 
-        public static Problem Check(string technique, Parameter parameter)
+        // 'known' = the names the game's own shader files hold (ShaderTextures.ParameterNames), null/empty when
+        // they could not be read: then the survey list is used. Only a name no shader of the game knows is an
+        // error; one the survey never saw on this technique is just unusual (the game's shaders accept it).
+        public static Problem Check(string technique, Parameter parameter, ICollection<string> known)
         {
-            if (!CarPort.IsShaderParameter(parameter.Name))
+            // A name some stock FM4 car sets (CarPort.ShaderParameters) is never an error, even where the shader
+            // files do not list it (CockpitMetalPaintScale, CubeMultiplier, a typo in VOL_C30): the game ships it.
+            bool exists = CarPort.IsShaderParameter(parameter.Name)
+                || (known != null && (known.Contains(parameter.Name) || parameter.Name.StartsWith("D3DRS_", StringComparison.Ordinal)));
+            if (!exists)
             {
                 return Problem.UnknownParameter;
             }

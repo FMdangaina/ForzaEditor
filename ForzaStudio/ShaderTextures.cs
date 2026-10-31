@@ -65,7 +65,25 @@ namespace ForzaStudio
         private static readonly Dictionary<string, ShaderTextures> cache = new Dictionary<string, ShaderTextures>(StringComparer.OrdinalIgnoreCase);
 
         private readonly Dictionary<string, List<string>> techniques = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, List<string>> constants = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<Definition>> definitions = new Dictionary<string, List<Definition>>(StringComparer.OrdinalIgnoreCase);
+
+        private readonly HashSet<string> parameterNames = new HashSet<string>(StringComparer.Ordinal);
+
+        // Every parameter / sampler / technique name in the game's car shader files, plus every constant their
+        // shaders declare: a name shadersettings.xml can set. Empty when the shaders could not be read.
+        public ICollection<string> ParameterNames
+        {
+            get
+            {
+                HashSet<string> all = new HashSet<string>(this.parameterNames, StringComparer.Ordinal);
+                foreach (List<string> list in this.constants.Values)
+                {
+                    all.UnionWith(list);
+                }
+                return all;
+            }
+        }
 
         public string SharedZipPath { get; private set; }
 
@@ -114,7 +132,9 @@ namespace ForzaStudio
                     }
                     try
                     {
-                        new EffectReader(File.ReadAllBytes(file)).Read(this.techniques);
+                        EffectReader reader = new EffectReader(File.ReadAllBytes(file));
+                        reader.Read(this.techniques, this.constants);
+                        reader.ReadNames(this.parameterNames);
                     }
                     catch (Exception)
                     {
@@ -231,6 +251,15 @@ namespace ForzaStudio
             return (technique != null && this.techniques.TryGetValue(technique, out samplers)) ? samplers : new List<string>();
         }
 
+        // Every constant (float, int, bool, sampler) the vertex and pixel shaders of a technique declare in
+        // their D3D constant tables, engine ones included; null when the game has no such technique. These are
+        // the names a car's shadersettings.xml can really set on it.
+        public ICollection<string> ConstantsOf(string technique)
+        {
+            List<string> constants;
+            return (technique != null && this.constants.TryGetValue(technique, out constants)) ? constants : null;
+        }
+
         private Texture Resolve(string sampler, Kind kind)
         {
             string suffix = (kind == Kind.Main) ? "" : "_LOD0";
@@ -309,6 +338,8 @@ namespace ForzaStudio
             private readonly List<int> vertexShaders = new List<int>();
             private readonly List<int> pixelShaders = new List<int>();
             private readonly List<List<string>> pixelSamplers = new List<List<string>>();
+            private readonly List<List<string>> vertexConstants = new List<List<string>>();
+            private readonly List<List<string>> pixelConstants = new List<List<string>>();
             private int nameBase;
             private int blockBase;
 
@@ -363,7 +394,47 @@ namespace ForzaStudio
                 return l.StartsWith("env") || l.Contains("tracklightmap") || l.Contains("shadow") || l.Contains("csm") || l.StartsWith("mirror") || l.Contains("cubemap") || l.Contains("clouds");
             }
 
-            public void Read(Dictionary<string, List<string>> techniques)
+            // Every constant name of the D3D constant table at 'table' (any register set).
+            private List<string> AllConstants(int table)
+            {
+                List<string> names = new List<string>();
+                int count = (int) this.U32(table + 12), info = table + (int) this.U32(table + 16);
+                for (int i = 0; i < count; i++)
+                {
+                    int e = info + (i * 20);
+                    if (e + 20 > this.d.Length)
+                    {
+                        break;
+                    }
+                    names.Add(this.Str(table + (int) this.U32(e)));
+                }
+                return names;
+            }
+
+            // The effect's name table: parameters and samplers, then the technique names from `body` on. Walks back
+            // from `body` over identifier-like names (a library file only; single-material files add theirs below).
+            public void ReadNames(HashSet<string> into)
+            {
+                string s = Encoding.GetEncoding(28591).GetString(this.d);
+                int p = s.LastIndexOf("\0body\0", StringComparison.Ordinal);
+                while (p > 0)
+                {
+                    int q = s.LastIndexOf('\0', p - 1);
+                    if (q < 0 || p - q - 1 < 1 || p - q - 1 > 64)
+                    {
+                        break;
+                    }
+                    string name = s.Substring(q + 1, p - q - 1);
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(name, "^[A-Za-z_][A-Za-z0-9_]*$"))
+                    {
+                        break;
+                    }
+                    into.Add(name);
+                    p = q;
+                }
+            }
+
+            public void Read(Dictionary<string, List<string>> techniques, Dictionary<string, List<string>> constants)
             {
                 int marker = -1;
                 for (int o = 0x10; o < 0x4000 && o + 4 <= this.d.Length; o += 4)
@@ -395,9 +466,11 @@ namespace ForzaStudio
                     if (magic == 0x102A1101)
                     {
                         this.vertexShaders.Add(o);
+                        this.vertexConstants.Add(this.AllConstants(table));
                         continue;
                     }
                     this.pixelShaders.Add(o);
+                    this.pixelConstants.Add(this.AllConstants(table));
                     List<string> names = new List<string>();
                     int count = (int) this.U32(table + 12), info = table + (int) this.U32(table + 16);
                     for (int i = 0; i < count; i++)
@@ -436,18 +509,25 @@ namespace ForzaStudio
                         continue;
                     }
                     List<string> samplers = new List<string>();
+                    List<string> names = new List<string>();
                     bool ok = true;
                     for (int k = 0; k < passes; k++)
                     {
                         int record = first + (k * 20);
-                        int shader = (this.Name(this.U32(record)) != null && this.U32(record + 4) == 0) ? this.PassPixelShader((int) this.U32(record + 8)) : -2;
+                        int vertex = -1;
+                        int shader = (this.Name(this.U32(record)) != null && this.U32(record + 4) == 0) ? this.PassPixelShader((int) this.U32(record + 8), out vertex) : -2;
                         if (shader == -2)
                         {
                             ok = false;
                             break;
                         }
+                        if (vertex >= 0)
+                        {
+                            AddNew(names, this.vertexConstants[vertex]);
+                        }
                         if (shader >= 0)
                         {
+                            AddNew(names, this.pixelConstants[shader]);
                             foreach (string sampler in this.pixelSamplers[shader])
                             {
                                 if (!samplers.Contains(sampler))
@@ -464,6 +544,7 @@ namespace ForzaStudio
                     if (!techniques.ContainsKey(name))
                     {
                         techniques[name] = samplers;
+                        constants[name] = names;
                     }
                     o += 16;
                 }
@@ -471,8 +552,9 @@ namespace ForzaStudio
 
             // The pixel shader index of a pass block: -1 none, -2 not a pass block. The block ends (within
             // 0x100 bytes) with FFFFFFFF, VS ref, PS ref; refs point at a blob's +0 to +15.
-            private int PassPixelShader(int block)
+            private int PassPixelShader(int block, out int vertex)
             {
+                vertex = -1;
                 int b = block + this.blockBase;
                 if (block == 0 || b < 0 || b + 0x100 > this.d.Length)
                 {
@@ -484,7 +566,7 @@ namespace ForzaStudio
                     {
                         continue;
                     }
-                    int vertex = Find(this.vertexShaders, (int) this.U32(o + 4) + this.blockBase);
+                    vertex = Find(this.vertexShaders, (int) this.U32(o + 4) + this.blockBase);
                     int pixel = Find(this.pixelShaders, (int) this.U32(o + 8) + this.blockBase);
                     if (vertex < 0 && pixel < 0)
                     {
@@ -493,6 +575,17 @@ namespace ForzaStudio
                     return pixel;
                 }
                 return -2;
+            }
+
+            private static void AddNew(List<string> into, List<string> from)
+            {
+                foreach (string name in from)
+                {
+                    if (!into.Contains(name))
+                    {
+                        into.Add(name);
+                    }
+                }
             }
 
             private static int Find(List<int> starts, int address)

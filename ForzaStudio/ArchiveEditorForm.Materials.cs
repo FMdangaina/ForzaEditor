@@ -72,6 +72,8 @@ namespace ForzaStudio
             this.tabSideExhaust = this.tabSide.TabPages[4];
             FlowLayoutPanel driver = this.AddSideTab("Driver");
             this.tabSideDriver = this.tabSide.TabPages[5];
+            FlowLayoutPanel meshEdit = this.AddSideTab("Mesh");
+            this.tabSideMesh = this.tabSide.TabPages[6];
             this.tabSide.SelectedIndexChanged += delegate { this.UpdateViewOverlay(); };
             host.Controls.Add(SideRailHost(this.tabSide));
 
@@ -86,7 +88,7 @@ namespace ForzaStudio
                 if (!this.updatingMeshPanel && this.cmbMeshTexture.SelectedIndex >= 0)
                 {
                     string item = (string) this.cmbMeshTexture.SelectedItem;
-                    this.AssignTexture(item == AutoItem ? null : ArchivePrefix + item);
+                    this.AssignTexture(item == AutoItem ? null : item.StartsWith(SharedPrefix) ? item : ArchivePrefix + item);
                 }
             };
 
@@ -139,8 +141,9 @@ namespace ForzaStudio
             this.AddCollisionControls(collision);
             this.AddExhaustControls(exhaust);
             this.AddDriverControls(driver);
+            this.AddMeshEditControls(meshEdit);
 
-            this.tvModel.AfterSelect += delegate { this.UpdateMeshPanel(); this.HighlightSelection(); };
+            this.tvModel.AfterSelect += delegate { this.TreeSelected(); };
             return host;
         }
 
@@ -248,7 +251,8 @@ namespace ForzaStudio
             List<Microsoft.Xna.Framework.Graphics.VertexPositionColor> lines = (open == this.tabSideCamera) ? this.CameraOverlayLines()
                 : (open == this.tabSideCollision) ? this.CollisionOverlayLines()
                 : (open == this.tabSideExhaust) ? this.ExhaustOverlayLines()
-                : (open == this.tabSideDriver) ? this.DriverOverlayLines() : null;
+                : (open == this.tabSideDriver) ? this.DriverOverlayLines()
+                : (open == this.tabSideMesh) ? this.MeshEditOverlayLines() : null;
             this.scene.Overlay = (lines != null && lines.Count >= 2) ? lines.ToArray() : null;
             this.scene.Update(true);
         }
@@ -320,6 +324,11 @@ namespace ForzaStudio
             get
             {
                 List<ForzaMesh> meshes = new List<ForzaMesh>();
+                if (this.meshSelection.Count > 0)
+                {
+                    meshes.AddRange(this.meshSelection);
+                    return meshes;
+                }
                 TreeNode node = this.tvModel.SelectedNode;
                 if (node != null)
                 {
@@ -355,6 +364,21 @@ namespace ForzaStudio
                 {
                     this.cmbMeshTexture.Items.Add(entry.Name.Substring(folder.Length));
                 }
+            }
+            // Then the common textures of the game (Media\cars\Shared.zip), listed as "shared:name".
+            ForzaZip shared = this.SharedZip;
+            if (shared != null)
+            {
+                List<string> common = new List<string>();
+                foreach (ForzaZip.Entry entry in shared.Entries)
+                {
+                    if (entry.Name.EndsWith(".xds", StringComparison.OrdinalIgnoreCase))
+                    {
+                        common.Add(SharedPrefix + entry.Name);
+                    }
+                }
+                common.Sort(StringComparer.OrdinalIgnoreCase);
+                this.cmbMeshTexture.Items.AddRange(common.ToArray());
             }
             this.updatingMeshPanel = false;
 
@@ -509,7 +533,8 @@ namespace ForzaStudio
                     this.lblMeshInfo.Text = string.Format("{0}\n{1} parts, {2:N0} vertices, {3:N0} faces\n{6}\n\nMaterials ({4}):\n{5}",
                         this.tvModel.SelectedNode.Text, meshes.Count, vertices, faces, total, string.Join(", ", names.ToArray()), this.DescribeDamage(node));
                 }
-                string entry = (texture != null && texture.StartsWith(ArchivePrefix)) ? texture.Substring(ArchivePrefix.Length) : null;
+                string entry = (texture != null && texture.StartsWith(ArchivePrefix)) ? texture.Substring(ArchivePrefix.Length)
+                    : (texture != null && texture.StartsWith(SharedPrefix)) ? texture : null;
                 int index = (this.autoTextureSampler.ContainsKey(first) || texture == null) ? 0
                     : ((entry != null) ? this.cmbMeshTexture.Items.IndexOf(entry) : -1);
                 this.cmbMeshTexture.SelectedIndex = index;

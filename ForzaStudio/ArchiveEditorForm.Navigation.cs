@@ -167,6 +167,10 @@ namespace ForzaStudio
                 this.GoBack();
                 return true;
             }
+            if (this.HandleViewKey(keyData))
+            {
+                return true;
+            }
             return base.ProcessCmdKey(ref msg, keyData);
         }
 

@@ -19,7 +19,9 @@ namespace ForzaStudio
         private ToolStripButton btnWireframe;
         private ToolStripButton btnTextures;
         private ToolStripComboBox cmbCameraSpeed;
-        private ToolStripComboBox cmbCameraFov;
+        private TrackBar trkFov;
+        private ToolStripControlHost fovHost;
+        private bool syncingFov;
         private ToolStripLabel lblCameraFov;
         private ToolStripLabel lblModelInfo;
         private Timer modelTimer;
@@ -39,8 +41,10 @@ namespace ForzaStudio
             this.tvModel = new TreeView();
             this.tvModel.Dock = DockStyle.Fill;
             this.tvModel.CheckBoxes = true;
+            this.tvModel.HideSelection = false;
             this.tvModel.AfterCheck += new TreeViewEventHandler(this.tvModel_AfterCheck);
             modelSplit.Panel1.Controls.Add(this.tvModel);
+            this.AddStockOnlyButton(modelSplit.Panel1);
 
             ToolStrip toolbar = new ToolStrip();
             toolbar.GripStyle = ToolStripGripStyle.Hidden;
@@ -67,30 +71,32 @@ namespace ForzaStudio
             this.cmbCameraSpeed.Items.Add(new ComboBoxItem<float>(1f, "Camera: normal"));
             this.cmbCameraSpeed.Items.Add(new ComboBoxItem<float>(4f, "Camera: fast"));
             this.cmbCameraSpeed.SelectedIndex = 1;
-            // The game's own camera FOVs (vertical): photo mode and garage from
-            // UICarTargetCameraPresets.xml, the race cameras from Media\Camera\CameraSettings.ini.
-            this.cmbCameraFov = new ToolStripComboBox();
-            this.cmbCameraFov.DropDownStyle = ComboBoxStyle.DropDownList;
-            this.cmbCameraFov.Items.Add(new ComboBoxItem<float>(45f, "FOV: photo mode 45\u00B0"));
-            this.cmbCameraFov.Items.Add(new ComboBoxItem<float>(53f, "FOV: bumper 53\u00B0"));
-            this.cmbCameraFov.Items.Add(new ComboBoxItem<float>(54f, "FOV: chase 54\u00B0"));
-            this.cmbCameraFov.Items.Add(new ComboBoxItem<float>(62f, "FOV: cockpit 62\u00B0"));
-            this.cmbCameraFov.Items.Add(new ComboBoxItem<float>(66f, "FOV: hood 66\u00B0"));
-            this.cmbCameraFov.SelectedIndex = 0;
-            this.cmbCameraFov.SelectedIndexChanged += delegate
+            // The field of view (vertical, degrees) is set here only: the wheel dollies the camera. The game's
+            // own values: photo mode 45, bumper 53, chase 54, cockpit 62, hood 66 (CameraSettings.ini).
+            this.trkFov = new TrackBar();
+            this.trkFov.Minimum = 10;
+            this.trkFov.Maximum = 90;
+            this.trkFov.Value = 45;
+            this.trkFov.TickFrequency = 10;
+            this.trkFov.AutoSize = false;
+            this.trkFov.Size = new Size(150, 24);
+            this.trkFov.ValueChanged += delegate
             {
-                if (this.scene != null)
+                if (this.scene != null && !this.syncingFov)
                 {
-                    this.scene.Camera.FieldOfViewDegrees = ((ComboBoxItem<float>) this.cmbCameraFov.SelectedItem).Value;
+                    this.scene.Camera.FieldOfViewDegrees = this.trkFov.Value;
                     this.scene.Update(true);
                 }
             };
+            this.fovHost = new ToolStripControlHost(this.trkFov);
+            this.fovHost.ToolTipText = "Field of view (perspective only): photo mode 45, bumper 53, chase 54, cockpit 62, hood 66. The wheel moves the camera, it does not change this.";
             this.lblCameraFov = new ToolStripLabel();
             this.lblCameraFov.ForeColor = SystemColors.GrayText;
             toolbar.Items.Add(this.btnWireframe);
             toolbar.Items.Add(this.btnTextures);
             toolbar.Items.Add(this.cmbCameraSpeed);
-            toolbar.Items.Add(this.cmbCameraFov);
+            toolbar.Items.Add(new ToolStripLabel("FOV"));
+            toolbar.Items.Add(this.fovHost);
             toolbar.Items.Add(this.lblCameraFov);
             toolbar.Items.Add(this.BuildGoToCameraButton());
             this.lblModelInfo = new ToolStripLabel();
@@ -107,14 +113,43 @@ namespace ForzaStudio
             {
                 this.pnlViewport.Focus();
                 this.lastMouse = e.Location;
+                this.clickDown = e.Location;
+                if (e.Button == MouseButtons.Left && this.MeshEditActive)
+                {
+                    this.MeshEditMouseDown(e);
+                }
+            };
+            this.pnlViewport.MouseUp += delegate(object sender, MouseEventArgs e)
+            {
+                if (e.Button == MouseButtons.Left && this.MeshEditActive)
+                {
+                    this.MeshEditMouseUp(e);
+                }
+                else if (e.Button == MouseButtons.Right && Math.Abs(e.X - this.clickDown.X) <= 3 && Math.Abs(e.Y - this.clickDown.Y) <= 3)
+                {
+                    this.ViewportRightClick(e.Location);
+                }
+                else if (e.Button == MouseButtons.Left && Math.Abs(e.X - this.clickDown.X) <= 3 && Math.Abs(e.Y - this.clickDown.Y) <= 3)
+                {
+                    this.SelectMeshAt(e.Location, (Control.ModifierKeys & System.Windows.Forms.Keys.Control) != 0, false);
+                }
             };
             this.pnlViewport.MouseMove += new MouseEventHandler(this.pnlViewport_MouseMove);
-            this.pnlViewport.MouseEnter += delegate { this.pnlViewport.Focus(); };
+            this.pnlViewport.MouseEnter += delegate { this.ViewportPointerEntered(); };
             this.pnlViewport.MouseWheel += delegate(object sender, MouseEventArgs e)
             {
                 if (this.scene != null)
                 {
-                    this.scene.Camera.ApplyZoomForce((e.Delta < 0) ? 0.02f : -0.02f);
+                    if (this.scene.Camera.Orthographic)
+                    {
+                        this.scene.Camera.ApplyZoomForce((e.Delta < 0) ? 0.02f : -0.02f);
+                    }
+                    else
+                    {
+                        // Perspective: the wheel moves the camera toward / away from the model.
+                        this.scene.Camera.Dolly(e.Delta > 0 ? 1 : -1, this.OrbitPivot());
+                        this.scene.Update(true);
+                    }
                 }
             };
             this.pnlViewport.Resize += delegate
@@ -136,11 +171,12 @@ namespace ForzaStudio
             help.Dock = DockStyle.Bottom;
             help.Height = 18;
             help.ForeColor = SystemColors.GrayText;
-            help.Text = "  Drag: look around   Right drag: move   Wheel: zoom   W A S D / Q E: move   Arrows: look";
+            help.Text = "  Middle drag: move the view   Alt + middle drag: turn the model   Wheel: zoom   W A S D / Q E: move   Arrows: look   1-6: front, back, right, left, top, bottom";
 
             modelSplit.Panel2.Controls.Add(this.pnlViewport);
             modelSplit.Panel2.Controls.Add(this.BuildMeshInfoPanel());
             modelSplit.Panel2.Controls.Add(help);
+            modelSplit.Panel2.Controls.Add(this.BuildToolsStrip());
             modelSplit.Panel2.Controls.Add(toolbar);
             this.pnlModel.Controls.Add(modelSplit);
 
@@ -216,6 +252,7 @@ namespace ForzaStudio
             this.tvModel.Nodes.Add(root);
             this.LoadDamageInfo(data);
             this.MarkUnknownMaterials(data, root);
+            this.ApplyShaderSettingsToMeshes();
             root.Expand();
             updating = false;
             this.tvModel.EndUpdate();
@@ -242,7 +279,7 @@ namespace ForzaStudio
                 this.splitModel.SplitterDistance = Math.Min(260, Math.Max(this.splitModel.Width / 3, 50));
                 this.scene = new RenderScene(ref this.tvModel, ref this.pnlViewport);
                 this.scene.ShowWireframe = this.btnWireframe.Checked;
-                this.scene.Camera.FieldOfViewDegrees = ((ComboBoxItem<float>) this.cmbCameraFov.SelectedItem).Value;
+                this.scene.Camera.FieldOfViewDegrees = this.trkFov.Value;
             }
             this.UpdateModelInfo();
             this.OnModelLoaded();
@@ -266,6 +303,7 @@ namespace ForzaStudio
         private void ClearModel()
         {
             this.modelTimer.Stop();
+            this.MeshEditReset();
             foreach (ForzaMesh mesh in GetMeshes(this.tvModel.Nodes, false))
             {
                 mesh.Dispose();
@@ -319,6 +357,7 @@ namespace ForzaStudio
                 faces += mesh.FaceCount;
             }
             this.lblModelInfo.Text = string.Format("{0:N0} vertices, {1:N0} faces", vertices, faces);
+            this.MeshEditShownChanged();
         }
 
         private void pnlViewport_MouseMove(object sender, MouseEventArgs e)
@@ -330,14 +369,27 @@ namespace ForzaStudio
             float dx = e.X - this.lastMouse.X;
             float dy = e.Y - this.lastMouse.Y;
             this.lastMouse = e.Location;
-            if (e.Button == MouseButtons.Left)
+            bool editing = this.MeshEditActive;
+            if (editing && e.Button == MouseButtons.Left)
             {
-                this.scene.Camera.ApplyLookForce(new Vector2(dx * 0.02f, -dy * 0.02f));
+                // Selecting faces: the drag draws a box (MeshEditMouseUp picks).
+                this.MeshEditMouseMove(e);
+                return;
             }
-            else if (e.Button == MouseButtons.Right || e.Button == MouseButtons.Middle)
+            // As in 3ds Max: the middle button moves the view (the point looked at stays on the model),
+            // Alt + middle turns it around the model; the wheel zooms. Left and right do nothing here.
+            if (e.Button == MouseButtons.Middle)
             {
-                Camera camera = this.scene.Camera;
-                this.scene.Camera.ApplyForce((camera.HorizontalDirection * (dx * 0.05f)) + (new Vector3(0f, -dy * 0.05f, 0f)));
+                Vector3 pivot = this.OrbitPivot();
+                if ((Control.ModifierKeys & System.Windows.Forms.Keys.Alt) != 0)
+                {
+                    this.scene.Camera.Orbit(dx * 0.01f, -dy * 0.01f, pivot);
+                }
+                else
+                {
+                    this.scene.Camera.PanPixels(dx, dy, Vector3.Distance(this.scene.Camera.EyePosition, pivot));
+                }
+                this.scene.Update(true);
             }
         }
 
@@ -367,7 +419,8 @@ namespace ForzaStudio
                 }
                 this.scene.Update(false);
                 // The wheel zooms by changing the FOV; show where it is.
-                string fov = string.Format("{0:0.#}\u00B0", camera.FieldOfViewDegrees);
+                this.SyncViewButtons();
+                string fov = camera.Orthographic ? string.Format("{0:0.##} m high", camera.OrthoHeight) : string.Format("{0:0.#}\u00B0", camera.FieldOfViewDegrees);
                 if (this.lblCameraFov.Text != fov)
                 {
                     this.lblCameraFov.Text = fov;

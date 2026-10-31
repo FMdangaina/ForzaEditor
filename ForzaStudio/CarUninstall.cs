@@ -223,6 +223,10 @@ namespace ForzaStudio
                 // A make the port added (PortMake), when no car is left under it.
                 Match madeMake = Regex.Match(log, @"^make (\d+) \([^)]*\): not in FM4", RegexOptions.Multiline);
                 List<string> makeStrings = new List<string>();
+                List<string> titleStrings = new List<string>();     // the make's titles (MakeTitles) go with it
+                string titleBase = null;
+                List<string> decalStrings = new List<string>();     // the make's own decal (MakeDecals) too
+                string decalEntry = null;
                 if (madeMake.Success && make != null && long.Parse(madeMake.Groups[1].Value, CultureInfo.InvariantCulture) == Convert.ToInt64(make))
                 {
                     long makeId = Convert.ToInt64(make);
@@ -234,6 +238,40 @@ namespace ForzaStudio
                             if (value != null && value.StartsWith("_&", StringComparison.Ordinal))
                             {
                                 makeStrings.Add(value);
+                            }
+                        }
+                        if (MakeTitles.Supported(db))
+                        {
+                            titleBase = db.Scalar("SELECT IconPathBase FROM List_CarMake WHERE ID = ?", makeId) as string;
+                            string pattern = (titleBase ?? string.Empty).Replace("_", "\\_") + "\\_Affinity\\_%";
+                            if (!string.IsNullOrEmpty(titleBase))
+                            {
+                                foreach (object[] row in db.Query("SELECT UnlockDescription, UnlockTitleString FROM " + MakeTitles.Table + " WHERE UnlockName LIKE ? ESCAPE '\\'", pattern).Rows)
+                                {
+                                    titleStrings.Add(row[0] as string);
+                                    titleStrings.Add(row[1] as string);
+                                }
+                                shared += this.Delete(db, MakeTitles.Table, "UnlockName LIKE '" + pattern.Replace("'", "''") + "' ESCAPE '\\'", apply, plan);
+                            }
+                        }
+                        if (MakeDecals.Supported(db))
+                        {
+                            // The make's own decal (Sequence 1, shown by no other make) goes with it: its row, name and carbin.
+                            object own = db.Scalar("SELECT Livery_DecalID FROM " + MakeDecals.Sort + " WHERE MakeID = ? AND Sequence = 1 AND Livery_DecalID NOT IN (SELECT Livery_DecalID FROM " + MakeDecals.Sort + " WHERE MakeID <> ?)", makeId, makeId);
+                            if (own != null && own != DBNull.Value)
+                            {
+                                long ownId = Convert.ToInt64(own, CultureInfo.InvariantCulture);
+                                string ownFile = db.Scalar("SELECT Filename FROM " + MakeDecals.Table + " WHERE ID = ?", ownId) as string;
+                                string ownName = db.Scalar("SELECT DisplayName FROM " + MakeDecals.Table + " WHERE ID = ?", ownId) as string;
+                                if (ownName != null && ownName.StartsWith("_&", StringComparison.Ordinal))
+                                {
+                                    decalStrings.Add(ownName);
+                                }
+                                if (ownFile != null)
+                                {
+                                    decalEntry = "decals/" + ownFile.Substring(ownFile.LastIndexOfAny(new char[] { '\\', '/' }) + 1);
+                                }
+                                shared += this.Delete(db, MakeDecals.Table, "ID = " + ownId, apply, plan);
                             }
                         }
                         shared += this.Delete(db, "List_CarMake", "ID = " + makeId, apply, plan);
@@ -255,6 +293,24 @@ namespace ForzaStudio
                 List<string> deleted = new List<string>();
                 this.RemoveStrings("Data_Car.str", carKeys, changed, plan);
                 this.RemoveStrings("List_CarMake.str", makeKeys, changed, plan);
+                titleStrings.RemoveAll(delegate(string value) { return value == null; });
+                this.RemoveStrings(MakeTitles.Table + ".str", UnusedKeys(db, MakeTitles.Table, new string[] { "UnlockDescription", "UnlockTitleString" }, titleStrings), changed, plan);
+                decalStrings.RemoveAll(delegate(string value) { return value == null; });
+                if (decalStrings.Count > 0)
+                {
+                    this.RemoveStrings(MakeDecals.Table + ".str", UnusedKeys(db, MakeDecals.Table, new string[] { "DisplayName" }, decalStrings), changed, plan);
+                }
+                if (decalEntry != null)
+                {
+                    this.RemoveEntry(MakeDecals.LiveryPath(this.TargetRoot), decalEntry, changed, plan);
+                }
+                string rulesPath = MakeTitles.GameRules(this.TargetRoot);
+                string rulesText = null;
+                if (titleBase != null && File.Exists(rulesPath))
+                {
+                    rulesText = MakeTitles.RemoveRule(File.ReadAllText(rulesPath), titleBase);
+                    plan.Add(rulesText == null ? "  no Drive_" + titleBase + " rule in " + MakeTitles.RulesFile : "file Media\\GameTunableSettings\\BadgesAndTitles\\" + MakeTitles.RulesFile + " (the Drive_" + titleBase + " rule)");
+                }
                 deleted.Add(carZipPath);
                 plan.Add("file Media\\cars\\" + Path.GetFileName(carZipPath));
                 // the car's own tire models (Media\wheels\TireA/B/C<car>.zip, D-16) go with the car
@@ -324,6 +380,12 @@ namespace ForzaStudio
                 string manifest = ZipManifest.PathFor(this.TargetRoot);
                 this.Backup(manifest);
                 this.Save(dbPath, db.ToBytes());
+                if (rulesText != null)
+                {
+                    this.Backup(rulesPath);
+                    File.WriteAllText(rulesPath, rulesText, new UTF8Encoding(false));
+                    this.Line("saved {0}", this.Relative(rulesPath));
+                }
                 foreach (KeyValuePair<string, ForzaZip> pair in changed)
                 {
                     this.Backup(pair.Key);

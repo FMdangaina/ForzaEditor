@@ -1,4 +1,4 @@
-﻿/*
+/*
     This is applicate to all source code of all project
     
     Forza Studio: Forza Motorsport resource extraction tool.
@@ -67,24 +67,43 @@ namespace ForzaStudio
         // highlighted. The vertices themselves are untouched until the edit is applied.
         public Matrix PreviewTransform = Matrix.Identity;
         public bool Highlight;
-        public bool Unused;         // no FM4 model of this kind and LOD uses the material (Fm4MaterialUse): drawn magenta
+        public System.Collections.Generic.Dictionary<string, float[]> Settings;   // the car's shadersettings.xml values for this mesh's technique (ShaderLook.Apply)
+        public bool Unused;       // no FM4 model of this kind and LOD uses the material (Fm4MaterialUse): drawn magenta
         public bool Selected;      // the node selected in the model tree (or one under it): lit up in the viewport
+        public bool ForceTexture;   // the UV mapper's texture is drawn whatever the material's look says (paint, glass...)
+        public bool Frozen;     // drawn dark grey and not picked by a click in the viewport (right click > Freeze Selection)
         public bool Hidden;     // "show only this part": the other parts are not drawn
         private ForzaVertex[] displayVertices;
         private bool displaySecondUV;
+        public float UvScale;           // texture repeat from the car's shadersettings.xml (ShaderLook.Apply), 0 = none
+        private float displayUvScale;
+
+        // The vertices or their coordinates changed: the copy the viewer draws is made again.
+        public void Invalidate()
+        {
+            this.displayVertices = null;
+        }
 
         public void Draw(ref GraphicsDevice device)
         {
+            // FH stripped_*.carbin have no vertex data: drawing nothing, a failed draw inside an effect pass
+            // would leave the device half-begun and break every model drawn after it.
+            if (this.Vertices == null || this.Vertices.Length == 0 || this.Indices == null || this.Indices.Length < 3)
+            {
+                return;
+            }
             // Parsed UVs are bottom-up (OBJ convention); Direct3D samples top-down.
-            if (this.displayVertices == null || this.displaySecondUV != this.UseSecondUV)
+            if (this.displayVertices == null || this.displaySecondUV != this.UseSecondUV || this.displayUvScale != this.UvScale)
             {
                 this.displayVertices = (ForzaVertex[]) this.Vertices.Clone();
+                float scale = (this.UvScale > 0f) ? this.UvScale : 1f;
                 for (int i = 0; i < this.displayVertices.Length; i++)
                 {
                     Vector2 uv = this.UseSecondUV ? this.displayVertices[i].texture1 : this.displayVertices[i].texture0;
-                    this.displayVertices[i].texture0 = new Vector2(uv.X, 1f - uv.Y);
+                    this.displayVertices[i].texture0 = new Vector2(uv.X * scale, (1f - uv.Y) * scale);
                 }
                 this.displaySecondUV = this.UseSecondUV;
+                this.displayUvScale = this.UvScale;
             }
             ForzaVertex[] vertices = this.displayVertices;
             device.VertexDeclaration = new VertexDeclaration(device, ForzaVertex.VertexElements);
@@ -100,7 +119,7 @@ namespace ForzaStudio
         {
             get
             {
-                return (this.Indices.Length / 3);
+                return (this.Indices == null) ? 0 : (this.Indices.Length / 3);
             }
         }
 
@@ -108,7 +127,7 @@ namespace ForzaStudio
         {
             get
             {
-                return this.Vertices.Length;
+                return (this.Vertices == null) ? 0 : this.Vertices.Length;
             }
         }
     }

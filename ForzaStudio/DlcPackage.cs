@@ -50,7 +50,7 @@ namespace ForzaStudio
             string layerTemp = Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "StringLayers_" + DateTime.Now.Ticks.ToString(CultureInfo.InvariantCulture));
             try
             {
-                return BuildFolderWith(cleanRoot, targetRoot, trialRoot, content, StringLayer.Installed(installed, layerTemp, report), offer, name, report);
+                return BuildFolderWith(cleanRoot, targetRoot, trialRoot, content, installed, StringLayer.Installed(installed, layerTemp, report), offer, name, report);
             }
             finally
             {
@@ -67,7 +67,7 @@ namespace ForzaStudio
             }
         }
 
-        private static string BuildFolderWith(string cleanRoot, string targetRoot, string trialRoot, string content, List<StringLayer> layers, int offer, string name, StringBuilder report)
+        private static string BuildFolderWith(string cleanRoot, string targetRoot, string trialRoot, string content, string installed, List<StringLayer> layers, int offer, string name, StringBuilder report)
         {
             string package = Path.Combine(content, OfferId(offer));
             if (Directory.Exists(package))
@@ -102,6 +102,7 @@ namespace ForzaStudio
             List<string> tables = BuildStrings(cleanRoot, targetRoot, trialRoot, Path.Combine(zips, strings), offer, name, layers, out displayKey, out descriptionKey, report);
             using (SqliteDatabase patch = SqliteDatabase.FromBytes(merge))
             {
+                RelocateKeys(patch, installed, targetRoot, package, report);
                 patch.Execute("UPDATE ContentOffers SET DisplayName = ?, Description = ?",
                     "_&" + ((hi << 16) | (long) displayKey).ToString(CultureInfo.InvariantCulture),
                     "_&" + ((hi << 16) | (long) descriptionKey).ToString(CultureInfo.InvariantCulture));
@@ -118,7 +119,7 @@ namespace ForzaStudio
             File.WriteAllBytes(Path.Combine(patchFolder, offer.ToString(CultureInfo.InvariantCulture) + "000_merge.slt"), merge);
 
             report.AppendLine("files:");
-            CopyPortedFiles(targetRoot, trialRoot, loose, media, report);
+            CopyPortedFiles(targetRoot, trialRoot, loose, media, offer, report);
 
             // The two lists, in the official files' form (" \r\n" line ends).
             WriteXml(Path.Combine(zips, "zipmount.xml"), "zipmount",
@@ -396,7 +397,26 @@ namespace ForzaStudio
         // to the 40s).
         public static int FreeOffer(string targetRoot, string content)
         {
-            int offer = (int) Math.Max(90, GameIdLimits.Max(ForzaGame.Motorsport4, "ContentOffers", "PubOfferingID"));
+            // Max of everything installed + 1 (user rule 2026-10-31): FM4 and its official packs, the game's
+            // database, the packages in Xenia (puboffer files and their merge databases).
+            int offer = (int) GameIdLimits.Max(ForzaGame.Motorsport4, "ContentOffers", "PubOfferingID");
+            foreach (string pack in DbIds.PackDatabases(content))
+            {
+                try
+                {
+                    using (SqliteDatabase merge = SqliteDatabase.FromBytes(File.ReadAllBytes(pack)))
+                    {
+                        object top = DbIds.HasTable(merge, "ContentOffers") ? merge.Scalar("SELECT max(PubOfferingID) FROM ContentOffers") : null;
+                        if (top != null && top != DBNull.Value)
+                        {
+                            offer = Math.Max(offer, (int) Convert.ToInt64(top));
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
             using (SqliteDatabase game = SqliteDatabase.FromBytes(File.ReadAllBytes(GameDb(targetRoot))))
             {
                 object max = game.Scalar("SELECT max(PubOfferingID) FROM ContentOffers");
@@ -779,18 +799,47 @@ namespace ForzaStudio
             throw new InvalidOperationException("ContentOffers.str has no free string key.");
         }
 
+        // The keys the port kept from the source game (engine 636, wheel 780, colour rows next to the target's...) or took
+        // next to the target database's are not safe in a pack: they must be above FM4's largest of their column and free in
+        // the game and in every package installed in Xenia's content folder. Same move as Validate DLC for Installation
+        // (DlcRelocate): engines and drivetrains with their children, then every other single key, references following.
+        private static void RelocateKeys(SqliteDatabase patch, string content, string targetRoot, string package, StringBuilder report)
+        {
+            using (DlcWorld world = DlcWorld.Load(content, targetRoot, package))
+            {
+                DlcRelocate relocate = new DlcRelocate(patch, world.Others, ForzaGame.Motorsport4);
+                relocate.MoveRoots();
+                relocate.MoveKeys();
+                foreach (string line in relocate.Log)
+                {
+                    report.AppendLine("  " + line);
+                }
+                foreach (string line in relocate.Unresolved)
+                {
+                    report.AppendLine("  NOT MOVED: " + line);
+                }
+            }
+        }
+
         // The trial's files, loose where the game mounts them (a zip X.zip mounts at the folder X).
-        private static void CopyPortedFiles(string targetRoot, string trialRoot, string loose, Dictionary<string, bool> media, StringBuilder report)
+        private static void CopyPortedFiles(string targetRoot, string trialRoot, string loose, Dictionary<string, bool> media, int offer, StringBuilder report)
         {
             string trialMedia = Path.Combine(trialRoot, "Media");
             string[] all = Directory.GetFiles(trialMedia, "*", SearchOption.AllDirectories);
             Array.Sort(all, StringComparer.OrdinalIgnoreCase);
+            List<string> rules = new List<string>();        // the badge and title rules of the trial's makes
             foreach (string file in all)
             {
                 string relative = file.Substring(trialMedia.Length + 1);
                 string lower = relative.ToLowerInvariant();
                 if (lower.StartsWith("db\\") || lower.StartsWith("stringtables\\") || lower == "zipmanifest.xml" || lower.EndsWith(".tmp"))
                 {
+                    continue;
+                }
+                if (lower.StartsWith("gametunablesettings\\badgesandtitles\\") && !lower.EndsWith("\\" + MakeTitles.RulesFile.ToLowerInvariant()))
+                {
+                    // A pack adds its own rules file to the folder (official offer 31: 30.xml); the game's stays as it is.
+                    rules.AddRange(MakeTitles.Blocks(File.ReadAllText(file)));
                     continue;
                 }
                 string targetFile = Path.Combine(Path.Combine(targetRoot, "Media"), relative);
@@ -835,6 +884,14 @@ namespace ForzaStudio
                 {
                     report.AppendLine(string.Format(CultureInfo.InvariantCulture, "  {0}: {1} files{2}", relative, count, whole ? " (whole)" : string.Empty));
                 }
+            }
+            if (rules.Count > 0)
+            {
+                string folder = MakeTitles.RulesFolder(Path.GetDirectoryName(loose));
+                Directory.CreateDirectory(folder);
+                string name = offer.ToString(CultureInfo.InvariantCulture) + ".xml";
+                File.WriteAllText(Path.Combine(folder, name), MakeTitles.Document(rules), new UTF8Encoding(false));
+                report.AppendLine("  GameTunableSettings\\BadgesAndTitles\\" + name + ": " + rules.Count + " badge and title rules");
             }
         }
 

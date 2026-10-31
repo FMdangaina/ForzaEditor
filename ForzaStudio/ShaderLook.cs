@@ -33,6 +33,12 @@ namespace ForzaStudio
         public float SpecularPower;
         public float Alpha;
         public bool UseTexture;       // the diffuse comes from the texture (else the base grey / the paint colour)
+        public bool HasPaintColor;    // shadersettings.xml gives the paint colour itself (matte_colors, emblem): used instead of the body colour
+        public Vector3Lite PaintColor;
+        public float UvScale;         // texture repeat set by the car (CarbonFiberScale, MottleTile, UV1Tile1); 0 = as the mesh maps it
+        public bool GlassTinted;      // shadersettings.xml gives GlassColor: it tints the glass (and a texture drawn on it)
+        public bool OpacitySet;       // shadersettings.xml gives GlassMaxOpacity
+        public const float TexturedGlassAlpha = 0.6f;   // glass that has a texture (lamp lenses) shows it fairly opaque: the texture alpha is not applied
     }
 
     // Plain float triple so the table and the harnesses do not need XNA.
@@ -49,16 +55,18 @@ namespace ForzaStudio
         // (the 36 of 391 where the shader constants and the name rules disagree).
         private static readonly Dictionary<string, ShaderKind> Known = new Dictionary<string, ShaderKind>(StringComparer.OrdinalIgnoreCase)
         {
-            { "badge2", ShaderKind.Paint }, { "brinl", ShaderKind.Light }, { "brinr", ShaderKind.Light }, { "brkreverse", ShaderKind.Light },
-            { "cloth", ShaderKind.Paint }, { "cloth2", ShaderKind.Paint }, { "engine", ShaderKind.Paint }, { "engine_embossed_CF", ShaderKind.Carbon },
+            // Only `body` takes the car's colour in the viewport (user 2026-10-31): misc, engine, cloth... share its
+            // shader but are drawn with their texture (nodamage), so they are Generic here.
+            { "badge2", ShaderKind.Generic }, { "brinl", ShaderKind.Light }, { "brinr", ShaderKind.Light }, { "brkreverse", ShaderKind.Light },
+            { "cloth", ShaderKind.Generic }, { "cloth2", ShaderKind.Generic }, { "engine", ShaderKind.Generic }, { "engine_embossed_CF", ShaderKind.Carbon },
             { "hidhead", ShaderKind.Light }, { "lights_chrome", ShaderKind.Light }, { "lights_metal", ShaderKind.Light }, { "lights_plastic", ShaderKind.Light },
             { "lights_gls_hidhead", ShaderKind.Glass }, { "lights_gls_indicator_left", ShaderKind.Glass }, { "lights_gls_indicator_right", ShaderKind.Glass },
             { "lights_gls_noemit", ShaderKind.Glass }, { "lights_gls_oldhead", ShaderKind.Glass }, { "lights_gls_reverse_light", ShaderKind.Glass },
             { "lights_gls_tail_light", ShaderKind.Glass }, { "lights_gls_taillight2S", ShaderKind.Glass }, { "lights_gls_taillightst", ShaderKind.Glass },
-            { "lindtailside", ShaderKind.Light }, { "linred", ShaderKind.Light }, { "liveryBadge", ShaderKind.Paint }, { "misc", ShaderKind.Paint },
-            { "mottled", ShaderKind.Paint }, { "oldhead", ShaderKind.Light }, { "race_kit_red", ShaderKind.Paint }, { "rindtailside", ShaderKind.Light },
+            { "lindtailside", ShaderKind.Light }, { "linred", ShaderKind.Light }, { "liveryBadge", ShaderKind.Generic }, { "misc", ShaderKind.Generic },
+            { "mottled", ShaderKind.Generic }, { "oldhead", ShaderKind.Light }, { "race_kit_red", ShaderKind.Generic }, { "rindtailside", ShaderKind.Light },
             { "rinred", ShaderKind.Light }, { "slinlorange", ShaderKind.Light }, { "slinrorange", ShaderKind.Light }, { "slorange", ShaderKind.Light },
-            { "stripe_badge", ShaderKind.Paint }, { "wheel_black", ShaderKind.Rubber }, { "xenonhead", ShaderKind.Light }
+            { "stripe_badge", ShaderKind.Generic }, { "wheel_black", ShaderKind.Rubber }, { "xenonhead", ShaderKind.Light }
         };
 
         private static Dictionary<string, bool> MakeSet(string[] names)
@@ -132,6 +140,106 @@ namespace ForzaStudio
                 case ShaderKind.Soft: return 0.03f;
                 default: return 0f;
             }
+        }
+
+        // The values of a car's shadersettings.xml entry for the mesh's technique (parameter -> r g b a or value)
+        // laid over the class look, so a red GlassColor or a red lamp colour shows in the viewport as in game.
+        // Colours above 1 (FH lamps use 2.0) are clamped; a parameter the class has no use for is ignored.
+        public static ShaderLookValues Apply(ShaderLookValues look, IDictionary<string, float[]> p)
+        {
+            if (p == null || p.Count == 0) return look;
+            float[] v;
+            if (p.TryGetValue("GlassColor", out v) && v.Length >= 3 && look.Kind == ShaderKind.Glass)
+            {
+                look.Diffuse = Clamp3(v, 0.6f);
+                look.GlassTinted = true;
+                look.Specular = new Vector3Lite(0.6f);
+            }
+            if (p.TryGetValue("GlassMaxOpacity", out v) && look.Kind == ShaderKind.Glass)
+            {
+                look.Alpha = Math.Max(0.1f, Math.Min(1f, v[0]));
+                look.OpacitySet = true;
+            }
+            if ((p.TryGetValue("PaintColor", out v) || p.TryGetValue("CarbonFiberDiffuseColor", out v) || p.TryGetValue("GrilleColor", out v) || p.TryGetValue("CockpitHeadlinerColor", out v)) && v.Length >= 3)
+            {
+                if (look.Kind == ShaderKind.Paint || p.ContainsKey("PaintColor"))
+                {
+                    look.HasPaintColor = true;
+                    look.PaintColor = Clamp3(v, 1f);
+                }
+                else
+                {
+                    look.Diffuse = Mul(look.Diffuse, Clamp3(v, 1f));
+                }
+            }
+            if (p.TryGetValue("DiffuseColorMultiply", out v) && v.Length >= 3) look.Diffuse = Mul(look.Diffuse, Clamp3(v, 1f));
+            foreach (string key in new string[] { "PaintScale", "CockpitPaintScale", "CockpitPlasticPaintScale", "CockpitMetalPaintScale", "PristinePaintScale" })
+            {
+                if (p.TryGetValue(key, out v) && look.Kind != ShaderKind.Glass && look.Kind != ShaderKind.Chrome)
+                {
+                    look.Diffuse = Mul(look.Diffuse, new Vector3Lite(Math.Max(0.1f, Math.Min(1.5f, v[0]))));
+                    break;
+                }
+            }
+            if (p.TryGetValue("ChromeDiffuseScale", out v)) look.Diffuse = new Vector3Lite(Math.Max(0f, Math.Min(1f, 0.25f * v[0])));
+            float amount = 1f;
+            bool hasSpecular = false;
+            foreach (string key in new string[] { "SpecularAmount", "CockpitSpecularAmount" })
+            {
+                if (p.TryGetValue(key, out v)) { amount = Math.Max(0f, Math.Min(1.5f, v[0])); hasSpecular = true; break; }
+            }
+            if (p.TryGetValue("SpecularColor", out v) && v.Length >= 3)
+            {
+                look.Specular = Mul(Clamp3(v, 1f), new Vector3Lite(amount));
+            }
+            else if (hasSpecular)
+            {
+                look.Specular = new Vector3Lite(Math.Min(1f, amount));
+            }
+            foreach (string key in new string[] { "SpecularPower", "CockpitSpecularPower" })
+            {
+                if (p.TryGetValue(key, out v)) { look.SpecularPower = Math.Max(1f, Math.Min(200f, v[0])); break; }
+            }
+            // Texture repeat: the car's value multiplies the mesh UVs (only a sane number is taken).
+            foreach (string key in new string[] { "CarbonFiberScale", "MottleTile", "UV1Tile1" })
+            {
+                if (p.TryGetValue(key, out v) && v[0] > 0.01f && v[0] < 200f)
+                {
+                    look.UvScale = v[0];
+                    break;
+                }
+            }
+            // Self-lit gauges: GaugeEmissiveScale is the glow, GaugeAmbientAmt a bit of base light.
+            float glow = 0f;
+            if (p.TryGetValue("GaugeEmissiveScale", out v)) glow = Math.Max(glow, 0.45f * Math.Min(1f, v[0]));
+            if (p.TryGetValue("GaugeAmbientAmt", out v)) glow = Math.Max(glow, 0.3f * Math.Min(1f, v[0]));
+            if (glow > 0f)
+            {
+                look.Emissive = new Vector3Lite(Math.Max(look.Emissive.X, glow), Math.Max(look.Emissive.Y, glow), Math.Max(look.Emissive.Z, glow));
+            }
+            if (look.Kind == ShaderKind.Light)
+            {
+                foreach (string key in new string[] { "ReverseLightColor", "BrakeColor" })
+                {
+                    if (p.TryGetValue(key, out v) && v.Length >= 3)
+                    {
+                        look.Emissive = Clamp3(v, 0.45f);
+                        look.Diffuse = Mul(look.Diffuse, Clamp3(v, 1f));
+                        break;
+                    }
+                }
+            }
+            return look;
+        }
+
+        private static Vector3Lite Clamp3(float[] v, float scale)
+        {
+            return new Vector3Lite(Math.Max(0f, Math.Min(1f, v[0])) * scale, Math.Max(0f, Math.Min(1f, v[1])) * scale, Math.Max(0f, Math.Min(1f, v[2])) * scale);
+        }
+
+        private static Vector3Lite Mul(Vector3Lite a, Vector3Lite b)
+        {
+            return new Vector3Lite(a.X * b.X, a.Y * b.Y, a.Z * b.Z);
         }
 
         // BasicEffect-style values for a class. `paint` is the body colour (null = the viewer's base grey).
