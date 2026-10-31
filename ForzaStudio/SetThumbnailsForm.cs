@@ -34,6 +34,13 @@ namespace ForzaStudio
             public XdsTexture Current;      // a game folder reads them a few at a time (about 500 textures)
             public bool Tried;
             public XeniaThumbnails.Item Assigned;
+            public string DbFile;       // DLC: the merge database holding the car's row (null = no row, the car is a thumbnail file only)
+            public string DbEntry;      // the entry of the merge database in the zip DbFile; null = DbFile is the loose database
+            public string DbThumb;     // DLC: the row's Thumbnail column
+            public string Wanted        // the column the row must have: the file is named by the car's id
+            {
+                get { return "game:\\Media\\UI\\Textures\\Thumbnails\\Thumbnail_" + this.Id.ToString(CultureInfo.InvariantCulture) + ".xds"; }
+            }
         }
 
         private Timer reader;
@@ -293,22 +300,36 @@ namespace ForzaStudio
             this.carList.Items.Clear();
             this.carImages.Images.Clear();
             Dictionary<int, string> names = new Dictionary<int, string>();
-            foreach (string slt in Directory.GetFiles(folder, "*_merge.slt", SearchOption.AllDirectories))
+            List<Car> rows = new List<Car>();       // the cars of the merge database(s), with or without a picture
+            // The merge database is loose, or an entry of a zip of the pack (Media/db/patch/<n>_merge.slt).
+            foreach (string path in Directory.GetFiles(folder, "*", SearchOption.AllDirectories))
             {
-                using (SqliteDatabase db = SqliteDatabase.FromBytes(File.ReadAllBytes(slt)))
+                if (path.EndsWith("_merge.slt", StringComparison.OrdinalIgnoreCase))
                 {
-                    foreach (object[] row in db.Query("SELECT Id, MediaName FROM Data_Car").Rows)
+                    this.ReadMerge(path, null, File.ReadAllBytes(path), names, rows);
+                }
+                else if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && Path.GetFileName(path).IndexOf("StringTables", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    ForzaZip zip = new ForzaZip(path);
+                    foreach (ForzaZip.Entry entry in zip.Entries)
                     {
-                        names[Convert.ToInt32(row[0], CultureInfo.InvariantCulture)] = Convert.ToString(row[1], CultureInfo.InvariantCulture);
+                        if (entry.Name.EndsWith("_merge.slt", StringComparison.OrdinalIgnoreCase))
+                        {
+                            this.ReadMerge(path, entry.Name, zip.Read(entry), names, rows);
+                        }
                     }
                 }
             }
+            // Every picture of the DLC by file name, then each database row takes the one its Thumbnail column names
+            // (Thumbnail_431.xds under the car 8040 is that car's); what no row claims stays a car of its own.
+            Dictionary<string, Car> found = new Dictionary<string, Car>(StringComparer.OrdinalIgnoreCase);
             foreach (string path in Directory.GetFiles(folder, "*", SearchOption.AllDirectories))
             {
                 Match match = ThumbnailName.Match(path);
                 if (match.Success)
                 {
-                    this.AddCar(int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture), names, path, null, File.ReadAllBytes(path));
+                    Car car = this.NewCar(int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture), path, null, File.ReadAllBytes(path));
+                    found[Path.GetFileName(path)] = car;
                 }
                 else if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && Path.GetFileName(path).IndexOf("StringTables", StringComparison.OrdinalIgnoreCase) < 0)
                 {
@@ -318,10 +339,37 @@ namespace ForzaStudio
                         match = ThumbnailName.Match(entry.Name);
                         if (match.Success)
                         {
-                            this.AddCar(int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture), names, path, entry.Name, zip.Read(entry));
+                            found[Path.GetFileName(entry.Name)] = this.NewCar(int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture), path, entry.Name, zip.Read(entry));
                         }
                     }
                 }
+            }
+            foreach (Car dbCar in rows)
+            {
+                Car picture = null;
+                string file = null;
+                if (dbCar.DbThumb != null)
+                {
+                    file = dbCar.DbThumb.Replace('/', '\\');
+                    file = file.Substring(file.LastIndexOf('\\') + 1);
+                    found.TryGetValue(file, out picture);
+                }
+                if (picture != null)
+                {
+                    dbCar.File = picture.File;
+                    dbCar.Entry = picture.Entry;
+                    dbCar.Current = picture.Current;
+                    found.Remove(file);
+                }
+                dbCar.Tried = true;
+                this.cars.Add(dbCar);
+            }
+            foreach (Car car in found.Values)
+            {
+                string media;
+                names.TryGetValue(car.Id, out media);
+                car.Media = media;
+                this.cars.Add(car);
             }
             this.carsLabel.Text = "CARS IN THE DLC";
             this.RebuildList();
@@ -500,15 +548,32 @@ namespace ForzaStudio
             row.SubItems[2].Text = (car.Assigned != null) ? car.Assigned.Name : (car.Current != null ? "current" : "");
         }
 
-        private void AddCar(int id, Dictionary<int, string> names, string file, string entry, byte[] data)
+        private void ReadMerge(string file, string entry, byte[] data, Dictionary<int, string> names, List<Car> rows)
+        {
+            using (SqliteDatabase db = SqliteDatabase.FromBytes(data))
+            {
+                foreach (object[] row in db.Query("SELECT Id, MediaName, Thumbnail FROM Data_Car").Rows)
+                {
+                    Car dbCar = new Car();
+                    dbCar.Id = Convert.ToInt32(row[0], CultureInfo.InvariantCulture);
+                    dbCar.Media = Convert.ToString(row[1], CultureInfo.InvariantCulture);
+                    dbCar.DbFile = file;
+                    dbCar.DbEntry = entry;
+                    dbCar.DbThumb = (row[2] is string) ? (string) row[2] : null;
+                    names[dbCar.Id] = dbCar.Media;
+                    rows.Add(dbCar);
+                }
+            }
+        }
+
+        private Car NewCar(int id, string file, string entry, byte[] data)
         {
             Car car = new Car();
             car.Id = id;
-            names.TryGetValue(id, out car.Media);
             car.File = file;
             car.Entry = entry;
             car.Current = new XdsTexture(data);
-            this.cars.Add(car);
+            return car;
         }
 
         private void BrowseXenia()
@@ -631,6 +696,7 @@ namespace ForzaStudio
                 this.status.Text = "Writing the thumbnails...";
                 this.status.Refresh();
                 int written = 0;
+                List<string> changedDbs = new List<string>();
                 // The zips are opened once each, the loose files written straight.
                 Dictionary<string, ForzaZip> zips = new Dictionary<string, ForzaZip>(StringComparer.OrdinalIgnoreCase);
                 foreach (Car car in this.cars)
@@ -639,7 +705,51 @@ namespace ForzaStudio
                     {
                         continue;
                     }
-                    if (car.Entry == null)
+                    string wantedName = "Thumbnail_" + car.Id.ToString(CultureInfo.InvariantCulture) + ".xds";
+                    if (car.DbFile != null && (car.File == null || !string.Equals(Path.GetFileName(car.Entry ?? car.File), wantedName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        // No picture yet, or one named after another car (Thumbnail_431 under car 8040): the car's own
+                        // Thumbnail_<id>.xds, loose in the DLC, and the database row points at it.
+                        if (car.DbEntry != null)
+                        {
+                            // The game mounts the pack's zip (Media\DLCZips\<n>_pri_65.zip) and nothing outside it: the picture goes in the
+                            // zip of the car's database row, beside it.
+                            ForzaZip packZip;
+                            if (!zips.TryGetValue(car.DbFile, out packZip))
+                            {
+                                packZip = new ForzaZip(car.DbFile);
+                                zips[car.DbFile] = packZip;
+                            }
+                            int media = car.DbEntry.IndexOf("Media/", StringComparison.OrdinalIgnoreCase);
+                            string entryName = (media > 0 ? car.DbEntry.Substring(0, media) : "") + "Media/UI/Textures/Thumbnails/" + wantedName;
+                            ForzaZip.Entry existing = packZip.Find(entryName);
+                            if (existing != null)
+                            {
+                                packZip.Replace(existing, car.Assigned.Xds);
+                            }
+                            else
+                            {
+                                packZip.Add(entryName, car.Assigned.Xds);
+                            }
+                            car.File = car.DbFile;
+                            car.Entry = entryName;
+                        }
+                        else
+                        {
+                            string folder = Path.Combine(Path.Combine(Path.Combine(Path.Combine(this.root, "Media"), "UI"), "Textures"), "Thumbnails");
+                            Directory.CreateDirectory(folder);
+                            car.File = Path.Combine(folder, wantedName);
+                            car.Entry = null;
+                            File.WriteAllBytes(car.File, car.Assigned.Xds);
+                        }
+                        string dbKey = car.DbFile + "|" + car.DbEntry;
+                        if (!changedDbs.Contains(dbKey))
+                        {
+                            changedDbs.Add(dbKey);
+                        }
+                        car.DbThumb = null;
+                    }
+                    else if (car.Entry == null)
                     {
                         File.WriteAllBytes(car.File, car.Assigned.Xds);
                     }
@@ -654,6 +764,48 @@ namespace ForzaStudio
                         zip.Replace(zip.Find(car.Entry), car.Assigned.Xds);
                     }
                     written++;
+                }
+                // The merge databases whose rows now point at the car's own file (loose, or an entry of a zip saved below).
+                foreach (string key in changedDbs)
+                {
+                    string[] part = key.Split('|');
+                    string slt = part[0], entryName = (part[1].Length > 0) ? part[1] : null;
+                    ForzaZip dbZip = null;
+                    ForzaZip.Entry dbEntry = null;
+                    byte[] bytes;
+                    if (entryName == null)
+                    {
+                        bytes = File.ReadAllBytes(slt);
+                    }
+                    else
+                    {
+                        if (!zips.TryGetValue(slt, out dbZip))
+                        {
+                            dbZip = new ForzaZip(slt);
+                            zips[slt] = dbZip;
+                        }
+                        dbEntry = dbZip.Find(entryName);
+                        bytes = dbZip.Read(dbEntry);
+                    }
+                    using (SqliteDatabase db = SqliteDatabase.FromBytes(bytes))
+                    {
+                        foreach (Car car in this.cars)
+                        {
+                            if (car.DbFile == slt && car.DbEntry == entryName && car.Assigned != null && car.DbThumb == null)
+                            {
+                                db.Execute("UPDATE Data_Car SET Thumbnail = ? WHERE Id = ?", car.Wanted, car.Id);
+                                car.DbThumb = car.Wanted;
+                            }
+                        }
+                        if (entryName == null)
+                        {
+                            File.WriteAllBytes(slt, db.ToBytes());
+                        }
+                        else
+                        {
+                            dbZip.Replace(dbEntry, db.ToBytes());
+                        }
+                    }
                 }
                 string stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture);
                 string manifest = (this.gameRoot != null) ? ZipManifest.PathFor(this.gameRoot) : null;

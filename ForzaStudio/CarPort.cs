@@ -348,10 +348,6 @@ namespace ForzaStudio
                     {
                         throw new InvalidOperationException("The new MediaName must be 3-40 letters, digits or underscores and differ from " + this.MediaName + ".");
                     }
-                    if (this.motorsport3 || this.fm2Stage)
-                    {
-                        throw new InvalidOperationException("Porting under another name is for Forza Horizon cars only.");
-                    }
                     this.source.Execute("UPDATE Data_Car SET MediaName = ? WHERE Id = ?", this.RenameTo, sourceId);
                 }
                 DbIds.PackContent = this.XeniaContent;
@@ -640,6 +636,7 @@ namespace ForzaStudio
             if (this.motorsport3)
             {
                 this.FillMotorsport4Columns(from, to);
+                this.TuneMotorsport3Handling();
             }
             this.StockTires();
             this.DragTires();
@@ -1082,6 +1079,92 @@ namespace ForzaStudio
                 this.Line("  digital dash: FM3 gauge {0} ({1}); Data_Car.GaugeID = -1 as on every FM4 car", gauge, string.IsNullOrEmpty(this.motorsport3Dash) ? "not in List_DigitalGauges" : this.motorsport3Dash);
             }
         }
+
+        // FM4's spring rate over FM3's by FM4 class (median per class on the 315 cars both games have,
+        // docs/FM3_GRIP_CM_SPRINGS.md).
+        private static readonly double[] SpringClassRatio = { 0.605, 0.748, 0.748, 0.805, 0.805, 0.857, 0.903, 0.941, 0.973, 1.0 };
+
+        // FM3 centre of mass and springs on FM4's scale: FM4 CMHeight = FM3 CMHeight + stock ride height
+        // (sd 2 cm), FM4 spring rates = FM3 x class ratio (median error 3.4 %), dampers and anti-roll bars
+        // likewise by class. Without it FM3 ports sit too low and stiff, hence too much grip. Ride height
+        // is left as it is.
+        private void TuneMotorsport3Handling()
+        {
+            object ride = this.target.Scalar("SELECT avg(p.DefRideHeight) FROM List_UpgradeSpringDamper u JOIN List_SpringDamperPhysics p ON p.SpringDamperPhysicsID IN (u.FrontSpringDamperPhysicsID, u.RearSpringDamperPhysicsID) WHERE u.Ordinal = ? AND u.IsStock = 1", this.carId);
+            object cls = this.target.Scalar("SELECT ClassID FROM Data_Car WHERE Id = ?", this.carId);
+            long low = this.carId * 1000;
+            long high = low + 999;
+            if (ride != null && !(ride is DBNull))
+            {
+                double height = Convert.ToDouble(ride, CultureInfo.InvariantCulture);
+                this.target.Execute("UPDATE List_UpgradeCarBodyWeight SET CMHeight = round(CMHeight + ?, 4) WHERE CarBodyID BETWEEN ? AND ?", height, low, high);
+                this.Line("  FM3 handling: CMHeight + stock ride height {0:0.000} m", height);
+            }
+            if (cls != null && !(cls is DBNull))
+            {
+                long c = Math.Max(0, Math.Min(9, Convert.ToInt64(cls)));
+                double ratio = SpringClassRatio[c];
+                // Min and Max are the tuning slider's limits (FM4 keeps 20 / 150, 1 / 12, 1 / 40 on the rows that have them), so
+                // they follow the scale only on the fixed parts, where they equal the default.
+                this.target.Execute(ScaleSql("List_SpringDamperPhysics", "SpringRate", "SpringDamperPhysicsID"), ratio, ratio, ratio, low, high);
+                this.Line("  FM3 handling: spring rates x {0} (FM4 class {1})", ratio, c);
+                // Dampers: rebound = sqrt of the spring ratio, bump = rebound x 1.333 (clamps and bump stops are equal in both games).
+                double bump = DamperBumpRatio[c];
+                double rebound = DamperReboundRatio[c];
+                this.target.Execute(ScaleSql("List_SpringDamperPhysics", "DampenBumpRate", "SpringDamperPhysicsID"), bump, bump, bump, low, high);
+                this.target.Execute(ScaleSql("List_SpringDamperPhysics", "DampenReboundRate", "SpringDamperPhysicsID"), rebound, rebound, rebound, low, high);
+                this.Line("  FM3 handling: dampers bump x {0}, rebound x {1}", bump, rebound);
+                // Anti-roll bars (ids car*1000+0xx front, +1xx rear): FM4 stiffer in front, softer behind; FM4's ratios exist for classes 0-6 only.
+                if (c < SwayFrontRatio.Length)
+                {
+                    this.target.Execute(ScaleSql("List_AntiSwayPhysics", "SwaybarStiffness", "AntiSwayPhysicsID"), SwayFrontRatio[c], SwayFrontRatio[c], SwayFrontRatio[c], low, low + 99);
+                    this.target.Execute(ScaleSql("List_AntiSwayPhysics", "SwaybarStiffness", "AntiSwayPhysicsID"), SwayRearRatio[c], SwayRearRatio[c], SwayRearRatio[c], low + 100, low + 199);
+                    this.Line("  FM3 handling: anti-roll bars front x {0}, rear x {1}", SwayFrontRatio[c], SwayRearRatio[c]);
+                }
+                else
+                {
+                    this.Line("  FM3 handling: anti-roll bars left as they are (class {0}: FM4 ratios known for classes 0-6)", c);
+                }
+            }
+            // Steering: on the 315 cars both games have, FM4 = FM3 x 1.2 on the maximum angle (35 -> 42, 30 -> 36, 25 -> 30; 275 + 23 + 15 cars)
+            // and 105 on the three angular velocities where FM3 has 70 (turning) or 140 (straighten, countersteer), on all 315.
+            this.target.Execute("UPDATE Data_Car SET SteerMaxAngle = round(SteerMaxAngle * 1.2, 4), SteerMaxAngVelTurning = CASE WHEN SteerMaxAngVelTurning = 70 THEN 105 ELSE SteerMaxAngVelTurning END, "
+                + "SteerMaxAngVelStraighten = CASE WHEN SteerMaxAngVelStraighten = 140 THEN 105 ELSE SteerMaxAngVelStraighten END, SteerAngVelCountersteer = CASE WHEN SteerAngVelCountersteer = 140 THEN 105 ELSE SteerAngVelCountersteer END WHERE Id = ?", this.carId);
+            // Brakes, STOCK row only (FM4's upgrade rows keep FM3's 1.01 / 1.03 / 1.05 and ABS 1): ABS release point 1 -> 0.75 and braking
+            // friction scale 1 -> 1, 1.01 -> 1.0025, 1.03 -> 1.005, 1.05 -> 1.01 (all 315 stock rows).
+            this.target.Execute("UPDATE List_UpgradeBrakes SET ReleasePointABSRearFullSteer = CASE WHEN ReleasePointABSRearFullSteer = 1 THEN 0.75 ELSE ReleasePointABSRearFullSteer END, "
+                + "GameFrictionScaleBraking = CASE round(GameFrictionScaleBraking, 3) WHEN 1.01 THEN 1.0025 WHEN 1.03 THEN 1.005 WHEN 1.05 THEN 1.01 ELSE GameFrictionScaleBraking END WHERE Ordinal = ? AND IsStock = 1", this.carId);
+            // Chassis stiffness friction scales (FM4 Lat = Long per axle): FM4's deficit from 1 is about 0.7 x FM3's on the front, on a 0.005
+            // grid (315 stock rows: 218 exact, 280 within 0.005, max 0.02); the rear is half the front's deficit where FM3's rear is 1
+            // (225 exact, max 0.0075), else 0.7 x FM3's deficit.
+            foreach (object[] row in this.target.Query("SELECT Id, FrontLatFrictionScale, RearLatFrictionScale FROM List_UpgradeCarBodyChassisStiffness WHERE CarbodyId BETWEEN ? AND ?", low, high).Rows)
+            {
+                double front = Convert.ToDouble(row[1], CultureInfo.InvariantCulture);
+                double rear = Convert.ToDouble(row[2], CultureInfo.InvariantCulture);
+                double newFront = Math.Round((1 - ((1 - front) * 0.7)) / 0.005) * 0.005;
+                double newRear = (rear >= 0.9999) ? 1 - ((1 - newFront) / 2) : Math.Round((1 - ((1 - rear) * 0.7)) / 0.005) * 0.005;
+                this.target.Execute("UPDATE List_UpgradeCarBodyChassisStiffness SET FrontLatFrictionScale = ?, FrontLongFrictionScale = ?, RearLatFrictionScale = ?, RearLongFrictionScale = ? WHERE Id = ?",
+                    Math.Round(newFront, 4), Math.Round(newFront, 4), Math.Round(newRear, 4), Math.Round(newRear, 4), row[0]);
+            }
+            // Camber change: FM3 has none (0 / 0) on independent suspensions where FM4 has 0.25 / 0.25 (89 of 89 axles); solid axles stay 0.
+            this.target.Execute("UPDATE List_SpringDamperPhysics SET CamberChangeRatioCompression = 0.25, CamberChangeRatioExpansion = 0.25 WHERE SpringDamperPhysicsID BETWEEN ? AND ? AND SuspensionPhysicsTypeID = 0 AND CamberChangeRatioCompression = 0 AND CamberChangeRatioExpansion = 0", low, high);
+            this.Line("  FM3 handling: steering angle x 1.2, angular velocities 105; ABS release 0.75, braking friction scale as FM4; camber change 0.25 on independent axles");
+        }
+
+        // SET Def = Def * r, Min / Max = * r only where they equal the default (fixed parts), for the columns Def/Min/Max<column>.
+        private static string ScaleSql(string table, string column, string key)
+        {
+            string d = "Def" + column;
+            string n = "Min" + column;
+            string x = "Max" + column;
+            return "UPDATE " + table + " SET " + d + " = " + d + " * ?, " + n + " = CASE WHEN " + n + " = " + d + " THEN " + n + " * ? ELSE " + n + " END, " + x + " = CASE WHEN " + x + " = " + d + " THEN " + x + " * ? ELSE " + x + " END WHERE " + key + " BETWEEN ? AND ?";
+        }
+
+        // FM4 / FM3 damper and anti-roll ratios by FM4 class (medians on the cars both games have).
+        private static readonly double[] DamperBumpRatio = { 1.03, 1.153, 1.153, 1.196, 1.196, 1.235, 1.267, 1.293, 1.315, 1.333 };
+        private static readonly double[] DamperReboundRatio = { 0.773, 0.865, 0.865, 0.897, 0.897, 0.926, 0.95, 0.97, 0.987, 1.0 };
+        private static readonly double[] SwayFrontRatio = { 0.844, 1.044, 1.044, 1.124, 1.124, 1.197, 1.261 };
+        private static readonly double[] SwayRearRatio = { 0.839, 0.851, 0.851, 0.916, 0.916, 0.976, 1.027 };
 
         // Every value of the rows the port wrote that points at a row FM4 lacks: fixed when the user
         // chose a value for it (Fixes), else listed for the review with FM4's own values to pick from.
@@ -5631,6 +5714,23 @@ namespace ForzaStudio
                 this.Put(carModels, this.CarName + "_CMT.xml", tuning);
                 this.Line("car model tuning {0}_CMT.xml added", this.CarName);
             }
+            else if (!string.IsNullOrEmpty(this.DonorMediaName))
+            {
+                // The source has none (an FM3 DLC car whose audio is in the base game): without <car>_CMT.xml the car has no sound
+                // model at all (checked in game 2026-10-30: the R8 Community was silent). The donor's one stands in, the car's name in it.
+                ForzaZip.Entry donorModel = carModels.Find(this.DonorMediaName + "_CMT.xml");
+                if (donorModel != null)
+                {
+                    Encoding latin = Encoding.GetEncoding(28591);
+                    this.Put(carModels, this.CarName + "_CMT.xml", latin.GetBytes(Regex.Replace(latin.GetString(carModels.Read(donorModel)), Regex.Escape(this.DonorMediaName), this.CarName, RegexOptions.IgnoreCase)));
+                    this.donorContent.Add(string.Format("car model tuning {0}_CMT.xml: the donor's {1}_CMT.xml ({2} has none)", this.CarName, this.DonorMediaName, this.game));
+                    this.Line("car model tuning {0}_CMT.xml: the donor's ({1} has none)", this.CarName, this.game);
+                }
+                else
+                {
+                    this.Line("  WARNING car model tuning: {0} has none and the donor's {1}_CMT.xml is not in the target: the car may be silent", this.game, this.DonorMediaName);
+                }
+            }
         }
 
         // A supercharged (DSC, Data_Engine.AspirationID_Stock 5) engine with the source's blow-off slots played a
@@ -6033,7 +6133,19 @@ namespace ForzaStudio
                 }
                 if (source == null)
                 {
-                    return -1;
+                    // Not in the source and not loose in FM4, but an installed FM4 package may carry it (the second disc's
+                    // Model Year Car Packs): then it is there, the game loads it from the package (TODO 3.4).
+                    // It is copied out of the package into the car, so it does not depend on that package being installed
+                    // (a file the game cannot find is an I/O error and a crash).
+                    string pack = SoundBankIndex.PackageOf(ForzaGame.Motorsport4, bank.Groups[1].Value);
+                    string extracted = (pack != null) ? SoundBankIndex.Extract(ForzaGame.Motorsport4, bank.Groups[1].Value) : null;
+                    if (extracted == null)
+                    {
+                        return -1;
+                    }
+                    this.Line("  sound bank {0}: taken from the installed package \"{1}\"", bank.Groups[1].Value, pack);
+                    copies[target] = extracted;
+                    continue;
                 }
                 copies[target] = source;
             }
@@ -6098,21 +6210,29 @@ namespace ForzaStudio
                     }
                 }
             }
-            if (from == null || like == null || !like.InZip)
+            if (like == null || !like.InZip)
             {
                 this.Line("thumbnail: not found, skipped");
                 return;
             }
             ForzaZip textures = this.OpenChanged(like.ZipPath);
-            string fileName = Path.GetFileName(thumbnail.Replace('\\', '/').Replace('/', Path.DirectorySeparatorChar));
-            if (this.fm2Stage || this.RenameTo != null)
+            // The file is named by the new car id (the source's Thumbnail_431.xds can be another car's here, or the id
+            // of a DLC car), and the database row points at it.
+            string fileName = "Thumbnail_" + this.carId.ToString(CultureInfo.InvariantCulture) + ".xds";
+            string folder = (thumbnail != null && thumbnail.IndexOf('\\') >= 0) ? thumbnail.Substring(0, thumbnail.LastIndexOf('\\') + 1) : "game:\\Media\\UI\\Textures\\Thumbnails\\";
+            this.target.Execute("UPDATE Data_Car SET Thumbnail = ? WHERE Id = ?", folder + fileName, this.carId);
+            byte[] picture;
+            if (from == null)
             {
-                // FM2 ids are FM4 car ids too (Thumbnail_481.xds is another car's): the file is named by the new id.
-                fileName = "Thumbnail_" + this.carId.ToString(CultureInfo.InvariantCulture) + ".xds";
-                this.target.Execute("UPDATE Data_Car SET Thumbnail = ? WHERE Id = ?", thumbnail.Substring(0, thumbnail.LastIndexOf('\\') + 1) + fileName, this.carId);
+                picture = Fm2Source.GenericThumbnail();
+                this.Line("thumbnail: the source has none, a generic picture is put");
+            }
+            else
+            {
+                picture = GamePaths.Read(from);
             }
             string name = like.EntryName.Substring(0, like.EntryName.LastIndexOf('/') + 1) + fileName;
-            this.Put(textures, name, GamePaths.Read(from));
+            this.Put(textures, name, picture);
             this.donorFormat.Add("thumbnail: put in the folder of the donor's (" + like.EntryName.Substring(0, like.EntryName.LastIndexOf('/') + 1) + ")");
             this.Line("thumbnail: {0} in {1}", name, this.Relative(like.ZipPath));
         }

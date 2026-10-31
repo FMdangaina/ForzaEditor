@@ -415,17 +415,42 @@ namespace ForzaStudio
                     int width = Math.Min(ThumbnailWidth, picture.Width * ThumbnailHeight / picture.Height);
                     graphics.DrawImage(picture, new Rectangle((ThumbnailWidth - width) / 2, 0, width, ThumbnailHeight));
                 }
-                byte[] bgra = new byte[ThumbnailWidth * ThumbnailHeight * 4];
-                BitmapData data = canvas.LockBits(new Rectangle(0, 0, ThumbnailWidth, ThumbnailHeight), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-                for (int y = 0; y < ThumbnailHeight; y++)
-                {
-                    System.Runtime.InteropServices.Marshal.Copy(new IntPtr(data.Scan0.ToInt64() + ((long) y * data.Stride)), bgra, y * ThumbnailWidth * 4, ThumbnailWidth * 4);
-                }
-                canvas.UnlockBits(data);
-                XdsTexture result = XdsTexture.Create(ThumbnailWidth, ThumbnailHeight, DxtFormat.A8R8G8B8, false, 1);
-                result.WriteLevelBlocks(0, bgra);
-                return result.ToBytes();
+                return CanvasToXds(canvas);
             }
+        }
+
+        // The list picture of a car without one: a dark plate with the word, same 768x288 A8R8G8B8 as the others.
+        public static byte[] GenericThumbnail()
+        {
+            using (Bitmap canvas = new Bitmap(ThumbnailWidth, ThumbnailHeight, PixelFormat.Format32bppArgb))
+            {
+                using (Graphics graphics = Graphics.FromImage(canvas))
+                using (Font font = new Font("Segoe UI", 40f, FontStyle.Bold, GraphicsUnit.Pixel))
+                using (Brush text = new SolidBrush(Color.FromArgb(200, 200, 200, 200)))
+                using (StringFormat centre = new StringFormat())
+                {
+                    graphics.Clear(Color.FromArgb(160, 24, 24, 28));
+                    graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+                    centre.Alignment = StringAlignment.Center;
+                    centre.LineAlignment = StringAlignment.Center;
+                    graphics.DrawString("NO PICTURE", font, text, new RectangleF(0, 0, ThumbnailWidth, ThumbnailHeight), centre);
+                }
+                return CanvasToXds(canvas);
+            }
+        }
+
+        private static byte[] CanvasToXds(Bitmap canvas)
+        {
+            byte[] bgra = new byte[ThumbnailWidth * ThumbnailHeight * 4];
+            BitmapData data = canvas.LockBits(new Rectangle(0, 0, ThumbnailWidth, ThumbnailHeight), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < ThumbnailHeight; y++)
+            {
+                System.Runtime.InteropServices.Marshal.Copy(new IntPtr(data.Scan0.ToInt64() + ((long) y * data.Stride)), bgra, y * ThumbnailWidth * 4, ThumbnailWidth * 4);
+            }
+            canvas.UnlockBits(data);
+            XdsTexture result = XdsTexture.Create(ThumbnailWidth, ThumbnailHeight, DxtFormat.A8R8G8B8, false, 1);
+            result.WriteLevelBlocks(0, bgra);
+            return result.ToBytes();
         }
 
         // The model's rear end: the largest z of its parts' boxes (Section.Bounds = centre x y z, half extents x y z; z

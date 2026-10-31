@@ -2343,7 +2343,7 @@ namespace ForzaStudio
                             car.State = Status.InFm4;
                             car.Note = string.IsNullOrEmpty(same.Dlc) ? "an FM4 car (id " + same.Id + ")" : "an FM4 DLC car (id " + same.Id + ", " + same.Dlc + ")";
                             Car copy;
-                            if (byName.TryGetValue(RenamedPort(car), out copy))
+                            if (byName.TryGetValue(RenamedPort(car, GameInfo.Tag(game)), out copy))
                             {
                                 car.PortedAs = copy.MediaName;
                                 car.Note += ", also ported as " + copy.MediaName;
@@ -2502,12 +2502,26 @@ namespace ForzaStudio
             this.UpdateButtons();
         }
 
-        private const string RenamedSuffix = " FH";
-
-        // The MediaName of a car FM4 already has once it is ported beside it: the source's + _FH (up to 40 characters).
-        private static string RenamedPort(Car car)
+        // The text added to a renamed port: FH for both Horizons (as before), FM3 or FM2 for those sources.
+        private static string SuffixFor(string sourceTag)
         {
-            string tag = "_" + RenamedSuffix.Trim();
+            return (sourceTag == "FM3" || sourceTag == "FM2") ? " " + sourceTag : " FH";
+        }
+
+        private string RenamedSuffix
+        {
+            get { return SuffixFor(this.sourceTag); }
+        }
+
+        private string RenamedPort(Car car)
+        {
+            return RenamedPort(car, this.sourceTag);
+        }
+
+        // The MediaName of a car FM4 already has once it is ported beside it: the source's + _FH / _FM3 / _FM2 (up to 40 characters).
+        private static string RenamedPort(Car car, string sourceTag)
+        {
+            string tag = "_" + SuffixFor(sourceTag).Trim();
             return (car.MediaName.Length + tag.Length > 40 ? car.MediaName.Substring(0, 40 - tag.Length) : car.MediaName) + tag;
         }
 
