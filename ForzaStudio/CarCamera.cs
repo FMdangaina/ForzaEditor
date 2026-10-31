@@ -33,6 +33,21 @@ namespace ForzaStudio
         public bool HasOverrides;          // the CameraOverrides row exists
         public Vector3 CockpitOffset;
 
+        // The exterior cameras' CameraOverrides columns, in this order (0 = the game's default camera).
+        // Hood: height and Z are where the eye sits in car space (checked on 501 cars), pitch unit unknown
+        // (0 on every car). Bumper and chase offsets are 0 on all but one car, so how the game applies
+        // them is not known.
+        public static readonly string[] ExteriorColumns =
+        {
+            "CamHoodHeightOffset", "CamHoodZOffset", "CamHoodPitchOffset",
+            "CamBumperHighHeightOffset", "CamBumperHighZOffset", "CamBumperLowHeightOffset", "CamBumperLowZOffset",
+            "CamFollowLowHeightOffset", "CamFollowLowRadiusOffset", "CamFollowLowTargetYOffset",
+            "CamFollowHighHeightOffset", "CamFollowHighRadiusOffset", "CamFollowHighTargetYOffset"
+        };
+        public const int HoodHeight = 0, HoodZ = 1, HoodPitch = 2;
+        public const float HoodFov = 66f;
+        public double[] Exterior = new double[13];
+
         public bool UsesDefaultOffset
         {
             get { return this.CockpitOffset == Vector3.Zero; }
@@ -82,6 +97,13 @@ namespace ForzaStudio
             {
                 camera.HasOverrides = true;
                 camera.CockpitOffset = ToVector(offsets.Rows[0]);
+                for (int i = 0; i < ExteriorColumns.Length; i++)
+                {
+                    if (HasColumn(db, "CameraOverrides", ExteriorColumns[i]))
+                    {
+                        camera.Exterior[i] = ToFloat(db.Scalar("SELECT " + ExteriorColumns[i] + " FROM CameraOverrides WHERE CarId = ?", camera.CarId));
+                    }
+                }
             }
             return camera;
         }
@@ -141,6 +163,14 @@ namespace ForzaStudio
                 db.Execute("UPDATE CameraOverrides SET CamCockpitOffsetX = ?, CamCockpitOffsetY = ?, CamCockpitOffsetZ = ? WHERE CarId = ?", ox, oy, oz, this.CarId);
                 done.Add(string.Format(CultureInfo.InvariantCulture, "CameraOverrides {0} cockpit offset = {1}, {2}, {3}", this.CarId, ox, oy, oz));
             }
+            for (int i = 0; i < ExteriorColumns.Length; i++)
+            {
+                if (HasColumn(db, "CameraOverrides", ExteriorColumns[i]))
+                {
+                    db.Execute("UPDATE CameraOverrides SET " + ExteriorColumns[i] + " = ? WHERE CarId = ?", Math.Round(this.Exterior[i], 6), this.CarId);
+                }
+            }
+            done.Add(string.Format(CultureInfo.InvariantCulture, "CameraOverrides {0} exterior: hood height {1}, z {2}, pitch {3}", this.CarId, this.Exterior[HoodHeight], this.Exterior[HoodZ], this.Exterior[HoodPitch]));
             this.HasOverrides = true;
             return done;
         }

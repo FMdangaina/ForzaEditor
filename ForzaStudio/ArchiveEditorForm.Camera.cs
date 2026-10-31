@@ -58,7 +58,9 @@ namespace ForzaStudio
             side.Controls.Add(SideNote("Writes gamedb.slt at once (a backup is made first), not with File > Save."));
 
             side.Controls.Add(SideNote("Yellow cross: steering wheel. Cyan: the eye and what it sees (FOV 62). An offset of 0, 0, 0 is the game's default (0, 0.21, -0.51). Z points forward."));
+            this.AddExteriorCameraControls(side);
             this.EnableCameraEdit(false);
+            this.AddThumbnailCameraControls(side);
         }
 
         private FlowLayoutPanel CameraNumberRow(out NumericUpDown[] numbers)
@@ -86,6 +88,7 @@ namespace ForzaStudio
             this.btnCamFromModel.Enabled = enabled;
             this.btnCamView.Enabled = enabled;
             this.btnCamSave.Enabled = enabled;
+            this.EnableExteriorEdit(enabled);
         }
 
         // The car of the open model: its file name without _cockpit / _lod0.
@@ -129,6 +132,12 @@ namespace ForzaStudio
 
         // Called with every car model shown.
         private void LoadCockpitCamera()
+        {
+            this.LoadCockpitCameraCore();
+            this.LoadThumbnailCamera();
+        }
+
+        private void LoadCockpitCameraCore()
         {
             this.camState = null;
             this.camDbPath = null;
@@ -196,6 +205,7 @@ namespace ForzaStudio
             SetVector(this.numCamWheel, this.camState.SteeringWheel);
             SetVector(this.numCamOffset, this.camState.CockpitOffset);
             this.fillingCam = false;
+            this.FillExteriorControls();
         }
 
         private static void SetVector(NumericUpDown[] numbers, Vector3 value)
@@ -397,14 +407,20 @@ namespace ForzaStudio
         // (FOV 62, 16:9, 0.6 m deep) looking forward along the car. Drawn while the CAMERA tab is open.
         private List<VertexPositionColor> CameraOverlayLines()
         {
+            List<VertexPositionColor> thumbnail = this.ThumbnailOverlayLines();
+            if (this.camState != null && this.chkCamShow.Checked && this.camState.HasOverrides)
+            {
+                thumbnail = thumbnail ?? new List<VertexPositionColor>();
+                this.AddHoodOverlay(thumbnail);
+            }
             if (this.camState == null || !this.chkCamShow.Checked || !this.camState.HasSteeringWheel)
             {
-                return null;
+                return thumbnail;
             }
             Microsoft.Xna.Framework.Graphics.Color yellow = new Microsoft.Xna.Framework.Graphics.Color(255, 220, 40, 255);
             Microsoft.Xna.Framework.Graphics.Color cyan = new Microsoft.Xna.Framework.Graphics.Color(60, 220, 255, 255);
             Microsoft.Xna.Framework.Graphics.Color grey = new Microsoft.Xna.Framework.Graphics.Color(200, 200, 200, 255);
-            List<VertexPositionColor> lines = new List<VertexPositionColor>();
+            List<VertexPositionColor> lines = thumbnail ?? new List<VertexPositionColor>();
             Vector3 wheel = CarCamera.ToModel(this.camState.SteeringWheel);
             Vector3 eye = CarCamera.ToModel(this.camState.Eye);
             AddCross(lines, wheel, 0.06f, yellow);
