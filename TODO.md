@@ -180,7 +180,7 @@ Tools > Import Car From Another Forza… (`CarPort.cs`, `CarPortForm.cs`). All 7
 - [ ] 3.3 Generic brakes: a missing / placeholder caliper + rotor becomes the generic `Media\brakes` model (`CarPort.GenericBrake`; committed
       a06a7a7: rotor types slotted / carbon / plain / drilled, the plain and drilled ones exist only as LOD models so their vertices go to LOD0;
       the generic file's own material and UV transform are kept, car textures untouched: the white discs on traffic cars are gone). Check in game
-- [ ] 3.4 💤 FM4 DVD2 (user 2026-10-20: files come only from the folder opened as source). Our folder is DVD1 only (353 banks in
+- [x] 3.4 ✅ CLOSED 2026-10-31 (user: in-game test passed; the port copies a bank held only by an installed package into the car, so it does not depend on the package). 2026-10-31: the DVD2 is the three "Model Year Car Pack" STFS files in Xenia's content folder (47 banks inside). CODED (`SoundBankIndex.cs`, used by `CarPort.ImportHarmonic`, `EnginePreview.Diagnose`, Change Car Sound and the engine dialog of Duplicate Car): a bank only in an installed package is no longer "missing", the tools warn it works only while the package is installed. Checked offline on the 502 DEV engines: 39 need a package bank, 0 are really missing. Old note (user 2026-10-20: files come only from the folder opened as source). Our folder is DVD1 only (353 banks in
       `soundbanks\lod1`); swap engines whose sound is on DVD2 crash the race with an I/O error (BMW M3 GTR V8 `8N1_E92M3_Exh.fsb`;
       M5 / M6 V10 are fine). When DVD2 is found: read it as a second FM4 source; until then maybe hide or flag swap engines with a missing
       bank (ET → HT → `<Soundbank>` check, as `CarPort.ImportHarmonic`).
@@ -281,34 +281,34 @@ game shaders, in-game-like preview; notes `docs/internal_traffic_conversion.md`)
 - [x] 9.4 OBSOLETE (user 2026-10-28): the manual editor (Rename Material + suggestions) is reliable and fast, no automatic mapping needed
 - [ ] 9.5 💤 New renderer in place of XNA: stays a dream (user 2026-10-28); first understand why XNA is needed at all
 
-### 10. Wheels: morph targets and resizing ⏸
+### 10. Wheels: morph targets and resizing ✅ (closed 2026-10-31)
 
 Background C3 (research). Paused by the user 2026-10-19.
 
 - [x] 10.1 (solved: the HKS Genesis had it, fixed; confirmed by the user 2026-10-26) Morph table on OBJ import onto a wheel: regenerate the table instead of keeping a stale one (stale = exploded wheel in game).
       To resume by comparing how Forza Studio and Aiden's script (`fm4dev\Aiden-Piercee\carbin_check.py`, read only) process the carbin binaries.
-  - [ ] 10.1.1 Same check for every older source game: FM3 done; FM2 and FM1 when their ports come (5.1, 5.4). FH1 / FH2 keep their own
+  - [x] 10.1.1 ✅ CLOSED 2026-10-31 (user: FM2 port ok; FM1 will probably never get a port, so nothing left). Same check for every older source game: FM3 done; FM2 and FM1 when their ports come (5.1, 5.4). FH1 / FH2 keep their own
         tables: only if a case shows up
-  - [ ] 10.1.2 Traffic cars' LOD0 wheel rebuilt from LOD 1 copies the table from the nearest vertex: not a problem so far; watch if a traffic
+  - [x] 10.1.2 ✅ CLOSED 2026-10-31 (user: traffic cars and FM2 ok). Traffic cars' LOD0 wheel rebuilt from LOD 1 copies the table from the nearest vertex: not a problem so far; watch if a traffic
         rim looks small up close
 - [x] 10.4 (CLOSED 2026-10-27, checked by the user) Tyre width on ported cars whose wheel mesh is wider than usual (ex topic 1 + 11.6): check in game whether D 10.5 / 10.6 already fixed it;
       maybe tied to 10.1 and to 3.1
 
-### 11. Model editing and automatic LODs 🔧
+### 11. Model editing and automatic LODs ✅ (closed 2026-10-31 by the user; 11.1-11.4 closed with it, 11.5 automatic LODs and 11.6 gr2 editor not done, left as ideas)
 
-- [ ] 11.1 OBJ import into a wheel zip (@delete.diskord): fixed in code (60f7d57, `CarbinModel.RebuildLods`: cars keep LOD 0 in `_lod0`, wheels keep
+- [x] 11.1 ✅ CLOSED 2026-10-31 OBJ import into a wheel zip (@delete.diskord): fixed in code (60f7d57, `CarbinModel.RebuildLods`: cars keep LOD 0 in `_lod0`, wheels keep
       LODs 0-5 in one file); in-game test pending (FM3 wheel OBJ onto an FM4 wheel zip)
-- [ ] 11.2 In-game test of a whole model rebuilt from OBJ, of edited parts and of Merge Into
-- [ ] 11.3 Effect of the cleared glass A/B arrays on rebuilt parts
-- [ ] 11.4 One export / import folder layout for every asset type (ex C7): `<export_folder>/car.carbin/LOD0/body/<object_n>` (the original note ends there)
-- [ ] 11.5 ⬜ Automatic LODs: decimation (QEM) from lod0 to lod1-lod5 at the measured ratios (23.7 / 8.8 / 6.7 / 3.4 / 2.5 %)
-  - [ ] 11.5.1 Keep UV seams, normals, materials and damage data
-  - [ ] 11.5.2 Hook into the OBJ work folder import
+- [x] 11.2 ✅ CLOSED 2026-10-31 In-game test of a whole model rebuilt from OBJ, of edited parts and of Merge Into
+- [x] 11.3 ✅  Effect of the cleared glass A/B arrays on rebuilt parts
+- [x] 11.4 ✅  One export / import folder layout for every asset type (ex C7): `<export_folder>/car.carbin/LOD0/body/<object_n>` (the original note ends there)
+- [ ] 11.5 💤 Automatic LODs: decimation (QEM) from lod0 to lod1-lod5 at the measured ratios (23.7 / 8.8 / 6.7 / 3.4 / 2.5 %)
+  - [ ] 💤 11.5.1 Keep UV seams, normals, materials and damage data
+  - [ ] 💤 11.5.2 Hook into the OBJ work folder import
 - [ ] 11.6 💤 .gr2 animation editor
-- [ ] 11.8 🧪 Model as FBX with hierarchy (Model > Export Model to FBX / Import Model from FBX; `FbxFile.cs`, `FbxScene.cs`, `CarModelFbx.cs`): scene `car > main|lod0|cockpit > LODn > part > part__material`. Import bakes the transforms of the ancestors (moving a group works), compares each part LOD with the model (unchanged parts are not rebuilt), a LOD without a node is left alone, a part missing from a LOD the file has is dropped there, a new group / mesh is a new part; then the same plan and Apply as the OBJ folder. Tested (Supra RZ, fm4dev\EsportazioneCompleta\tools\fbxrt): export 19 MB, 318 part LODs unchanged on reread, one moved group = 1 change, shift 0.1000 m. NOT tested: opening the file in 3ds Max / Blender, Z-up files, ASCII FBX (not read), the dialogs, in game
+- [x] 11.8 ✅ CLOSED 2026-10-31 (user: export + reimport on the Bentley Continental GT, no errors; Blender, 3ds Max and in game checked, see 11.8.1-3). Model as FBX with hierarchy (Model > Export Model to FBX / Import Model from FBX; `FbxFile.cs`, `FbxScene.cs`, `CarModelFbx.cs`): scene `car > main|lod0|cockpit > LODn > part > part__material`. Import bakes the transforms of the ancestors (moving a group works), compares each part LOD with the model (unchanged parts are not rebuilt), a LOD without a node is left alone, a part missing from a LOD the file has is dropped there, a new group / mesh is a new part; then the same plan and Apply as the OBJ folder. Tested (Supra RZ, fm4dev\EsportazioneCompleta\tools\fbxrt): export 19 MB, 318 part LODs unchanged on reread, one moved group = 1 change, shift 0.1000 m. NOT tested: opening the file in 3ds Max / Blender, Z-up files, ASCII FBX (not read), the dialogs, in game
   - [x] 11.8.1 3ds Max 2027: export, edit one part, export FBX, reimport in Forza Studio: OK (user, 2026-10-25). Needed: header/footer consistent (footer id depends on the creation time: fixed 1970-01-01 10:00:00:000 + Blender's footer), SDK-like templates / properties / take. Export dialog = choose model files + LODs; import = "remove parts the FBX does not have" off by default
   - [x] 11.8.3 In game check of a model imported from FBX: OK (user, 2026-10-25)
-  - [ ] 11.8.2 Blender check; ASCII FBX reader; choose single parts on export; more cars than the Supra; new part / Z-up file tests
+  - [x] 11.8.2 ✅ CLOSED 2026-10-31 (user: FBX opened in Blender OK; ASCII FBX reader dropped, not needed; more cars than the Supra done)
 
 ### 12. Digital dash (Anark) editor 🔧
 

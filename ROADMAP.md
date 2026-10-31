@@ -15,26 +15,25 @@ Status of a goal: 🔧 active · ⏸ paused · 💤 maybe later · ✅ reached
 
 | # | Goal | State |
 |---|---|---|
-| 1 | **Safe database edits.** Every Id, key and reference written by the editor, the port or the SQL console follows the game's rules (Id ranges across FM4 and every DLC, no dangling references, schema documented), and a bad write is refused before it happens | 🔧 |
+| 1 | **Safe database edits.** Every Id, key and reference written by the editor, the port or the SQL console follows the game's rules (Id ranges across FM4 and every DLC, no dangling references, schema documented), and a bad write is refused before it happens | ⏸ |
 | 2 | **Duplicate and create cars.** Copy any FM4 car (to the game folder or a DLC pack) with its own names, data, engine and colours, from a wizard that is quick to use; later, build a car from scratch | 🔧 |
 | 3 | **Port cars from Forza Horizon 1 / 2 to FM4**, with model, wheels, brakes, data, strings, sound and a crash that deforms like an FM4 car | 🔧 |
 | 4 | **Port cars from Forza Motorsport 3 to FM4** | ✅ |
-| 5 | **Port cars from Forza Motorsport 2 / 1 to FM4** (FM2 as a normal port source, then FM1) | 🔧 |
-| 6 | **Port the Horizon traffic cars**, including a rebuilt close-up model, cockpit and driver position | 🔧 |
+| 5 | **Port cars from Forza Motorsport 2 to FM4** (FM2 as a normal port source, then FM1) | ✅ |
+| 6 | **Port the Horizon traffic cars**, including a rebuilt close-up model, cockpit and driver position | ✅ |
 | 7 | **DLC packages.** Build Xenia and console (STFS) packs, several packs together without clashes, port from a car DLC | 🔧 |
 | 8 | **New car makes** (local or in a pack), with logo, names and a working Livery editor | 🔧 |
-| 9 | **Materials and game shaders** understood well enough to map foreign materials to FM4's and to preview them like the game does | ⏸ |
-| 10 | **Wheels: morph targets and sizing** work for every source game | ⏸ |
-| 11 | **Model editing**: edit parts, OBJ in and out, automatic LODs | 🔧 |
+| 9 | **Materials and game shaders** understood well enough to map foreign materials to FM4's and to preview them like the game does | 💤 |
+| 10 | **Wheels: morph targets and sizing** work for every source game | ✅ |
+| 11 | **Model editing**: edit parts, OBJ in and out | ✅ |
 | 12 | **Digital dash (Anark) editor** | 🔧 |
-| 13 | **Music**: radio for every game, add songs to FM4 | 🔧 |
-| 14 | **Cameras**: viewer and cockpit camera done; exterior cameras only if wanted | 💤 |
+| 13 | **Music**: radio for every game, add songs to FM4 | ✅ |
+| 14 | **Cameras**: viewer and cockpit camera done ✅ exterior cameras only if wanted | 🔧 |
 | 15 | **Platform and UI**: friendly themed windows and settings done; MDI and a recent .NET Framework last | ⏸ |
-| 16 | **Documentation and community**: a manual, format docs in `docs/`, user reports turned into points | 🔧 |
-| 17 | **Side projects** with their own tools: PGR4, NFS ProStreet tracks, FM4 tracks, GT5 / GT6 | ⏸ |
-| 18 | **A complete game database editor**: every table reachable with the same ease as cars, tracks and events (sections with logos and related rows for the important lists: engines, makes, countries, manufacturers... plus the raw table view and SQL console) | 🔧 |
+| 16 | **Documentation and community**: a manual, format docs in `docs/`, user reports turned into points | ⏸ |
+| 17 | **A complete game database editor**: every table reachable with the same ease as cars, tracks and events (sections with logos and related rows for the important lists: engines, makes, countries, manufacturers... plus the raw table view and SQL console) | ⏸ |
 
-Topic 18 is new (2026-10-23): it takes the database *editor* part that was in the finished point 1.6; the database *rules*
+Topic 17 is new (2026-10-23): it takes the database *editor* part that was in the finished point 1.6; the database *rules*
 stay in topic 1.
 
 ---
