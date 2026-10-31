@@ -103,6 +103,8 @@ namespace ForzaStudio
             {
                 return;
             }
+            // A material node selected: only that material of its part.
+            string material = this.SelectedMaterialName;
             // The most detailed version: the lod0 file when it has the part.
             ForzaZip.Entry source = this.currentEntry;
             Dictionary<string, ForzaZip.Entry> files = this.CarModelFiles(this.zip, this.ModelFolder);
@@ -132,15 +134,16 @@ namespace ForzaStudio
             using (SaveFileDialog dialog = new SaveFileDialog())
             {
                 dialog.Filter = "Wavefront OBJ (*.obj)|*.obj";
-                dialog.FileName = Path.GetFileNameWithoutExtension(source.Name) + "_" + part + ".obj";
+                dialog.FileName = Path.GetFileNameWithoutExtension(source.Name) + "_" + part + ((material != null) ? "_" + material : "") + ".obj";
                 if (!ShowRemembering(dialog, this, "Obj"))
                 {
                     return;
                 }
                 try
                 {
-                    int triangles = ObjMesh.Export(model, part, dialog.FileName, "ForzaStudio EVO: " + part + " from " + source.Name);
-                    this.SetStatus(string.Format("{0}: {1:N0} triangles exported from {2} to {3}", part, triangles, source.Name, dialog.FileName));
+                    string label = (material != null) ? part + "/" + material : part;
+                    int triangles = ObjMesh.Export(model, part, dialog.FileName, "ForzaStudio EVO: " + label + " from " + source.Name, material);
+                    this.SetStatus(string.Format("{0}: {1:N0} triangles exported from {2} to {3}", label, triangles, source.Name, dialog.FileName));
                 }
                 catch (Exception exception)
                 {
@@ -179,15 +182,18 @@ namespace ForzaStudio
 
         private void ImportObjIntoPart()
         {
-            string part = this.PartForObj("Import OBJ");
-            if (part == null)
+            string part;
+            string material;
+            string emptyName;
+            if (!this.ImportTarget(out part, out material, out emptyName))
             {
+                this.PartForObj("Import OBJ");       // says what to select
                 return;
             }
             using (OpenFileDialog open = new OpenFileDialog())
             {
                 open.Filter = "Wavefront OBJ (*.obj)|*.obj";
-                open.Title = "Geometry for " + part;
+                open.Title = "Geometry for " + (emptyName ?? ((material != null) ? part + "/" + material : part ?? "a new part"));
                 if (!ShowRemembering(open, this, "Obj"))
                 {
                     return;
@@ -196,10 +202,39 @@ namespace ForzaStudio
             }
         }
 
+        // What the Import OBJ button works on, from the selected tree node: a material node (part =
+        // its parent, material = the node), a part, an empty part (emptyName: the OBJ becomes it) or a
+        // LOD node (new part only, part and material null).
+        private bool ImportTarget(out string part, out string material, out string emptyName)
+        {
+            part = null;
+            material = null;
+            emptyName = null;
+            TreeNode node = this.tvModel.SelectedNode;
+            if (node == null || this.currentEntry == null || !this.currentEntry.Name.EndsWith(".carbin", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            if (IsEmptyPart(node))
+            {
+                emptyName = node.Text;
+                return true;
+            }
+            part = this.editSection ?? this.SelectedSectionName;
+            if (part != null)
+            {
+                material = this.SelectedMaterialName;
+                return true;
+            }
+            return IsLodNode(node);
+        }
+
         private void ImportObjFile(string path)
         {
-            string section = this.PartForObj("Import OBJ");
-            if (section == null)
+            string section;
+            string material;
+            string emptyName;
+            if (!this.ImportTarget(out section, out material, out emptyName))
             {
                 return;
             }
@@ -222,51 +257,109 @@ namespace ForzaStudio
             // Material mapping and UV mode.
             List<string> carMaterials = this.CarMaterials();
             Dictionary<string, ComboBox> choices = new Dictionary<string, ComboBox>();
+            // The old parts of the car, to copy the settings of a new part from.
+            List<string> partNames = new List<string>();
+            try
+            {
+                foreach (CarbinModel.Section existing in new CarbinModel(this.zip.Read(this.currentEntry)).Sections)
+                {
+                    partNames.Add(existing.Name);
+                }
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "Import OBJ", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                return;
+            }
+            if (partNames.Count == 0)
+            {
+                return;
+            }
+            partNames.Sort(StringComparer.OrdinalIgnoreCase);
+            bool existingPart = section != null;
+            bool materialScope = existingPart && material != null;
+
             Panel extra = new Panel();
-            extra.Size = new Size(520, 120 + (mesh.Materials.Count * 28));
+            extra.Size = new Size(560, 140 + (mesh.Materials.Count * 28));
+            int y = 0;
             RadioButton replaceTarget = new RadioButton();
-            replaceTarget.Text = "Replace " + section;
-            replaceTarget.AutoSize = true;
-            replaceTarget.Checked = true;
-            replaceTarget.Location = new System.Drawing.Point(0, 4);
+            RadioButton addToPart = new RadioButton();
+            if (existingPart)
+            {
+                replaceTarget.Text = materialScope ? "Replace material " + material + " of part " + section : "Replace part " + section;
+                replaceTarget.AutoSize = true;
+                replaceTarget.Checked = true;
+                replaceTarget.Location = new System.Drawing.Point(0, y);
+                extra.Controls.Add(replaceTarget);
+                y += 26;
+                addToPart.Text = "Add the OBJ's materials to part " + section + " (keeps everything it has)";
+                addToPart.AutoSize = true;
+                addToPart.Location = new System.Drawing.Point(0, y);
+                extra.Controls.Add(addToPart);
+                y += 26;
+            }
             RadioButton addTarget = new RadioButton();
-            addTarget.Text = "Add as a new part (" + section + " as template) named:";
+            addTarget.Text = "Add as a new part";
             addTarget.AutoSize = true;
-            addTarget.Location = new System.Drawing.Point(0, 30);
+            addTarget.Checked = !existingPart;
+            addTarget.Location = new System.Drawing.Point(0, y);
+            extra.Controls.Add(addTarget);
+            y += 28;
+            Label templateLabel = new Label();
+            templateLabel.Text = "Copy settings of";
+            templateLabel.AutoSize = true;
+            templateLabel.Location = new System.Drawing.Point(20, y + 4);
+            ComboBox template = new ComboBox();
+            template.DropDownStyle = ComboBoxStyle.DropDownList;
+            template.Width = 170;
+            template.Location = new System.Drawing.Point(130, y);
+            template.Items.AddRange(partNames.ToArray());
+            template.SelectedIndex = Math.Max(0, partNames.IndexOf(section ?? ""));
+            Label nameLabel = new Label();
+            nameLabel.Text = "named";
+            nameLabel.AutoSize = true;
+            nameLabel.Location = new System.Drawing.Point(316, y + 4);
             TextBox newName = new TextBox();
-            newName.Width = 140;
+            newName.Width = 180;
             newName.BorderStyle = BorderStyle.FixedSingle;
-            newName.Location = new System.Drawing.Point(346, 28);
-            newName.Text = this.SuggestPartName(section);
-            newName.Enabled = false;
-            addTarget.CheckedChanged += delegate { newName.Enabled = addTarget.Checked; };
-            extra.Controls.AddRange(new Control[] { replaceTarget, addTarget, newName });
-            int y = 64;
+            newName.Location = new System.Drawing.Point(370, y + 1);
+            newName.Text = emptyName ?? this.SuggestPartName((string) template.SelectedItem);
+            newName.ReadOnly = emptyName != null;
+            EventHandler enable = delegate
+            {
+                template.Enabled = nameLabel.Enabled = templateLabel.Enabled = newName.Enabled = addTarget.Checked;
+            };
+            addTarget.CheckedChanged += enable;
+            enable(null, EventArgs.Empty);
+            extra.Controls.AddRange(new Control[] { templateLabel, template, nameLabel, newName });
+            y += 40;
             Label header = new Label();
             header.Text = string.Format("{0:N0} triangles. Car material for each OBJ material:", mesh.TriangleCount);
             header.AutoSize = true;
             header.Location = new System.Drawing.Point(0, y);
             extra.Controls.Add(header);
             y += 24;
-            foreach (ObjMesh.Material material in mesh.Materials)
+            foreach (ObjMesh.Material objMaterial in mesh.Materials)
             {
                 Label name = new Label();
-                name.Text = string.Format("{0} ({1})", material.Name, material.Triangles.Count);
+                name.Text = string.Format("{0} ({1})", objMaterial.Name, objMaterial.Triangles.Count);
                 name.AutoSize = false;
                 name.Size = new Size(220, 22);
                 name.TextAlign = ContentAlignment.MiddleLeft;
                 name.Location = new System.Drawing.Point(0, y);
+                // Editable: a name the car does not have yet adds a new material node to the part.
                 ComboBox combo = new ComboBox();
-                combo.DropDownStyle = ComboBoxStyle.DropDownList;
-                combo.Width = 260;
+                combo.DropDownStyle = ComboBoxStyle.DropDown;
+                combo.Width = 300;
                 combo.Location = new System.Drawing.Point(226, y);
                 combo.Items.Add("(skip)");
                 combo.Items.AddRange(carMaterials.ToArray());
-                int index = carMaterials.IndexOf(material.Name);
-                combo.SelectedIndex = (index >= 0) ? index + 1 : 0;
+                int index = carMaterials.IndexOf(objMaterial.Name);
+                // Same name, else (one material selected in the tree) that material, else skipped.
+                combo.SelectedIndex = (index >= 0) ? index + 1 : (materialScope ? carMaterials.IndexOf(material) + 1 : 0);
                 extra.Controls.Add(name);
                 extra.Controls.Add(combo);
-                choices[material.Name] = combo;
+                choices[objMaterial.Name] = combo;
                 y += 28;
             }
             CheckBox fit = new CheckBox();
@@ -275,17 +368,19 @@ namespace ForzaStudio
             fit.Location = new System.Drawing.Point(0, y + 4);
             extra.Controls.Add(fit);
 
-            if (!this.ShowOptions("Import OBJ Into " + section, extra))
+            if (!this.ShowOptions("Import OBJ" + (existingPart ? " Into " + section : ""), extra))
             {
                 return;
             }
-            string target = addTarget.Checked ? newName.Text.Trim() : section;
-            if (target.Length == 0 || target.IndexOfAny(new char[] { ' ', '/', '\\' }) >= 0)
+            bool newPart = addTarget.Checked;
+            string basis = newPart ? (string) template.SelectedItem : section;       // the part whose settings are used
+            string target = newPart ? newName.Text.Trim() : section;
+            if (target.Length == 0 || target.IndexOfAny(new char[] { ' ', '/', '\\', '<', '>' }) >= 0)
             {
                 MessageBox.Show(this, "Give the new part a name without spaces.", "Import OBJ", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            if (target != section && this.PartExists(target) && MessageBox.Show(this, string.Format("This car already has a part named {0}.\n\nReplace it with the OBJ ({1} as template)?", target, section),
+            if (newPart && this.PartExists(target) && MessageBox.Show(this, string.Format("This car already has a part named {0}.\n\nReplace it with the OBJ ({1} as template)?", target, basis),
                 "Import OBJ", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
             {
                 return;
@@ -293,14 +388,19 @@ namespace ForzaStudio
             Dictionary<string, string> map = new Dictionary<string, string>();
             foreach (KeyValuePair<string, ComboBox> pair in choices)
             {
-                map[pair.Key] = (pair.Value.SelectedIndex > 0) ? (string) pair.Value.SelectedItem : null;
+                string text = pair.Value.Text.Trim();
+                map[pair.Key] = (text.Length == 0 || text == "(skip)") ? null : text;
             }
+            bool replaceMaterial = materialScope && !newPart && replaceTarget.Checked;
+            // One material (or the added materials) changes inside the part: the part's own LODs are
+            // rebuilt one by one, the other materials as they are.
+            bool merge = existingPart && !newPart && (replaceMaterial || addToPart.Checked);
 
             List<string> report = new List<string>();
             try
             {
                 Cursor.Current = Cursors.WaitCursor;
-                foreach (ForzaZip.Entry entry in this.PartEditTargets(target != section || this.chkAllModelFiles.Checked))
+                foreach (ForzaZip.Entry entry in this.PartEditTargets(newPart || this.chkAllModelFiles.Checked))
                 {
                     CarbinModel model;
                     try
@@ -311,19 +411,27 @@ namespace ForzaStudio
                     {
                         continue;
                     }
-                    if (model.Find(section) == null)
+                    if (model.Find(basis) == null)
                     {
                         continue;
                     }
-                    if (target != section)
+                    if (newPart)
                     {
                         if (model.Find(target) != null)
                         {
                             model.RemoveSection(target);
                         }
-                        model.DuplicateSection(section, target);
+                        model.DuplicateSection(basis, target);
                     }
-                    string done = model.ReplaceGeometry(target, mesh, map, fit.Checked);
+                    string done;
+                    if (merge)
+                    {
+                        done = this.MergeObjIntoPart(model, section, replaceMaterial ? material : null, mesh, map, fit.Checked);
+                    }
+                    else
+                    {
+                        done = model.ReplaceGeometry(target, mesh, map, fit.Checked);
+                    }
                     if (done == null)
                     {
                         continue;
@@ -344,8 +452,75 @@ namespace ForzaStudio
             }
             this.editSection = null;
             this.ReloadModelKeepingView();
-            this.SetStatus(string.Format((target == section) ? "{0}: geometry replaced from OBJ in {2} (pending: Save to write the archive)"
-                : "{0}: added from OBJ ({1} as template) in {2} (pending: Save to write the archive)", target, section, string.Join(", ", report.ToArray())));
+            string what = newPart ? string.Format("{0}: added from OBJ ({1} as template)", target, basis)
+                : replaceMaterial ? string.Format("{0}/{1}: material replaced from OBJ", target, material)
+                : merge ? string.Format("{0}: materials added from OBJ", target)
+                : target + ": geometry replaced from OBJ";
+            this.SetStatus(string.Format("{0} in {1} (pending: Save to write the archive)", what, (report.Count > 0) ? string.Join(", ", report.ToArray()) : "no file (nothing to change)"));
+        }
+
+        // Puts an OBJ into an existing part of the model without touching its other materials: each LOD
+        // is rebuilt from its own triangles, minus 'replace' (a material name, null = keep all) plus the
+        // OBJ's triangles under the chosen car materials. When replacing, only the LODs that had that
+        // material take the OBJ. Returns null when no LOD changes (this file lacks the material).
+        private string MergeObjIntoPart(CarbinModel model, string partName, string replace, ObjMesh obj, Dictionary<string, string> map, bool fitUv)
+        {
+            CarbinModel.Section part = model.Find(partName);
+            if (part == null)
+            {
+                return null;
+            }
+            List<uint> lods = new List<uint>();
+            foreach (CarbinModel.SubSection sub in part.SubSections)
+            {
+                if (!lods.Contains(sub.Lod))
+                {
+                    lods.Add(sub.Lod);
+                }
+            }
+            Dictionary<uint, ObjMesh> meshes = new Dictionary<uint, ObjMesh>();
+            bool changed = false;
+            foreach (uint lod in lods)
+            {
+                ObjMesh current = ObjMesh.FromLod(part, lod);
+                bool had = false;
+                if (replace != null)
+                {
+                    had = current.Materials.RemoveAll(delegate(ObjMesh.Material m) { return m.Name == replace; }) > 0;
+                    if (!had)
+                    {
+                        meshes[lod] = null;          // this LOD does not draw the material: kept as it is
+                        continue;
+                    }
+                }
+                Dictionary<string, ObjMesh.Material> addedInto = new Dictionary<string, ObjMesh.Material>();
+                foreach (ObjMesh.Material added in obj.Materials)
+                {
+                    string carMaterial;
+                    if (!map.TryGetValue(added.Name, out carMaterial) || string.IsNullOrEmpty(carMaterial))
+                    {
+                        continue;
+                    }
+                    // A group of its own even when the part already draws that material: the part's
+                    // triangles keep their UVs (Exact), only the OBJ's are fitted when asked.
+                    ObjMesh.Material into = null;
+                    if (!addedInto.TryGetValue(carMaterial, out into))
+                    {
+                        into = new ObjMesh.Material();
+                        into.Name = carMaterial;
+                        current.Materials.Add(into);
+                        addedInto[carMaterial] = into;
+                    }
+                    into.Triangles.AddRange(added.Triangles);
+                }
+                meshes[lod] = current;
+                changed = true;
+            }
+            if (!changed)
+            {
+                return null;
+            }
+            return model.RebuildLods(partName, meshes, null, fitUv);
         }
 
         // Whether any model file the edit touches already has a part with this name.

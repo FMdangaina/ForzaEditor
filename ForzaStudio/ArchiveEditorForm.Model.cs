@@ -153,6 +153,23 @@ namespace ForzaStudio
         {
             this.ClearModel();
             this.tvModel.BeginUpdate();
+            bool updating = true;
+            try
+            {
+                this.ShowModelCore(name, data, ref updating);
+            }
+            finally
+            {
+                // A file that fails to parse must not leave the tree frozen for the next model.
+                if (updating)
+                {
+                    this.tvModel.EndUpdate();
+                }
+            }
+        }
+
+        private void ShowModelCore(string name, byte[] data, ref bool updating)
+        {
             string title = Path.GetFileName(name);
             TreeNode root = new TreeNode(title);
             if (name.EndsWith(".carbin", StringComparison.OrdinalIgnoreCase))
@@ -200,6 +217,7 @@ namespace ForzaStudio
             this.LoadDamageInfo(data);
             this.MarkUnknownMaterials(data, root);
             root.Expand();
+            updating = false;
             this.tvModel.EndUpdate();
 
             // Show the most detailed LOD by default.

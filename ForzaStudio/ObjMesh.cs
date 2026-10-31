@@ -25,6 +25,8 @@ namespace ForzaStudio
         {
             public string Name;
             public List<Corner[]> Triangles = new List<Corner[]>();
+            // UVs already in the car's own texture region (read from the model): never refitted.
+            public bool Exact;
         }
 
         public List<Material> Materials = new List<Material>();
@@ -153,7 +155,8 @@ namespace ForzaStudio
         #region Writing
 
         // Writes one part of a model: the lod0 buffer's subsections when it has them, else LOD 1.
-        public static int Export(CarbinModel model, string sectionName, string path, string comment)
+        // 'onlyMaterial' (null = all) limits it to that material of the part.
+        public static int Export(CarbinModel model, string sectionName, string path, string comment, string onlyMaterial)
         {
             CarbinModel.Section section = model.Find(sectionName);
             if (section == null)
@@ -181,7 +184,7 @@ namespace ForzaStudio
                 List<string> materials = new List<string>();
                 foreach (CarbinModel.SubSection sub in section.SubSections)
                 {
-                    if (sub.Lod != lod)
+                    if (sub.Lod != lod || (onlyMaterial != null && sub.Name != onlyMaterial))
                     {
                         continue;
                     }
@@ -281,6 +284,7 @@ namespace ForzaStudio
                     continue;
                 }
                 Material material = Get(mesh, byName, sub.Name);
+                material.Exact = true;
                 foreach (int[] face in CarbinModel.StripTriangles(sub))
                 {
                     Corner[] triangle = new Corner[3];

@@ -2547,11 +2547,12 @@ namespace ForzaStudio
 
         // Appends an OBJ mesh's vertices to the rebuild and returns one subsection per material (LOD
         // still unset). Vertices: one per distinct (material, position, uv, normal).
-        private List<SubSection> AppendMesh(Rebuild work, ObjMesh mesh, Dictionary<string, string> materialMap, bool fitUv)
+        private List<SubSection> AppendMesh(Rebuild work, ObjMesh mesh, Dictionary<string, string> materialMap, bool fitUvAll)
         {
             List<SubSection> result = new List<SubSection>();
             foreach (ObjMesh.Material material in mesh.Materials)
             {
+                bool fitUv = fitUvAll && !material.Exact;
                 string carMaterial = material.Name;
                 if (materialMap != null && (!materialMap.TryGetValue(material.Name, out carMaterial) || string.IsNullOrEmpty(carMaterial)))
                 {

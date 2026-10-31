@@ -223,7 +223,8 @@ namespace ForzaStudio
                     {
                         this.Sections[num21] = list[num21];
                     }
-                    if (this.Sections.Length == 0)
+                    // A header that declares no sections is a valid empty model (null caliper/drum).
+                    if (this.Sections.Length == 0 && num19 != 0)
                     {
                         throw new Exception("analyze this!");
                     }
