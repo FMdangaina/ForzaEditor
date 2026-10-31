@@ -881,6 +881,12 @@ namespace ForzaStudio
             Choice picked = this.sound.SelectedItem as Choice;
             if (picked != null && picked.Media != null && picked.Media != Convert.ToString(this.source["MediaName"], CultureInfo.InvariantCulture))
             {
+                List<string> soundProblems = new EnginePreview(null, this.target).Diagnose(picked.Media);
+                if (soundProblems.Count > 0
+                    && MessageBox.Show(this, "The sound " + picked.Media + " has a problem:\n\n" + string.Join("\n", soundProblems.ToArray()) + "\n\nUse it anyway?", this.Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                {
+                    return;
+                }
                 spec.Data["MediaName"] = picked.Media;
             }
             this.Id(spec, "ConfigID", this.layout);

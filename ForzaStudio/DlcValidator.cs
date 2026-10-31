@@ -1055,6 +1055,7 @@ namespace ForzaStudio
             int references = 0;
             List<string> missingHarmonics = new List<string>();
             List<string> banks = new List<string>();
+            Dictionary<string, string[]> harmonicOf = new Dictionary<string, string[]>();      // bank (lower) -> harmonic tuning name, its text
             foreach (string element in new string[] { "EngineAmbient", "EngineIntake", "Exhaust" })
             {
                 Match block = Regex.Match(text, "<" + element + ">(.*?)</" + element + ">", RegexOptions.Singleline);
@@ -1085,6 +1086,7 @@ namespace ForzaStudio
                     else if (!string.Equals(bank.Groups[1].Value, "NA.fsb", StringComparison.OrdinalIgnoreCase) && !banks.Contains(bank.Groups[1].Value.ToLowerInvariant()))
                     {
                         banks.Add(bank.Groups[1].Value.ToLowerInvariant());
+                        harmonicOf[bank.Groups[1].Value.ToLowerInvariant()] = new string[] { harmonic, Encoding.GetEncoding(28591).GetString(ht) };
                     }
                 }
             }
@@ -1095,14 +1097,39 @@ namespace ForzaStudio
             foreach (string bank in banks)
             {
                 bool inGame = false;
+                string gameBank = null;
                 if (cx.BaseRoot != null)
                 {
                     string root = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.Combine(cx.BaseRoot, "Media"), "audio"), "cars"), "Engines"), "Soundbanks");
-                    inGame = File.Exists(Path.Combine(Path.Combine(root, "LOD1"), bank));
+                    gameBank = Path.Combine(Path.Combine(root, "LOD1"), bank);
+                    inGame = File.Exists(gameBank);
                 }
                 if (!InPackage(cx, bank) && !inGame)
                 {
                     Absent(cx, cx.BaseRoot == null ? Info : Error, car, bank, "sound bank " + bank + " (of " + file + ") is in neither the package nor the game: that sound is missing.");
+                    continue;
+                }
+                // The bank the game would read: the package's own, else the game's. Its header against the loops of the
+                // harmonic tuning that names it (a loop on a sample the bank does not have), and a package bank that
+                // shadows the game's with different bytes (the cars of the game that play it change too).
+                try
+                {
+                    byte[] own = InPackage(cx, bank) ? cx.Source.ReadMounted(cx.ByName[bank][cx.ByName[bank].Count - 1]) : null;
+                    byte[] bankBytes = own ?? File.ReadAllBytes(gameBank);
+                    string[] harmonic = harmonicOf[bank];
+                    foreach (string problem in SoundIndex.CheckBankData(harmonic[0], harmonic[1], bank, bankBytes))
+                    {
+                        cx.Add(Error, car, problem + " (" + file + ").");
+                    }
+                    if (own != null && inGame && new FileInfo(gameBank).Length != own.Length)
+                    {
+                        cx.Add(Warning, car, "sound bank " + bank + " is in the package and in the game with different sizes (" + own.Length.ToString("N0", CultureInfo.InvariantCulture)
+                            + " and " + new FileInfo(gameBank).Length.ToString("N0", CultureInfo.InvariantCulture) + " bytes): the cars of the game that play it would change too.");
+                    }
+                }
+                catch (Exception e)
+                {
+                    cx.Add(Warning, car, "sound bank " + bank + " could not be checked: " + e.Message);
                 }
             }
         }

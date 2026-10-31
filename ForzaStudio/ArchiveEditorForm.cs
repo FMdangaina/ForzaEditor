@@ -413,10 +413,14 @@
         {
             if (this.gameDb == null || !this.gameDb.HasTable("Data_Car") || !this.gameDb.HasTable("Data_Engine"))
             {
-                MessageBox.Show(this, "Open a database with the cars first (Media\\db\\gamedb.slt, or the pack's database).", "Change car sound", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // Nothing suitable open: the window opens its own source (game folder, DLC package or folder) and saves it.
+                using (ChangeSoundForm alone = new ChangeSoundForm(AppSettings.Get("CarPort.Target", "")))
+                {
+                    alone.ShowDialog(this);
+                }
                 return;
             }
-            using (ChangeSoundForm form = new ChangeSoundForm(this.gameDb, AppSettings.Get("CarPort.Target", "")))
+            using (ChangeSoundForm form = new ChangeSoundForm(this.gameDb, AppSettings.Get("CarPort.Target", ""), this.GameRoot, this.packageFolder))
             {
                 form.Changed += delegate
                 {

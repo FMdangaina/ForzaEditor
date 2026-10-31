@@ -17,7 +17,7 @@ namespace ForzaStudio
         private static readonly TimeSpan WorkAge = TimeSpan.FromDays(1);
         private static readonly TimeSpan JunkAge = TimeSpan.FromHours(1);
 
-        private static readonly string[] Caches = { "DlcSource", "DlcThumbs" };
+        private static readonly string[] Caches = { "DlcSource", "DlcThumbs", "SoundIndex", "SoundBanks" };
 
         public static void RunInBackground()
         {

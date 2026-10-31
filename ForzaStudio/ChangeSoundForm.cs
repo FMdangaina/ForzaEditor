@@ -2,8 +2,11 @@ namespace ForzaStudio
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Drawing;
+    using System.Text;
     using System.Globalization;
+    using System.IO;
     using System.Windows.Forms;
 
     // Tools > Change Car Sound: the user picks a car and the car whose engine sound it should get. The engine sound is
@@ -18,6 +21,7 @@ namespace ForzaStudio
         {
             public long Id;
             public string Name;
+            public string Media;       // the car's MediaName
             public long EngineId;
             public string Sound;
             public string Layout;
@@ -34,9 +38,21 @@ namespace ForzaStudio
 
         private static readonly string[] Groups = { "Any aspiration", "Naturally aspirated", "Turbo (single, twin, quad)", "Supercharger DSC", "Supercharger CSC" };
 
-        private readonly GameDatabase db;
-        private readonly GameDatabase reference;   // the game's own gamedb.slt when the open database is a partial one (a DLC pack's)
+        private GameDatabase db;
+        private GameDatabase reference;            // the game's own gamedb.slt when the open database is a partial one (a DLC pack's)
+        private readonly string gameRoot;          // the FM4 folder of the ini (the reference database, the strings, the sounds)
+        private bool standalone;                   // opens its own source (game folder, package, DLC folder) and saves it
         private readonly List<CarRow> cars = new List<CarRow>();
+        private readonly TextBox sourceBox = new TextBox();
+        private readonly ComboBox part = new ComboBox();
+        private readonly ComboBox revs = new ComboBox();
+        private readonly Button listenCurrent = new Button();
+        private readonly Button listenNew = new Button();
+        private string openRoot;                   // the opened FM4 folder (standalone) or the editor's
+        private string packRoot;                   // the DLC folder / the work folder of a package
+        private StfsReader package;                // set when the source is a package file
+        private string dbFile;                     // the file the database is read from and written to ...
+        private string dbEntry;                    // ... or the zip entry of it in dbFile (a pack's merge database)
         private readonly ListView targets = new ListView();
         private readonly ListView donors = new ListView();
         private readonly TextBox targetFilter = new TextBox();
@@ -51,20 +67,45 @@ namespace ForzaStudio
 
         public event EventHandler Changed;
 
-        public ChangeSoundForm(GameDatabase db, string gameRoot)
+        // In the editor: the database open in its database view; packFolder = the work folder of the open DLC package, or null.
+        public ChangeSoundForm(GameDatabase db, string gameRoot, string openRoot, string packFolder)
         {
             this.db = db;
+            this.gameRoot = gameRoot;
+            this.openRoot = openRoot;
+            this.packRoot = packFolder;
             this.reference = db.Reference ?? OpenGameDb(gameRoot, db);
-            this.FormClosed += delegate { if (this.reference != null && this.reference != this.db.Reference) { this.reference.Dispose(); } };
+            this.LoadCars();
+            this.Build();
+        }
+
+        // Alone (Tools > Change Car Sound without anything open): the source is chosen here and saved here.
+        public ChangeSoundForm(string gameRoot)
+        {
+            this.standalone = true;
+            this.gameRoot = gameRoot;
+            this.Build();
+        }
+
+        private static string WorkRoot
+        {
+            get { return Path.Combine(Path.Combine(Path.GetTempPath(), "ForzaStudio"), "DlcSound"); }
+        }
+
+        private void Build()
+        {
+            this.FormClosed += delegate
+            {
+                EnginePreview.Stop();
+                this.DisposeReference();
+            };
             this.AutoScaleMode = AutoScaleMode.None;
             this.Text = "Change car sound";
-            this.ClientSize = new Size(1000, 640);
+            this.ClientSize = new Size(1000, 684);
             this.MinimumSize = new Size(800, 480);
             this.FormBorderStyle = FormBorderStyle.Sizable;
             this.ShowInTaskbar = false;
             this.StartPosition = FormStartPosition.CenterParent;
-
-            this.LoadCars();
 
             Label left = new Label();
             left.Text = "1. The car to change:";
@@ -98,13 +139,50 @@ namespace ForzaStudio
             this.follow.CheckedChanged += delegate { if (this.follow.Checked) { this.OnTargetChanged(); } };
             this.donors.SelectedIndexChanged += delegate { this.UpdateInfo(); };
 
-            this.info.SetBounds(12, 494, 976, 90);
+            Label listen = new Label();
+            listen.Text = "Listen:";
+            listen.SetBounds(12, 496, 50, 20);
+            listen.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
+            this.part.SetBounds(64, 492, 130, 24);
+            this.part.DropDownStyle = ComboBoxStyle.DropDownList;
+            this.part.Items.AddRange(new object[] { "Exhaust", "Intake", "Engine ambience" });
+            this.part.SelectedIndex = 0;
+            this.revs.SetBounds(200, 492, 100, 24);
+            this.revs.DropDownStyle = ComboBoxStyle.DropDownList;
+            this.revs.Items.AddRange(new object[] { "Low revs", "Mid revs", "High revs" });
+            this.revs.SelectedIndex = 1;
+            this.listenCurrent.Text = "Current sound";
+            this.listenCurrent.SetBounds(310, 490, 110, 28);
+            this.listenCurrent.Click += delegate { this.Listen(this.SelectedTarget()); };
+            this.listenNew.Text = "New sound";
+            this.listenNew.SetBounds(426, 490, 110, 28);
+            this.listenNew.Click += delegate { this.Listen(this.SelectedDonor()); };
+            Button stop = new Button();
+            stop.Text = "Stop";
+            stop.SetBounds(542, 490, 70, 28);
+            stop.Click += delegate { EnginePreview.Stop(); };
+            foreach (Control control in new Control[] { listen, this.part, this.revs, this.listenCurrent, this.listenNew, stop })
+            {
+                control.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
+            }
+
+            this.info.SetBounds(12, 526, 976, 64);
             this.info.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
 
             this.change.Text = "Change sound";
             this.change.SetBounds(792, 596, 110, 32);
             this.change.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
             this.change.Click += delegate { this.Apply(); };
+            Button check = new Button();
+            check.Text = "Check sounds";
+            check.SetBounds(672, 596, 112, 32);
+            check.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
+            check.Click += delegate { this.CheckSounds(); };
+            Button details = new Button();
+            details.Text = "Sound details";
+            details.SetBounds(552, 596, 112, 32);
+            details.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
+            details.Click += delegate { this.ShowDetails(); };
             Button close = new Button();
             close.Text = "Close";
             close.DialogResult = DialogResult.Cancel;
@@ -114,7 +192,41 @@ namespace ForzaStudio
 
             this.targets.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Bottom;
             this.donors.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
-            this.Controls.AddRange(new Control[] { left, this.targetFilter, this.targets, right, this.donorFilter, this.layout, this.cylinders, this.aspiration, this.follow, this.donors, this.info, this.change, close });
+            this.sourceBox.Text = this.standalone ? "" : "The database open in the editor";
+            Panel body = new Panel();
+            body.Size = new Size(1000, 640);
+            body.Dock = DockStyle.Fill;
+            body.Controls.AddRange(new Control[] { left, this.targetFilter, this.targets, right, this.donorFilter, this.layout, this.cylinders, this.aspiration, this.follow, this.donors,
+                listen, this.part, this.revs, this.listenCurrent, this.listenNew, stop, this.info, details, check, this.change, close });
+            this.Controls.Add(body);
+            {
+                Panel bar = new Panel();
+                bar.Size = new Size(1000, 44);
+                bar.Dock = DockStyle.Top;
+                Label from = new Label();
+                from.Text = "From:";
+                from.SetBounds(12, 14, 40, 20);
+                this.sourceBox.ReadOnly = true;
+                this.sourceBox.SetBounds(54, 10, 470, 24);
+                this.sourceBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+                Button game = new Button();
+                game.Text = "FM4 game folder...";
+                game.SetBounds(534, 8, 150, 28);
+                game.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                game.Click += delegate { this.OpenGameFolder(); };
+                Button file = new Button();
+                file.Text = "DLC package...";
+                file.SetBounds(690, 8, 150, 28);
+                file.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                file.Click += delegate { this.OpenPackageFile(); };
+                Button folder = new Button();
+                folder.Text = "DLC folder...";
+                folder.SetBounds(846, 8, 142, 28);
+                folder.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                folder.Click += delegate { this.OpenDlcFolder(); };
+                bar.Controls.AddRange(new Control[] { from, this.sourceBox, game, file, folder });
+                this.Controls.Add(bar);
+            }
             ForzaTheme.Apply(this);
             this.FillTargets();
             this.FillDonors();
@@ -143,6 +255,583 @@ namespace ForzaStudio
             catch (Exception)
             {
                 return null;
+            }
+        }
+
+        private void DisposeReference()
+        {
+            if (this.reference != null && (this.db == null || this.reference != this.db.Reference))
+            {
+                this.reference.Dispose();
+            }
+            this.reference = null;
+        }
+
+        private static bool XeniaRunning()
+        {
+            foreach (string name in new string[] { "xenia_canary", "xenia" })
+            {
+                if (Process.GetProcessesByName(name).Length > 0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void OpenGameFolder()
+        {
+            using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+            {
+                dialog.Description = "The FM4 game folder (the one that contains Media): the Xenia test copy FM4_Extracted_DEV.";
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+                this.Open(delegate
+                {
+                    string folder = Path.GetFullPath(dialog.SelectedPath).TrimEnd('\\');
+                    string file = Path.Combine(Path.Combine(Path.Combine(folder, "Media"), "db"), "gamedb.slt");
+                    if (!File.Exists(file))
+                    {
+                        throw new FileNotFoundException("Media\\db\\gamedb.slt not found: choose the FM4 game folder (the one that contains Media).");
+                    }
+                    if (folder.EndsWith("\\FM4_Extracted", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidOperationException("FM4_Extracted is the clean game and is never written: use the test copy FM4_Extracted_DEV.");
+                    }
+                    this.package = null;
+                    this.packRoot = null;
+                    this.openRoot = folder;
+                    this.dbFile = file;
+                    this.dbEntry = null;
+                    GameDatabase game = new GameDatabase(File.ReadAllBytes(file));
+                    this.SetSource(folder, game, folder);
+                });
+            }
+        }
+
+        private void OpenPackageFile()
+        {
+            using (OpenFileDialog dialog = new OpenFileDialog())
+            {
+                dialog.Title = "DLC package";
+                dialog.Filter = "Xbox 360 package (CON, LIVE, PIRS)|*.*";
+                string installed = InstalledDlc.ContentFolder(ForzaGame.Motorsport4);
+                if (installed != null)
+                {
+                    dialog.InitialDirectory = installed;
+                }
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+                this.Open(delegate
+                {
+                    StfsReader opened = StfsReader.Open(dialog.FileName);
+                    string work = Path.Combine(WorkRoot, Path.GetFileName(dialog.FileName));
+                    if (Directory.Exists(work))
+                    {
+                        Directory.Delete(work, true);
+                    }
+                    try
+                    {
+                        opened.Extract(work);
+                    }
+                    catch (Exception)
+                    {
+                        if (Directory.Exists(work))
+                        {
+                            Directory.Delete(work, true);
+                        }
+                        throw;
+                    }
+                    this.LoadPack(work, dialog.FileName);
+                    this.package = opened;
+                });
+            }
+        }
+
+        private void OpenDlcFolder()
+        {
+            using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+            {
+                dialog.Description = "The DLC folder (it holds Media\\DLCZips, or the loose db\\patch\\*_merge.slt).";
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+                this.Open(delegate
+                {
+                    this.LoadPack(dialog.SelectedPath, dialog.SelectedPath);
+                    this.package = null;
+                });
+            }
+        }
+
+        private void Open(MethodInvoker load)
+        {
+            string was = this.sourceBox.Text;
+            try
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                EnginePreview.Stop();
+                load();
+                this.standalone = true;
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                this.sourceBox.Text = was;
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+            }
+        }
+
+        // The merge database of a DLC folder with the highest number: loose (db\patch\<n>_merge.slt) or an entry of a pack zip.
+        private void LoadPack(string folder, string shown)
+        {
+            string bestFile = null, bestEntry = null, bestName = null;
+            foreach (string path in Directory.GetFiles(folder, "*", SearchOption.AllDirectories))
+            {
+                if (path.EndsWith("_merge.slt", StringComparison.OrdinalIgnoreCase))
+                {
+                    string name = Path.GetFileName(path);
+                    if (bestName == null || string.Compare(name, bestName, StringComparison.OrdinalIgnoreCase) > 0)
+                    {
+                        bestFile = path;
+                        bestEntry = null;
+                        bestName = name;
+                    }
+                }
+                else if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && Path.GetFileName(path).IndexOf("StringTables", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    foreach (ForzaZip.Entry entry in new ForzaZip(path).Entries)
+                    {
+                        string name = Path.GetFileName(entry.Name.Replace('\\', '/'));
+                        if (entry.Name.EndsWith("_merge.slt", StringComparison.OrdinalIgnoreCase) && (bestName == null || string.Compare(name, bestName, StringComparison.OrdinalIgnoreCase) > 0))
+                        {
+                            bestFile = path;
+                            bestEntry = entry.Name;
+                            bestName = name;
+                        }
+                    }
+                }
+            }
+            if (bestFile == null)
+            {
+                throw new InvalidOperationException("No merge database (db\\patch\\*_merge.slt) in this DLC: it adds no cars.");
+            }
+            ForzaZip mergeZip = (bestEntry == null) ? null : new ForzaZip(bestFile);
+            byte[] data = (mergeZip == null) ? File.ReadAllBytes(bestFile) : mergeZip.Read(mergeZip.Find(bestEntry));
+            GameDatabase merge = new GameDatabase(data);
+            if (!merge.HasTable("Data_Car") || !merge.HasTable("Data_Engine"))
+            {
+                throw new InvalidOperationException("The database of this DLC (" + bestName + ") has no cars with an engine of their own.");
+            }
+            this.packRoot = folder;
+            this.openRoot = this.gameRoot;
+            this.dbFile = bestFile;
+            this.dbEntry = bestEntry;
+            this.SetSource(shown, merge, this.gameRoot);
+        }
+
+        // The database is the one to edit; the strings are the game's (the pack's on top), the sounds' folders as set.
+        private void SetSource(string shown, GameDatabase database, string stringsRoot)
+        {
+            this.DisposeReference();
+            this.db = database;
+            if (this.packRoot != null && Directory.Exists(this.packRoot))
+            {
+                StringTable table = null;
+                try
+                {
+                    table = string.IsNullOrEmpty(stringsRoot) ? null : StringTable.Load(stringsRoot, "EN");
+                }
+                catch (Exception)
+                {
+                }
+                foreach (string path in Directory.GetFiles(this.packRoot, "StringTables*.zip", SearchOption.AllDirectories))
+                {
+                    table = table ?? new StringTable();
+                    ForzaZip strings = new ForzaZip(path);
+                    foreach (ForzaZip.Entry entry in strings.Entries)
+                    {
+                        string name = entry.Name.Replace('\\', '/');
+                        if (name.StartsWith("EN/", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".str", StringComparison.OrdinalIgnoreCase))
+                        {
+                            table.Overlay(Path.GetFileNameWithoutExtension(name), strings.Read(entry));
+                        }
+                    }
+                }
+                this.db.Strings = table;
+            }
+            else
+            {
+                try
+                {
+                    this.db.Strings = StringTable.Load(stringsRoot, "EN");
+                }
+                catch (Exception)
+                {
+                }
+            }
+            this.reference = OpenGameDb(this.gameRoot, this.db);
+            this.sourceBox.Text = shown;
+            this.cars.Clear();
+            this.LoadCars();
+            this.layout.Items.Clear();
+            this.cylinders.Items.Clear();
+            this.aspiration.Items.Clear();
+            this.FillFilters();
+            this.targetFilter.Text = "";
+            this.donorFilter.Text = "";
+            this.FillTargets();
+            this.FillDonors();
+            this.UpdateInfo();
+        }
+
+        private void Listen(CarRow car)
+        {
+            if (car == null)
+            {
+                return;
+            }
+            string[] partNames = EnginePreview.Parts;
+            double[] positions = { 0.1, 0.5, 0.9 };
+            try
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                EnginePreview preview = new EnginePreview(this.packRoot, this.openRoot, this.gameRoot);
+                string played = preview.Play(car.Sound, partNames[Math.Max(0, this.part.SelectedIndex)], positions[Math.Max(0, this.revs.SelectedIndex)]);
+                this.info.Text = car.Name + " (" + car.Sound + "): " + played + ". Stop ends the loop.";
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+            }
+        }
+
+        private static void Backup(string path)
+        {
+            if (!BackupPolicy.Enabled)
+            {
+                return;
+            }
+            string folder = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "bak");
+            Directory.CreateDirectory(folder);
+            File.Copy(path, Path.Combine(folder, DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture) + "_bak_" + Path.GetFileName(path)), true);
+        }
+
+        // Standalone: the database written back to where it was read (the game's file, a pack's zip) and the package packed again.
+        private string SaveSource()
+        {
+            byte[] bytes = this.db.ToBytes();
+            Backup(this.dbFile);
+            if (this.dbEntry == null)
+            {
+                File.WriteAllBytes(this.dbFile, bytes);
+            }
+            else
+            {
+                ForzaZip zip = new ForzaZip(this.dbFile);
+                zip.Replace(zip.Find(this.dbEntry), bytes);
+                zip.Save(this.dbFile);
+            }
+            return this.Repack(Path.GetFileName(this.dbFile) + " saved");
+        }
+
+        // The package file again from its work folder when the source is a package (done = what was written before, for the message).
+        private string Repack(string done)
+        {
+            if (this.package == null)
+            {
+                return done;
+            }
+            string target = this.package.Path;
+            string temp = target + ".new";
+            try
+            {
+                Backup(target);
+                StfsPackage.Rewrite(this.packRoot, temp, this.package.Header);
+                StfsReader check = StfsReader.Open(temp);
+                File.Delete(target);
+                File.Move(temp, target);
+                check.Path = target;
+                this.package = check;
+            }
+            catch (Exception)
+            {
+                if (File.Exists(temp))
+                {
+                    File.Delete(temp);
+                }
+                throw;
+            }
+            return done + ", package " + Path.GetFileName(target) + " written";
+        }
+
+        // What the selected car plays now and what the picked sound plays: tuning, harmonic tunings, banks (and where each is
+        // read from), samples, and the other cars that share each bank, from the audio index of the game, its installed
+        // packages and the open pack.
+        private void ShowDetails()
+        {
+            CarRow current = this.SelectedTarget();
+            CarRow chosen = this.SelectedDonor();
+            if (current == null && chosen == null)
+            {
+                MessageBox.Show(this, "Pick a car on the left, or a sound on the right.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            string text;
+            try
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                string root = !string.IsNullOrEmpty(this.gameRoot) ? this.gameRoot : this.openRoot;
+                SoundIndex index = SoundIndex.Get(ForzaGame.Motorsport4, root, this.packRoot, null);
+                StringBuilder builder = new StringBuilder();
+                builder.AppendLine(index.Summary());
+                builder.AppendLine();
+                if (current != null)
+                {
+                    builder.AppendLine("CAR TO CHANGE: " + current.Name);
+                    builder.AppendLine(index.Describe(current.Sound));
+                }
+                if (chosen != null && (current == null || !string.Equals(chosen.Sound, current.Sound, StringComparison.OrdinalIgnoreCase)))
+                {
+                    builder.AppendLine("SOUND TO TAKE: " + chosen.Name);
+                    builder.AppendLine(index.Describe(chosen.Sound));
+                }
+                text = builder.ToString();
+            }
+            catch (Exception exception)
+            {
+                text = "The audio could not be indexed: " + exception.Message;
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+            }
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "Sound details";
+                dialog.ClientSize = new Size(1000, 520);
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.ShowInTaskbar = false;
+                TextBox box = new TextBox();
+                box.Multiline = true;
+                box.ReadOnly = true;
+                box.ScrollBars = ScrollBars.Both;
+                box.WordWrap = false;
+                box.Font = new Font(FontFamily.GenericMonospace, 9f);
+                box.SetBounds(10, 10, 980, 460);
+                box.Text = text.Replace("\r\n", "\n").Replace("\n", "\r\n");
+                Button close = new Button();
+                close.Text = "Close";
+                close.SetBounds(910, 478, 80, 32);
+                close.DialogResult = DialogResult.Cancel;
+                dialog.Controls.AddRange(new Control[] { box, close });
+                dialog.CancelButton = close;
+                ForzaTheme.Apply(dialog);
+                box.Select(0, 0);
+                dialog.ShowDialog(this);
+            }
+        }
+
+        private EnginePreview Preview()
+        {
+            return new EnginePreview(this.packRoot, this.openRoot, this.gameRoot);
+        }
+
+        // The car whose model tuning stands in for a car's own: one with the same engine sound that has a model tuning, else the donor picked.
+        private CarRow ModelSource(CarRow car, EnginePreview preview)
+        {
+            CarRow pick = this.SelectedDonor();
+            foreach (CarRow other in this.cars)
+            {
+                if (other != car && other.Media != null && string.Equals(other.Sound, car.Sound, StringComparison.OrdinalIgnoreCase) && preview.FindModel(other.Media) != null)
+                {
+                    return other;
+                }
+            }
+            return (pick != null && pick.Media != null && preview.FindModel(pick.Media) != null) ? pick : null;
+        }
+
+        // Check sounds: every car of the source (its stock engine's tuning, harmonic tunings and banks, and the car's model tuning),
+        // listed; Fix adds the missing model tunings (copied from a car with the same engine sound, the car's name in them).
+        private void CheckSounds()
+        {
+            if (this.db == null)
+            {
+                return;
+            }
+            EnginePreview preview = this.Preview();
+            List<string> lines = new List<string>();
+            List<CarRow> fixable = new List<CarRow>();
+            int problems = 0;
+            Cursor.Current = Cursors.WaitCursor;
+            Dictionary<string, bool> engines = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            foreach (CarRow car in this.cars)
+            {
+                if (!car.Own)
+                {
+                    continue;
+                }
+                List<string> found = new List<string>();
+                if (!engines.ContainsKey(car.Sound))
+                {
+                    engines[car.Sound] = true;
+                    foreach (string text in preview.Diagnose(car.Sound))
+                    {
+                        found.Add(text);
+                    }
+                }
+                if (preview.FindModel(car.Media) == null)
+                {
+                    CarRow from = this.ModelSource(car, preview);
+                    found.Add("car model tuning " + car.Media + "_CMT.xml is missing: the car has no sound model (silent)" + ((from != null) ? "; Fix copies " + from.Media + "_CMT.xml" : "; no car with this sound has one to copy: pick the car to copy from in the right list"));
+                    if (from != null)
+                    {
+                        fixable.Add(car);
+                    }
+                }
+                foreach (string text in found)
+                {
+                    lines.Add(car.Media + ": " + text);
+                    problems++;
+                }
+            }
+            Cursor.Current = Cursors.Default;
+            if (problems == 0)
+            {
+                MessageBox.Show(this, "Every car of " + this.sourceBox.Text + " has its sound files.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            bool canFix = fixable.Count > 0 && (this.standalone || this.packRoot != null);
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "Check sounds: " + problems + " problem(s)";
+                dialog.ClientSize = new Size(900, 420);
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.ShowInTaskbar = false;
+                TextBox box = new TextBox();
+                box.Multiline = true;
+                box.ReadOnly = true;
+                box.ScrollBars = ScrollBars.Both;
+                box.WordWrap = false;
+                box.SetBounds(10, 10, 880, 360);
+                box.Text = string.Join("\r\n", lines.ToArray()) + (canFix || fixable.Count == 0 ? "" : "\r\n\r\nOpen the pack with DLC package... / DLC folder... here to fix it (this window saves what it fixes).");
+                Button fix = new Button();
+                fix.Text = "Fix " + fixable.Count + " model tuning(s)";
+                fix.SetBounds(640, 378, 160, 32);
+                fix.Enabled = canFix;
+                fix.DialogResult = DialogResult.OK;
+                Button close = new Button();
+                close.Text = "Close";
+                close.SetBounds(810, 378, 80, 32);
+                close.DialogResult = DialogResult.Cancel;
+                dialog.Controls.AddRange(new Control[] { box, fix, close });
+                dialog.CancelButton = close;
+                ForzaTheme.Apply(dialog);
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+            }
+            this.FixModels(fixable, preview);
+        }
+
+        private void FixModels(List<CarRow> fixable, EnginePreview preview)
+        {
+            if (XeniaRunning())
+            {
+                MessageBox.Show(this, "Close Xenia first: it keeps the game and DLC files in use and reads them when it starts.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            try
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                string zipPath;
+                string prefix = "";
+                string folder = "";
+                if (this.packRoot != null)
+                {
+                    // The game mounts the pack's own zip: the models go beside the pack's database, in its Media\audio\Cars folder.
+                    zipPath = (this.dbEntry != null) ? this.dbFile : null;
+                    if (zipPath == null)
+                    {
+                        foreach (string file in Directory.GetFiles(this.packRoot, "*_pri_*.zip", SearchOption.AllDirectories))
+                        {
+                            if (Path.GetFileName(file).IndexOf("StringTables", StringComparison.OrdinalIgnoreCase) < 0)
+                            {
+                                zipPath = file;
+                                break;
+                            }
+                        }
+                    }
+                    if (zipPath == null)
+                    {
+                        throw new InvalidOperationException("The DLC has no pack zip (Media\\DLCZips\\<offer>_pri_<n>.zip) to put the files in.");
+                    }
+                    int media = (this.dbEntry != null) ? this.dbEntry.IndexOf("Media/", StringComparison.OrdinalIgnoreCase) : -1;
+                    prefix = (media > 0 ? this.dbEntry.Substring(0, media) : "") + "Media/audio/Cars/CarModelTuning/";
+                }
+                else
+                {
+                    zipPath = Path.Combine(Path.Combine(Path.Combine(Path.Combine(this.openRoot, "Media"), "audio"), "cars"), "CarModelTuning.zip");
+                    folder = this.openRoot;
+                }
+                ForzaZip zip = new ForzaZip(zipPath);
+                Encoding latin = Encoding.GetEncoding(28591);
+                foreach (CarRow car in fixable)
+                {
+                    CarRow from = this.ModelSource(car, preview);
+                    if (from == null)
+                    {
+                        continue;
+                    }
+                    string text = latin.GetString(preview.FindModel(from.Media));
+                    byte[] data = latin.GetBytes(System.Text.RegularExpressions.Regex.Replace(text, System.Text.RegularExpressions.Regex.Escape(from.Media), car.Media, System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+                    string entryName = prefix + car.Media + "_CMT.xml";
+                    ForzaZip.Entry existing = zip.Find(entryName);
+                    if (existing != null)
+                    {
+                        zip.Replace(existing, data);
+                    }
+                    else
+                    {
+                        zip.Add(entryName, data);
+                    }
+                }
+                Backup(zipPath);
+                zip.Save(zipPath);
+                if (folder.Length > 0)
+                {
+                    // A game zip changed: its line in zipmanifest.xml gets the new central directory position.
+                    string manifest = ZipManifest.PathFor(folder);
+                    string gamePath = ZipManifest.GamePath(folder, Path.GetFullPath(zipPath));
+                    if (gamePath != null && ZipManifest.Lists(manifest, gamePath))
+                    {
+                        Backup(manifest);
+                        ZipManifest.Update(manifest, gamePath, zipPath);
+                    }
+                }
+                string done = fixable.Count + " model tuning(s) added to " + Path.GetFileName(zipPath);
+                this.info.Text = this.Repack(done) + "." + (this.standalone ? "" : " The editor has the pack open: close its zip (Back), then File > Rebuild DLC Package to pack it.");
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
             }
         }
 
@@ -231,6 +920,7 @@ namespace ForzaStudio
                     CarRow car = new CarRow();
                     car.Id = id;
                     car.Name = source.LookupName("car", id) ?? Str(row[1]);
+                    car.Media = Str(row[1]);
                     car.EngineId = Number(row[2]);
                     car.Sound = Str(row[3]);
                     long config = Number(row[4]);
@@ -381,6 +1071,13 @@ namespace ForzaStudio
             CarRow target = this.SelectedTarget();
             CarRow donor = this.SelectedDonor();
             this.change.Enabled = target != null && donor != null;
+            this.listenCurrent.Enabled = target != null;
+            this.listenNew.Enabled = donor != null;
+            if (this.db == null)
+            {
+                this.info.Text = "Choose what to change: the FM4 game folder (Xenia's test copy), a DLC package (an installed one is in Xenia's content folder) or a DLC folder.";
+                return;
+            }
             if (target == null)
             {
                 this.info.Text = string.Format(CultureInfo.InvariantCulture, "{0} cars. Pick the car whose sound you want to change; the right list then shows the cars with a similar engine (cylinders, layout, aspiration).", this.cars.Count);
@@ -406,6 +1103,11 @@ namespace ForzaStudio
             {
                 return;
             }
+            if (this.standalone && XeniaRunning())
+            {
+                MessageBox.Show(this, "Close Xenia first: it keeps the game and DLC files in use and reads them when it starts.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
             if (this.db.ReadOnly)
             {
                 MessageBox.Show(this, "This view holds the game plus its installed DLC packages and is read-only. Turn the DLC button off in the toolbar first.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -419,6 +1121,12 @@ namespace ForzaStudio
             List<string> users = this.db.EngineUsers(target.EngineId);
             if (users.Count > 1
                 && MessageBox.Show(this, "The engine " + target.Sound + " is also the stock engine of " + (users.Count - 1) + " other car(s): " + string.Join(", ", users.GetRange(0, Math.Min(6, users.Count)).ToArray()) + (users.Count > 6 ? ", ..." : "") + ".\nTheir sound changes too. Continue?", this.Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            {
+                return;
+            }
+            List<string> soundProblems = this.Preview().Diagnose(donor.Sound);
+            if (soundProblems.Count > 0
+                && MessageBox.Show(this, "The sound " + donor.Sound + " has a problem:\n\n" + string.Join("\n", soundProblems.ToArray()) + "\n\nChange it anyway?", this.Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
             {
                 return;
             }
@@ -438,6 +1146,24 @@ namespace ForzaStudio
                 MessageBox.Show(this, ex.Message, this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
+            string saved = null;
+            if (this.standalone)
+            {
+                try
+                {
+                    Cursor.Current = Cursors.WaitCursor;
+                    saved = this.SaveSource();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "The change is made but not saved:\n\n" + ex.Message, this.Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                finally
+                {
+                    Cursor.Current = Cursors.Default;
+                }
+            }
             string previous = target.Sound;
             foreach (CarRow car in this.cars)
             {
@@ -452,7 +1178,7 @@ namespace ForzaStudio
             {
                 this.Changed(this, EventArgs.Empty);
             }
-            this.info.Text = target.Name + ": sound " + previous + " -> " + donor.Sound + ". Save the database afterwards (File > Save).";
+            this.info.Text = target.Name + ": sound " + previous + " -> " + donor.Sound + ((saved != null) ? " (" + saved + ")." : ". Save the database afterwards (File > Save).");
         }
     }
 }
