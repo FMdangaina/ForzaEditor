@@ -37,6 +37,10 @@
     <ApplicationIcon>logo2.ico</ApplicationIcon>
   </PropertyGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <!-- x86 exe: set IMAGE_FILE_LARGE_ADDRESS_AWARE (0x20 in the PE Characteristics) so a 64-bit Windows gives it 4 GB instead of 2 GB -->
+  <Target Name="AfterBuild">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$p='$(TargetPath)'; $b=[IO.File]::ReadAllBytes($p); $o=[BitConverter]::ToInt32($b,60)+22; if(($b[$o] -band 0x20) -eq 0){ $b[$o]=$b[$o] -bor 0x20; [IO.File]::WriteAllBytes($p,$b) }&quot;" />
+  </Target>
   <ItemGroup>
     <Compile Include="ForzaStudio\CustomColor.cs">
       <SubType>Form</SubType>
@@ -150,6 +154,7 @@
     <Compile Include="ForzaStudio\ArchiveEditorForm.Driver.cs" />
     <Compile Include="ForzaStudio\ArchiveEditorForm.XeniaThumbnail.cs" />
     <Compile Include="ForzaStudio\XeniaThumbnails.cs" />
+    <Compile Include="ForzaStudio\FolderBrowserDialog.cs" />
     <Compile Include="ForzaStudio\SetThumbnailsForm.cs" />
     <Compile Include="ForzaStudio\CarModelFbx.cs" />
     <Compile Include="ForzaStudio\CarModelFolder.cs" />
@@ -179,6 +184,7 @@
     <Compile Include="ForzaStudio\TurboPreview.cs" />
     <Compile Include="ForzaStudio\TempCleanup.cs" />
     <Compile Include="ForzaStudio\ChangeSoundForm.cs" />
+    <Compile Include="ForzaStudio\EnginePreview.cs" />
     <Compile Include="ForzaStudio\DlcValidator.cs" />
     <Compile Include="ForzaStudio\DlcValidatorForm.cs" />
     <Compile Include="ForzaStudio\DlcFixer.cs" />
@@ -199,6 +205,13 @@
     <Compile Include="ForzaStudio\PortSettings.cs" />
     <Compile Include="ForzaStudio\SettingsForm.cs" />
     <Compile Include="ForzaStudio\CarCamera.cs" />
+    <Compile Include="ForzaStudio\ThumbnailCamera.cs" />
+    <Compile Include="ForzaStudio\ArchiveEditorForm.ExteriorCamera.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ForzaStudio\ArchiveEditorForm.ThumbCamera.cs">
+      <DependentUpon>ArchiveEditorForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="ForzaStudio\MaterialSuggestions.cs" />
     <Compile Include="ForzaStudio\ShaderSettings.cs" />
     <Compile Include="ForzaStudio\ShaderLook.cs" />
@@ -280,6 +293,10 @@
     <Compile Include="ForzaStudio\DlcPackage.cs" />
     <Compile Include="ForzaStudio\DlcSource.cs" />
     <Compile Include="ForzaStudio\InstalledDlc.cs" />
+    <Compile Include="ForzaStudio\SoundBankIndex.cs" />
+    <Compile Include="ForzaStudio\SoundIndex.cs" />
+    <Compile Include="ForzaStudio\SoundIndexScan.cs" />
+    <Compile Include="ForzaStudio\FsbInfo.cs" />
     <Compile Include="ForzaStudio\StfsPackage.cs" />
     <Compile Include="ForzaStudio\StfsReader.cs" />
     <Compile Include="ForzaStudio\GameDatabase.cs" />

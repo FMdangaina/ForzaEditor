@@ -31,6 +31,11 @@ namespace ForzaStudio
             finally
             {
                 XMemDestroyCompressionContext(context);
+                // x86 process: give the big buffers back before the next big allocation (database, zip)
+                if (source.Length > 16 * 1024 * 1024)
+                {
+                    GC.Collect();
+                }
             }
         }
 

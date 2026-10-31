@@ -74,17 +74,33 @@ namespace ForzaStudio
                 throw new NotSupportedException("The database editor needs Windows' SQLite (winsqlite3.dll, Windows 10 or later).");
             }
             IntPtr memory = sqlite3_malloc64(Math.Max(data.Length, 1));
+            if (memory == IntPtr.Zero)
+            {
+                database.Dispose();
+                throw new InvalidOperationException(NoMemoryMessage(data.Length));
+            }
             Marshal.Copy(data, 0, memory, data.Length);
             int rc = sqlite3_deserialize(database.db, Utf8("main"), memory, data.Length, data.Length, DeserializeFreeOnClose | DeserializeResizeable);
             if (rc != SQLITE_OK)
             {
                 string message = database.Error;
                 database.Dispose();
+                if (rc == SQLITE_NOMEM)
+                {
+                    throw new InvalidOperationException(NoMemoryMessage(data.Length));
+                }
                 throw new InvalidOperationException("Cannot load the database: " + message);
             }
             // Validates the file and the schema before anything is shown.
             database.Query("SELECT count(*) FROM sqlite_master");
             return database;
+        }
+
+        private const int SQLITE_NOMEM = 7;
+
+        private static string NoMemoryMessage(int size)
+        {
+            return string.Format("Not enough memory to open the database ({0:0.0} MB). The program ran out of address space, probably after compressing or loading a very large archive. Save what you have, close and reopen Forza Studio EVO, then open the database again.", size / 1048576.0);
         }
 
         // The whole database file, as it would be written to disk.
@@ -244,7 +260,15 @@ namespace ForzaStudio
 
         private string Error
         {
-            get { return ReadUtf8(sqlite3_errmsg(this.db), -1); }
+            get
+            {
+                string message = ReadUtf8(sqlite3_errmsg(this.db), -1);
+                if (message != null && message.IndexOf("out of memory", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return "Not enough memory for the database (out of memory). The program ran out of address space, probably after compressing or loading a very large archive. Save what you have, close and reopen Forza Studio EVO, then try again.";
+                }
+                return message;
+            }
         }
 
         private static byte[] Utf8(string text)

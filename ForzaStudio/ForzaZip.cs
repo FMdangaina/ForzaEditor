@@ -542,6 +542,19 @@ namespace ForzaStudio
             {
                 BinaryWriter writer = new BinaryWriter(file);
                 List<byte[]> central = new List<byte[]>();
+                // "Version needed" of an existing LZX entry, copied to the entries that become LZX.
+                byte[] lzxNeeded = null;
+                // The game's StringTables archives are stored (M0) and stay so.
+                bool keepStored = Path.GetFileName(path).StartsWith("StringTables", StringComparison.OrdinalIgnoreCase)
+                    || Path.GetFileName(this.FilePath).StartsWith("StringTables", StringComparison.OrdinalIgnoreCase);
+                foreach (Entry entry in this.Entries)
+                {
+                    if (entry.Method == MethodLzx && entry.LocalHeader != null)
+                    {
+                        lzxNeeded = Slice(entry.LocalHeader, 4, 2);
+                        break;
+                    }
+                }
                 foreach (Entry entry in this.Entries)
                 {
                     if (entry.deleted)
@@ -562,11 +575,33 @@ namespace ForzaStudio
                         data = ReadAt(source, entry.DataOffset, entry.CompressedSize);
                     }
 
+                    // Stored (M0) entries are written as Xbox LZX, unless that does not make them smaller.
+                    int method = entry.Method;
+                    if (method == MethodStored && data.Length > 0 && !keepStored)
+                    {
+                        byte[] packed = XMemLzx.Compress(data);
+                        if (packed.Length < data.Length)
+                        {
+                            data = packed;
+                            method = MethodLzx;
+                        }
+                    }
+
                     // Sizes always live in the headers; any data descriptor flag is dropped.
                     byte[] local = (byte[]) entry.LocalHeader.Clone();
                     PatchHeader(local, 6, 14, crc, data.Length, uncompressed);
                     byte[] record = (byte[]) entry.CentralRecord.Clone();
                     PatchHeader(record, 8, 16, crc, data.Length, uncompressed);
+                    if (method != entry.Method)
+                    {
+                        Buffer.BlockCopy(BitConverter.GetBytes((ushort) method), 0, local, 8, 2);
+                        Buffer.BlockCopy(BitConverter.GetBytes((ushort) method), 0, record, 10, 2);
+                        if (lzxNeeded != null)
+                        {
+                            Buffer.BlockCopy(lzxNeeded, 0, local, 4, 2);
+                            Buffer.BlockCopy(lzxNeeded, 0, record, 6, 2);
+                        }
+                    }
                     Buffer.BlockCopy(BitConverter.GetBytes((int) file.Position), 0, record, 42, 4);
                     PatchDataOffset(record, (int) file.Position + local.Length);
                     central.Add(record);
